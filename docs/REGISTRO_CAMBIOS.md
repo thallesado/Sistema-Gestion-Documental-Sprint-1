@@ -140,3 +140,50 @@ Para verificar la implementación:
 2. Prueba de BD: `powershell -NoProfile -File database/tests/run.ps1` (valida RLS)
 3. Prueba de API: POST `/api/chat/ask` con JWT válido (sin `tenant_id` en body)
 4. Logs: Verificar que `DocumentRepository` consulta con cláusula `WHERE tenant_id = ?`
+
+## 2026-09-16: Corrección — el backend no arrancaba (chatbot deshabilitado temporalmente) + datos de demostración ampliados
+
+### Contexto real verificado
+
+Al intentar levantar el backend (`mvnw spring-boot:run`) para pruebas manuales con Postman, la aplicación **no arrancaba**. La entrada anterior de este registro documentaba `spring-ai-bom 1.0.0-M1`, pero `pom.xml` tenía fijado `2.0.1`. Se comprobó contra la documentación oficial de Spring AI que:
+
+- `spring-ai-bom 2.0.1` requiere **Spring Boot 4 / Spring Framework 7**.
+- La línea `1.0.x` de Spring AI requiere **Spring Boot 3.4.x/3.5.x**.
+- Este backend usa **Spring Boot 3.2.4** (fijado en AGENTS.md como arquitectura vigente).
+
+Es decir: **ninguna versión de Spring AI es compatible con la versión de Spring Boot que usa hoy el proyecto.** El intento de arranque fallaba con `NoClassDefFoundError: org.springframework.core.retry.RetryTemplate` en varias autoconfiguraciones de Spring AI (chat, retry), porque esa clase no existe en Spring Framework 6.1.5.
+
+### Cambios aplicados (temporales, reversibles)
+
+#### `backend/pom.xml`
+- Comentado el `dependencyManagement` de `spring-ai-bom` y la dependencia `spring-ai-starter-model-google-genai`, con un `TODO` explicando por qué y qué versión objetivo se necesita.
+- Agregado `maven-compiler-plugin` con `<excludes>` para `ChatBotToolsConfig.java`, `RAGService.java` y `ChatController.java` (usan tipos de Spring AI como `ToolCallback`; sin la dependencia no compilan). El código **no se borró**, solo se excluyó de la build hasta el upgrade.
+
+#### `backend/src/main/resources/application.yml`
+- Comentado el bloque `spring.ai.google.genai.*` (dependía de la dependencia removida).
+
+#### `backend/src/main/java/.../model/Document.java`
+- **Bug real encontrado y corregido**: la entidad tenía `@Table(name = "documents", schema = "app")`. La entrada anterior de este registro documentaba que la tabla vivía en el schema `app`, pero la base real (verificada con `\dt app.*`) solo tiene `app.schema_migrations`; `documents` (como el resto de las tablas de negocio) vive en `public`. Se corrigió a `@Table(name = "documents")`. Sin este fix, Hibernate fallaba la validación de esquema al arrancar (`Schema-validation: missing table [app.documents]`) para cualquier request, no solo para el chatbot.
+
+### Estado real actual del chatbot
+
+- **Deshabilitado.** No compila ni se ejecuta ningún código de `ChatBotToolsConfig`, `RAGService` ni `ChatController`.
+- Para reactivarlo hace falta primero subir `spring-boot-starter-parent` a `3.4.x`/`3.5.x` (cambio arquitectónico mayor, afecta Security/JPA/otros starters — pendiente, no realizado en esta sesión), y luego reactivar `spring-ai-bom` en una versión `1.0.x` y los 3 archivos excluidos.
+- El resto del backend (auth, CRUDs de catálogos, RLS a nivel de queries) funciona normalmente sobre Spring Boot 3.2.4; se verificó login real vía `POST /api/v1/auth/login` con un usuario del seed.
+
+### Datos de demostración ampliados (`database/init/005_demo_users.sql`)
+
+Nueva migración incremental (numerada tras `004_saas_hardening`, sin modificarla) que amplía el seed de `003`:
+
+- Agrega roles `Supervisor` y `Usuario operativo` a **Clínica Central** (antes solo tenía `Administrador de tenant`), con los mismos permisos que sus equivalentes en Acme.
+- Agrega 2 departamentos a Clínica Central (`Administración`, `Radiología`) para repartir usuarios.
+- Lleva a **20 usuarios activos por tenant** (Acme y Clínica Central), repartidos 2 Administrador de tenant / 6 Supervisor / 12 Usuario operativo por tenant. Contraseña de todos: `DemoPass123!` (exclusivamente de demostración, igual que el resto del seed).
+- Es idempotente (`ON CONFLICT DO NOTHING`) y sigue el mismo patrón transaccional que `004` (advisory lock, registro en `app.schema_migrations`).
+
+**Verificación realizada:** se aplicó con `database/migrate.ps1` sobre una base existente (no-op limpio, sin duplicar filas) y se probó de punta a punta en una instancia Postgres aislada con volumen 100% nuevo (contenedor y volumen temporales, sin tocar la base real), confirmando que `docker-entrypoint-initdb.d` ejecuta `001`→`005` en orden y produce el mismo resultado: 20/20 usuarios, distribución de roles idéntica.
+
+### Limitaciones reales pendientes
+
+- Chatbot no funcional hasta el upgrade de Spring Boot (ver arriba).
+- El upgrade de Spring Boot no se evaluó en esta sesión más allá de confirmar la incompatibilidad de versiones; falta revisar breaking changes de Security/JPA antes de intentarlo.
+- Los 20 usuarios nuevos por tenant no tienen `document_type`/`document_number`/`phone`; quedan `NULL` como en el resto del seed.

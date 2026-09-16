@@ -6,7 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "documents", schema = "app")
+@Table(name = "documents")
 public class Document {
 
     @Id
