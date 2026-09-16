@@ -19,6 +19,9 @@ Para una solicitud concreta:
 4. Detecta riesgos, dependencias y posibles conflictos de archivos.
 5. Recomienda un agente principal y agentes de apoyo.
 6. Propone una secuencia de trabajo y validaciones mínimas.
+7. Registra el análisis y cada cambio realizado en
+   `docs/REGISTRO_CAMBIOS.md`, indicando qué existía antes, qué se modificó,
+   por qué se modificó y qué mejora o riesgo queda después.
 
 ## Enrutamiento
 
@@ -36,4 +39,18 @@ Para una solicitud concreta:
 - Agente recomendado.
 - Archivos permitidos y archivos que no deben tocarse.
 - Riesgos y validaciones.
+- Referencia al registro agregado o actualizado en `docs/REGISTRO_CAMBIOS.md`.
 
+## Registro obligatorio de cambios
+
+Cuando otro agente implemente una tarea derivada de esta exploración, el registro
+debe conservar una entrada con:
+
+- Fecha.
+- Objetivo.
+- Estado anterior comprobado.
+- Archivos modificados.
+- Cambio aplicado.
+- Mejora esperada.
+- Pruebas ejecutadas.
+- Limitaciones o trabajo pendiente.

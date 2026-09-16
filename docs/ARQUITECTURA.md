@@ -83,7 +83,8 @@ La app conserva 78 rutas funcionales:
 
 ## Limites y persistencia
 
-No hay backend implementado. Las operaciones, login, roles, OCR, reportes y datos
+El backend inicial está implementado en `backend/` con Spring Boot 3.2.4 y Java 21.
+Las operaciones documentales, login completo, roles, OCR, reportes y datos
 siguen siendo simulados. Un futuro backend debe encapsular persistencia, resolver
 tenant/usuario autenticados, aplicar RBAC y establecer el contexto RLS descrito en
 el diseño de base de datos.

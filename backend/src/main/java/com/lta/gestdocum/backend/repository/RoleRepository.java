@@ -8,11 +8,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface RoleRepository extends JpaRepository<Role, UUID> {
+public interface RoleRepository extends JpaRepository<Role, Long> {
     
     // Buscar rol por nombre dentro de un tenant específico
     Optional<Role> findByNameAndTenantId(String name, UUID tenantId);
 
     // Buscar rol global de sistema por nombre
-    Optional<Role> findByNameAndIsSystemRoleTrue(String name);
+    Optional<Role> findByNameAndIsSystemTrue(String name);
 }

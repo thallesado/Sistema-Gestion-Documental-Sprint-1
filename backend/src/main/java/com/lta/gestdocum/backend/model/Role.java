@@ -14,8 +14,8 @@ import java.util.UUID;
 public class Role {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "tenant_id")
     private UUID tenantId;
@@ -27,6 +27,6 @@ public class Role {
     private String description;
 
     @Builder.Default
-    @Column(name = "is_system_role")
-    private boolean isSystemRole = false;
+    @Column(name = "is_system")
+    private boolean isSystem = false;
 }

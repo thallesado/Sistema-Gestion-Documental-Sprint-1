@@ -33,14 +33,16 @@ documentadas en el diseño de base de datos; no infieras que existe autenticaci�
 
 ## Estructura vigente (2026-09-15)
 
-La aplicación activa está en `frontend/` y fue migrada a Angular 20 LTS. Las rutas
+La aplicación activa está en `frontend/` y fue migrada a Angular 20 LTS. El backend
+actual está en `backend/` y usa Spring Boot 3.2.4 con Java 21. Las rutas
 se definen en `frontend/src/app/core/routes/app.routes.ts` desde el catálogo
 `frontend/src/app/core/data/nexodocs-data.ts`; el layout principal vive en
 `frontend/src/app/shell/app.html`, `frontend/src/app/shell/app.css` y la pantalla reutilizable
 en `frontend/src/app/features/workspace/workspace-page.ts`. Consulta
 [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) para localizar cada pantalla.
 Los comandos de raíz delegan al workspace: `pnpm dev`, `pnpm build`,
-`pnpm typecheck` y `pnpm test`. No hay backend implementado.
+`pnpm typecheck` y `pnpm test`. El backend está en fase inicial y todavía no
+implementa el contexto RLS ni todos los módulos documentales.
 
 ## Contraste inicial, anterior a la migración 004 (2026-09-13)
 

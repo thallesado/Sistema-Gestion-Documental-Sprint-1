@@ -1,6 +1,7 @@
 > Actualizacion de migracion (2026-09-15): la interfaz activa fue migrada a Angular 20 LTS en `frontend/`.
 > Las rutas se definen en `frontend/src/app/core/routes/app.routes.ts` a partir de `frontend/src/app/core/data/nexodocs-data.ts`.
-> El frontend sigue siendo una demo visual sin backend ni persistencia; no conecta el navegador a PostgreSQL.
+> El frontend sigue siendo una demo visual y no conecta el navegador directamente a PostgreSQL.
+> El backend inicial está en `backend/` y usa Spring Boot 3.2.4 con Java 21.
 > Las referencias historicas a Next.js, React, `page.tsx` y `features/` describen la estructura anterior.
 > Actualización de estructura (2026-09-15): la interfaz activa está en `frontend/` y se organiza por capas con shell, core y features.
 > Cada sección tiene una URL y se compone desde `frontend/src/app/features/*/`; la shell queda en `frontend/src/app/shell/`.
@@ -13,7 +14,8 @@
 > [el diseño y operación de la base de datos](database/DISEÑO_Y_OPERACION.md)
 > y [sus instrucciones de migración y pruebas](../database/README.md).
 > La migración 004 refuerza el estado inicial descrito a continuación. Los principios
-> del producto se mantienen; el frontend sigue sin backend ni persistencia.
+> del producto se mantienen; la API backend aún está en fase inicial y no cubre
+> toda la persistencia documental, RLS ni RBAC.
 
 Quiero que tomes el siguiente documento como contexto permanente para todo el trabajo que realicemos sobre este proyecto.
 

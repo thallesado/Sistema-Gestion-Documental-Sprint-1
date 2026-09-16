@@ -60,8 +60,12 @@ pnpm dev -- --port 4201
 - **CSS propio**: conserva el estilo turquesa, blanco y gris claro del prototipo.
 - **pnpm workspaces**: los comandos de raiz delegan a `frontend/`.
 - **PostgreSQL 17 con Docker Compose**: base local documentada en `database/`.
+- **Spring Boot 3.2.4 / Java 21**: backend API en `backend/`, incorporado como
+  backend oficial actual del proyecto.
 
 La migracion reemplazo Next.js/React como tecnologia activa del frontend.
+El backend actual usa Spring Boot/Java; NestJS se conserva como una alternativa
+futura de Node.js, no como tecnologia implementada en este repositorio.
 
 ## 6. Archivos principales
 
@@ -102,17 +106,43 @@ La validacion de base de datos se mantiene en:
 powershell -NoProfile -File database/tests/run.ps1
 ```
 
-## 8. Estado real del sistema
+## 8. Backend
 
-Sigue pendiente implementar un backend. Por eso:
+El backend se ejecuta desde `backend/`:
 
-- El login es visual.
+```powershell
+cd backend
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run
+```
+
+La configuración sensible se obtiene desde variables de entorno:
+
+```text
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+JWT_SECRET
+JWT_EXPIRATION_MS
+```
+
+El backend debe utilizar la base PostgreSQL oficial y sus migraciones. Todavía
+no se debe considerar completa la integración multitenant: el contexto RLS,
+RBAC general y los módulos documentales siguen pendientes.
+
+## 9. Estado real del sistema
+
+El frontend sigue siendo una demo visual. Por eso:
+
+- El login Angular no consume todavía la API.
 - El rol seleccionado solo filtra el menu.
 - Las acciones muestran comportamiento de demo.
-- Los documentos, usuarios, workflows, auditoria y tenants no se guardan.
-- El frontend no establece contexto `tenant_id` ni `user_id` en PostgreSQL.
+- Los documentos, workflows, auditoria y tenants no se guardan desde el frontend.
+- El backend aun no establece de forma completa el contexto `tenant_id` y
+  `user_id` de PostgreSQL.
+- El registro explicativo de cambios se mantiene en `docs/REGISTRO_CAMBIOS.md`.
 
-## 9. Agentes del proyecto
+## 10. Agentes del proyecto
 
 Los agentes personalizados del repositorio se encuentran en
 `.github/agents/`. Cada uno tiene un alcance específico para reducir solapamientos,

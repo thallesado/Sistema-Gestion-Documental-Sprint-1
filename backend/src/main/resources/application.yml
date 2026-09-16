@@ -3,27 +3,24 @@ server:
 
 spring:
   application:
-    name: sistema-gestion
+    name: nexodocs-backend
 
-  # Configuración de Base de Datos PostgreSQL
   datasource:
-    url: jdbc:postgresql://ep-fragrant-leaf-aewqacgw-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-    username: neondb_owner
-    password: npg_DuPM8ehnoLT5
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/nexodocs}
+    username: ${DB_USERNAME:nexodocs}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
-  # Configuración de JPA / Hibernate
   jpa:
     hibernate:
-      ddl-auto: update # Cambia a 'none' o 'validate' en producción
-    show-sql: true
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-# Configuración de Swagger / OpenAPI 3
-# Configuración de Swagger / OpenAPI 3
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -32,7 +29,6 @@ springdoc:
     operations-sorter: method
     tags-sorter: alpha
 
-# Parámetros personalizados para JWT (Opcional si los lees con @Value)
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expiration: 28800000 # 8 horas en milisegundos
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION_MS:28800000}

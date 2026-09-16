@@ -8,18 +8,29 @@ import java.security.Key;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class JwtService {
-    private static final String SECRET = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
-    private final Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
+    private final Key key;
+    private final long expiration;
+
+    public JwtService(
+            @Value("${jwt.secret}") String secret,
+            @Value("${jwt.expiration}") long expiration) {
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        this.expiration = expiration;
+    }
 
     public String generateToken(UUID userId, UUID tenantId, String username, String role) {
         return Jwts.builder()
-                .setClaims(Map.of("tenantId", tenantId != null ? tenantId.toString() : "", "role", role))
+                .setClaims(Map.of(
+                        "userId", userId.toString(),
+                        "tenantId", tenantId != null ? tenantId.toString() : "",
+                        "role", role))
                 .setSubject(username)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 8)) // 8 horas
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }

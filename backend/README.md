@@ -1,63 +1,54 @@
-# NexoDocs - Backend API
+# NexoDocs — Backend API
 
-Sistema de gestión documental y flujo de trabajo clínico desarrollado con Spring Boot 3 y PostgreSQL.
+Backend inicial de NexoDocs implementado con Spring Boot 3.2.4 y Java 21.
+Su responsabilidad es exponer la futura API sin conectar el navegador
+directamente a PostgreSQL.
 
----
+## Tecnología
 
-## 🛠️ Tecnologías y Versiones
+- Java 21.
+- Spring Boot 3.2.4.
+- Spring Security 6 con JWT stateless.
+- Spring Data JPA y PostgreSQL 17.
+- SpringDoc OpenAPI.
 
-| Tecnología / Librería | Versión | Descripción |
-| :--- | :--- | :--- |
-| **Java** | 21 | Lenguaje base del backend |
-| **Spring Boot** | 3.2.4 | Framework principal |
-| **Spring Security** | 6.x | Autenticación y autorización (Stateless JWT) |
-| **SpringDoc OpenAPI** | 2.5.0 | Generación de documentación e interfaz Swagger UI |
-| **PostgreSQL** | Native (Neon) | Base de datos relacional serverless |
-| **Lombok** | Latest | Reducción de código repetitivo |
+## Configuración
 
----
+La aplicación no contiene credenciales ni secretos. Define estas variables
+antes de ejecutarla:
 
-## ⚙️ Configuración Previa de la Base de Datos (Neon)
+```text
+DB_URL=jdbc:postgresql://localhost:5433/nexodocs
+DB_USERNAME=nexodocs
+DB_PASSWORD=cambia_esta_clave
+JWT_SECRET=un-secreto-aleatorio-de-al-menos-32-bytes
+JWT_EXPIRATION_MS=28800000
+```
 
-Antes de iniciar la aplicación, asegúrate de aplicar el cast implícito en PostgreSQL para la compatibilidad del ENUM `user_status` enviado desde Hibernate:
+El esquema se administra con las migraciones de `../database/`. Hibernate usa
+`ddl-auto: validate` y no debe modificar la base automáticamente.
 
-```sql
-CREATE CAST (character varying AS user_status) WITH INOUT AS IMPLICIT;
+## Comandos
 
-solo si sale un error en status 
+Desde `backend/`:
 
-## Comandos para iniciar el backend
-./mvnw spring-boot:run
-## Para verificar las pruebas en tu navegador
-http://localhost:8080/swagger-ui/index.html
+```powershell
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run
+```
 
-Si desean ver los datos modificados deben modificar lo siguiente en el archivo application.yml
-datasource:
-    url: jdbc:enlace que les de neon al crear la base de datos
-    username: su usuario de la db
-    password: su contraseña de la db
+Swagger queda disponible en
+`http://localhost:8080/swagger-ui/index.html` cuando la aplicación está
+ejecutándose.
 
-## Primero deben ejecutar las 3 primeras bases de datos 0001_schema.sql,002_security.sql y 003_seed.sql, el ultimo neon no lo ejectura bien , debido a que solo lee postrgres nativo
+## Estado actual y límites
 
-## Deben realizar la creacion de un usuario antes de usar el login
-{
-  "tenantId": "20000000-0000-0000-0000-000000000001", este dato deben usar al crear su usuario o cualquiera que se encuentre en la tabla tenant
-  "username": "laura.martinez",
-  "email": "laura.martinez@ejemplo.com",
-  "password": "Password123!",
-  "firstName": "Laura",
-  "lastName": "Martínez",
-  "staffType": "MEDICO",
-  "specialty": "Pediatría",
-  "professionalLicense": "MP-98765"
-}
-## Una vez creada pueden iniciar el login con su usuario el tenantId usado
-{
-  "tenantId": "20000000-0000-0000-0000-000000000001",
-  "usernameOrEmail": "laura.martinez",
-  "password": "Password123!"
-}
-## Para la actualizacion de datos del usuario o eliminacion del usuario se realiza mediante el Id del usuario que aparece al crearlo.
-## Al ejecutar el Delete les dara la respuesta 204 ,eso significa que se realizo la eliminacion de manera exitosa, pero no desaparecera del tabla user, ya que esta creada con la condicion soft delete (elimina el dato del backend pero en la tabla aun se mantiene)
+El login inicial valida usuario, contraseña, estado y `tenantId`, y genera un
+JWT con identificadores de usuario y tenant. La creación de usuarios requiere
+autenticación. El módulo clínico es opcional y ya no determina el rol general
+del token.
 
-
+Todavía falta implementar el contexto RLS por transacción
+(`app.tenant_id` y `app.user_id`), la autorización completa basada en
+`user_roles`/`role_permissions`, los módulos documentales y las pruebas de
+integración de seguridad. No se debe conectar Angular directamente a la base.
