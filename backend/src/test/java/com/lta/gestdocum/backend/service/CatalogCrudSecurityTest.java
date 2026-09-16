@@ -1,13 +1,11 @@
 package com.lta.gestdocum.backend.service;
 
 import com.lta.gestdocum.backend.dto.DocumentTypeRequest;
-import com.lta.gestdocum.backend.dto.TagRequest;
 import com.lta.gestdocum.backend.dto.TenantDepartmentRequest;
 import com.lta.gestdocum.backend.exception.DuplicateResourceException;
 import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.model.DocumentType;
 import com.lta.gestdocum.backend.model.Tag;
-import com.lta.gestdocum.backend.model.TenantDepartment;
 import com.lta.gestdocum.backend.repository.DocumentTypeRepository;
 import com.lta.gestdocum.backend.repository.TagRepository;
 import com.lta.gestdocum.backend.repository.TenantDepartmentRepository;
@@ -24,10 +22,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;

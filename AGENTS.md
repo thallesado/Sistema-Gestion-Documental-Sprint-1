@@ -61,3 +61,21 @@ implementa el contexto RLS ni todos los módulos documentales.
   y el rechazo de UPDATE de versiones. No cubre todos los casos de aislamiento ni
   todas las operaciones sobre las tablas inmutables. No se ejecutó SQL en esta
   revisión documental.
+
+# Reglas Globales para Agentes de IA en NexoDocs
+
+Este proyecto tiene una arquitectura estricta y una división clara de responsabilidades. **Lee esto antes de proponer cualquier cambio.**
+
+## 1. División de Trabajo (CRÍTICA)
+- **Desarrollo Backend:** Está reservado EXCLUSIVAMENTE para Claude. Si eres otro agente (como Antigravity), **NO** debes modificar, proponer ni alterar archivos `.java`, `pom.xml`, ni scripts de base de datos SQL.
+- **Desarrollo Frontend:** Está reservado EXCLUSIVAMENTE para Antigravity. Si eres Claude, **NO** debes tocar Angular (`.ts`, `.html`, `.css`), ni el diseño visual.
+
+## 2. Arquitectura Base
+- **Frontend:** Angular 20 LTS. Es una interfaz visual que consume una API REST.
+- **Backend:** Java 21, Spring Boot 3.2.4. 
+- **Base de Datos:** PostgreSQL 17 con arquitectura Multitenant y RLS (Row-Level Security).
+
+## 3. Reglas de Negocio Universales
+- **Multitenancy Estricta:** NexoDocs atiende a múltiples organizaciones (ej. Hospital Clínico Viedma, Acme Consulting). Ningún usuario de un tenant puede ver datos de otro. 
+- **Gestión Documental:** El núcleo es documental. El módulo clínico (pacientes, historiales) es una extensión opcional.
+- Todo cambio arquitectónico o de base de datos debe documentarse en `REGISTRO_CAMBIOS.md`.
