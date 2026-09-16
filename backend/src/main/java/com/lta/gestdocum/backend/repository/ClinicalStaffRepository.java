@@ -9,5 +9,7 @@ import java.util.UUID;
 
 @Repository
 public interface ClinicalStaffRepository extends JpaRepository<ClinicalStaff, UUID> {
-    Optional<ClinicalStaff> findByUserId(UUID userId);
+    Optional<ClinicalStaff> findByUserIdAndTenantId(UUID userId, UUID tenantId);
+
+    Optional<ClinicalStaff> findByUserIdAndTenantIdIsNull(UUID userId);
 }

@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal, ViewEncapsulation } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
-import { navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
+import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
 
 @Component({
   selector: 'app-root',
@@ -21,6 +21,8 @@ export class App {
   readonly toast = signal('');
   readonly chatOpen = signal(false);
   readonly mobileNavOpen = signal(false);
+  readonly sidebarUserMenuOpen = signal(false);
+  readonly headerUserMenuOpen = signal(false);
   private toastTimer?: ReturnType<typeof setTimeout>;
 
   readonly availableSections = computed(() =>
@@ -78,7 +80,34 @@ export class App {
     this.toastTimer = setTimeout(() => this.toast.set(''), 2600);
   }
 
+  toggleSidebarUserMenu(): void {
+    this.sidebarUserMenuOpen.update((open) => !open);
+    this.headerUserMenuOpen.set(false);
+  }
+
+  toggleHeaderUserMenu(): void {
+    this.headerUserMenuOpen.update((open) => !open);
+    this.sidebarUserMenuOpen.set(false);
+  }
+
+  accountAction(action: string): void {
+    this.sidebarUserMenuOpen.set(false);
+    this.headerUserMenuOpen.set(false);
+    this.notify(`${action}: operación preparada para la API`);
+  }
+
+  logout(): void {
+    this.sidebarUserMenuOpen.set(false);
+    this.headerUserMenuOpen.set(false);
+    this.notify('Sesión cerrada localmente');
+    void this.router.navigateByUrl('/login');
+  }
+
   routeLabel(href: string): string {
     return navigationRoutes.find((route) => route.href === href)?.subcategory ?? 'Resumen';
+  }
+
+  visibleChildren(item: NavItem): NavChild[] {
+    return item.children.filter((child) => child.visible !== false);
   }
 }

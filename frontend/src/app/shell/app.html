@@ -51,7 +51,7 @@
             </div>
             @if (isExpanded(item.label)) {
               <div class="nav-children">
-                @for (child of item.children; track child.href) {
+                @for (child of visibleChildren(item); track child.href) {
                   <a
                     [routerLink]="child.href"
                     [class.active]="isActiveChild(child.href)"
@@ -74,7 +74,14 @@
       <div class="user-footer">
         <span class="avatar">LM</span>
         <div><b>Laura Martinez</b><small>Administradora</small></div>
-        <button type="button" aria-label="Opciones de usuario">⌄</button>
+        <button type="button" aria-label="Opciones de usuario" [attr.aria-expanded]="sidebarUserMenuOpen()" (click)="toggleSidebarUserMenu()">⌄</button>
+        @if (sidebarUserMenuOpen()) {
+          <div class="account-menu sidebar-account-menu">
+            <button type="button" (click)="accountAction('Perfil')">Perfil</button>
+            <button type="button" (click)="accountAction('Configuración')">Configuración</button>
+            <button type="button" class="danger-action" (click)="logout()">Cerrar sesión</button>
+          </div>
+        }
       </div>
     </aside>
 
@@ -97,7 +104,18 @@
           </a>
           <button type="button" class="help" aria-label="Ayuda" (click)="notify('Centro de ayuda próximamente')">?</button>
           <span class="topbar-divider"></span>
-          <div class="topbar-user"><span class="avatar">LM</span><b>Laura Martinez</b></div>
+          <div class="topbar-user">
+            <button type="button" class="topbar-user-trigger" [attr.aria-expanded]="headerUserMenuOpen()" (click)="toggleHeaderUserMenu()">
+              <span class="avatar">LM</span><b>Laura Martinez</b><span aria-hidden="true">⌄</span>
+            </button>
+            @if (headerUserMenuOpen()) {
+              <div class="account-menu header-account-menu">
+                <button type="button" (click)="accountAction('Perfil')">Perfil</button>
+                <button type="button" (click)="accountAction('Configuración')">Configuración</button>
+                <button type="button" class="danger-action" (click)="logout()">Cerrar sesión</button>
+              </div>
+            }
+          </div>
         </div>
       </header>
 
@@ -116,7 +134,7 @@
               </div>
               @if (isExpanded(item.label)) {
                 <div class="mobile-nav-children">
-                  @for (child of item.children; track child.href) {
+                  @for (child of visibleChildren(item); track child.href) {
                     <a [routerLink]="child.href" [class.active]="isActiveChild(child.href)" (click)="openNav(item.label)">{{ child.label }}</a>
                   }
                 </div>

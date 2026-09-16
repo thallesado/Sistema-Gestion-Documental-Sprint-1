@@ -166,11 +166,16 @@
 .storage-bar { background: rgba(0,33,31,.55); border-radius: 99px; height: 7px; margin: 11px 0 8px; }
 .storage-bar i { background: #fff; border-radius: inherit; display: block; height: 100%; width: 68%; }
 .storage small { font-size: 10px; letter-spacing: 0; text-transform: none; }
-.user-footer { align-items: center; display: flex; gap: 9px; padding: 15px 3px 3px; }
+.user-footer { align-items: center; display: flex; gap: 9px; padding: 15px 3px 3px; position: relative; }
 .user-footer > div { min-width: 0; }
 .user-footer b { display: block; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-footer small { letter-spacing: 0; margin-top: 2px; text-transform: none; }
 .user-footer button { background: transparent; border: 0; color: var(--teal-muted); cursor: pointer; margin-left: auto; }
+.account-menu, .row-menu { background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 25px rgba(20,78,75,.16); display: grid; min-width: 160px; padding: 5px; position: absolute; z-index: 50; }
+.account-menu button, .row-menu button { background: transparent; border: 0; border-radius: 7px; color: var(--ink); cursor: pointer; font-size: 12px; padding: 9px 10px; text-align: left; }
+.account-menu button:hover, .row-menu button:hover { background: var(--mint); color: var(--teal-strong); }
+.danger-action { color: #b64b45 !important; }
+.sidebar-account-menu { bottom: 52px; left: 0; }
 .avatar {
   align-items: center;
   background: #d5f5f1;
@@ -233,7 +238,9 @@
 .bell i { background: #f07b68; border: 2px solid #fff; border-radius: 50%; height: 8px; position: absolute; right: 7px; top: 7px; width: 8px; }
 .help { font-size: 16px; font-weight: 900; }
 .topbar-divider { background: var(--line); height: 27px; margin: 0 4px; width: 1px; }
-.topbar-user { align-items: center; color: #4e706d; display: flex; font-size: 11px; gap: 8px; white-space: nowrap; }
+.topbar-user { color: #4e706d; font-size: 11px; position: relative; white-space: nowrap; }
+.topbar-user-trigger { align-items: center; background: transparent; border: 0; color: inherit; cursor: pointer; display: flex; font: inherit; gap: 8px; padding: 2px; }
+.header-account-menu { right: 0; top: 45px; }
 
 .menu-button { background: var(--mint); border: 0; border-radius: 9px; color: var(--teal); cursor: pointer; font-size: 19px; padding: 7px 10px; }
 .mobile-nav { background: #fff; border-bottom: 1px solid var(--line); display: none; padding: 12px 18px 16px; }
@@ -259,6 +266,14 @@
 .assistant-panel p { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 5px 0 12px; }
 .assistant-prompt { background: #eafaf7; border-radius: 11px; color: #17635f; font-size: 12px; font-weight: 700; padding: 11px; }
 .assistant-panel > button:last-child { background: #0f9d9a; border: 0; border-radius: 10px; color: #fff; cursor: pointer; font-size: 12px; font-weight: 700; margin-top: 11px; padding: 10px; width: 100%; }
+.row-actions, .export-menu { position: relative; }
+.row-actions { margin-left: auto; }
+.row-menu { right: 0; top: 32px; }
+.export-options { min-width: 170px; top: 38px; }
+.file-picker { display: grid; gap: 7px; }
+.file-picker input { border: 0; clip: rect(0 0 0 0); clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
+.file-picker button { align-items: center; background: var(--mint); border: 1px dashed #68bdb5; border-radius: 10px; color: var(--teal-strong); cursor: pointer; display: flex; font-weight: 800; justify-content: center; min-height: 50px; padding: 10px; }
+.file-picker small { color: var(--muted); font-size: 11px; font-weight: 600; }
 
 /* Kept here for the standalone login and not-found routes. */
 .login-page, .not-found { align-items: center; background: var(--canvas); display: flex; justify-content: center; min-height: 100vh; padding: 20px; }

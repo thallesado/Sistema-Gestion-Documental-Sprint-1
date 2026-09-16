@@ -4,12 +4,19 @@ export type Role =
   | 'Administrador de tenant'
   | 'Superadministrador';
 
-export type NavChild = { label: string; href: string };
+export type NavChild = { label: string; href: string; visible?: boolean };
 export type NavItem = { label: string; icon: string; children: NavChild[]; roles?: Role[] };
 export type NavSection = { title: string; items: NavItem[] };
 export type RouteInfo = { module: string; subcategory: string; href: string };
 export type ScreenCopy = { description: string; action: string };
-export type DemoItem = { title: string; meta: string; date: string; status: string };
+export type DemoItem = {
+  title: string;
+  meta: string;
+  date: string;
+  status: string;
+  area?: string;
+  createdAt?: string;
+};
 
 export const roles: Role[] = [
   'Usuario basico',
@@ -52,12 +59,12 @@ export const navSections: NavSection[] = [
           { label: 'Subir archivo', href: '/documents/upload' },
           { label: 'Mis documentos', href: '/documents/mine' },
           { label: 'Compartidos conmigo', href: '/documents/shared' },
-          { label: 'Recientes', href: '/documents/recent' },
-          { label: 'Pendientes', href: '/documents/pending' },
-          { label: 'En revision', href: '/documents/in-review' },
-          { label: 'Aprobados', href: '/documents/approved' },
-          { label: 'Archivados', href: '/documents/archived' },
-          { label: 'Papelera', href: '/documents/trash' },
+          { label: 'Recientes', href: '/documents/recent', visible: false },
+          { label: 'Pendientes', href: '/documents/pending', visible: false },
+          { label: 'En revision', href: '/documents/in-review', visible: false },
+          { label: 'Aprobados', href: '/documents/approved', visible: false },
+          { label: 'Archivados', href: '/documents/archived', visible: false },
+          { label: 'Papelera', href: '/documents/trash', visible: false },
         ],
       },
       {
@@ -66,11 +73,11 @@ export const navSections: NavSection[] = [
         roles: ['Administrador de tenant', 'Superadministrador'],
         children: [
           { label: 'Escanear documento', href: '/digitization' },
-          { label: 'Subir documento', href: '/digitization/upload' },
+          { label: 'Subir documento', href: '/digitization/upload', visible: false },
           { label: 'Procesamiento OCR', href: '/digitization/ocr' },
-          { label: 'Validacion', href: '/digitization/validation' },
-          { label: 'Indexacion', href: '/digitization/indexing' },
-          { label: 'Correccion de metadatos', href: '/digitization/metadata' },
+          { label: 'Validacion', href: '/digitization/validation', visible: false },
+          { label: 'Indexacion', href: '/digitization/indexing', visible: false },
+          { label: 'Correccion de metadatos', href: '/digitization/metadata', visible: false },
         ],
       },
     ],
@@ -210,13 +217,18 @@ export const documents: DemoItem[] = [
   { title: 'Contrato marco proveedores 2025', meta: 'DOC-2042 - DOCX - Carlos Mendez', date: 'Ayer, 16:18', status: 'En revision' },
   { title: 'Informe auditoria interna Q2', meta: 'DOC-2043 - XLSX - Javier Ruiz', date: '10 jun 2025', status: 'Pendiente' },
   { title: 'Manual de incorporacion', meta: 'DOC-2044 - PDF - Ana Lopez', date: '08 jun 2025', status: 'Archivado' },
+  { title: 'Borrador solicitud de compra', meta: 'DOC-2045 - DOCX - Ana Lopez', date: '03 jun 2025', status: 'Papelera' },
 ];
 
 export const expedients: DemoItem[] = [
-  { title: 'EXP-2041 - Alta de proveedor Andes', meta: 'Administrativo - Compras - 12 documentos', date: 'Actualizado hoy', status: 'Activo' },
-  { title: 'EXP-2038 - Renovacion contractual', meta: 'Contractual - Legal - 8 documentos', date: '12 jun 2025', status: 'Activo' },
-  { title: 'EXP-2014 - Auditoria interna Q2', meta: 'Auditoria - Calidad - 24 documentos', date: '31 may 2025', status: 'Cerrado' },
-  { title: 'EXP-1982 - Proyecto sede norte', meta: 'Proyecto - Operaciones - 17 documentos', date: '18 abr 2025', status: 'Archivado' },
+  { title: 'EXP-2041 - Alta de proveedor Andes', meta: 'Administrativo - Compras - 12 documentos', date: 'Actualizado hoy', status: 'Activo', area: 'Compras', createdAt: '2026-09-15' },
+  { title: 'EXP-2038 - Renovacion contractual', meta: 'Contractual - Legal - 8 documentos', date: '12 jun 2026', status: 'Activo', area: 'Legal', createdAt: '2026-06-12' },
+  { title: 'EXP-2027 - Implementacion ISO', meta: 'Calidad - Calidad - 15 documentos', date: '02 jun 2026', status: 'Activo', area: 'Calidad', createdAt: '2026-06-02' },
+  { title: 'EXP-2014 - Auditoria interna Q2', meta: 'Auditoria - Calidad - 24 documentos', date: '31 may 2026', status: 'Cerrado', area: 'Calidad', createdAt: '2026-05-31' },
+  { title: 'EXP-2009 - Contrato de servicios', meta: 'Contractual - Legal - 6 documentos', date: '18 may 2026', status: 'Cerrado', area: 'Legal', createdAt: '2026-05-18' },
+  { title: 'EXP-1998 - Inventario sede norte', meta: 'Administrativo - Operaciones - 10 documentos', date: '04 may 2026', status: 'Archivado', area: 'Operaciones', createdAt: '2026-05-04' },
+  { title: 'EXP-1982 - Proyecto sede norte', meta: 'Proyecto - Operaciones - 17 documentos', date: '18 abr 2026', status: 'Archivado', area: 'Operaciones', createdAt: '2026-04-18' },
+  { title: 'EXP-1975 - Incidencia proveedor', meta: 'Administrativo - Compras - 4 documentos', date: '07 abr 2026', status: 'Bloqueado', area: 'Compras', createdAt: '2026-04-07' },
 ];
 
 export const workflows: DemoItem[] = [

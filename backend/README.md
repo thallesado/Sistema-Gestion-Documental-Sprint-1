@@ -23,6 +23,7 @@ DB_USERNAME=nexodocs
 DB_PASSWORD=cambia_esta_clave
 JWT_SECRET=un-secreto-aleatorio-de-al-menos-32-bytes
 JWT_EXPIRATION_MS=28800000
+CORS_ALLOWED_ORIGINS=http://localhost:4200
 ```
 
 El esquema se administra con las migraciones de `../database/`. Hibernate usa
@@ -41,14 +42,57 @@ Swagger queda disponible en
 `http://localhost:8080/swagger-ui/index.html` cuando la aplicación está
 ejecutándose.
 
+## Fase 1: infraestructura de seguridad
+
+- El filtro JWT valida firma y expiración, y propaga un contexto tipado con
+  `userId`, `tenantId`, `username` y authorities de permisos.
+- Las autoridades se cargan desde `user_roles`/`role_permissions` al iniciar
+  sesión. Los nombres válidos son los sembrados en PostgreSQL, por ejemplo
+  `user:read`, `user:create`, `user:update` y `user:delete`; no se concede
+  acceso por una lista vacía ni por roles clínicos inventados.
+- `GET /api/v1/auth/me` y `GET /api/v1/users?filter=...` requieren JWT. La
+  segunda ruta devuelve `Page` y siempre consulta el tenant del contexto.
+- Las mutaciones de usuarios exigen permisos explícitos y todas las lecturas,
+  actualizaciones y bajas se restringen al tenant autenticado. Un `tenantId`
+  recibido al crear solo se acepta si coincide; el backend nunca lo usa para
+  elegir el tenant.
+- CORS se configura con `CORS_ALLOWED_ORIGINS` y rechaza `*`, especialmente
+  para evitar una apertura accidental en producción.
+
 ## Estado actual y límites
 
-El login inicial valida usuario, contraseña, estado y `tenantId`, y genera un
-JWT con identificadores de usuario y tenant. La creación de usuarios requiere
-autenticación. El módulo clínico es opcional y ya no determina el rol general
-del token.
+El login valida usuario, contraseña, estado y `tenantId`, y genera un JWT con
+identificadores, tenant y permisos RBAC activos. La creación de usuarios
+requiere autenticación y `user:create`. El módulo clínico es opcional y no
+determina la autorización general del token.
 
-Todavía falta implementar el contexto RLS por transacción
-(`app.tenant_id` y `app.user_id`), la autorización completa basada en
-`user_roles`/`role_permissions`, los módulos documentales y las pruebas de
-integración de seguridad. No se debe conectar Angular directamente a la base.
+Todavía falta implementar el contexto RLS por transacción (`SET LOCAL ROLE`,
+`app.tenant_id` y `app.user_id`), los módulos documentales y la autenticación
+operativa de producción (rotación, recuperación y revocación de tokens). Las
+pruebas de esta fase son unitarias; las pruebas que requieren PostgreSQL
+dependen de una instancia local con credenciales válidas. No se debe conectar
+Angular directamente a la base.
+
+## Fase 2: CRUDs maestros tenant-scoped
+
+La Fase 2 incorpora CRUDs explícitos para catálogos de configuración. Todas las
+operaciones obtienen el tenant desde `AuthenticatedUserContext`; no aceptan un
+`tenantId` del cliente:
+
+- `/api/v1/document-types`: tipos documentales, con búsqueda, filtro `active`,
+  paginación y desactivación lógica.
+- `/api/v1/tags`: etiquetas, con búsqueda y paginación. La tabla no tiene
+  columna de baja lógica, por lo que `DELETE` realiza el borrado físico
+  definido por el esquema (sus asignaciones se eliminan por la FK `CASCADE`).
+- `/api/v1/departments`: áreas/departamentos, con búsqueda, filtro `active`,
+  paginación y desactivación lógica.
+
+Cada recurso expone `GET`, `GET/{id}`, `POST` y `PUT/PATCH/{id}`. Las rutas
+requieren las authorities existentes `configuration:read`, `configuration:create`,
+`configuration:update` y `configuration:delete`. Los servicios validan textos
+obligatorios y duplicados sin exponer secretos o credenciales.
+
+La conexión transaccional todavía no establece `SET LOCAL ROLE`,
+`app.tenant_id` ni `app.user_id`; por ello el backend conserva el alcance
+tenant-scoped en sus consultas y queda pendiente completar el contexto RLS
+operativo antes de producción.

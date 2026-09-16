@@ -11,6 +11,9 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.UUID;
 
@@ -26,13 +29,24 @@ public class UserController {
         this.userService = userService;
     }
 
+    @GetMapping
+    @PreAuthorize("hasAuthority('user:read')")
+    @Operation(summary = "Listar usuarios", description = "Lista usuarios activos del tenant autenticado con paginación y filtro opcional")
+    public ResponseEntity<Page<UserResponse>> findUsers(
+            @RequestParam(required = false) String filter,
+            Pageable pageable) {
+        return ResponseEntity.ok(userService.findUsers(filter, pageable));
+    }
+
     @PostMapping
+    @PreAuthorize("hasAuthority('user:create')")
     @Operation(summary = "Crear Usuario", description = "Registra un nuevo usuario asignándole un perfil de personal clínico (Doctor, Enfermero, etc.)")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
     }
 /* 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('user:update')")
     @Operation(summary = "Actualizar Usuario", description = "Actualiza los datos del usuario y su especialidad médica")
     public ResponseEntity<UserResponse> updateUser(@PathVariable UUID id, @RequestBody UserCreateRequest request) {
         return ResponseEntity.ok(userService.updateUser(id, request));
@@ -46,6 +60,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('user:delete')")
     @Operation(summary = "Eliminar Usuario (Soft Delete)", description = "Realiza la baja lógica asignando valor a la columna deleted_at")
     public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
         userService.deleteUser(id);
