@@ -5,6 +5,155 @@ entrada indica qué existía antes, qué se modificó o mejoró y qué limitacio
 continúan. Los agentes deben actualizarlo cuando realicen cambios derivados de
 una exploración o una decisión arquitectónica.
 
+## 2026-09-16 — Corrección de conexión local PostgreSQL
+
+### Estado anterior
+
+- Docker Compose publicaba PostgreSQL en `localhost:5433`.
+- Ese puerto ya estaba ocupado por una instalación local de PostgreSQL en
+  Windows, por lo que Spring Boot se conectaba a otra instancia y recibía una
+  contraseña distinta.
+- El contexto `BackendApplicationTests` fallaba al abrir la conexión JDBC.
+
+### Cambios realizados
+
+- Docker Compose ahora publica el contenedor en `127.0.0.1:5434`, conservando
+  el volumen existente y sin eliminar datos.
+- El valor predeterminado de `spring.datasource.url` usa `127.0.0.1:5434`.
+- Se actualizaron `.env.example` y la documentación operativa.
+- Se alineó la contraseña del rol `nexodocs` dentro del contenedor con
+  `nexodocs_dev`.
+- Se marcó explícitamente el constructor de producción de `JwtService` para que
+  Spring pueda resolverlo después de agregar el constructor compatible con las
+  pruebas unitarias.
+
+### Validación
+
+- `docker compose up -d --wait` — correcto; PostgreSQL quedó `healthy`.
+- Conexión TCP al contenedor en `127.0.0.1:5434` — correcta.
+- `mvn -q test` con `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET` y
+  `CORS_ALLOWED_ORIGINS` configurados — correcto.
+
+### Limitaciones reales
+
+- El PostgreSQL instalado en Windows continúa escuchando en `5433`; no fue
+  detenido ni modificado.
+- Las variables de entorno del backend deben configurarse en la terminal desde
+  la que se ejecuta Maven o Spring Boot.
+
+## 2026-09-16 — HU-01: autenticación Angular conectada a Spring Boot
+
+### Estado anterior
+
+- La ruta inicial podía mostrar directamente el workspace sin sesión.
+- La pantalla de login era únicamente visual y el botón navegaba a la demo.
+- Angular no tenía cliente HTTP, guard de rutas, interceptor ni almacenamiento de
+  tokens.
+- Spring Boot emitía solamente un access token JWT. No existían renovación ni
+  cierre de sesión por endpoint.
+
+### Cambios realizados
+
+- Se agregó `AuthService` con sesión en `sessionStorage`, carga de `/auth/me`,
+  login, renovación y cierre de sesión.
+- Se agregó un interceptor HTTP que adjunta el bearer token y devuelve al login
+  cuando una API responde `401`.
+- Se agregó un guard para proteger todas las rutas del workspace. Al entrar a
+  `/`, un usuario no autenticado es redirigido a `/login`.
+- El formulario solicita tenant, usuario/correo y contraseña, muestra estados de
+  validación y consume `POST /api/v1/auth/login`.
+- El shell muestra el usuario autenticado y elimina las credenciales al cerrar
+  sesión.
+- Spring Boot ahora emite refresh tokens firmados, expone `POST /auth/refresh` y
+  `POST /auth/logout`, y rechaza access tokens revocados durante la vida del
+  proceso.
+
+### Validación
+
+- `pnpm typecheck` — correcto.
+- `pnpm test` — correcto.
+- `pnpm build` — correcto, con advertencia preexistente de presupuesto inicial.
+- `mvn -q -DskipTests package` dentro de `backend/` — correcto.
+- `git diff --check` — correcto.
+
+### Limitaciones reales
+
+- La URL de API está configurada para desarrollo en
+  `http://localhost:8080/api/v1`; debe externalizarse por ambiente antes de
+  desplegar.
+- La revocación de access tokens es en memoria y se pierde al reiniciar el
+  backend. Para producción debe persistirse en una tabla de sesiones o revocación.
+- La renovación conserva el refresh token; falta rotación y detección de reuse.
+- La recuperación de contraseña aún requiere integrar un proveedor de correo,
+  tokens de un solo uso y persistencia de solicitudes.
+
+## 2026-09-16 — Rediseño funcional del módulo Reportes Angular
+
+### Estado anterior
+
+- Las siete rutas existentes de Reportes (`/reports`, `/reports/users`,
+  `/reports/workflows`, `/reports/storage`, `/reports/audit`,
+  `/reports/productivity` y `/reports/by-area`) se resolvían con el
+  `WorkspacePage` genérico y compartían una lista de demostración.
+- No había KPIs, visualizaciones, filtros combinables ni tablas específicas por
+  subcategoría. La exportación solo era una acción genérica del workspace.
+- El rol visual se mantenía dentro del shell y no podía ser consultado por una
+  pantalla de reporte para controlar el alcance del selector de tenant.
+
+### Cambios realizados
+
+- Se añadió `features/reports/reports-page.ts`, una pantalla standalone que
+  selecciona la definición del reporte a partir de la URL existente. Todas las
+  subcategorías conservan sus rutas y ahora presentan una composición común de
+  encabezado, selector tenant, filtros, KPIs, gráficos, tabla paginada y nota de
+  demo.
+- Se añadió `core/data/report-data.ts` con datos mock tipados y definiciones
+  específicas para Documentos, Usuarios, Workflows, Almacenamiento, Resumen de
+  auditoría, Productividad y Actividad por área. Cada definición tiene columnas,
+  filtros y agrupaciones visuales distintas.
+- Se añadieron componentes standalone reutilizables en
+  `core/components/reporting/`: `ReportHeader`, `ReportFilters`, `KpiCard`,
+  `ReportChart`, `ReportTable`, `ExportDropdown` y `TenantSelector`. Se
+  reutilizó `core/components/pagination/pagination.ts`, incluyendo los tamaños
+  5/10/25/50/100, página actual, total de páginas y total de resultados.
+- Se añadió `core/state/demo-session.ts` y se conectó el rol visual del shell a
+  ese estado local. Un usuario normal ve únicamente el tenant actual; el
+  selector `Todos los tenants` y el gráfico comparativo solo aparecen para
+  `Superadministrador`.
+- Se actualizaron `core/routes/app.routes.ts`, el catálogo de Reportes y
+  `shell/app.ts`. Se conservaron las 78 rutas, URLs y el sidebar turquesa.
+- Se agregaron estilos responsive en `frontend/src/styles.css`, con gráficas
+  HTML/SVG/CSS y sin dependencias nuevas.
+
+### Componentes reutilizados y creados
+
+- Reutilizado: `Pagination`, `App`/shell, catálogo `navigationRoutes` y
+  superficie visual global (`panel`, `module-action`, identidad turquesa).
+- Creado: `ReportsPage`, `ReportHeader`, `ReportFilters`, `KpiCard`,
+  `ReportChart`, `ReportTable`, `ExportDropdown`, `TenantSelector`,
+  `DemoSessionState` y las definiciones mock de `report-data.ts`.
+
+### Validación
+
+- `pnpm typecheck` — correcto.
+- `pnpm test` — correcto: 1 prueba de mapa de rutas pasó y la prueba HTTP
+  quedó omitida por no definir `APP_URL`.
+- `pnpm build` — correcto: compilación Angular de producción generada en
+  `frontend/dist/nexodocs-frontend`.
+- `git diff --check` — correcto.
+
+### Datos mock y pendientes backend
+
+- Los registros, KPIs, series, estados, accesos, IPs, tamaños y comparativos
+  son datos simulados locales. Los filtros recalculan tabla, KPIs y gráficos
+  dentro del navegador.
+- PDF y Excel son stubs explícitos: muestran el formato, los filtros y el total
+  actual, pero no generan archivos ni realizan llamadas.
+- No se agregó autenticación, autorización real, persistencia ni conexión a
+  PostgreSQL. Un backend futuro deberá resolver tenant/usuario autenticados,
+  RBAC, consultas paginadas, exportación y aislamiento RLS antes de sustituir
+  los mocks.
+
 ## 2026-09-16 — Fase 2 del backend: CRUDs maestros por tenant
 
 ### Estado anterior
@@ -230,3 +379,53 @@ una exploración o una decisión arquitectónica.
   integración de escritorio.
 - La paginación es local mientras no exista backend; un servicio futuro deberá
   mover filtros, totales y páginas al servidor para volúmenes grandes.
+
+## 2026-09-16 — Módulo de Auditoría Angular por subcategorías
+
+### Estado anterior
+
+- Las ocho rutas de Auditoría (`/audit`, `/audit/access`,
+  `/audit/document-creation`, `/audit/modifications`, `/audit/downloads`,
+  `/audit/approvals`, `/audit/deletions` y `/audit/permissions`) se resolvían
+  con la pantalla genérica de Workspace.
+- No había una lectura específica para el feed cronológico, sesiones de
+  seguridad, creación documental, diferencias de versiones, descargas,
+  aprobaciones, bajas lógicas o cambios RBAC.
+- No existía un detalle lateral compartido ni filtros propios por tipo de
+  auditoría.
+
+### Cambios realizados
+
+- Se creó `features/audit/audit-page.ts` como feature standalone con layouts
+  diferenciados para las ocho subcategorías, manteniendo las URLs y las 78
+  rutas del catálogo de navegación.
+- Se añadió `features/audit/data/audit-mock.ts` con interfaces y registros
+  tipados para eventos, sesiones, creaciones, modificaciones, descargas,
+  aprobaciones, eliminaciones y cambios de permisos.
+- Se añadieron `AuditFilters`, `AuditPagination` y
+  `AuditEventDrawer` como componentes reutilizables dentro de la feature.
+  El drawer reúne metadatos, detalles, resultados y bloques before/after.
+- Se incorporaron búsqueda global, filtros específicos, reinicio de filtros,
+  paginación con el componente compartido de tamaños 5/10/25/50/100, badges
+  de acción/resultado y handlers visuales para cada acción visible.
+- Eliminaciones distingue `Soft delete`, `Archivado` y `Anulación`; la
+  restauración es un stub visible que no persiste cambios. El selector de
+  tenant solo aparece para el rol visual Superadministrador y está rotulado
+  como demostración.
+- Se actualizó el enrutado para dirigir únicamente las rutas de Auditoría a
+  `AuditPage` y se añadieron estilos responsive para feed, tablas, tarjetas,
+  stepper, diff, ledger y drawer.
+
+### Verificación y limitaciones
+
+- `pnpm typecheck` — correcto.
+- `pnpm test` — correcto: se conserva el mapa de 78 rutas; la prueba HTTP se
+  omite cuando no se define `APP_URL`.
+- `pnpm build` — correcto: compilación Angular de producción.
+- `git diff --check` — correcto.
+- Todos los datos son mock locales. Exportación, restauración, navegación a
+  entidades, comparación binaria y acciones del drawer muestran handlers de
+  demostración, pero no llaman una API ni persisten.
+- Un backend futuro deberá resolver autenticación, tenant autorizado, RBAC,
+  sesiones reales, auditoría append-only, consultas paginadas y aislamiento
+  RLS antes de reemplazar estos mocks.

@@ -1,30 +1,75 @@
-import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-login-page',
-  imports: [RouterLink],
+  imports: [FormsModule],
   template: `
     <main class="login-page">
-      <section class="login-card">
+      <form class="login-card" (ngSubmit)="submit()">
         <div class="brand-mark">ND</div>
         <p class="eyebrow">NexoDocs</p>
         <h1>Ingresa al espacio documental</h1>
-        <p>
-          Acceso visual de demostracion. La autenticacion real debe resolverse en un
-          backend con tenant, usuario y permisos validados.
-        </p>
+        <p>Autentica tu identidad y organización para acceder a tus documentos.</p>
+        @if (errorMessage()) {
+          <div class="login-error" role="alert">{{ errorMessage() }}</div>
+        }
+        <label>
+          Organización
+          <input name="tenantId" [(ngModel)]="tenantId" required />
+          <small>Usa el identificador asignado por tu organización.</small>
+        </label>
         <label>
           Correo
-          <input value="laura@acme.com" />
+          <input name="usernameOrEmail" [(ngModel)]="usernameOrEmail" autocomplete="username" required />
         </label>
         <label>
           Contrasena
-          <input type="password" value="nexodocs-demo" />
+          <input name="password" [(ngModel)]="password" type="password" autocomplete="current-password" required />
         </label>
-        <a routerLink="/" class="primary-link">Entrar a la demo</a>
-      </section>
+        <button class="primary-link" type="submit" [disabled]="isSubmitting()">
+          {{ isSubmitting() ? 'Validando...' : 'Iniciar sesión' }}
+        </button>
+        <button type="button" class="login-link" (click)="requestRecovery()">¿Olvidaste tu contraseña?</button>
+      </form>
     </main>
   `,
 })
-export class LoginPage {}
+export class LoginPage {
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  readonly errorMessage = signal('');
+  readonly isSubmitting = signal(false);
+  tenantId = '20000000-0000-0000-0000-000000000001';
+  usernameOrEmail = 'laura@acme.com';
+  password = 'DemoPass123!';
+
+  submit(): void {
+    this.errorMessage.set('');
+    this.isSubmitting.set(true);
+    this.auth.login({
+      tenantId: this.tenantId,
+      usernameOrEmail: this.usernameOrEmail,
+      password: this.password,
+    }).subscribe({
+      next: () => {
+        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/';
+        void this.router.navigateByUrl(returnUrl);
+        this.isSubmitting.set(false);
+      },
+      error: (error: { status?: number }) => {
+        this.errorMessage.set(error.status === 401
+          ? 'Las credenciales o la organización no son válidas.'
+          : 'No fue posible conectar con el servidor. Intenta nuevamente.');
+        this.isSubmitting.set(false);
+      },
+    });
+  }
+
+  requestRecovery(): void {
+    this.errorMessage.set('La recuperación requiere configurar el proveedor de correo del backend.');
+  }
+}

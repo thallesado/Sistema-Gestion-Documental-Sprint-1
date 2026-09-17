@@ -3,6 +3,8 @@ import { Component, computed, inject, signal, ViewEncapsulation } from '@angular
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
+import { DemoSessionState } from '../core/state/demo-session';
+import { AuthService } from '../core/auth/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -13,11 +15,14 @@ import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '.
 })
 export class App {
   private readonly router = inject(Router);
+  private readonly session = inject(DemoSessionState);
+  private readonly auth = inject(AuthService);
   readonly roles = roles;
   readonly sections = navSections;
   readonly currentUrl = signal(this.router.url);
   readonly expanded = signal<string[]>(['Inicio']);
-  readonly role = signal('Administrador de tenant');
+  readonly role = this.session.role;
+  readonly currentUser = this.auth.user;
   readonly toast = signal('');
   readonly chatOpen = signal(false);
   readonly mobileNavOpen = signal(false);
@@ -41,7 +46,7 @@ export class App {
   }
 
   isWorkspace(): boolean {
-    return this.currentUrl() !== '/login';
+    return this.currentUrl() !== '/login' && this.auth.isAuthenticated();
   }
 
   isExpanded(label: string): boolean {
@@ -99,8 +104,7 @@ export class App {
   logout(): void {
     this.sidebarUserMenuOpen.set(false);
     this.headerUserMenuOpen.set(false);
-    this.notify('Sesión cerrada localmente');
-    void this.router.navigateByUrl('/login');
+    this.auth.logout();
   }
 
   routeLabel(href: string): string {
