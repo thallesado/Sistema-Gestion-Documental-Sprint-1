@@ -12,9 +12,9 @@ import { patients, Patient, ClinicalEvent } from '../../core/data/nexodocs-data'
       <header class="clinical-header">
         <div class="clinical-icon">⚕</div>
         <div class="clinical-heading">
-          <p class="eyebrow">Expedientes · {{ mode() === 'records' ? 'Expediente clínico' : 'Notas médicas' }}</p>
-          <h1>{{ mode() === 'records' ? 'Expediente Clínico' : 'Notas Médicas' }}</h1>
-          <p>{{ mode() === 'records' ? 'Visualiza la historia clínica del paciente ordenada cronológicamente.' : 'Busca pacientes y registra notas de evolución.' }}</p>
+          <p class="eyebrow">Expedientes · Expediente clínico</p>
+          <h1>Expediente Clínico</h1>
+          <p>Visualiza la historia clínica del paciente y registra notas de evolución.</p>
         </div>
       </header>
 
@@ -113,8 +113,7 @@ import { patients, Patient, ClinicalEvent } from '../../core/data/nexodocs-data'
         </div>
 
         <!-- Formulario de Notas Médicas (HU-08) -->
-        @if (mode() === 'notes') {
-          <section class="panel notes-form-panel">
+        <section class="panel notes-form-panel">
             <div class="panel-title"><div><h2>Registrar nota de evolución</h2><p>Paciente: {{ selectedPatient()!.name }} — CI: {{ selectedPatient()!.documentId }}</p></div></div>
             <form class="notes-form" (submit)="$event.preventDefault(); saveNote()">
               <div class="notes-form-fields">
@@ -154,7 +153,6 @@ import { patients, Patient, ClinicalEvent } from '../../core/data/nexodocs-data'
               </div>
             </form>
           </section>
-        }
       }
 
       @if (actionMessage()) { <div class="inline-toast" role="status">{{ actionMessage() }}</div> }
@@ -295,7 +293,6 @@ import { patients, Patient, ClinicalEvent } from '../../core/data/nexodocs-data'
 })
 export class ClinicalPage {
   private readonly route = inject(ActivatedRoute);
-  readonly mode = signal<'records' | 'notes'>(this.route.snapshot.data['mode'] ?? 'records');
   readonly searchTerm = signal('');
   readonly selectedPatient = signal<Patient | null>(null);
   readonly actionMessage = signal('');

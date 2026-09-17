@@ -58,9 +58,9 @@ export const navSections: NavSection[] = [
         icon: 'IN',
         children: [
           { label: 'Resumen', href: '/' },
-          { label: 'Actividad reciente', href: '/dashboard/activity' },
-          { label: 'Mis tareas', href: '/dashboard/tasks' },
-          { label: 'Indicadores', href: '/dashboard/indicators' },
+          // { label: 'Actividad reciente', href: '/dashboard/activity' },
+          // { label: 'Mis tareas', href: '/dashboard/tasks' },
+          // { label: 'Indicadores', href: '/dashboard/indicators' },
         ],
       },
       {
@@ -69,11 +69,10 @@ export const navSections: NavSection[] = [
         children: [
           { label: 'Todos los expedientes', href: '/expedients' },
           { label: 'Crear expediente', href: '/expedients/new' },
-          { label: 'Activos', href: '/expedients/active' },
-          { label: 'Cerrados', href: '/expedients/closed' },
-          { label: 'Archivados', href: '/expedients/archived' },
+          // { label: 'Activos', href: '/expedients/active' },
+          // { label: 'Cerrados', href: '/expedients/closed' },
+          // { label: 'Archivados', href: '/expedients/archived' },
           { label: 'Expediente clínico', href: '/expedients/clinical' },
-          { label: 'Notas médicas', href: '/expedients/clinical/notes' },
         ],
       },
       {
@@ -93,21 +92,22 @@ export const navSections: NavSection[] = [
           { label: 'Papelera', href: '/documents/trash', visible: false },
         ],
       },
-      {
-        label: 'Digitalizacion',
-        icon: 'DG',
-        roles: ['Administrador de tenant', 'Superadministrador'],
-        children: [
-          { label: 'Escanear documento', href: '/digitization' },
-          { label: 'Subir documento', href: '/digitization/upload', visible: false },
-          { label: 'Procesamiento OCR', href: '/digitization/ocr' },
-          { label: 'Validacion', href: '/digitization/validation', visible: false },
-          { label: 'Indexacion', href: '/digitization/indexing', visible: false },
-          { label: 'Correccion de metadatos', href: '/digitization/metadata', visible: false },
-        ],
-      },
+      // {
+      //   label: 'Digitalizacion',
+      //   icon: 'DG',
+      //   roles: ['Administrador de tenant', 'Superadministrador'],
+      //   children: [
+      //     { label: 'Escanear documento', href: '/digitization' },
+      //     { label: 'Subir documento', href: '/digitization/upload', visible: false },
+      //     { label: 'Procesamiento OCR', href: '/digitization/ocr' },
+      //     { label: 'Validacion', href: '/digitization/validation', visible: false },
+      //     { label: 'Indexacion', href: '/digitization/indexing', visible: false },
+      //     { label: 'Correccion de metadatos', href: '/digitization/metadata', visible: false },
+      //   ],
+      // },
     ],
   },
+  /*
   {
     title: 'Procesos',
     items: [
@@ -226,6 +226,7 @@ export const navSections: NavSection[] = [
       },
     ],
   },
+  */
 ];
 
 export const navigationRoutes: RouteInfo[] = navSections.flatMap((section) =>
@@ -238,45 +239,15 @@ export const navigationRoutes: RouteInfo[] = navSections.flatMap((section) =>
   ),
 );
 
-export const documents: DemoItem[] = [
-  { title: 'Politica de seguridad de la informacion', meta: 'DOC-2041 - PDF - Maria Gonzalez', date: 'Hoy, 09:42', status: 'Aprobado' },
-  { title: 'Contrato marco proveedores 2025', meta: 'DOC-2042 - DOCX - Carlos Mendez', date: 'Ayer, 16:18', status: 'En revision' },
-  { title: 'Informe auditoria interna Q2', meta: 'DOC-2043 - XLSX - Javier Ruiz', date: '10 jun 2025', status: 'Pendiente' },
-  { title: 'Manual de incorporacion', meta: 'DOC-2044 - PDF - Ana Lopez', date: '08 jun 2025', status: 'Archivado' },
-  { title: 'Borrador solicitud de compra', meta: 'DOC-2045 - DOCX - Ana Lopez', date: '03 jun 2025', status: 'Papelera' },
-];
+export const documents: DemoItem[] = [];
 
-export const expedients: DemoItem[] = [
-  { title: 'EXP-2041 - Alta de proveedor Andes', meta: 'Administrativo - Compras - 12 documentos', date: 'Actualizado hoy', status: 'Activo', area: 'Compras', createdAt: '2026-09-15' },
-  { title: 'EXP-2038 - Renovacion contractual', meta: 'Contractual - Legal - 8 documentos', date: '12 jun 2026', status: 'Activo', area: 'Legal', createdAt: '2026-06-12' },
-  { title: 'EXP-2027 - Implementacion ISO', meta: 'Calidad - Calidad - 15 documentos', date: '02 jun 2026', status: 'Activo', area: 'Calidad', createdAt: '2026-06-02' },
-  { title: 'EXP-2014 - Auditoria interna Q2', meta: 'Auditoria - Calidad - 24 documentos', date: '31 may 2026', status: 'Cerrado', area: 'Calidad', createdAt: '2026-05-31' },
-  { title: 'EXP-2009 - Contrato de servicios', meta: 'Contractual - Legal - 6 documentos', date: '18 may 2026', status: 'Cerrado', area: 'Legal', createdAt: '2026-05-18' },
-  { title: 'EXP-1998 - Inventario sede norte', meta: 'Administrativo - Operaciones - 10 documentos', date: '04 may 2026', status: 'Archivado', area: 'Operaciones', createdAt: '2026-05-04' },
-  { title: 'EXP-1982 - Proyecto sede norte', meta: 'Proyecto - Operaciones - 17 documentos', date: '18 abr 2026', status: 'Archivado', area: 'Operaciones', createdAt: '2026-04-18' },
-  { title: 'EXP-1975 - Incidencia proveedor', meta: 'Administrativo - Compras - 4 documentos', date: '07 abr 2026', status: 'Bloqueado', area: 'Compras', createdAt: '2026-04-07' },
-];
+export const expedients: DemoItem[] = [];
 
-export const workflows: DemoItem[] = [
-  { title: 'Aprobacion de contratos', meta: 'Contrato marco proveedores - Etapa 2 de 4', date: 'Vence manana', status: 'En revision' },
-  { title: 'Alta de proveedor', meta: 'EXP-2041 - Responsable: Laura Martinez', date: 'Vence en 3 dias', status: 'Pendiente' },
-  { title: 'Revision trimestral', meta: 'Informe auditoria interna Q2 - 4 etapas', date: 'Finalizado 10 jun', status: 'Completado' },
-  { title: 'Publicacion de politicas', meta: 'Politica de seguridad - Etapa 3 de 3', date: 'Finalizado hoy', status: 'Completado' },
-];
+export const workflows: DemoItem[] = [];
 
-export const users: DemoItem[] = [
-  { title: 'Laura Martinez', meta: 'laura@acme.com - Administradora - Direccion', date: 'Hace 4 min', status: 'Activo' },
-  { title: 'Carlos Mendez', meta: 'carlos@acme.com - Supervisor - Legal', date: 'Hoy, 08:31', status: 'Activo' },
-  { title: 'Ana Lopez', meta: 'ana@acme.com - Usuario operativo - Archivo', date: 'Ayer, 17:20', status: 'Activo' },
-  { title: 'Javier Ruiz', meta: 'javier@acme.com - Auditor - Calidad', date: 'Bloqueado ayer', status: 'Bloqueado' },
-];
+export const users: DemoItem[] = [];
 
-export const tenants: DemoItem[] = [
-  { title: 'Acme Consulting', meta: 'acme.nexodocs.app - Empresarial - 42 usuarios', date: '6.8 GB de 10 GB', status: 'Activo' },
-  { title: 'Clinica Central', meta: 'clinica.nexodocs.app - Profesional - 86 usuarios', date: '14.2 GB de 25 GB', status: 'Activo' },
-  { title: 'Universidad del Valle', meta: 'univalle.nexodocs.app - Empresarial - 124 usuarios', date: '31.6 GB de 50 GB', status: 'Activo' },
-  { title: 'Grupo Norte', meta: 'gruponorte.nexodocs.app - Basico - 8 usuarios', date: '2.1 GB de 5 GB', status: 'Suspendido' },
-];
+export const tenants: DemoItem[] = [];
 
 export function screenCopy(route: RouteInfo): ScreenCopy {
   const action = route.subcategory.includes('Crear') || route.subcategory.includes('Nuevo')
@@ -351,25 +322,25 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2023-01-15",
-        "type": "CirugÝa",
-        "title": "ColecistectomÝa (2023)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. ColecistectomÝa (2023).",
-        "doctor": "MÚdico Asignado",
+        "type": "Cirugía",
+        "title": "Colecistectomía (2023)",
+        "description": "Hospitalización registrada en antecedentes. Colecistectomía (2023).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Enalapril 10mg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Enalapril 10mg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
   },
   {
     "id": 2,
-    "name": "╔dgar Condori Rivero",
+    "name": "Édgar Condori Rivero",
     "documentId": "HC-2026-1010",
     "birthDate": "1983-06-24",
     "gender": "Masculino",
@@ -382,18 +353,18 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2017-01-15",
-        "type": "CirugÝa",
-        "title": "ColecistectomÝa (2023)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. ColecistectomÝa (2023).",
-        "doctor": "MÚdico Asignado",
+        "type": "Cirugía",
+        "title": "Colecistectomía (2023)",
+        "description": "Hospitalización registrada en antecedentes. Colecistectomía (2023).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Levotiroxina 100mcg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Levotiroxina 100mcg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
@@ -413,25 +384,25 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2023-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Apendicitis (2021)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Apendicitis (2021).",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Apendicitis (2021).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Levotiroxina 100mcg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Levotiroxina 100mcg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
   },
   {
     "id": 4,
-    "name": "Tito Sußrez Apaza",
+    "name": "Tito Suárez Apaza",
     "documentId": "HC-2026-1012",
     "birthDate": "1969-11-25",
     "gender": "Masculino",
@@ -444,18 +415,18 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2016-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Apendicitis (2021)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Apendicitis (2021).",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Apendicitis (2021).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Losartßn 50mg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Losartán 50mg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
@@ -475,18 +446,18 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2020-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Apendicitis (2021)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Apendicitis (2021).",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Apendicitis (2021).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Metformina 850mg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Metformina 850mg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
@@ -506,18 +477,18 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2023-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Parto (2020)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Parto (2020).",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Parto (2020).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Metformina 850mg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Metformina 850mg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
@@ -537,18 +508,18 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2015-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Ninguna",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Ninguna.",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Ninguna.",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Losartßn 50mg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Losartán 50mg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
@@ -568,18 +539,18 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2018-01-15",
-        "type": "CirugÝa",
-        "title": "ColecistectomÝa (2023)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. ColecistectomÝa (2023).",
-        "doctor": "MÚdico Asignado",
+        "type": "Cirugía",
+        "title": "Colecistectomía (2023)",
+        "description": "Hospitalización registrada en antecedentes. Colecistectomía (2023).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Salbutamol inhalador",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Salbutamol inhalador",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
@@ -599,10 +570,10 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2022-01-15",
-        "type": "CirugÝa",
-        "title": "NeumonÝa (2022)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. NeumonÝa (2022).",
-        "doctor": "MÚdico Asignado",
+        "type": "Cirugía",
+        "title": "Neumonía (2022)",
+        "description": "Hospitalización registrada en antecedentes. Neumonía (2022).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       }
     ]
@@ -622,25 +593,25 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2021-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Ninguna",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Ninguna.",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Ninguna.",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Enalapril 10mg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Enalapril 10mg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
   },
   {
     "id": 11,
-    "name": "Cecilia Ortiz Guzmßn",
+    "name": "Cecilia Ortiz Guzmán",
     "documentId": "HC-2026-1019",
     "birthDate": "2000-08-24",
     "gender": "Masculino",
@@ -653,18 +624,18 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2019-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Apendicitis (2021)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Apendicitis (2021).",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Apendicitis (2021).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Levotiroxina 100mcg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Levotiroxina 100mcg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
@@ -684,18 +655,18 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2017-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Ninguna",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Ninguna.",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Ninguna.",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Salbutamol inhalador",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Salbutamol inhalador",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
@@ -715,25 +686,25 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2018-01-15",
-        "type": "CirugÝa",
-        "title": "NeumonÝa (2022)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. NeumonÝa (2022).",
-        "doctor": "MÚdico Asignado",
+        "type": "Cirugía",
+        "title": "Neumonía (2022)",
+        "description": "Hospitalización registrada en antecedentes. Neumonía (2022).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Metformina 850mg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Metformina 850mg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
   },
   {
     "id": 14,
-    "name": "Oscar Cßrdenas Choque",
+    "name": "Oscar Cárdenas Choque",
     "documentId": "HC-2026-1003",
     "birthDate": "1964-02-04",
     "gender": "Femenino",
@@ -746,56 +717,56 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2016-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Fractura de brazo (2019)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Fractura de brazo (2019).",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Fractura de brazo (2019).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de ┴cido valproico 500mg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Ácido valproico 500mg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
   },
   {
     "id": 15,
-    "name": "Wilson Peredo Ibß±ez",
+    "name": "Wilson Peredo Ibáñez",
     "documentId": "HC-2026-1004",
     "birthDate": "2000-02-26",
     "gender": "Masculino",
     "bloodType": "B-",
     "phone": "+591 70000000",
     "email": "correo@ejemplo.com",
-    "address": "Villaz¾n",
+    "address": "Villazón",
     "insuranceProvider": "SUS",
     "pdfFile": "Historia_Clinica_20_Pacientes-4.pdf",
     "events": [
       {
         "date": "2018-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Parto (2020)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Parto (2020).",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Parto (2020).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Enalapril 10mg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Enalapril 10mg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
   },
   {
     "id": 16,
-    "name": "Ricardo Rojas Ibß±ez",
+    "name": "Ricardo Rojas Ibáñez",
     "documentId": "HC-2026-1005",
     "birthDate": "1988-09-22",
     "gender": "Masculino",
@@ -808,25 +779,25 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2016-01-15",
-        "type": "CirugÝa",
-        "title": "ColecistectomÝa (2023)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. ColecistectomÝa (2023).",
-        "doctor": "MÚdico Asignado",
+        "type": "Cirugía",
+        "title": "Colecistectomía (2023)",
+        "description": "Hospitalización registrada en antecedentes. Colecistectomía (2023).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de ┴cido valproico 500mg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Ácido valproico 500mg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
   },
   {
     "id": 17,
-    "name": "Gabriel Flores Ibß±ez",
+    "name": "Gabriel Flores Ibáñez",
     "documentId": "HC-2026-1006",
     "birthDate": "1983-12-02",
     "gender": "Femenino",
@@ -839,18 +810,18 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2019-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Fractura de brazo (2019)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Fractura de brazo (2019).",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Fractura de brazo (2019).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Salbutamol inhalador",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Salbutamol inhalador",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
@@ -870,10 +841,10 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2023-01-15",
-        "type": "CirugÝa",
-        "title": "ColecistectomÝa (2023)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. ColecistectomÝa (2023).",
-        "doctor": "MÚdico Asignado",
+        "type": "Cirugía",
+        "title": "Colecistectomía (2023)",
+        "description": "Hospitalización registrada en antecedentes. Colecistectomía (2023).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       }
     ]
@@ -893,25 +864,25 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2016-01-15",
-        "type": "CirugÝa",
+        "type": "Cirugía",
         "title": "Ninguna",
-        "description": "Hospitalizaci¾n registrada en antecedentes. Ninguna.",
-        "doctor": "MÚdico Asignado",
+        "description": "Hospitalización registrada en antecedentes. Ninguna.",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Levotiroxina 100mcg",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Levotiroxina 100mcg",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]
   },
   {
     "id": 20,
-    "name": "Rosario Cßrdenas Paz",
+    "name": "Rosario Cárdenas Paz",
     "documentId": "HC-2026-1009",
     "birthDate": "1985-03-08",
     "gender": "Masculino",
@@ -924,18 +895,18 @@ export const patients: Patient[] = ﻿[
     "events": [
       {
         "date": "2025-01-15",
-        "type": "CirugÝa",
-        "title": "NeumonÝa (2022)",
-        "description": "Hospitalizaci¾n registrada en antecedentes. NeumonÝa (2022).",
-        "doctor": "MÚdico Asignado",
+        "type": "Cirugía",
+        "title": "Neumonía (2022)",
+        "description": "Hospitalización registrada en antecedentes. Neumonía (2022).",
+        "doctor": "Médico Asignado",
         "status": "Completado"
       },
       {
         "date": "2024-01-10",
         "type": "Receta",
-        "title": "Tratamiento cr¾nico",
-        "description": "Prescripci¾n de Salbutamol inhalador",
-        "doctor": "MÚdico Tratante",
+        "title": "Tratamiento crónico",
+        "description": "Prescripción de Salbutamol inhalador",
+        "doctor": "Médico Tratante",
         "status": "Vigente"
       }
     ]

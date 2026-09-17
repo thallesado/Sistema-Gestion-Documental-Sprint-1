@@ -21,9 +21,9 @@ type TabLink = { label: string; href: string };
       @if (isHome) {
         <section class="dashboard-welcome">
           <div>
-            <p class="eyebrow">Miércoles, 16 de septiembre de 2026</p>
-            <h1>Buenos días, Laura</h1>
-            <p class="welcome-copy">Aquí tienes un resumen de lo que está ocurriendo en Acme Consulting.</p>
+            <p class="eyebrow">{{ currentDate }}</p>
+            <h1>Buenos días, {{ userName }}</h1>
+            <p class="welcome-copy">Aquí tienes un resumen de lo que está ocurriendo en {{ tenantName }}.</p>
           </div>
           <div class="hero-actions">
             <a routerLink="/documents/new"><span>＋</span> Crear documento</a>
@@ -33,15 +33,12 @@ type TabLink = { label: string; href: string };
         <div class="dashboard-grid">
           <article class="dashboard-card task-card">
             <div class="card-heading"><div><span class="card-icon amber">◷</span><div><h2>Mis tareas</h2><p>Requieren tu atención</p></div></div><a routerLink="/dashboard/tasks">Ver todas →</a></div>
-            <div class="task-summary"><strong>8</strong><span>pendientes</span><b>3</b><span>alta prioridad</span></div>
-            <div class="task-line"><span class="dot amber-dot"></span><div><b>Revisar contrato marco proveedores</b><small>Vence mañana · Legal</small></div><span class="status pending">Pendiente</span></div>
-            <div class="task-line"><span class="dot blue-dot"></span><div><b>Aprobar política de seguridad</b><small>Vence en 3 días · Dirección</small></div><span class="status review">En revisión</span></div>
+            <div class="task-summary"><strong>0</strong><span>pendientes</span><b>0</b><span>alta prioridad</span></div>
+            <div class="empty-state" style="margin-top: 1rem; padding: 1rem;"><strong>No hay tareas pendientes</strong><span>No tienes acciones requeridas en este momento.</span></div>
           </article>
           <article class="dashboard-card activity-card">
             <div class="card-heading"><div><span class="card-icon teal">↗</span><div><h2>Actividad reciente</h2><p>Últimos movimientos del tenant</p></div></div><a routerLink="/dashboard/activity">Ver actividad →</a></div>
-            <div class="activity-row"><span class="activity-avatar">MG</span><div><b>María González aprobó un documento</b><small>Política de seguridad de la información</small></div><time>Hace 18 min</time></div>
-            <div class="activity-row"><span class="activity-avatar blue">CM</span><div><b>Carlos Méndez subió un archivo</b><small>Contrato marco proveedores 2025</small></div><time>Hace 1 h</time></div>
-            <div class="activity-row"><span class="activity-avatar purple">AR</span><div><b>Ana López completó un workflow</b><small>Alta de proveedor · EXP-2041</small></div><time>Ayer</time></div>
+            <div class="empty-state" style="margin-top: 1rem; padding: 1rem;"><strong>No hay actividad reciente</strong><span>No se registraron movimientos en el tenant.</span></div>
           </article>
         </div>
         <section class="panel dashboard-documents">
@@ -63,6 +60,8 @@ type TabLink = { label: string; href: string };
                   }
                 </div>
               </article>
+            } @empty {
+              <div class="empty-state" style="padding: 3rem; text-align: center;"><strong>No hay documentos recientes</strong><span>Aún no hay actividad registrada.</span></div>
             }
           </div>
           <app-pagination
@@ -146,19 +145,19 @@ type TabLink = { label: string; href: string };
             <article class="panel ocr-source-card">
               <div class="panel-title"><div><h2>Documento origen</h2><p>Entrada seleccionada para este proceso</p></div><span class="status review">{{ ocrStatus() }}</span></div>
               <div class="ocr-file"><span class="file-icon">PDF</span><div><strong>{{ ocrFileName }}</strong><small>Origen: digitalización local · 2.4 MB</small></div></div>
-              <dl class="ocr-details"><div><dt>Identificador</dt><dd>OCR-2026-0098</dd></div><div><dt>Páginas</dt><dd>4 páginas</dd></div><div><dt>Confianza</dt><dd>91.4%</dd></div></dl>
+              <dl class="ocr-details"><div><dt>Identificador</dt><dd>Pendiente</dd></div><div><dt>Páginas</dt><dd>0 páginas</dd></div><div><dt>Confianza</dt><dd>0%</dd></div></dl>
               <p class="simulated-note"><b>Estado real de la demo</b><span>{{ ocrStatusDescription }}</span></p>
             </article>
             <article class="panel ocr-result-card">
               <div class="panel-title"><div><h2>Resultado OCR</h2><p>Texto extraído y resumen para revisión humana</p></div><span class="status ok">Texto disponible</span></div>
-              <div class="ocr-summary"><span class="side-kicker">RESUMEN EXTRAÍDO</span><p>Contrato marco de prestación de servicios para proveedores de Acme Consulting, con vigencia anual y cláusulas de renovación.</p></div>
-              <div class="extracted-text"><span class="side-kicker">TEXTO EXTRAÍDO</span><p>“Las partes acuerdan establecer las condiciones generales para la prestación de servicios profesionales. La vigencia del presente documento será de doce meses...”</p></div>
+              <div class="ocr-summary"><span class="side-kicker">RESUMEN EXTRAÍDO</span><p>Procesamiento pendiente...</p></div>
+              <div class="extracted-text"><span class="side-kicker">TEXTO EXTRAÍDO</span><p>Procesamiento pendiente...</p></div>
               @if (ocrStep === 'validation') {
                 <div class="ocr-actions"><button type="button" class="secondary-button" (click)="rejectOcr()">Rechazar resultado</button><button type="button" class="primary-button" (click)="validateOcr()">Confirmar extracción</button></div>
               } @else if (ocrStep === 'indexing') {
                 <div class="metadata-preview"><label>Tipo documental <select><option>Contrato</option><option>Informe</option></select></label><label>Área <select><option>Legal</option><option>Compras</option></select></label><button type="button" class="primary-button" (click)="indexOcr()">Guardar indexación</button></div>
               } @else {
-                <div class="metadata-preview"><label>Responsable <input value="Laura Martinez" /></label><label>Etiqueta <input value="proveedores-2026" /></label><button type="button" class="primary-button" (click)="correctMetadata()">Confirmar metadatos</button></div>
+                <div class="metadata-preview"><label>Responsable <input placeholder="Nombre del responsable" /></label><label>Etiqueta <input placeholder="ej: etiqueta-1" /></label><button type="button" class="primary-button" (click)="correctMetadata()">Confirmar metadatos</button></div>
               }
             </article>
           </div>
@@ -169,7 +168,7 @@ type TabLink = { label: string; href: string };
             <div class="form-title"><h2>{{ routeInfo.subcategory }}</h2><span class="required-note">* Campos obligatorios</span></div>
             <div class="form-fields">
               <label>Nombre <input placeholder="Ej. Contrato marco proveedores" /></label>
-              <label>Responsable <input placeholder="Laura Martinez" /></label>
+              <label>Responsable <input placeholder="Nombre del responsable" /></label>
               <label>Área <select><option>Dirección</option><option>Legal</option><option>Archivo</option></select></label>
               <label>Tipo documental <select><option>Contrato</option><option>Política</option><option>Informe</option></select></label>
             </div>
@@ -245,7 +244,7 @@ type TabLink = { label: string; href: string };
       }
 
       @if (actionMessage) { <div class="inline-toast" role="status">{{ actionMessage }}</div> }
-      <footer class="demo-note"><span>ⓘ</span> Vista de demostración con datos simulados de <b>Acme Consulting</b>. No realiza operaciones persistentes.</footer>
+      <footer class="demo-note"><span>ⓘ</span> Vista de demostración. No realiza operaciones persistentes.</footer>
     </section>
   `,
 })
@@ -283,6 +282,9 @@ export class WorkspacePage {
   readonly expedientArea = signal('');
   readonly dateFrom = signal('');
   readonly dateTo = signal('');
+  userName = 'Usuario';
+  tenantName = 'tu organización';
+  currentDate = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
   selectedFileName = 'Ningún archivo seleccionado';
   selectedSource = 'Sin seleccionar';
   actionMessage = '';
@@ -430,12 +432,12 @@ export class WorkspacePage {
 
   private buildStats(module: string): PageStat[] {
     const values: Record<string, PageStat[]> = {
-      Inicio: [{ icon: '▤', label: 'Registros', value: '1,248', detail: 'Tenant actual', tone: 'teal' }, { icon: '◷', label: 'Pendientes', value: '24', detail: 'Requieren atención', tone: 'amber' }, { icon: '↗', label: 'Actividad mensual', value: '+12.5%', detail: 'Comparado con mayo', tone: 'green' }],
-      Documentos: [{ icon: '▤', label: 'Documentos', value: '1,248', detail: '+12 esta semana', tone: 'teal' }, { icon: '◷', label: 'Pendientes', value: '24', detail: '8 requieren acción', tone: 'amber' }, { icon: '✓', label: 'Aprobados', value: '1,106', detail: '88.6% del total', tone: 'green' }],
-      Expedientes: [{ icon: '▱', label: 'Expedientes', value: '86', detail: 'Tenant actual', tone: 'teal' }, { icon: '◷', label: 'Pendientes', value: '12', detail: 'Requieren atención', tone: 'amber' }, { icon: '✓', label: 'Activos', value: '64', detail: '74.4% del total', tone: 'green' }],
-      Workflows: [{ icon: '↗', label: 'Activos', value: '32', detail: '8 requieren acción', tone: 'blue' }, { icon: '◷', label: 'Tiempo promedio', value: '2.4 días', detail: '-8% este mes', tone: 'teal' }, { icon: '✓', label: 'Completados', value: '148', detail: '96% dentro del plazo', tone: 'green' }],
-      Digitalizacion: [{ icon: '⌗', label: 'En cola', value: '18', detail: '126 páginas', tone: 'blue' }, { icon: '✦', label: 'Confianza media', value: '91.4%', detail: 'Extracción OCR', tone: 'green' }, { icon: '!', label: 'Requieren validación', value: '7', detail: 'Confianza menor a 80%', tone: 'amber' }],
-      Notificaciones: [{ icon: '♢', label: 'No leídas', value: '6', detail: '2 de alta prioridad', tone: 'amber' }],
+      Inicio: [{ icon: '▤', label: 'Registros', value: '0', detail: 'Tenant actual', tone: 'teal' }, { icon: '◷', label: 'Pendientes', value: '0', detail: 'Requieren atención', tone: 'amber' }, { icon: '↗', label: 'Actividad mensual', value: '0%', detail: 'Sin actividad', tone: 'green' }],
+      Documentos: [{ icon: '▤', label: 'Documentos', value: '0', detail: '0 esta semana', tone: 'teal' }, { icon: '◷', label: 'Pendientes', value: '0', detail: '0 requieren acción', tone: 'amber' }, { icon: '✓', label: 'Aprobados', value: '0', detail: '0% del total', tone: 'green' }],
+      Expedientes: [{ icon: '▱', label: 'Expedientes', value: '0', detail: 'Tenant actual', tone: 'teal' }, { icon: '◷', label: 'Pendientes', value: '0', detail: 'Requieren atención', tone: 'amber' }, { icon: '✓', label: 'Activos', value: '0', detail: '0% del total', tone: 'green' }],
+      Workflows: [{ icon: '↗', label: 'Activos', value: '0', detail: '0 requieren acción', tone: 'blue' }, { icon: '◷', label: 'Tiempo promedio', value: '0 días', detail: 'Sin datos', tone: 'teal' }, { icon: '✓', label: 'Completados', value: '0', detail: '0% dentro del plazo', tone: 'green' }],
+      Digitalizacion: [{ icon: '⌗', label: 'En cola', value: '0', detail: '0 páginas', tone: 'blue' }, { icon: '✦', label: 'Confianza media', value: '0%', detail: 'Extracción OCR', tone: 'green' }, { icon: '!', label: 'Requieren validación', value: '0', detail: 'Sin datos', tone: 'amber' }],
+      Notificaciones: [{ icon: '♢', label: 'No leídas', value: '0', detail: '0 de alta prioridad', tone: 'amber' }],
     };
     return values[module] ?? values['Inicio'];
   }

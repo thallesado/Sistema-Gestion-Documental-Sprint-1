@@ -17,13 +17,7 @@ export const routes: Routes = [
     path: 'expedients/clinical',
     component: ClinicalPage,
     title: 'Expediente clínico - NexoDocs',
-    data: { routeInfo: { module: 'Expedientes', subcategory: 'Expediente clínico', href: '/expedients/clinical' }, mode: 'records' },
-  },
-  {
-    path: 'expedients/clinical/notes',
-    component: ClinicalPage,
-    title: 'Notas médicas - NexoDocs',
-    data: { routeInfo: { module: 'Expedientes', subcategory: 'Notas médicas', href: '/expedients/clinical/notes' }, mode: 'notes' },
+    data: { routeInfo: { module: 'Expedientes', subcategory: 'Expediente clínico', href: '/expedients/clinical' } },
   },
   ...navigationRoutes
     .filter((route) => !clinicalPaths.has(route.href.slice(1)))
