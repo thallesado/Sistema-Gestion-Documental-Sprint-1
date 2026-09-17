@@ -13,7 +13,7 @@ services:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - nexodocs_postgres_data:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d:ro
+      - ./database/init:/docker-entrypoint-initdb.d:ro,z
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nexodocs} -d ${POSTGRES_DB:-nexodocs}"]
       interval: 5s
