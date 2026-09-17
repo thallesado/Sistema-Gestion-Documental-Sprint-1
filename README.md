@@ -2,7 +2,77 @@
 
 NexoDocs es una aplicacion web para organizar y controlar documentos de empresas,
 clinicas, universidades e instituciones. Esta version sigue siendo un prototipo
-visual: no tiene backend y sus datos son simulados.
+visual en varios modulos, con un backend Spring Boot inicial y PostgreSQL local.
+
+## Inicio rapido local
+
+La aplicacion se ejecuta en tres niveles. Abre tres terminales de PowerShell
+desde la raiz del repositorio y mantenlas abiertas mientras trabajas.
+
+### 1. PostgreSQL con Docker
+
+```powershell
+docker compose up -d --wait
+```
+
+Comprueba que el contenedor este saludable:
+
+```powershell
+docker compose ps
+```
+
+PostgreSQL queda publicado en `127.0.0.1:5434`. Este puerto evita el conflicto
+con instalaciones locales de PostgreSQL que suelen utilizar `5433`.
+
+### 2. Backend Spring Boot
+
+En la segunda terminal:
+
+```powershell
+$env:DB_URL = "jdbc:postgresql://127.0.0.1:5434/nexodocs"
+$env:DB_USERNAME = "nexodocs"
+$env:DB_PASSWORD = "nexodocs_dev"
+$env:JWT_SECRET = "change-this-development-secret-at-least-32-bytes"
+$env:CORS_ALLOWED_ORIGINS = "http://localhost:4200"
+
+Set-Location ".\backend"
+mvn spring-boot:run
+```
+
+El backend queda disponible en `http://localhost:8080`.
+
+### 3. Frontend Angular
+
+En la tercera terminal:
+
+```powershell
+pnpm dev
+```
+
+Abre el navegador en:
+
+```text
+http://localhost:4200
+```
+
+La primera pagina es el login. Credenciales de demostracion:
+
+```text
+Tenant:       20000000-0000-0000-0000-000000000001
+Usuario:      laura@acme.com
+Contrasena:   DemoPass123!
+```
+
+Tambien puedes usar el usuario `laura.martinez` con la misma contrasena.
+
+Para detener PostgreSQL sin borrar los datos:
+
+```powershell
+docker compose stop
+```
+
+No ejecutes `docker compose down --volumes` salvo que quieras eliminar
+intencionalmente el volumen local y todos sus datos.
 
 ## 1. Que necesitas instalar
 
@@ -24,7 +94,7 @@ Desde la raiz del proyecto:
 pnpm install
 ```
 
-## 3. Encender la aplicacion
+## 3. Encender solo el frontend
 
 ```bash
 pnpm dev
@@ -97,7 +167,7 @@ navegador a PostgreSQL.
 Para levantar solo PostgreSQL:
 
 ```bash
-docker compose up -d postgres
+docker compose up -d --wait postgres
 ```
 
 La validacion de base de datos se mantiene en:
@@ -111,9 +181,9 @@ powershell -NoProfile -File database/tests/run.ps1
 El backend se ejecuta desde `backend/`:
 
 ```powershell
-cd backend
-.\mvnw.cmd test
-.\mvnw.cmd spring-boot:run
+Set-Location backend
+mvn test
+mvn spring-boot:run
 ```
 
 La configuración sensible se obtiene desde variables de entorno:
@@ -132,12 +202,13 @@ RBAC general y los módulos documentales siguen pendientes.
 
 ## 9. Estado real del sistema
 
-El frontend sigue siendo una demo visual. Por eso:
+El frontend conserva modulos de demo visual. Por eso:
 
-- El login Angular no consume todavía la API.
+- El login Angular consume la API de autenticacion JWT inicial.
 - El rol seleccionado solo filtra el menu.
 - Las acciones muestran comportamiento de demo.
 - Los documentos, workflows, auditoria y tenants no se guardan desde el frontend.
+- La revocacion de tokens se mantiene en memoria durante la vida del backend.
 - El backend aun no establece de forma completa el contexto `tenant_id` y
   `user_id` de PostgreSQL.
 - El registro explicativo de cambios se mantiene en `docs/REGISTRO_CAMBIOS.md`.
