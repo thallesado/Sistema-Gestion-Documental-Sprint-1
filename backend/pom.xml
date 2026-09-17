@@ -18,6 +18,24 @@
         <java.version>21</java.version>
     </properties>
 
+    <!-- TODO: spring-ai-bom 1.0.x requiere Spring Boot 3.4.x/3.5.x (2.0.x requiere Boot 4);
+         este backend sigue en 3.2.4 (ver AGENTS.md). Reactivar junto con el upgrade de
+         Spring Boot: sus autoconfigs (chat, retry) fallan con NoClassDefFoundError sobre
+         org.springframework.core.retry.RetryTemplate, ausente en Spring Framework 6.1.5. -->
+    <!--
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>2.0.1</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+    -->
+
     <dependencies>
         <!-- Spring Boot Starters -->
         <dependency>
@@ -81,6 +99,13 @@
             <version>2.5.0</version>
         </dependency>
 
+        <!-- Spring AI (Gemini vía Google AI Studio) - deshabilitado temporalmente, ver TODO arriba
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-google-genai</artifactId>
+        </dependency>
+        -->
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -96,6 +121,20 @@
 
     <build>
         <plugins>
+            <!-- TODO: quitar esta exclusión junto con el upgrade de Spring Boot (ver TODO
+                 sobre spring-ai-bom más arriba). Estos 3 archivos usan tipos de Spring AI
+                 (ToolCallback, ChatClient) que no compilan sin esa dependencia. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/config/ChatBotToolsConfig.java</exclude>
+                        <exclude>**/service/RAGService.java</exclude>
+                        <exclude>**/controller/ChatController.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -110,4 +149,15 @@
             </plugin>
         </plugins>
     </build>
+
+    <repositories>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 </project>

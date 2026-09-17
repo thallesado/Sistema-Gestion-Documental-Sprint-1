@@ -21,6 +21,15 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  # ai.google.genai: deshabilitado junto con la dependencia en pom.xml, ver TODO ahí.
+  # ai:
+  #   google:
+  #     genai:
+  #       api-key: ${GOOGLE_API_KEY}
+  #       chat:
+  #         options:
+  #           model: "gemini-3.5-flash-lite"
+
 springdoc:
   api-docs:
     path: /v3/api-docs
