@@ -15,7 +15,8 @@ Desde la raíz del repositorio:
 docker compose up -d --wait
 ```
 
-Compose conserva su publicación local existente, puerto 5433 por defecto. Las variables
+Compose publica PostgreSQL en el puerto 5434 por defecto para evitar conflictos con
+instalaciones locales de PostgreSQL en 5433. Las variables
 están en .env.example. Si necesitas personalizarlas, crea .env antes del primer
 inicio; no sobrescribas uno existente. Los usuarios y contraseñas del seed son
 exclusivamente de demostración.

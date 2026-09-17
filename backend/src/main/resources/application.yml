@@ -6,7 +6,7 @@ spring:
     name: nexodocs-backend
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5433/nexodocs}
+    url: ${DB_URL:jdbc:postgresql://127.0.0.1:5434/nexodocs}
     username: ${DB_USERNAME:nexodocs}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -32,6 +32,7 @@ springdoc:
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION_MS:28800000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 
 app:
   cors:

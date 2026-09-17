@@ -48,6 +48,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         jwt = authHeader.substring(7);
         try {
+            if (jwtService.isRevoked(jwt)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
             AuthenticatedUser user = jwtService.extractAuthenticatedUser(jwt);
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
