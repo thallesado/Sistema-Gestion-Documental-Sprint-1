@@ -1,7 +1,8 @@
 # Base de datos de NexoDocs
 
 PostgreSQL 17 para el SaaS multitenant de gestión documental. El dominio mantiene
-49 tablas públicas y 45 tablas con RLS; el registro técnico de migraciones está en
+al menos 49 tablas públicas y 45 tablas con RLS (51/46 tras las extensiones
+actuales); el registro técnico de migraciones está en
 `app.schema_migrations`. El módulo clínico permanece separado del núcleo documental.
 
 Las decisiones, el contrato para el futuro backend y los límites están en
@@ -108,9 +109,29 @@ no lo concedas al backend ni a personas.
 | init/002_security.sql | Roles y RLS iniciales, reforzados por 004. |
 | init/003_seed.sql | Catálogos y datos exclusivamente de demostración. |
 | init/004_saas_hardening.sql | Migración incremental de integridad, permisos, índices y auditoría. |
+| init/006_password_recovery.sql | Tokens de recuperación de contraseña de un solo uso. |
+| init/007_tenant_user_management.sql | Administración de usuarios, roles y auditoría de tenant. |
+| init/008_tenant_status_compatibility.sql | Compatibilidad e integridad de estados de tenants y usuarios. |
+| init/009_clinical_domain_extensions.sql | Extensiones para identificadores, antecedentes y cronología de expedientes. |
+| init/010_medical_notes.sql | Notas médicas append-only con RLS y permisos clínicos. |
+| init/011_persistent_auth_sessions.sql | Sesiones refresh persistentes, rotación y revocación por usuario. |
+| init/012_http_access_audit.sql | Registro inmutable de accesos HTTP autenticados, incluidas lecturas. |
+| init/013_document_checksum_compatibility.sql | Compatibilidad del checksum documental con Hibernate sin alterar datos. |
+| init/014_auth_user_password_hash_privilege.sql | Permite al rol RLS del backend leer únicamente el hash necesario para materializar la entidad de autenticación. |
 | migrate.ps1 | Respaldo y aplicación al servicio local existente. |
 | tests/validate.sql | Regresión de integridad, aislamiento y autorización con rollback. |
 | tests/run.ps1 | Inicialización, upgrade, errores, login real y concurrencia en Docker temporal. |
 
 No ejecutes docker compose down --volumes para aplicar una migración: ese comando
 elimina los datos del volumen.
+
+### Compatibilidad del backend con el rol RLS
+
+Desde `004_saas_hardening`, el backend debe cambiar a `nexodocs_app` dentro de
+la transacción y fijar `app.tenant_id` y `app.user_id`. Esa separación revoca
+el `SELECT` de tabla completo sobre `users` y conserva solo privilegios por
+columna. La entidad JPA actual se carga completa y su consulta incluye
+`users.password_hash`; por ello `014_auth_user_password_hash_privilege.sql`
+concede únicamente `SELECT` sobre esa columna. El hash nunca forma parte de
+las respuestas HTTP. La migración es segura de repetir y se aplica con
+`database\migrate.ps1` sobre un volumen existente, sin reinicializarlo.

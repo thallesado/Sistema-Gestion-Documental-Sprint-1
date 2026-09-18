@@ -3,6 +3,7 @@ package com.lta.gestdocum.backend.dto;
 import com.lta.gestdocum.backend.model.ClinicalStaff.StaffType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import java.util.Set;
 import lombok.Data;
 
 @Data
@@ -21,4 +22,6 @@ public class UserUpdateRequest {
     private StaffType staffType;
     private String specialty;
     private String professionalLicense;
+    private String status;
+    private Set<Long> roleIds;
 }

@@ -105,6 +105,10 @@ public class JwtService {
         return expiration;
     }
 
+    public long getRefreshExpiration() {
+        return refreshExpiration;
+    }
+
     public record RefreshIdentity(UUID userId, UUID tenantId, String username) {}
 
     /**

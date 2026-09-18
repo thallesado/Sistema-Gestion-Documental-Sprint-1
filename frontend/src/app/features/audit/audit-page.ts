@@ -3,6 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { DemoSessionState } from '../../core/state/demo-session';
 import { RouteInfo } from '../../core/data/nexodocs-data';
+import { ApiAuditEvent, AuditApiService } from '../../core/api/audit-api.service';
 import { AuditEventDrawer, AuditDrawerDetail } from './components/audit-event-drawer';
 import { AuditFilterField, AuditFilters } from './components/audit-filters';
 import { AuditPagination } from './components/audit-pagination';
@@ -48,7 +49,7 @@ import {
 
       <div class="audit-searchbar">
         <label><span aria-hidden="true">⌕</span><input [value]="globalSearch()" (input)="setGlobalSearch($event)" placeholder="Buscar en este módulo: usuario, documento, IP o acción..." aria-label="Buscar en el módulo Auditoría" /></label>
-        <span class="audit-search-note">Datos simulados · {{ tenant() }}</span>
+        <span class="audit-search-note">{{ usingApi() ? 'Auditoría persistente' : 'Referencia visual' }} · {{ tenant() }}</span>
       </div>
 
       @if (view === 'general') {
@@ -122,7 +123,7 @@ import {
       }
 
       @if (actionMessage()) { <div class="inline-toast audit-toast" role="status">{{ actionMessage() }}</div> }
-      <footer class="demo-note"><span>ⓘ</span> Auditoría visual con datos simulados de <b>{{ tenant() }}</b>. No realiza operaciones persistentes; el aislamiento real debe validarse en backend.</footer>
+      <footer class="demo-note"><span>ⓘ</span> {{ usingApi() ? 'Eventos persistentes aislados por el tenant autenticado.' : 'Referencia visual local: la API de auditoría no respondió.' }}</footer>
     </section>
     <app-audit-event-drawer [detail]="drawerDetail()" (closed)="drawerDetail.set(null)" (actionSelected)="drawerAction($event)" />
   `,
@@ -130,6 +131,7 @@ import {
 export class AuditPage {
   private readonly route = inject(ActivatedRoute);
   private readonly session = inject(DemoSessionState);
+  private readonly auditApi = inject(AuditApiService);
   readonly routeInfo = this.route.snapshot.data['routeInfo'] as RouteInfo;
   readonly view: AuditView = auditViewFromPath(this.routeInfo.href);
   readonly tenant = signal(this.session.tenant());
@@ -140,6 +142,8 @@ export class AuditPage {
   readonly pageSize = signal(10);
   readonly drawerDetail = signal<AuditDrawerDetail | null>(null);
   readonly actionMessage = signal('');
+  readonly auditSource = signal<AuditEvent[]>(auditEvents);
+  readonly usingApi = signal(false);
   readonly selectedModificationId = signal(modifications[0]?.id ?? '');
 
   readonly generalFilters: AuditFilterField[] = [
@@ -155,7 +159,7 @@ export class AuditPage {
   readonly deletionFilters: AuditFilterField[] = [{ key: 'kind', label: 'Tipo de baja', type: 'select', options: ['Soft delete', 'Anulación', 'Archivado'] }, { key: 'user', label: 'Usuario', placeholder: 'Ejecutado por' }, { key: 'date', label: 'Fecha', type: 'date' }];
   readonly permissionFilters: AuditFilterField[] = [{ key: 'affectedUser', label: 'Usuario afectado', placeholder: 'Nombre' }, { key: 'modifiedBy', label: 'Modificador', placeholder: 'Nombre' }, { key: 'role', label: 'Rol', placeholder: 'Rol anterior o nuevo' }, { key: 'date', label: 'Fecha', type: 'date' }];
 
-  readonly filteredEvents = computed(() => auditEvents.filter((item) => this.matches(item, { user: item.user, action: item.action, module: item.module, result: item.result, date: this.isoDate(item.timestamp) })));
+  readonly filteredEvents = computed(() => this.auditSource().filter((item) => this.matches(item, { user: item.user, action: item.action, module: item.module, result: item.result, date: this.isoDate(item.timestamp) })));
   readonly visibleEvents = computed(() => this.slice(this.filteredEvents()));
   readonly filteredSessions = computed(() => accessSessions.filter((item) => this.matches(item, { user: item.user, status: item.status, device: item.device, ip: item.ip, date: this.isoDate(item.start) })));
   readonly visibleSessions = computed(() => this.slice(this.filteredSessions()));
@@ -174,6 +178,15 @@ export class AuditPage {
   readonly successfulEvents = computed(() => this.filteredEvents().filter((item) => item.result === 'Exitoso').length);
   readonly attentionEvents = computed(() => this.filteredEvents().filter((item) => item.result !== 'Exitoso').length);
   readonly selectedModification = computed(() => modifications.find((item) => item.id === this.selectedModificationId()));
+
+  constructor() {
+    if (this.view === 'general') {
+      this.auditApi.events().subscribe({
+        next: page => { this.auditSource.set(page.content.map(event => this.mapApiEvent(event))); this.usingApi.set(true); },
+        error: () => this.usingApi.set(false),
+      });
+    }
+  }
 
   get pageTitle(): string { return ({ general: 'Registro general', access: 'Accesos', creation: 'Creación de documentos', modifications: 'Modificaciones', downloads: 'Descargas', approvals: 'Aprobaciones', deletions: 'Eliminaciones', permissions: 'Cambios de permisos' } as Record<AuditView, string>)[this.view]; }
   get pageDescription(): string { return ({ general: 'Una vista cronológica y trazable de las acciones relevantes.', access: 'Supervisa sesiones, dispositivos y señales técnicas de acceso.', creation: 'Sigue la actividad documental desde su origen hasta su publicación.', modifications: 'Inspecciona versiones y cambios campo por campo.', downloads: 'Ledger de archivos descargados y contexto de cada copia.', approvals: 'Visualiza el avance, duración y participantes de cada aprobación.', deletions: 'Revisa operaciones destructivas y su posibilidad de restauración.', permissions: 'Controla la evolución RBAC con una lectura before / after.' } as Record<AuditView, string>)[this.view]; }
@@ -203,6 +216,20 @@ export class AuditPage {
   actionClass(action: string): string { return action.includes('Descarg') ? 'download' : action.includes('Modific') ? 'modify' : action.includes('Camb') ? 'permission' : action.includes('Intent') ? 'access' : 'create'; }
   sessionStatusClass(status: string): string { return this.resultClass(status); }
   initials(name: string): string { return name.split(' ').map((part) => part[0]).slice(0, 2).join(''); }
+
+  private mapApiEvent(event: ApiAuditEvent): AuditEvent {
+    const successful = event.result === 'SUCCESS';
+    return {
+      id: String(event.id), timestamp: event.occurredAt, dateLabel: event.occurredAt.slice(0, 10),
+      user: event.userId, role: 'Usuario autenticado', tenant: this.tenant(),
+      module: event.entityType, action: event.action,
+      resource: event.entityId ? `${event.entityType} · ${event.entityId}` : event.entityType,
+      ip: 'Registrada', device: 'Registrado', browser: 'Registrado',
+      result: successful ? 'Exitoso' : 'Rechazado',
+      details: 'Evento inmutable recuperado desde la API del tenant autenticado.',
+      icon: successful ? '✓' : '!', tone: successful ? 'teal' : 'rose',
+    };
+  }
 
   private isoDate(value: string): string {
     const match = value.match(/(\d{1,2})\s+(?:de\s+)?([a-záéíóú]+)(?:\s+de)?\s+(\d{4})?/i);

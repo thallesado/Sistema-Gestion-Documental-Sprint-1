@@ -47,11 +47,13 @@ public class UserController {
 /* 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('user:update')")
+    @PreAuthorize("hasAuthority('user:update')")
     @Operation(summary = "Actualizar Usuario", description = "Actualiza los datos del usuario y su especialidad médica")
     public ResponseEntity<UserResponse> updateUser(@PathVariable UUID id, @RequestBody UserCreateRequest request) {
         return ResponseEntity.ok(userService.updateUser(id, request));
     }*/
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('user:update')")
     @Operation(summary = "Actualizar Usuario", description = "Actualiza los datos del usuario y su especialidad médica")
     public ResponseEntity<UserResponse> updateUser(
         @PathVariable UUID id, 

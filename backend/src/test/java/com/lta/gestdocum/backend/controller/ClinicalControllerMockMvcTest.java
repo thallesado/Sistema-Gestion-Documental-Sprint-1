@@ -1,6 +1,7 @@
 package com.lta.gestdocum.backend.controller;
 
 import com.lta.gestdocum.backend.dto.ClinicalHistoryResponse;
+import com.lta.gestdocum.backend.dto.TimelineEventResponse;
 import com.lta.gestdocum.backend.service.ClinicalHistoryService;
 import com.lta.gestdocum.backend.service.PatientService;
 import org.junit.jupiter.api.BeforeEach;
@@ -131,5 +132,18 @@ class ClinicalControllerMockMvcTest {
                 .getAnnotation(PreAuthorize.class);
 
         assertEquals("hasAuthority('patient:read')", annotation.value());
+    }
+
+    @Test
+    void timelineIsExposedAsChronologicalReadEndpoint() throws Exception {
+        UUID historyId = UUID.randomUUID();
+        when(clinicalHistoryService.timeline(historyId)).thenReturn(List.of(
+                TimelineEventResponse.builder().occurredAt(java.time.OffsetDateTime.now())
+                        .eventType("CLINICAL_HISTORY_OPENED").code("HC-1").build()));
+
+        clinicalMockMvc.perform(get("/api/v1/clinical-histories/{id}/timeline", historyId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].eventType").value("CLINICAL_HISTORY_OPENED"))
+                .andExpect(jsonPath("$[0].code").value("HC-1"));
     }
 }

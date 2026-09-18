@@ -33,18 +33,21 @@ public class DocumentTypeService {
     @Transactional(readOnly = true)
     public Page<DocumentTypeResponse> find(String filter, Boolean active, Pageable pageable) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         return repository.findByTenant(tenantId, CrudTextSupport.optionalFilter(filter), active, pageable)
                 .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
     public DocumentTypeResponse findById(UUID id) {
+        userContext.establishDatabaseContext();
         return toResponse(getForTenant(id));
     }
 
     @Transactional
     public DocumentTypeResponse create(DocumentTypeRequest request) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         String name = CrudTextSupport.required(request.getName(), "name");
         String code = CrudTextSupport.required(request.getCode(), "code");
         ensureUnique(tenantId, code, name, null);
@@ -69,6 +72,7 @@ public class DocumentTypeService {
     @Transactional
     public DocumentTypeResponse update(UUID id, DocumentTypeRequest request) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         DocumentType documentType = getForTenant(id);
         String name = request.getName() == null
                 ? documentType.getName()
@@ -104,6 +108,7 @@ public class DocumentTypeService {
 
     @Transactional
     public void deactivate(UUID id) {
+        userContext.establishDatabaseContext();
         DocumentType documentType = getForTenant(id);
         documentType.setActive(false);
         documentType.setUpdatedAt(OffsetDateTime.now());

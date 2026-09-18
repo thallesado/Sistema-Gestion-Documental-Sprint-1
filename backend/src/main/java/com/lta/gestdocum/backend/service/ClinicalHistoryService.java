@@ -6,6 +6,14 @@ import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.model.AllergyEntry;
 import com.lta.gestdocum.backend.model.ClinicalHistory;
 import com.lta.gestdocum.backend.model.MedicationEntry;
+import com.lta.gestdocum.backend.model.BaseDiagnosisEntry;
+import com.lta.gestdocum.backend.model.ClinicalEpisode;
+import com.lta.gestdocum.backend.dto.TimelineEventResponse;
+import com.lta.gestdocum.backend.repository.ClinicalEpisodeRepository;
+import com.lta.gestdocum.backend.repository.MedicalNoteRepository;
+import com.lta.gestdocum.backend.repository.DocumentRepository;
+import java.util.Comparator;
+import java.util.ArrayList;
 import com.lta.gestdocum.backend.model.Patient;
 import com.lta.gestdocum.backend.repository.ClinicalHistoryRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
@@ -27,19 +35,29 @@ public class ClinicalHistoryService {
     private final ClinicalHistoryRepository repository;
     private final PatientService patientService;
     private final AuthenticatedUserContext userContext;
+    private final ClinicalEpisodeRepository episodeRepository;
+    private final MedicalNoteRepository medicalNoteRepository;
+    private final DocumentRepository documentRepository;
 
     public ClinicalHistoryService(
             ClinicalHistoryRepository repository,
             PatientService patientService,
-            AuthenticatedUserContext userContext) {
+            AuthenticatedUserContext userContext,
+            ClinicalEpisodeRepository episodeRepository,
+            MedicalNoteRepository medicalNoteRepository,
+            DocumentRepository documentRepository) {
         this.repository = repository;
         this.patientService = patientService;
         this.userContext = userContext;
+        this.episodeRepository = episodeRepository;
+        this.medicalNoteRepository = medicalNoteRepository;
+        this.documentRepository = documentRepository;
     }
 
     @Transactional(readOnly = true)
     public Page<ClinicalHistoryResponse> find(UUID patientId, String filter, Pageable pageable) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         if (patientId != null) {
             patientService.requireByIdAndTenant(patientId, tenantId);
         }
@@ -49,6 +67,7 @@ public class ClinicalHistoryService {
 
     @Transactional(readOnly = true)
     public ClinicalHistoryResponse findById(UUID id) {
+        userContext.establishDatabaseContext();
         ClinicalHistory entity = getForTenant(id);
         return toResponse(entity, loadPatient(entity));
     }
@@ -56,6 +75,7 @@ public class ClinicalHistoryService {
     @Transactional
     public ClinicalHistoryResponse create(ClinicalHistoryRequest request) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         if (request.getPatientId() == null) {
             throw new IllegalArgumentException("patientId es obligatorio");
         }
@@ -74,6 +94,7 @@ public class ClinicalHistoryService {
                 .allergies(toAllergies(request.getAllergies()))
                 .chronicConditions(normalize(request.getChronicConditions()))
                 .currentMedications(toMedications(request.getCurrentMedications()))
+                .baseDiagnoses(toDiagnoses(request.getBaseDiagnoses()))
                 .observations(normalize(request.getObservations()))
                 .createdAt(now)
                 .updatedAt(now)
@@ -84,11 +105,13 @@ public class ClinicalHistoryService {
     @Transactional
     public ClinicalHistoryResponse update(UUID id, ClinicalHistoryRequest request) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         ClinicalHistory entity = getForTenant(id);
         if (request.getPatientId() != null && !request.getPatientId().equals(entity.getPatientId())) {
             Patient patient = patientService.requireByIdAndTenant(request.getPatientId(), tenantId);
             entity.setPatientId(patient.getId());
         }
+
         if (request.getBloodType() != null) {
             entity.setBloodType(normalize(request.getBloodType()));
         }
@@ -110,11 +133,44 @@ public class ClinicalHistoryService {
         if (request.getCurrentMedications() != null) {
             entity.setCurrentMedications(toMedications(request.getCurrentMedications()));
         }
+        if (request.getBaseDiagnoses() != null) {
+            entity.setBaseDiagnoses(toDiagnoses(request.getBaseDiagnoses()));
+        }
         if (request.getObservations() != null) {
             entity.setObservations(normalize(request.getObservations()));
         }
         entity.setUpdatedAt(OffsetDateTime.now());
         return toResponse(repository.save(entity), loadPatient(entity));
+    }
+
+    @Transactional(readOnly = true)
+    public List<TimelineEventResponse> timeline(UUID id) {
+        userContext.establishDatabaseContext();
+        ClinicalHistory history = getForTenant(id);
+        List<TimelineEventResponse> events = new ArrayList<>();
+        events.add(TimelineEventResponse.builder().occurredAt(history.getCreatedAt())
+                .eventType("CLINICAL_HISTORY_OPENED").code(history.getCode())
+                .status("OPEN").referenceId(history.getId())
+                .description("Apertura del expediente clínico").build());
+        for (ClinicalEpisode episode : episodeRepository.findByTenantIdAndClinicalHistoryIdOrderByStartedAtDesc(
+                userContext.requireTenantId(), id)) {
+            events.add(TimelineEventResponse.builder().occurredAt(episode.getStartedAt())
+                    .eventType("EPISODE").code(episode.getCode()).status(episode.getStatus())
+                    .referenceId(episode.getId()).description(episode.getEpisodeType()).build());
+        }
+        UUID tenantId = userContext.requireTenantId();
+        medicalNoteRepository.findByTenantIdAndClinicalHistoryIdOrderByCreatedAtDesc(tenantId, id)
+                .forEach(note -> events.add(TimelineEventResponse.builder()
+                        .occurredAt(note.getCreatedAt()).eventType("MEDICAL_NOTE")
+                        .code(note.getNoteType()).status("RECORDED").referenceId(note.getId())
+                        .description(summary(note.getContent())).build()));
+        documentRepository.findLinkedToClinicalHistory(tenantId, id)
+                .forEach(document -> events.add(TimelineEventResponse.builder()
+                        .occurredAt(document.getCreatedAt()).eventType("DOCUMENT")
+                        .code(document.getCode()).status(document.getStatus().name())
+                        .referenceId(document.getId()).description(document.getName()).build()));
+        return events.stream().sorted(Comparator.comparing(TimelineEventResponse::getOccurredAt)
+                .reversed().thenComparing(TimelineEventResponse::getEventType)).toList();
     }
 
     private ClinicalHistory getForTenant(UUID id) {
@@ -164,7 +220,22 @@ public class ClinicalHistoryService {
         if (value == null || value.isBlank()) {
             return null;
         }
+
         return value.trim();
+    }
+
+    private String summary(String value) {
+        if (value == null || value.isBlank()) return "Nota clínica sin contenido visible";
+        String normalized = value.trim();
+        return normalized.length() <= 240 ? normalized : normalized.substring(0, 237) + "...";
+    }
+
+    private List<BaseDiagnosisEntry> toDiagnoses(List<ClinicalHistoryRequest.DiagnosisRequest> diagnoses) {
+        if (diagnoses == null) return List.of();
+        return diagnoses.stream().filter(d -> d != null && d.description() != null
+                && !d.description().isBlank())
+                .map(d -> new BaseDiagnosisEntry(normalize(d.code()),
+                        d.description().trim(), normalize(d.diagnosedAt()))).toList();
     }
 
     private ClinicalHistoryResponse toResponse(ClinicalHistory entity, Patient patient) {
@@ -180,6 +251,7 @@ public class ClinicalHistoryService {
                 .allergies(entity.getAllergies())
                 .chronicConditions(entity.getChronicConditions())
                 .currentMedications(entity.getCurrentMedications())
+                .baseDiagnoses(entity.getBaseDiagnoses())
                 .observations(entity.getObservations())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

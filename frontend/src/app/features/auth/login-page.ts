@@ -43,9 +43,9 @@ export class LoginPage {
   private readonly route = inject(ActivatedRoute);
   readonly errorMessage = signal('');
   readonly isSubmitting = signal(false);
-  tenantId = '20000000-0000-0000-0000-000000000001';
-  usernameOrEmail = 'laura@acme.com';
-  password = 'DemoPass123!';
+  tenantId = '';
+  usernameOrEmail = '';
+  password = '';
 
   submit(): void {
     this.errorMessage.set('');
@@ -70,6 +70,6 @@ export class LoginPage {
   }
 
   requestRecovery(): void {
-    this.errorMessage.set('La recuperación requiere configurar el proveedor de correo del backend.');
+    void this.router.navigateByUrl('/forgot-password');
   }
 }

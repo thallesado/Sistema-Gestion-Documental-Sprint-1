@@ -18,6 +18,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.lta.gestdocum.backend.model.BaseDiagnosisEntry;
 
 @Entity
 @Table(name = "clinical_histories")
@@ -65,6 +66,11 @@ public class ClinicalHistory {
     @Column(name = "current_medications", nullable = false, columnDefinition = "jsonb")
     @Builder.Default
     private List<MedicationEntry> currentMedications = new ArrayList<>();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "base_diagnoses", nullable = false, columnDefinition = "jsonb")
+    @Builder.Default
+    private List<BaseDiagnosisEntry> baseDiagnoses = new ArrayList<>();
 
     @Column(columnDefinition = "text")
     private String observations;

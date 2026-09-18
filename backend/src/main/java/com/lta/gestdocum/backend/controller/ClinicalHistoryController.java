@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
+import java.util.List;
+import com.lta.gestdocum.backend.dto.TimelineEventResponse;
 
 @RestController
 @RequestMapping("/api/v1/clinical-histories")
@@ -51,6 +53,14 @@ public class ClinicalHistoryController {
     @Operation(summary = "Consultar historia clínica")
     public ResponseEntity<ClinicalHistoryResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(service.findById(id));
+    }
+
+    @GetMapping("/{id}/timeline")
+    @PreAuthorize("hasAuthority('patient:read')")
+    @Operation(summary = "Consultar expediente en orden cronológico",
+            description = "Devuelve apertura y episodios ordenados por fecha descendente")
+    public ResponseEntity<List<TimelineEventResponse>> timeline(@PathVariable UUID id) {
+        return ResponseEntity.ok(service.timeline(id));
     }
 
     @PostMapping

@@ -16,4 +16,5 @@ public class UserResponse {
     private String status;
     private String staffType;
     private String specialty;
+    private java.util.Set<Long> roleIds;
 }

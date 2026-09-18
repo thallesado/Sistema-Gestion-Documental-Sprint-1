@@ -4,58 +4,101 @@ NexoDocs es una aplicacion web para organizar y controlar documentos de empresas
 clinicas, universidades e instituciones. Esta version sigue siendo un prototipo
 visual en varios modulos, con un backend Spring Boot inicial y PostgreSQL local.
 
-## Inicio rapido local
+## Inicio rapido con Docker Compose
 
-La aplicacion se ejecuta en tres niveles. Abre tres terminales de PowerShell
-desde la raiz del repositorio y mantenlas abiertas mientras trabajas.
+Docker Compose levanta PostgreSQL, el backend Spring Boot y el frontend Angular
+en conjunto. Es la forma recomendada para probar el sistema completo sin abrir
+tres terminales.
 
-### 1. PostgreSQL con Docker
+### Requisitos
 
-```powershell
-docker compose up -d --wait
-```
-
-Comprueba que el contenedor este saludable:
+Instala Docker Desktop para Windows y asegúrate de que el motor Linux esté
+iniciado. Comprueba la instalación con:
 
 ```powershell
-docker compose ps
+docker --version
+docker compose version
 ```
 
-PostgreSQL queda publicado en `127.0.0.1:5434`. Este puerto evita el conflicto
-con instalaciones locales de PostgreSQL que suelen utilizar `5433`.
+### 1. Crear la configuración local
 
-### 2. Backend Spring Boot
-
-En la segunda terminal:
+Desde la raíz del repositorio, copia el archivo de ejemplo:
 
 ```powershell
-$env:DB_URL = "jdbc:postgresql://127.0.0.1:5434/nexodocs"
-$env:DB_USERNAME = "nexodocs"
-$env:DB_PASSWORD = "nexodocs_dev"
-$env:JWT_SECRET = "change-this-development-secret-at-least-32-bytes"
-$env:CORS_ALLOWED_ORIGINS = "http://localhost:4200"
-
-Set-Location ".\backend"
-mvn spring-boot:run
+Copy-Item .env.example .env
 ```
 
-El backend queda disponible en `http://localhost:8080`.
+Edita `.env` y cambia como mínimo `POSTGRES_PASSWORD` y `JWT_SECRET`. El secreto
+JWT debe tener al menos 32 bytes. No subas `.env` a Git ni compartas sus valores.
 
-### 3. Frontend Angular
-
-En la tercera terminal:
+### 2. Construir y levantar todo
 
 ```powershell
-pnpm dev
+docker compose up -d --build --wait
 ```
 
-Abre el navegador en:
+Este comando construye las imágenes si es necesario, crea los contenedores,
+espera a que PostgreSQL y Spring Boot estén saludables y deja el frontend
+disponible en:
 
 ```text
 http://localhost:4200
 ```
 
-La primera pagina es el login. Credenciales de demostracion:
+Los servicios quedan disponibles en:
+
+| Servicio | URL o puerto |
+| --- | --- |
+| Frontend Angular/Nginx | `http://localhost:4200` |
+| Backend Spring Boot/OpenAPI | `http://localhost:8080/v3/api-docs` |
+| PostgreSQL | `127.0.0.1:5434` |
+
+El frontend proxifica `/api/` hacia el backend dentro de la red de Compose. El
+navegador no se conecta directamente a PostgreSQL.
+
+### 3. Comprobar el estado y consultar logs
+
+```powershell
+docker compose ps
+docker compose logs -f
+```
+
+Para consultar un servicio concreto:
+
+```powershell
+docker compose logs -f postgres
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+Para detener los servicios sin borrar datos:
+
+```powershell
+docker compose stop
+```
+
+Para detener y eliminar los contenedores conservando los volúmenes:
+
+```powershell
+docker compose down
+```
+
+No ejecutes `docker compose down --volumes` salvo que quieras eliminar
+intencionalmente PostgreSQL y el almacenamiento documental local.
+
+### Migraciones y datos existentes
+
+Las migraciones de `database/init/` se aplican automáticamente solamente cuando
+PostgreSQL se inicializa con un volumen vacío. Si ya existe el volumen
+`nexodocs_postgres_data`, utiliza el migrador incremental:
+
+```powershell
+powershell -NoProfile -File .\database\migrate.ps1
+```
+
+No edites migraciones ya aplicadas ni elimines el volumen para “forzar” cambios.
+
+### Credenciales de demostración
 
 ```text
 Tenant:       20000000-0000-0000-0000-000000000001
@@ -63,16 +106,52 @@ Usuario:      laura@acme.com
 Contrasena:   DemoPass123!
 ```
 
-Tambien puedes usar el usuario `laura.martinez` con la misma contrasena.
+La recuperación de contraseña requiere configurar SMTP en `.env`. Las
+credenciales de Mailtrap no deben guardarse en Git.
 
-Para detener PostgreSQL sin borrar los datos:
+## Inicio rapido local con hot reload
+
+Este modo es útil para desarrollar porque Angular y Spring Boot se recompilan
+sin reconstruir las imágenes en cada cambio. Mantén PostgreSQL en Docker:
 
 ```powershell
-docker compose stop
+docker compose up -d postgres
 ```
 
-No ejecutes `docker compose down --volumes` salvo que quieras eliminar
-intencionalmente el volumen local y todos sus datos.
+En una terminal de PowerShell, inicia Spring Boot desde `backend/`:
+
+```powershell
+$env:DB_URL = "jdbc:postgresql://127.0.0.1:5434/nexodocs"
+$env:DB_USERNAME = "nexodocs"
+$env:DB_PASSWORD = "nexodocs_dev"
+$env:JWT_SECRET = "change-this-development-secret-at-least-32-bytes"
+$env:CORS_ALLOWED_ORIGINS = "http://localhost:4200"
+$env:FRONTEND_URL = "http://localhost:4200"
+
+# Mailtrap SMTP (completa el token sin guardarlo en Git)
+$env:MAIL_HOST = "live.smtp.mailtrap.io"
+$env:MAIL_PORT = "587"
+$env:MAIL_USERNAME = "api"
+$env:MAIL_PASSWORD = "reemplaza-con-un-token-nuevo-de-mailtrap"
+$env:MAIL_SMTP_AUTH = "true"
+$env:MAIL_SMTP_STARTTLS = "true"
+$env:MAIL_FROM = "hello@demomailtrap.co"
+
+Set-Location ".\backend"
+mvn spring-boot:run
+```
+
+En otra terminal, inicia Angular desde la raíz:
+
+```powershell
+pnpm dev
+```
+
+Abre el navegador en `http://localhost:4200`.
+
+El modo Docker Compose completo es el recomendado para demos, validación
+integrada y preparación del despliegue. El modo local con hot reload es más
+cómodo para modificar código diariamente.
 
 ## 1. Que necesitas instalar
 

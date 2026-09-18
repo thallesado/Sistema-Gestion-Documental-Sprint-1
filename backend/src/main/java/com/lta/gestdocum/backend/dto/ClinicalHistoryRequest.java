@@ -34,18 +34,27 @@ public class ClinicalHistoryRequest {
     @Valid
     private List<MedicationRequest> currentMedications;
 
+    @Valid
+    private List<DiagnosisRequest> baseDiagnoses;
+
     @Size(max = 4000)
     private String observations;
 
     public record AllergyRequest(
-            @NotBlank String allergen,
+            @NotBlank @Size(max = 255) String allergen,
             @Size(max = 20) String severity,
             @Size(max = 255) String reaction) {
     }
 
     public record MedicationRequest(
-            @NotBlank String name,
+            @NotBlank @Size(max = 255) String name,
             @Size(max = 120) String dose,
             @Size(max = 120) String frequency) {
+    }
+
+    public record DiagnosisRequest(
+            @Size(max = 40) String code,
+            @NotBlank @Size(max = 500) String description,
+            @Size(max = 40) String diagnosedAt) {
     }
 }

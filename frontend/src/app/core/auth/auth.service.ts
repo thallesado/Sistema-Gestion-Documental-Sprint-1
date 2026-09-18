@@ -1,10 +1,10 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, tap, throwError } from 'rxjs';
+import { Observable, finalize, shareReplay, tap, throwError } from 'rxjs';
 import { AuthResponse, AuthUser, LoginRequest } from './auth.types';
 
-const API_URL = 'http://localhost:8080/api/v1';
+const API_URL = '/api/v1';
 const TOKEN_KEY = 'nexodocs.access_token';
 const REFRESH_TOKEN_KEY = 'nexodocs.refresh_token';
 const USER_KEY = 'nexodocs.auth_user';
@@ -15,6 +15,7 @@ export class AuthService {
   private readonly router = inject(Router);
   readonly user = signal<AuthUser | null>(this.readUser());
   readonly isAuthenticated = signal(Boolean(this.readToken()));
+  private refreshInFlight: Observable<AuthResponse> | null = null;
 
   login(request: LoginRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${API_URL}/auth/login`, request).pipe(
@@ -33,13 +34,27 @@ export class AuthService {
     );
   }
 
+  refreshOnce(): Observable<AuthResponse> {
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.refresh().pipe(
+        finalize(() => this.refreshInFlight = null),
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+    }
+    return this.refreshInFlight;
+  }
+
   loadCurrentUser(): void {
     this.http.get<AuthUser>(`${API_URL}/auth/me`).subscribe({
       next: (user) => {
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
         this.user.set(user);
       },
-      error: () => this.clearSession(),
+      error: (error: HttpErrorResponse) => {
+        if (error.status === 401 || error.status === 403) {
+          this.clearSession();
+        }
+      },
     });
   }
 
@@ -62,6 +77,11 @@ export class AuthService {
 
   accessToken(): string | null {
     return sessionStorage.getItem(TOKEN_KEY);
+  }
+
+  establishSession(response: AuthResponse): void {
+    this.storeTokens(response);
+    this.loadCurrentUser();
   }
 
   private storeTokens(response: AuthResponse): void {

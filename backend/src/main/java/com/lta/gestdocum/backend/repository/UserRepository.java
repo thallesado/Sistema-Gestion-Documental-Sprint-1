@@ -14,6 +14,8 @@ import org.springframework.data.domain.Pageable;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
+    @Query("SELECT u FROM User u WHERE u.tenantId IS NULL AND u.isPlatformAdmin = true AND (LOWER(u.username)=LOWER(:identifier) OR LOWER(u.email)=LOWER(:identifier))")
+    Optional<User> findByPlatformIdentifier(@Param("identifier") String identifier);
     @Query("""
         SELECT u FROM User u
         WHERE u.tenantId = :tenantId

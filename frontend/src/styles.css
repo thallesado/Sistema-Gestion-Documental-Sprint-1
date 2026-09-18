@@ -23,6 +23,37 @@ body {
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+/* HU-02: administración conectada a API, con estados honestos cuando el
+   contrato todavía no contempla un recurso. */
+.admin-page { max-width: 1240px; }
+.admin-header { align-items: flex-end; display: flex; justify-content: space-between; gap: 20px; margin: 4px 0 24px; }
+.admin-header h1 { color: var(--ink); font-size: clamp(26px, 3vw, 36px); letter-spacing: -.04em; margin: 5px 0 7px; }
+.admin-header p:last-child, .form-note { color: var(--muted); font-size: 13px; margin: 0; }
+.admin-primary, .admin-secondary { align-items: center; border-radius: 9px; cursor: pointer; display: inline-flex; font-size: 12px; font-weight: 800; justify-content: center; min-height: 38px; padding: 0 15px; }
+.admin-primary { background: var(--teal); border: 1px solid var(--teal); color: white; }
+.admin-primary:disabled { cursor: not-allowed; opacity: .55; }
+.admin-secondary { background: white; border: 1px solid var(--line); color: var(--teal); }
+.admin-toolbar, .admin-form, .admin-table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.admin-toolbar { align-items: center; display: flex; gap: 9px; margin-bottom: 14px; padding: 12px; }
+.admin-search { align-items: center; background: #f8fbfa; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); display: flex; flex: 1; gap: 8px; padding: 0 10px; }
+.admin-search input { background: transparent; border: 0; color: var(--ink); height: 34px; outline: 0; width: 100%; }
+.admin-table-wrap { overflow-x: auto; }
+.admin-table-wrap table { border-collapse: collapse; min-width: 720px; width: 100%; }
+.admin-table-wrap th { background: #f8fbfa; color: var(--muted); font-size: 10px; letter-spacing: .06em; padding: 12px 16px; text-align: left; text-transform: uppercase; }
+.admin-table-wrap td { border-top: 1px solid #edf3f1; color: #466765; font-size: 12px; padding: 14px 16px; }
+.admin-table-wrap td:first-child { color: var(--ink); min-width: 180px; }
+.admin-table-wrap td:first-child small { color: var(--muted); display: block; font-size: 10px; margin-top: 3px; }
+.admin-status { background: #e3f8eb; border-radius: 99px; color: #218450; font-size: 10px; font-weight: 800; padding: 5px 9px; }
+.admin-status.inactive { background: #fff1e4; color: #aa6d1c; }
+.link-button { background: transparent; border: 0; color: var(--teal); cursor: pointer; font-size: 11px; font-weight: 800; margin-right: 12px; padding: 4px 0; }
+.link-button.danger { color: #c35c60; }.link-button:disabled { color: #9eb1af; cursor: not-allowed; }
+.admin-state { background: #eef7ff; border: 1px solid #cfe3f5; border-radius: 12px; color: #356d9e; display: grid; gap: 4px; margin: 15px 0; padding: 14px 16px; }
+.admin-state span { font-size: 12px; }.admin-state.error { background: #fff4f3; border-color: #f3d2d0; color: #a65050; }.admin-state.forbidden { background: #fff8e8; border-color: #f3e1b6; color: #8b671c; }
+.admin-empty { color: var(--muted); padding: 42px; text-align: center; }
+.admin-form { max-width: 760px; padding: 22px; }.admin-form h2 { color: var(--ink); font-size: 18px; margin: 0 0 6px; }.form-grid { display: grid; gap: 15px; grid-template-columns: repeat(2, 1fr); margin-top: 22px; }.form-grid label { color: var(--muted); display: grid; font-size: 11px; font-weight: 800; gap: 6px; }.form-grid input, .form-grid select { border: 1px solid var(--line); border-radius: 8px; color: var(--ink); height: 38px; outline: 0; padding: 0 10px; }.form-grid input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(15,157,154,.1); }.form-grid select:disabled { background: #f1f5f4; color: var(--muted); }.form-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 23px; }.api-note { color: var(--muted); font-size: 11px; margin: 13px 2px; }.sr-only { height: 1px; overflow: hidden; position: absolute; width: 1px; }
+.field-help { color: var(--muted); font-size: 10px; font-weight: 400; }
+@media (max-width: 680px) { .admin-header { align-items: flex-start; flex-direction: column; }.form-grid { grid-template-columns: 1fr; }.admin-toolbar { align-items: stretch; flex-direction: column; }.admin-toolbar .admin-secondary { width: 100%; } }
+
 button,
 input,
 select,

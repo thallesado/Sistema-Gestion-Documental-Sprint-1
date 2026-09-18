@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import java.util.UUID;
+import java.util.Set;
 
 @Data
 public class UserCreateRequest {
@@ -19,4 +20,5 @@ public class UserCreateRequest {
     private StaffType staffType;
     private String specialty;
     private String professionalLicense;
+    private Set<Long> roleIds;
 }

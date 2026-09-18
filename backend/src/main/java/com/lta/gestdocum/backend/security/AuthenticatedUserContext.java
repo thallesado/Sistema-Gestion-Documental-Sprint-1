@@ -5,11 +5,26 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.UUID;
+import java.util.Collection;
+import jakarta.persistence.EntityManager;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class AuthenticatedUserContext {
+
+    private final EntityManager entityManager;
+
+    public AuthenticatedUserContext() {
+        this.entityManager = null;
+    }
+
+    @Autowired
+    public AuthenticatedUserContext(EntityManager entityManager) {
+        this.entityManager = entityManager;
+    }
 
     public AuthenticatedUser require() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -30,5 +45,27 @@ public class AuthenticatedUserContext {
             throw new TenantRequiredException();
         }
         return tenantId;
+    }
+
+    public boolean hasAuthority(String authority) {
+        return require().authorities().contains(authority);
+    }
+
+    /**
+     * El rol de aplicación usa RLS; los parámetros se fijan LOCALMENTE en la
+     * transacción actual y nunca se aceptan desde la petición HTTP.
+     */
+    public void establishDatabaseContext() {
+        var user = require();
+        if (user.tenantId() == null) {
+            throw new TenantRequiredException();
+        }
+        entityManager.createNativeQuery("SET LOCAL ROLE nexodocs_app").executeUpdate();
+        entityManager.createNativeQuery(
+                "select set_config('app.tenant_id', :tenant, true), " +
+                "set_config('app.user_id', :user, true)")
+                .setParameter("tenant", user.tenantId().toString())
+                .setParameter("user", user.userId().toString())
+                .getResultList();
     }
 }

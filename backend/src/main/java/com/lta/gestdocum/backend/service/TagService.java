@@ -30,18 +30,21 @@ public class TagService {
     @Transactional(readOnly = true)
     public Page<TagResponse> find(String filter, Pageable pageable) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         return repository.findByTenant(tenantId, CrudTextSupport.optionalFilter(filter), pageable)
                 .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
     public TagResponse findById(UUID id) {
+        userContext.establishDatabaseContext();
         return toResponse(getForTenant(id));
     }
 
     @Transactional
     public TagResponse create(TagRequest request) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         String name = CrudTextSupport.required(request.getName(), "name");
         ensureUnique(tenantId, name, null);
         Tag tag = Tag.builder()
@@ -56,6 +59,7 @@ public class TagService {
     @Transactional
     public TagResponse update(UUID id, TagRequest request) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         Tag tag = getForTenant(id);
         String name = request.getName() == null
                 ? tag.getName()
@@ -70,6 +74,7 @@ public class TagService {
 
     @Transactional
     public void delete(UUID id) {
+        userContext.establishDatabaseContext();
         Tag tag = getForTenant(id);
         repository.delete(tag);
     }

@@ -8,6 +8,7 @@ import lombok.Value;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import com.lta.gestdocum.backend.model.BaseDiagnosisEntry;
 
 @Value
 @Builder
@@ -23,6 +24,7 @@ public class ClinicalHistoryResponse {
     List<AllergyEntry> allergies;
     String chronicConditions;
     List<MedicationEntry> currentMedications;
+    List<BaseDiagnosisEntry> baseDiagnoses;
     String observations;
     OffsetDateTime createdAt;
     OffsetDateTime updatedAt;

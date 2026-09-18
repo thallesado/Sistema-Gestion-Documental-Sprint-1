@@ -48,8 +48,8 @@ try {
 
     $ready = $false
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
-        $probe = Invoke-Docker -AllowFailure -DockerArguments @('exec', $containerName, 'psql', '-U', 'postgres', '-d', 'fresh', '-At', '-c', "SELECT count(*) FROM app.schema_migrations WHERE version='004_saas_hardening'")
-        if ($probe.ExitCode -eq 0 -and $probe.Output -eq '1') { $ready = $true; break }
+        $probe = Invoke-Docker -AllowFailure -DockerArguments @('exec', $containerName, 'psql', '-U', 'postgres', '-d', 'fresh', '-At', '-c', "SELECT count(*) FROM app.schema_migrations WHERE version IN ('004_saas_hardening','010_medical_notes','011_persistent_auth_sessions','012_http_access_audit')")
+        if ($probe.ExitCode -eq 0 -and $probe.Output -eq '4') { $ready = $true; break }
         Start-Sleep -Milliseconds 500
     }
     if (!$ready) { throw 'La inicialización Docker no terminó correctamente.' }
@@ -69,9 +69,15 @@ SELECT md5(string_agg(row_data, '' ORDER BY row_data)) FROM (
     $before = Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql
     $null = Invoke-SqlFile -Database 'upgrade' -File '/workspace/init/004_saas_hardening.sql'
     Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql) $before 'La migración alteró datos de negocio ya coherentes'
-    $null = Invoke-SqlFile -Database 'upgrade' -File '/workspace/init/004_saas_hardening.sql'
-    Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql 'SELECT count(*) FROM app.schema_migrations') '1' 'Repetición de migración'
-    Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql) $before 'Repetición alteró datos'
+    foreach ($file in @('005_demo_users.sql', '006_password_recovery.sql', '007_tenant_user_management.sql', '008_tenant_status_compatibility.sql', '009_clinical_domain_extensions.sql', '010_medical_notes.sql', '011_persistent_auth_sessions.sql', '012_http_access_audit.sql', '013_document_checksum_compatibility.sql', '014_auth_user_password_hash_privilege.sql')) {
+        $null = Invoke-SqlFile -Database 'upgrade' -File "/workspace/init/$file"
+    }
+    $afterMigrations = Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql
+    foreach ($file in @('004_saas_hardening.sql', '005_demo_users.sql', '006_password_recovery.sql', '007_tenant_user_management.sql', '008_tenant_status_compatibility.sql', '009_clinical_domain_extensions.sql', '010_medical_notes.sql', '011_persistent_auth_sessions.sql', '012_http_access_audit.sql', '013_document_checksum_compatibility.sql', '014_auth_user_password_hash_privilege.sql')) {
+        $null = Invoke-SqlFile -Database 'upgrade' -File "/workspace/init/$file"
+    }
+    Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql 'SELECT count(*) FROM app.schema_migrations') '11' 'Repetición de migraciones'
+    Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql) $afterMigrations 'Repetición alteró datos'
     $upgrade = Invoke-SqlFile -Database 'upgrade' -File '/workspace/tests/validate.sql'
     if (!$upgrade.Output.Contains('VALIDATION_OK')) { throw $upgrade.Output }
     Write-Output 'Actualización incremental, conservación de datos e idempotencia + VALIDATION_OK'
