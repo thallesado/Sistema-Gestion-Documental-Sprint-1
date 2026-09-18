@@ -71,7 +71,7 @@ public interface DashboardRepository extends Repository<Expedient, UUID> {
 
     @Query(value = """
             SELECT d.id AS id, d.expedient_id AS expedientId, d.code AS code,
-                   d.name AS name, d.status::text AS status, d.updated_at AS updatedAt
+            d.name AS name, CAST(d.status AS text) AS status, d.updated_at AS updatedAt
             FROM documents d
             WHERE d.tenant_id = :tenantId
               AND d.deleted_at IS NULL
