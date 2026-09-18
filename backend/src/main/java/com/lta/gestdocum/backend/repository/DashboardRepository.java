@@ -42,7 +42,7 @@ public interface DashboardRepository extends Repository<Expedient, UUID> {
 
     @Query(value = """
             SELECT t.id AS id, t.document_id AS documentId, t.title AS title,
-                   t.status::text AS status, t.priority AS priority, t.due_at AS dueAt
+                   CAST(t.status AS text) AS status, t.priority AS priority, t.due_at AS dueAt
             FROM workflow_tasks t
             WHERE t.tenant_id = :tenantId
               AND t.assigned_user_id = :userId
