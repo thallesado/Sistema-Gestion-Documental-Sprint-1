@@ -52,6 +52,12 @@ body {
 .admin-empty { color: var(--muted); padding: 42px; text-align: center; }
 .admin-form { max-width: 760px; padding: 22px; }.admin-form h2 { color: var(--ink); font-size: 18px; margin: 0 0 6px; }.form-grid { display: grid; gap: 15px; grid-template-columns: repeat(2, 1fr); margin-top: 22px; }.form-grid label { color: var(--muted); display: grid; font-size: 11px; font-weight: 800; gap: 6px; }.form-grid input, .form-grid select { border: 1px solid var(--line); border-radius: 8px; color: var(--ink); height: 38px; outline: 0; padding: 0 10px; }.form-grid input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(15,157,154,.1); }.form-grid select:disabled { background: #f1f5f4; color: var(--muted); }.form-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 23px; }.api-note { color: var(--muted); font-size: 11px; margin: 13px 2px; }.sr-only { height: 1px; overflow: hidden; position: absolute; width: 1px; }
 .field-help { color: var(--muted); font-size: 10px; font-weight: 400; }
+.modal-backdrop { align-items: center; background: rgba(21,58,57,.4); display: flex; inset: 0; justify-content: center; padding: 20px; position: fixed; z-index: 50; }
+.admin-modal { background: var(--surface); border-radius: 14px; box-shadow: 0 18px 50px rgba(21,58,57,.25); max-width: 680px; padding: 24px; width: 100%; }
+.admin-modal h2 { color: var(--ink); margin: 0 0 6px; }
+.admin-modal .form-grid { margin-top: 18px; }
+.admin-modal.confirmation { max-width: 430px; }
+.admin-modal.confirmation p { color: var(--muted); font-size: 13px; line-height: 1.5; }
 @media (max-width: 680px) { .admin-header { align-items: flex-start; flex-direction: column; }.form-grid { grid-template-columns: 1fr; }.admin-toolbar { align-items: stretch; flex-direction: column; }.admin-toolbar .admin-secondary { width: 100%; } }
 
 button,

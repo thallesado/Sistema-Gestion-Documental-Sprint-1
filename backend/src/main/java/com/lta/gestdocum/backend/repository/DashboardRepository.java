@@ -5,40 +5,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 public interface DashboardRepository extends Repository<Expedient, UUID> {
-
-    interface TaskProjection {
-        UUID getId();
-        UUID getDocumentId();
-        String getTitle();
-        String getStatus();
-        Integer getPriority();
-        Instant getDueAt();
-    }
-
-    interface ActivityProjection {
-        Long getId();
-        UUID getUserId();
-        String getActorName();
-        String getAction();
-        String getEntityType();
-        UUID getEntityId();
-        Instant getOccurredAt();
-        String getResult();
-    }
-
-    interface DocumentProjection {
-        UUID getId();
-        UUID getExpedientId();
-        String getCode();
-        String getName();
-        String getStatus();
-        Instant getUpdatedAt();
-    }
 
     @Query(value = """
             SELECT t.id AS id, t.document_id AS documentId, t.title AS title,
@@ -51,9 +21,9 @@ public interface DashboardRepository extends Repository<Expedient, UUID> {
                      t.due_at ASC, t.priority ASC, t.created_at DESC
             LIMIT :limit
             """, nativeQuery = true)
-    List<TaskProjection> findMyTasks(@Param("tenantId") UUID tenantId,
-                                     @Param("userId") UUID userId,
-                                     @Param("limit") int limit);
+    List<Object[]> findMyTasks(@Param("tenantId") UUID tenantId,
+                               @Param("userId") UUID userId,
+                               @Param("limit") int limit);
 
     @Query(value = """
             SELECT a.id AS id, a.user_id AS userId,
@@ -66,8 +36,8 @@ public interface DashboardRepository extends Repository<Expedient, UUID> {
             ORDER BY a.occurred_at DESC, a.id DESC
             LIMIT :limit
             """, nativeQuery = true)
-    List<ActivityProjection> findRecentActivity(@Param("tenantId") UUID tenantId,
-                                                @Param("limit") int limit);
+    List<Object[]> findRecentActivity(@Param("tenantId") UUID tenantId,
+                                      @Param("limit") int limit);
 
     @Query(value = """
             SELECT d.id AS id, d.expedient_id AS expedientId, d.code AS code,
@@ -78,6 +48,6 @@ public interface DashboardRepository extends Repository<Expedient, UUID> {
             ORDER BY d.updated_at DESC, d.id DESC
             LIMIT :limit
             """, nativeQuery = true)
-    List<DocumentProjection> findRecentDocuments(@Param("tenantId") UUID tenantId,
-                                                 @Param("limit") int limit);
+    List<Object[]> findRecentDocuments(@Param("tenantId") UUID tenantId,
+                                       @Param("limit") int limit);
 }

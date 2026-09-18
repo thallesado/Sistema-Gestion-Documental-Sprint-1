@@ -1,5 +1,16 @@
 # Registro de cambios del proyecto
 
+## 2026-09-18 — contratos mínimos de documentos para el frontend
+
+- Se añadió `GET /api/v1/documents/mine`, siempre limitado al tenant del JWT,
+  para devolver documentos creados por el usuario autenticado o asignados a él.
+- Se añadió `GET /api/v1/users/responsible` como alias tenant-scoped del listado
+  de usuarios activos existente, protegido por `user:read`.
+- El alta documental acepta `responsibleUserId` como alias JSON de la columna y
+  campo de modelo existente `responsible_id`; no fue necesaria una migración.
+- No se añadió `/documents/shared`: el esquema actual no tiene una relación de
+  compartición o visibilidad que permita implementarlo sin inventar permisos.
+
 ## 2026-09-18 — API REST tenant-scoped de expedientes y usuarios demo de Acme
 
 - Se añadió `GET /api/v1/expedients` (paginado, filtro por código, nombre o

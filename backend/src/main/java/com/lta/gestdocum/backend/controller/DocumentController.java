@@ -46,6 +46,17 @@ public class DocumentController {
         return ResponseEntity.ok(service.find(filter, status, pageable));
     }
 
+    @GetMapping("/mine")
+    @PreAuthorize("hasAuthority('document:read')")
+    @Operation(summary = "Listar mis documentos",
+            description = "Documentos del tenant autenticado creados por el usuario o asignados a él")
+    public ResponseEntity<Page<DocumentResponse>> findMine(
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) Document.DocumentStatus status,
+            Pageable pageable) {
+        return ResponseEntity.ok(service.findMine(filter, status, pageable));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('document:read')")
     public ResponseEntity<DocumentResponse> findById(@PathVariable UUID id) {

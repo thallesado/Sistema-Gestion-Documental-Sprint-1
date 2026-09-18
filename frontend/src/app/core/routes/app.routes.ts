@@ -14,7 +14,7 @@ import { DocumentPage } from '../../features/documents/document-page';
 import { ExpedientsPage } from '../../features/expedients/expedients-page';
 
 const clinicalPaths = new Set(['expedients/clinical', 'expedients/clinical/notes']);
-const documentPaths = new Set(['documents', 'settings/statuses']);
+const documentPaths = new Set(['documents', 'documents/mine', 'documents/shared', 'documents/new', 'documents/upload', 'settings/statuses']);
 const expedientPaths = new Set(['expedients', 'expedients/new', 'expedients/active', 'expedients/closed', 'expedients/archived']);
 
 export const routes: Routes = [
@@ -80,6 +80,30 @@ export const routes: Routes = [
     path: 'documents',
     component: DocumentPage,
     title: 'Documentos - NexoDocs',
+    canActivate: [authGuard],
+  },
+  {
+    path: 'documents/mine',
+    component: DocumentPage,
+    title: 'Mis documentos - NexoDocs',
+    canActivate: [authGuard],
+  },
+  {
+    path: 'documents/shared',
+    component: DocumentPage,
+    title: 'Compartidos conmigo - NexoDocs',
+    canActivate: [authGuard],
+  },
+  {
+    path: 'documents/new',
+    component: DocumentPage,
+    title: 'Nuevo documento - NexoDocs',
+    canActivate: [authGuard],
+  },
+  {
+    path: 'documents/upload',
+    component: DocumentPage,
+    title: 'Subir archivo - NexoDocs',
     canActivate: [authGuard],
   },
   {

@@ -25,6 +25,7 @@ import { AuthService } from '../../core/auth/auth.service';
           <header class="admin-header"><div><p class="eyebrow">Administración global · Tenants</p><h1>Organizaciones</h1><p>Gestiona el ciclo de vida de los tenants de NexoDocs.</p></div><a class="admin-primary" routerLink="/tenants/new">＋ Crear tenant</a></header>
           @if (loading()) { <p class="admin-empty">Cargando tenants…</p> } @else if (error()) { <div class="admin-state error" role="alert"><b>Error al cargar tenants</b><span>{{ message() }}</span></div> } @else {
             <section class="admin-table-wrap"><table><thead><tr><th>Organización</th><th>Código</th><th>Slug</th><th>Estado</th><th>Acción</th></tr></thead><tbody>@for (tenant of tenants(); track tenant.id) { <tr><td><b>{{ tenant.name }}</b></td><td>{{ tenant.code }}</td><td>{{ tenant.slug }}</td><td><span class="admin-status" [class.inactive]="tenant.status !== 'ACTIVE'">{{ tenant.status }}</span></td><td><button class="link-button" type="button" (click)="changeTenantStatus(tenant)">{{ tenant.status === 'ACTIVE' ? 'Suspender' : 'Activar' }}</button></td></tr> }</tbody></table></section>
+          @if (confirmation()) { <div class="modal-backdrop" role="presentation"><section class="admin-modal confirmation" role="alertdialog" aria-modal="true" aria-labelledby="tenant-confirm-title"><h2 id="tenant-confirm-title">{{ confirmation()?.title }}</h2><p>{{ confirmation()?.message }}</p><div class="form-actions"><button class="admin-secondary" type="button" (click)="closeConfirmation()">Cancelar</button><button class="admin-primary" type="button" (click)="confirmAction()">Confirmar</button></div></section></div> }
           }
           <p class="api-note">La edición de datos generales de tenants aún no está expuesta por el contrato; el estado sí puede activarse o suspenderse.</p>
           }
@@ -61,6 +62,16 @@ import { AuthService } from '../../core/auth/auth.service';
               <table><thead><tr><th>Usuario</th><th>Correo</th><th>Perfil clínico</th><th>Estado</th><th><span class="sr-only">Acciones</span></th></tr></thead>
               <tbody>@for (user of users(); track user.id) { <tr><td><b>{{ user.firstName }} {{ user.lastName }}</b><small>{{ user.username }}</small></td><td>{{ user.email }}</td><td>{{ user.staffType || 'No asignado' }}</td><td><span class="admin-status" [class.inactive]="user.status !== 'ACTIVE'">{{ user.status === 'ACTIVE' ? 'Activo' : user.status }}</span></td><td><button class="link-button" type="button" (click)="edit(user)">Editar</button>@if (user.status === 'ACTIVE') {<button class="link-button danger" type="button" (click)="deactivate(user)">Desactivar</button>} @else {<button class="link-button" type="button" (click)="reactivate(user)">Reactivar</button>}</td></tr> }</tbody></table>
             }
+            @if (editUser()) {
+              <div class="modal-backdrop" role="presentation"><section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
+                <h2 id="edit-user-title">Editar usuario</h2><p class="form-note">Actualiza los datos y roles permitidos para este usuario.</p>@if (editError()) { <div class="admin-state error" role="alert">{{ editError() }}</div> } @if (rolesLoading()) { <p class="admin-empty">Cargando roles…</p> } @else if (rolesError()) { <div class="admin-state error" role="alert">{{ rolesError() }}</div> }
+                <div class="form-grid"><label>Nombre<input [(ngModel)]="editForm.firstName" /></label><label>Apellido<input [(ngModel)]="editForm.lastName" /></label><label>Correo<input type="email" [(ngModel)]="editForm.email" /></label><label>Estado<select [(ngModel)]="editForm.status"><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option></select></label><label>Roles permitidos<select [(ngModel)]="editForm.roleIds" multiple>@for (role of roles(); track role.id) { <option [ngValue]="role.id">{{ role.name }}</option> }</select></label></div>
+                <div class="form-actions"><button class="admin-secondary" type="button" (click)="closeEdit()">Cancelar</button><button class="admin-primary" type="button" (click)="saveEdit()" [disabled]="saving()">Guardar cambios</button></div>
+              </section></div>
+            }
+            @if (confirmation()) {
+              <div class="modal-backdrop" role="presentation"><section class="admin-modal confirmation" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title"><h2 id="confirm-title">{{ confirmation()?.title }}</h2><p>{{ confirmation()?.message }}</p><div class="form-actions"><button class="admin-secondary" type="button" (click)="closeConfirmation()">Cancelar</button><button class="admin-primary" type="button" (click)="confirmAction()">Confirmar</button></div></section></div>
+            }
           </section>
           <p class="api-note">Los roles se asignan en creación y edición mediante roleIds. Activar/desactivar utiliza la actualización del usuario.</p>
         }
@@ -78,21 +89,28 @@ export class AdministrationPage {
   readonly roles = signal<ApiRole[]>([]);
   readonly loading = signal(false);
   readonly saving = signal(false);
+  readonly rolesLoading = signal(false);
+  readonly rolesError = signal('');
+  readonly editError = signal('');
   readonly message = signal('');
   readonly error = signal(false);
   search = '';
   form = { username: '', email: '', password: '', firstName: '', lastName: '', roleIds: [] as number[] };
   tenantForm = { name: '', code: '', slug: '', email: '' };
+  readonly editUser = signal<ApiUser | null>(null);
+  readonly confirmation = signal<{ title: string; message: string; action: () => void } | null>(null);
+  editForm = { firstName: '', lastName: '', email: '', status: 'ACTIVE', roleIds: [] as number[] };
   readonly isTenantArea = this.route.snapshot.url[0]?.path === 'tenants';
   readonly isCreate = this.route.snapshot.url[1]?.path === 'new';
   readonly isSuperadmin = this.session.role() === 'Superadministrador';
   readonly canManageUsers = this.session.role() === 'Administrador de tenant' || this.isSuperadmin;
   readonly tenantName = () => this.auth.user()?.tenantId || 'la organización autenticada';
 
-  constructor() { if (this.isTenantArea && this.isSuperadmin && !this.isCreate) this.loadTenants(); else if (this.canManageUsers && !this.isCreate) this.loadUsers(); else if (this.canManageUsers && this.isCreate) this.loadRoles(); }
+  constructor() { if (this.isTenantArea && this.isSuperadmin && !this.isCreate) this.loadTenants(); else if (this.canManageUsers && !this.isCreate) { this.loadUsers(); this.loadRoles(); } else if (this.canManageUsers && this.isCreate) this.loadRoles(); }
 
   loadRoles(): void {
-    this.api.roles().subscribe({ next: roles => this.roles.set(roles), error: err => this.showError(this.apiError(err, 'No se pudieron cargar los roles.')) });
+    this.rolesLoading.set(true); this.rolesError.set('');
+    this.api.roles().subscribe({ next: roles => { this.roles.set(roles); this.rolesLoading.set(false); }, error: err => { this.rolesLoading.set(false); this.rolesError.set(this.apiError(err, 'No se pudieron cargar los roles.')); } });
   }
 
   loadUsers(): void {
@@ -107,8 +125,7 @@ export class AdministrationPage {
 
   changeTenantStatus(tenant: ApiTenant): void {
     const value = tenant.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-    if (!window.confirm(`${value === 'SUSPENDED' ? '¿Suspender' : '¿Activar'} ${tenant.name}?`)) return;
-    this.api.changeTenantStatus(tenant.id, value).subscribe({ next: () => this.loadTenants(), error: err => { this.error.set(true); this.message.set(this.apiError(err, 'No se pudo cambiar el estado del tenant.')); } });
+    this.confirmation.set({ title: value === 'SUSPENDED' ? 'Suspender organización' : 'Activar organización', message: `${value === 'SUSPENDED' ? '¿Quieres suspender' : '¿Quieres activar'} ${tenant.name}?`, action: () => this.api.changeTenantStatus(tenant.id, value).subscribe({ next: () => this.loadTenants(), error: err => { this.error.set(true); this.message.set(this.apiError(err, 'No se pudo cambiar el estado del tenant.')); } }) });
   }
 
   createUser(): void {
@@ -123,17 +140,15 @@ export class AdministrationPage {
   }
 
   edit(user: ApiUser): void {
-    const firstName = window.prompt('Nombre', user.firstName); if (firstName === null) return;
-    const lastName = window.prompt('Apellido', user.lastName); if (lastName === null) return;
-    const email = window.prompt('Correo', user.email); if (email === null) return;
-    const status = window.prompt('Estado (ACTIVE o INACTIVE)', user.status); if (status === null) return;
-    const roleIdsText = window.prompt('IDs de roles permitidos separados por coma', (user.roleIds ?? []).join(', ')); if (roleIdsText === null) return;
-    this.api.updateUser(user.id, { firstName, lastName, email, status: status.toUpperCase(), roleIds: this.parseRoleIds(roleIdsText) }).subscribe({ next: () => { this.message.set('Usuario actualizado.'); this.loadUsers(); }, error: err => this.showError(this.apiError(err, 'No se pudo actualizar el usuario.')) });
+    this.editForm = { firstName: user.firstName, lastName: user.lastName, email: user.email, status: user.status, roleIds: [...(user.roleIds ?? [])] };
+    this.editError.set('');
+    this.editUser.set(user);
   }
+  closeEdit(): void { this.editUser.set(null); this.editError.set(''); }
+  saveEdit(): void { const user = this.editUser(); if (!user) return; this.saving.set(true); this.editError.set(''); this.api.updateUser(user.id, this.editForm).subscribe({ next: () => { this.saving.set(false); this.closeEdit(); this.message.set('Usuario actualizado.'); this.loadUsers(); }, error: err => { this.saving.set(false); this.editError.set(this.apiError(err, 'No se pudo actualizar el usuario.')); } }); }
 
   deactivate(user: ApiUser): void {
-    if (!window.confirm(`¿Desactivar a ${user.firstName} ${user.lastName}?`)) return;
-    this.api.deactivateUser(user.id).subscribe({ next: () => { this.message.set('Usuario desactivado.'); this.loadUsers(); }, error: err => this.showError(this.apiError(err, 'No se pudo desactivar el usuario.')) });
+    this.confirmation.set({ title: 'Desactivar usuario', message: `¿Quieres desactivar a ${user.firstName} ${user.lastName}?`, action: () => this.api.deactivateUser(user.id).subscribe({ next: () => { this.message.set('Usuario desactivado.'); this.loadUsers(); }, error: err => this.showError(this.apiError(err, 'No se pudo desactivar el usuario.')) }) });
   }
 
   reactivate(user: ApiUser): void {
@@ -141,7 +156,8 @@ export class AdministrationPage {
   }
 
   private showError(text: string): void { this.loading.set(false); this.error.set(true); this.message.set(text); }
-  private parseRoleIds(value: string): number[] { return value.split(',').map(item => Number(item.trim())).filter(item => Number.isInteger(item) && item > 0); }
+  confirmAction(): void { const action = this.confirmation()?.action; this.closeConfirmation(); action?.(); }
+  closeConfirmation(): void { this.confirmation.set(null); }
   private apiError(error: { status?: number }, fallback: string): string {
     if (error.status === 401 || error.status === 403) return 'No tienes permisos para realizar esta operación.';
     if (error.status === 0) return 'No se pudo conectar con la API. Comprueba que el backend esté ejecutándose.';

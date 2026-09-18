@@ -39,6 +39,15 @@ public class DocumentService {
     }
 
     @Transactional(readOnly = true)
+    public Page<DocumentResponse> findMine(String filter, Document.DocumentStatus status, Pageable pageable) {
+        UUID tenantId = userContext.requireTenantId();
+        UUID userId = userContext.requireUserId();
+        userContext.establishDatabaseContext();
+        String value = filter == null ? "" : filter.trim();
+        return repository.searchMine(tenantId, userId, value, status, pageable).map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
     public DocumentResponse findById(UUID id) {
         userContext.establishDatabaseContext();
         return toResponse(getForTenant(id));
