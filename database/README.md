@@ -121,9 +121,59 @@ no lo concedas al backend ni a personas.
 | migrate.ps1 | Respaldo y aplicación al servicio local existente. |
 | tests/validate.sql | Regresión de integridad, aislamiento y autorización con rollback. |
 | tests/run.ps1 | Inicialización, upgrade, errores, login real y concurrencia en Docker temporal. |
+| seeds/acme_synthetic_300.sql | Carga explícita, idempotente y no destructiva de 300 pacientes sintéticos de Acme. |
+| seeds/load_acme_synthetic.ps1 | Ejecuta la carga y crea/copía los 300 archivos fixture fuera de `database/init`. |
 
 No ejecutes docker compose down --volumes para aplicar una migración: ese comando
 elimina los datos del volumen.
+
+### Dataset sintético reproducible de Acme
+
+La carga no se ejecuta automáticamente: `database/seeds/` está fuera de
+`database/init/`. Requiere que el esquema esté inicializado y se ejecuta con el
+propietario local de demostración (no con `nexodocs_app`, cuyas políticas exigen
+un contexto autenticado y permisos RBAC). No borra ni actualiza filas existentes;
+usa UUID deterministas y `ON CONFLICT DO NOTHING`, y aborta ante colisiones fuera
+del tenant.
+
+```powershell
+docker compose up -d --wait
+powershell -NoProfile -File .\database\seeds\load_acme_synthetic.ps1 -CopyToDockerStorage
+```
+
+La ejecución crea 300 pacientes, una `clinical_history`, un documento, una versión
+1 y un vínculo clínico por paciente en Acme Consulting
+(`20000000-0000-0000-0000-000000000001`). Los nombres, teléfonos, correos
+`.invalid`, identificadores y textos son manifiestamente sintéticos. Los archivos
+son pequeños `.txt` diferenciados por secuencia y se copian al volumen del
+servicio `backend` únicamente con `-CopyToDockerStorage`; la ruta almacenada en
+la base es `synthetic/acme-patients/patient-NNNN.txt`.
+
+Para una EC2 con Compose desplegado, copie `database/seeds/` al host y ejecute
+los mismos comandos desde el directorio del despliegue (no exponga PostgreSQL
+públicamente ni ejecute el SQL desde el navegador):
+
+```powershell
+docker compose up -d --wait
+powershell -NoProfile -File .\database\seeds\load_acme_synthetic.ps1 -CopyToDockerStorage
+```
+
+El script imprime los cinco conteos esperados: `300` en `patients`,
+`clinical_histories`, `documents`, `document_versions` y
+`clinical_document_links`. Para validar relaciones adicionalmente:
+
+```powershell
+docker compose exec -T postgres psql -X -U nexodocs -d nexodocs -v ON_ERROR_STOP=1 -c "SELECT count(*) AS links_without_history FROM clinical_document_links l LEFT JOIN clinical_histories h ON h.tenant_id=l.tenant_id AND h.id=l.clinical_history_id WHERE l.tenant_id='20000000-0000-0000-0000-000000000001' AND h.id IS NULL; SELECT count(*) AS versions_without_document FROM document_versions v LEFT JOIN documents d ON d.tenant_id=v.tenant_id AND d.id=v.document_id WHERE v.tenant_id='20000000-0000-0000-0000-000000000001' AND d.id IS NULL;"
+```
+
+La inserción SQL no puede crear archivos dentro del volumen del backend:
+PostgreSQL no tiene acceso a ese filesystem y no se debe inventar una API.
+`load_acme_synthetic.ps1` ofrece la alternativa operacional mediante
+`docker compose cp`. En EC2, si el backend no está levantado, genere primero
+sin `-CopyToDockerStorage` y copie los fixtures cuando el servicio esté
+disponible. La carga física real de producción debería usar la API autenticada
+de documentos cuando exista un endpoint de subida; esta utilidad queda limitada
+a fixtures locales/EC2 controladas.
 
 ### Compatibilidad del backend con el rol RLS
 

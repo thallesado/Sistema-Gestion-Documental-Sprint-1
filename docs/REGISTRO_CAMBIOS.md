@@ -1,5 +1,20 @@
 # Registro de cambios del proyecto
 
+## 2026-09-18 — dataset sintético reproducible de Acme Consulting
+
+- Se añadieron `database/seeds/acme_synthetic_300.sql` y
+  `database/seeds/load_acme_synthetic.ps1`, fuera de `database/init`, para
+  cargar explícitamente 300 pacientes sintéticos con una historia clínica,
+  documento, versión y vínculo por paciente.
+- La carga usa UUID deterministas, transacción, preflight de tenant y
+  `ON CONFLICT DO NOTHING`; no edita migraciones, no borra datos y no se
+  ejecuta automáticamente en producción. Los correos usan `example.invalid` y
+  todos los valores están marcados como sintéticos.
+- La base solo conserva la ruta del archivo. El script genera 300 fixtures
+  pequeños y opcionalmente los copia al volumen persistente del backend.
+  PostgreSQL no puede escribir ese volumen directamente; para producción real
+  debe usarse la futura API autenticada de subida.
+
 ## 2026-09-18 — corrección de permisos de `/api/v1/auth/me` con volumen existente
 
 - Se identificó que `AuthenticatedUserContext` cambia la conexión a
