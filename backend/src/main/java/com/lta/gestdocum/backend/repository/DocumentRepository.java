@@ -42,13 +42,23 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
         select d from Document d
         where d.tenantId = :tenantId and d.deletedAt is null
           and (d.authorId = :userId or d.responsibleId = :userId)
-          and (:status is null or d.status = :status)
           and (lower(d.name) like lower(concat('%', :filter, '%'))
             or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
             or lower(d.code) like lower(concat('%', :filter, '%')))
         """)
-    Page<Document> searchMine(UUID tenantId, UUID userId, String filter,
-                              Document.DocumentStatus status, Pageable pageable);
+    Page<Document> searchMine(UUID tenantId, UUID userId, String filter, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query("""
+        select d from Document d
+        where d.tenantId = :tenantId and d.deletedAt is null
+          and (d.authorId = :userId or d.responsibleId = :userId)
+          and d.status = :status
+          and (lower(d.name) like lower(concat('%', :filter, '%'))
+            or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
+            or lower(d.code) like lower(concat('%', :filter, '%')))
+        """)
+    Page<Document> searchMineAndStatus(UUID tenantId, UUID userId, String filter,
+                                       Document.DocumentStatus status, Pageable pageable);
 
     java.util.Optional<Document> findByIdAndTenantIdAndDeletedAtIsNull(UUID id, UUID tenantId);
 

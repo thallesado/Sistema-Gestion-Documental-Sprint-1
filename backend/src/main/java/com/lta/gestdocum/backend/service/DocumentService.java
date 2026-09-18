@@ -44,7 +44,10 @@ public class DocumentService {
         UUID userId = userContext.requireUserId();
         userContext.establishDatabaseContext();
         String value = filter == null ? "" : filter.trim();
-        return repository.searchMine(tenantId, userId, value, status, pageable).map(this::toResponse);
+        if (status != null) {
+            return repository.searchMineAndStatus(tenantId, userId, value, status, pageable).map(this::toResponse);
+        }
+        return repository.searchMine(tenantId, userId, value, pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
