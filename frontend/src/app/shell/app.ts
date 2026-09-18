@@ -44,7 +44,11 @@ export class App {
     this.sections
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) => !item.roles || item.roles.includes(this.role())),
+        items: section.items.filter((item) =>
+          item.sprintEnabled !== false
+          && (!item.roles || item.roles.includes(this.role()))
+          && this.visibleChildren(item).length > 0,
+        ),
       }))
       .filter((section) => section.items.length > 0),
   );
@@ -120,6 +124,6 @@ export class App {
   }
 
   visibleChildren(item: NavItem): NavChild[] {
-    return item.children.filter((child) => child.visible !== false);
+    return item.children.filter((child) => child.visible !== false && child.sprintEnabled !== false);
   }
 }

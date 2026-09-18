@@ -4,8 +4,8 @@ export type Role =
   | 'Administrador de tenant'
   | 'Superadministrador';
 
-export type NavChild = { label: string; href: string; visible?: boolean };
-export type NavItem = { label: string; icon: string; children: NavChild[]; roles?: Role[] };
+export type NavChild = { label: string; href: string; visible?: boolean; sprintEnabled?: boolean };
+export type NavItem = { label: string; icon: string; children: NavChild[]; roles?: Role[]; sprintEnabled?: boolean };
 export type NavSection = { title: string; items: NavItem[] };
 export type RouteInfo = { module: string; subcategory: string; href: string };
 export type ScreenCopy = { description: string; action: string };
@@ -59,8 +59,8 @@ export const navSections: NavSection[] = [
         children: [
           { label: 'Resumen', href: '/' },
           { label: 'Actividad reciente', href: '/dashboard/activity' },
-          { label: 'Mis tareas', href: '/dashboard/tasks' },
-          { label: 'Indicadores', href: '/dashboard/indicators' },
+          { label: 'Mis tareas', href: '/dashboard/tasks', sprintEnabled: false },
+          { label: 'Indicadores', href: '/dashboard/indicators', sprintEnabled: false },
         ],
       },
       {
@@ -69,9 +69,9 @@ export const navSections: NavSection[] = [
         children: [
           { label: 'Todos los expedientes', href: '/expedients' },
           { label: 'Crear expediente', href: '/expedients/new' },
-          { label: 'Activos', href: '/expedients/active' },
-          { label: 'Cerrados', href: '/expedients/closed' },
-          { label: 'Archivados', href: '/expedients/archived' },
+          { label: 'Activos', href: '/expedients/active', sprintEnabled: false },
+          { label: 'Cerrados', href: '/expedients/closed', sprintEnabled: false },
+          { label: 'Archivados', href: '/expedients/archived', sprintEnabled: false },
           { label: 'Expediente clínico', href: '/expedients/clinical' },
           { label: 'Notas médicas', href: '/expedients/clinical/notes' },
         ],
@@ -83,8 +83,8 @@ export const navSections: NavSection[] = [
           { label: 'Todos los documentos', href: '/documents' },
           { label: 'Nuevo documento', href: '/documents/new' },
           { label: 'Subir archivo', href: '/documents/upload' },
-          { label: 'Mis documentos', href: '/documents/mine' },
-          { label: 'Compartidos conmigo', href: '/documents/shared' },
+          { label: 'Mis documentos', href: '/documents/mine', sprintEnabled: false },
+          { label: 'Compartidos conmigo', href: '/documents/shared', sprintEnabled: false },
           { label: 'Recientes', href: '/documents/recent', visible: false },
           { label: 'Pendientes', href: '/documents/pending', visible: false },
           { label: 'En revision', href: '/documents/in-review', visible: false },
@@ -97,6 +97,7 @@ export const navSections: NavSection[] = [
         label: 'Digitalizacion',
         icon: 'DG',
         roles: ['Administrador de tenant', 'Superadministrador'],
+        sprintEnabled: false,
         children: [
           { label: 'Escanear documento', href: '/digitization' },
           { label: 'Subir documento', href: '/digitization/upload', visible: false },
@@ -114,6 +115,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Workflows',
         icon: 'WF',
+        sprintEnabled: false,
         children: [
           { label: 'Todos los workflows', href: '/workflows' },
           { label: 'Mis tareas', href: '/workflows/tasks' },
@@ -137,12 +139,12 @@ export const navSections: NavSection[] = [
         children: [
           { label: 'Todos los usuarios', href: '/users' },
           { label: 'Crear usuario', href: '/users/new' },
-          { label: 'Activos', href: '/users/active' },
-          { label: 'Bloqueados', href: '/users/blocked' },
+          { label: 'Activos', href: '/users/active', sprintEnabled: false },
+          { label: 'Bloqueados', href: '/users/blocked', sprintEnabled: false },
           { label: 'Roles', href: '/users/roles' },
           { label: 'Permisos', href: '/users/permissions' },
-          { label: 'Areas', href: '/users/areas' },
-          { label: 'Grupos', href: '/users/groups' },
+          { label: 'Areas', href: '/users/areas', sprintEnabled: false },
+          { label: 'Grupos', href: '/users/groups', sprintEnabled: false },
         ],
       },
       {
@@ -152,17 +154,18 @@ export const navSections: NavSection[] = [
         children: [
           { label: 'Registro general', href: '/audit' },
           { label: 'Accesos', href: '/audit/access' },
-          { label: 'Creacion de documentos', href: '/audit/document-creation' },
-          { label: 'Modificaciones', href: '/audit/modifications' },
-          { label: 'Descargas', href: '/audit/downloads' },
-          { label: 'Aprobaciones', href: '/audit/approvals' },
-          { label: 'Eliminaciones', href: '/audit/deletions' },
-          { label: 'Cambios de permisos', href: '/audit/permissions' },
+          { label: 'Creacion de documentos', href: '/audit/document-creation', sprintEnabled: false },
+          { label: 'Modificaciones', href: '/audit/modifications', sprintEnabled: false },
+          { label: 'Descargas', href: '/audit/downloads', sprintEnabled: false },
+          { label: 'Aprobaciones', href: '/audit/approvals', sprintEnabled: false },
+          { label: 'Eliminaciones', href: '/audit/deletions', sprintEnabled: false },
+          { label: 'Cambios de permisos', href: '/audit/permissions', sprintEnabled: false },
         ],
       },
       {
         label: 'Reportes',
         icon: 'RP',
+        sprintEnabled: false,
         children: [
           { label: 'Documentos', href: '/reports' },
           { label: 'Usuarios', href: '/reports/users' },
@@ -181,6 +184,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Notificaciones',
         icon: 'NT',
+        sprintEnabled: false,
         children: [
           { label: 'Todas', href: '/notifications' },
           { label: 'No leidas', href: '/notifications/unread' },
@@ -193,6 +197,7 @@ export const navSections: NavSection[] = [
         label: 'Configuracion',
         icon: 'CF',
         roles: ['Administrador de tenant', 'Superadministrador'],
+        sprintEnabled: false,
         children: [
           { label: 'General', href: '/settings' },
           { label: 'Tipos documentales', href: '/settings/document-types' },
@@ -214,6 +219,7 @@ export const navSections: NavSection[] = [
         label: 'Tenants',
         icon: 'TN',
         roles: ['Superadministrador'],
+        sprintEnabled: false,
         children: [
           { label: 'Todos los tenants', href: '/tenants' },
           { label: 'Crear tenant', href: '/tenants/new' },
