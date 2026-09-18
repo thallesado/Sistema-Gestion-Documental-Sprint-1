@@ -55,6 +55,12 @@ export class AdministrationApiService {
     return this.http.get<PageResponse<ApiUser>>(`${API_URL}/users`, { params });
   }
 
+  responsibleUsers(filter = '', page = 0, size = 10): Observable<PageResponse<ApiUser>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (filter.trim()) params = params.set('filter', filter.trim());
+    return this.http.get<PageResponse<ApiUser>>(`${API_URL}/users/responsible`, { params });
+  }
+
   roles(): Observable<ApiRole[]> {
     return this.http.get<ApiRole[]>(`${API_URL}/roles`);
   }
