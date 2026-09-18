@@ -143,6 +143,8 @@ no lo concedas al backend ni a personas.
 | init/013_document_checksum_compatibility.sql | Compatibilidad del checksum documental con Hibernate sin alterar datos. |
 | init/014_auth_user_password_hash_privilege.sql | Permite al rol RLS del backend leer únicamente el hash necesario para materializar la entidad de autenticación. |
 | init/015_acme_superadmin_demo_users.sql | Usuarios demo de Acme para probar superadministración y permisos por rol. |
+| init/016_finocode_tenant_name.sql | Renombra el tenant demo a FinoCode y ajusta datos asociados. |
+| init/017_revoked_access_tokens.sql | Revocación persistente de access tokens (tabla `revoked_access_tokens` con hash SHA-256, sin RLS por diseño para que el filtro de seguridad la consulte antes de establecer contexto). |
 | migrate.ps1 | Respaldo y aplicación al servicio local existente. |
 | tests/validate.sql | Regresión de integridad, aislamiento y autorización con rollback. |
 | tests/run.ps1 | Inicialización, upgrade, errores, login real y concurrencia en Docker temporal. |

@@ -19,9 +19,12 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final AccessTokenRevocationChecker accessTokenRevocationChecker;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService,
+                                   AccessTokenRevocationChecker accessTokenRevocationChecker) {
         this.jwtService = jwtService;
+        this.accessTokenRevocationChecker = accessTokenRevocationChecker;
     }
 
     @Override
@@ -48,10 +51,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         jwt = authHeader.substring(7);
         try {
-            if (jwtService.isRevoked(jwt)) {
-                filterChain.doFilter(request, response);
-                return;
-            }
             AuthenticatedUser user = jwtService.extractAuthenticatedUser(jwt);
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
@@ -61,6 +60,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 );
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+                if (accessTokenRevocationChecker.isRevoked(user, jwt)) {
+                    SecurityContextHolder.clearContext();
+                }
             }
         } catch (JwtException | IllegalArgumentException ignored) {
             // Un JWT inválido queda sin autenticación y Security devuelve 401.

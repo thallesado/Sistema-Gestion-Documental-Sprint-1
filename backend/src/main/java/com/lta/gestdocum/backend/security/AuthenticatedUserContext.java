@@ -56,7 +56,14 @@ public class AuthenticatedUserContext {
      * transacción actual y nunca se aceptan desde la petición HTTP.
      */
     public void establishDatabaseContext() {
-        var user = require();
+        establishDatabaseContext(require());
+    }
+
+    /**
+     * Usa únicamente la identidad que el backend ya validó (por ejemplo, tras
+     * un login exitoso), sin aceptar identidad ni tenant del cliente.
+     */
+    public void establishDatabaseContext(AuthenticatedUser user) {
         if (user.tenantId() == null) {
             throw new TenantRequiredException();
         }

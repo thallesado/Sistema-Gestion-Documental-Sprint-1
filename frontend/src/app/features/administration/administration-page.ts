@@ -1,9 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AdministrationApiService, ApiRole, ApiTenant, ApiUser } from '../../core/api/administration-api.service';
-import { DemoSessionState } from '../../core/state/demo-session';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
@@ -12,7 +11,7 @@ import { AuthService } from '../../core/auth/auth.service';
   template: `
     <section class="admin-page">
       @if (isTenantArea) {
-        @if (isSuperadmin) {
+        @if (isSuperadmin()) {
           @if (isCreate) {
             <header class="admin-header"><div><p class="eyebrow">Administración global · Tenants</p><h1>Crear organización</h1><p>Registra un nuevo tenant en NexoDocs.</p></div></header>
             <form class="admin-form" (ngSubmit)="createTenant()"><h2>Nuevo tenant</h2><div class="form-grid">
@@ -32,7 +31,7 @@ import { AuthService } from '../../core/auth/auth.service';
         } @else {
           <div class="admin-state forbidden" role="alert"><b>Acceso restringido</b><span>La vista global de tenants solo está disponible para Superadministrador.</span></div>
         }
-      } @else if (!canManageUsers) {
+      } @else if (!canManageUsers()) {
         <div class="admin-state forbidden" role="alert"><b>Acceso restringido</b><span>Solo un Administrador de tenant o Superadministrador puede gestionar usuarios.</span></div>
       } @else {
         <header class="admin-header">
@@ -81,7 +80,6 @@ import { AuthService } from '../../core/auth/auth.service';
 })
 export class AdministrationPage {
   readonly api = inject(AdministrationApiService);
-  readonly session = inject(DemoSessionState);
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   readonly users = signal<ApiUser[]>([]);
@@ -102,11 +100,33 @@ export class AdministrationPage {
   editForm = { firstName: '', lastName: '', email: '', status: 'ACTIVE', roleIds: [] as number[] };
   readonly isTenantArea = this.route.snapshot.url[0]?.path === 'tenants';
   readonly isCreate = this.route.snapshot.url[1]?.path === 'new';
-  readonly isSuperadmin = this.session.role() === 'Superadministrador';
-  readonly canManageUsers = this.session.role() === 'Administrador de tenant' || this.isSuperadmin;
-  readonly tenantName = () => this.auth.user()?.tenantName || 'la organización autenticada';
+  readonly currentUser = this.auth.user;
+  readonly isSuperadmin = computed(() => {
+    const user = this.currentUser();
+    return user?.platformAdmin === true
+      || (user?.roleNames ?? []).some((role) => {
+        const normalized = role.toUpperCase();
+        return normalized === 'SUPER_ADMIN' || normalized === 'SUPERADMINISTRADOR';
+      });
+  });
+  readonly canManageUsers = computed(() => this.isSuperadmin()
+    || (this.currentUser()?.roleNames ?? []).some((role) => {
+      const normalized = role.toUpperCase();
+      return normalized === 'ADMINISTRADOR DE TENANT' || normalized === 'TENANT_ADMIN';
+    }));
+  readonly tenantName = computed(() => this.currentUser()?.tenantName || 'la organización del usuario autenticado');
 
-  constructor() { if (this.isTenantArea && this.isSuperadmin && !this.isCreate) this.loadTenants(); else if (this.canManageUsers && !this.isCreate) { this.loadUsers(); this.loadRoles(); } else if (this.canManageUsers && this.isCreate) this.loadRoles(); }
+  constructor() {
+    effect(() => {
+      if (this.isTenantArea) {
+        if (this.isSuperadmin() && !this.isCreate) this.loadTenants();
+        return;
+      }
+      if (!this.canManageUsers()) return;
+      this.loadRoles();
+      if (!this.isCreate) this.loadUsers();
+    });
+  }
 
   loadRoles(): void {
     this.rolesLoading.set(true); this.rolesError.set('');

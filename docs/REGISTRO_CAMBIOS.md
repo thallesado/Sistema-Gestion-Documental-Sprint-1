@@ -1,5 +1,53 @@
 # Registro de cambios del proyecto
 
+## 2026-09-19 — Correcciones de auditoría, revocación JWT persistente y documentos
+
+- **Revocación de tokens persistente**: se añadió la migración
+  `database/init/017_revoked_access_tokens.sql` (tabla `revoked_access_tokens`
+  con hash SHA-256, sin RLS por diseño: el filtro de seguridad debe poder
+  consultarla antes de establecer el contexto de la petición). El logout ahora
+  revoca de forma persistente tanto el access token como el refresh token;
+  antes la revocación de access tokens no sobrevivía a un reinicio.
+- **Auditoría de autenticación real**: `AuthenticatedUserContext` gana una
+  sobrecarga `establishDatabaseContext(AuthenticatedUser)` que no depende del
+  `SecurityContextHolder`, porque `/api/v1/auth/**` está excluido del filtro
+  JWT y por tanto no hay `SecurityContext` poblado durante el login. Con este
+  cambio, login/logout/refresh/reset ahora sí generan eventos de auditoría
+  persistidos (antes fallaban silenciosamente con un WARN). El
+  `HttpAuditInterceptor` excluye `/api/v1/auth/**` para no duplicar eventos con
+  `AuthenticationAuditService`.
+- **Auditoría con filtros**: se reemplazó una consulta JPQL con parámetros
+  nullable (`AuditEventRepository.findForTenant`, que rompía en PostgreSQL con
+  `SQLState 42P18: could not determine data type of parameter`) por
+  `Specification`/`JpaSpecificationExecutor`, que sólo añade un predicado si el
+  filtro correspondiente no es nulo.
+- **Colisión de tokens en logins concurrentes**: `JwtService` ahora asigna un
+  JTI aleatorio (`.setId(UUID.randomUUID().toString())`) a cada access y
+  refresh token emitido, evitando que dos logins simultáneos con el mismo
+  `issuedAt` produzcan tokens idénticos y violen el índice único de
+  `auth_sessions`.
+- **Alta documental corregida**: `Document.status` ahora declara
+  `@JdbcTypeCode(SqlTypes.NAMED_ENUM)` con `columnDefinition = "document_status"`
+  para que Hibernate valide contra el nombre real del tipo en PostgreSQL (antes
+  intentaba `documentstatus`). Se eliminó además la asignación inválida
+  `currentVersion = 1` en el constructor: un documento recién creado no tiene
+  versión hasta que se sube contenido real, tal como lo exige el trigger
+  `fk_document_current_version` de la migración `004_saas_hardening`.
+- **Frontend**: `document-page.ts` usa ahora la paginación real que devuelve el
+  backend (`totalDocuments`) en vez de paginar sobre los datos ya filtrados en
+  el cliente. `audit-page.ts` y `administration-page.ts` reconocen el literal
+  de rol `Superadministrador` (además de `SUPER_ADMIN`), evitando que cuentas
+  de plataforma pierdan acceso a pantallas para las que sí tienen autoridad.
+- **Validado end-to-end** contra un stack Docker reconstruido: login
+  concurrente, logout con revocación real (401 posterior), auditoría con y sin
+  filtros, alta de documento con versión y descarga, RBAC plataforma/tenant, y
+  el flujo clínico completo (paciente, historia, nota, timeline, resumen).
+- **Pendiente conocido**: `AuditQueryService` sigue exigiendo un `tenantId` no
+  nulo, por lo que una cuenta de plataforma con `audit:read_global` aún no
+  puede consultar auditoría global cross-tenant desde este endpoint; se
+  necesitaría una ruta o lógica separada que no dependa del contexto RLS
+  tenant-scoped.
+
 ## 2026-09-18 — tenant FinoCode y separación de administración de plataforma
 
 - Se añadió la migración incremental `016_finocode_tenant_name.sql`, que

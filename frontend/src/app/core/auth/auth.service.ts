@@ -17,6 +17,17 @@ export class AuthService {
   readonly isAuthenticated = signal(Boolean(this.readToken()));
   private refreshInFlight: Observable<AuthResponse> | null = null;
 
+  constructor() {
+    if (this.accessToken()) {
+      // Conserva la sesión existente mientras se vuelve a validar la identidad
+      // y los roles con el servidor. Las mismas claves de sessionStorage se
+      // mantienen para no invalidar sesiones creadas por versiones anteriores.
+      this.loadCurrentUser();
+    } else if (this.user()) {
+      this.clearSession();
+    }
+  }
+
   login(request: LoginRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${API_URL}/auth/login`, request).pipe(
       tap((response) => this.storeTokens(response)),
@@ -31,6 +42,7 @@ export class AuthService {
     }
     return this.http.post<AuthResponse>(`${API_URL}/auth/refresh`, { refreshToken }).pipe(
       tap((response) => this.storeTokens(response)),
+      tap(() => this.loadCurrentUser()),
     );
   }
 
@@ -45,6 +57,10 @@ export class AuthService {
   }
 
   loadCurrentUser(): void {
+    if (!this.accessToken()) {
+      this.clearSession();
+      return;
+    }
     this.http.get<AuthUser>(`${API_URL}/auth/me`).subscribe({
       next: (user) => {
         sessionStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -106,7 +122,26 @@ export class AuthService {
     const stored = sessionStorage.getItem(USER_KEY);
     if (!stored) return null;
     try {
-      return JSON.parse(stored) as AuthUser;
+      const parsed: unknown = JSON.parse(stored);
+      if (!parsed || typeof parsed !== 'object') throw new Error('Usuario de sesión inválido');
+      const user = parsed as Partial<AuthUser>;
+      if (typeof user.id !== 'string' || typeof user.username !== 'string' || typeof user.email !== 'string') {
+        throw new Error('Usuario de sesión incompleto');
+      }
+      return {
+        id: user.id,
+        tenantId: typeof user.tenantId === 'string' ? user.tenantId : null,
+        tenantName: typeof user.tenantName === 'string' ? user.tenantName : null,
+        platformAdmin: user.platformAdmin === true,
+        roleNames: Array.isArray(user.roleNames)
+          ? user.roleNames.filter((role): role is string => typeof role === 'string')
+          : [],
+        username: user.username,
+        email: user.email,
+        firstName: typeof user.firstName === 'string' ? user.firstName : '',
+        lastName: typeof user.lastName === 'string' ? user.lastName : '',
+        status: typeof user.status === 'string' ? user.status : '',
+      };
     } catch {
       sessionStorage.removeItem(USER_KEY);
       return null;

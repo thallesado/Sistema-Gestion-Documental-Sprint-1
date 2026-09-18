@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-public class HttpAuditService {
+public class HttpAuditService implements HttpAuditRecorder {
     private final EntityManager entityManager;
     private final AuthenticatedUserContext userContext;
     private final ObjectMapper objectMapper;
@@ -26,10 +26,11 @@ public class HttpAuditService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Override
     public void record(AuthenticatedUser user, String method, String path, int status,
                        String ipAddress, String userAgent) {
         if (user.tenantId() == null) return;
-        userContext.establishDatabaseContext();
+        userContext.establishDatabaseContext(user);
         String[] segments = path.split("/");
         String entityType = segments.length > 3 && !segments[3].isBlank()
                 ? segments[3].toUpperCase() : "API";

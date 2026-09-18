@@ -69,6 +69,10 @@ export class DocumentApiService {
     return this.http.post<ApiDocument>(`${API_URL}/documents`, payload);
   }
 
+  changeStatus(documentId: string, status: string): Observable<ApiDocument> {
+    return this.http.patch<ApiDocument>(`${API_URL}/documents/${documentId}/status`, { status });
+  }
+
   uploadVersion(documentId: string, file: File, changeReason: string): Observable<ApiDocumentVersion> {
     const body = new FormData(); body.append('file', file); body.append('changeReason', changeReason);
     return this.http.post<ApiDocumentVersion>(`${API_URL}/documents/${documentId}/versions`, body);

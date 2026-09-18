@@ -69,10 +69,22 @@ export interface CreatePatientPayload {
   documentNumber: string;
   firstName: string;
   lastName: string;
-  birthDate: string;
-  gender: string;
+  birthDate?: string;
+  gender?: string;
   phone?: string;
   email?: string;
+}
+
+/** Resumen de lectura rápida de HU-10, limitado por el tenant del JWT. */
+export interface PatientQuickSummary {
+  patientId: string;
+  patientName: string;
+  document: string;
+  clinicalHistoryId: string | null;
+  historyCode: string | null;
+  allergies: { allergen: string; severity?: string | null; reaction?: string | null }[];
+  baseDiagnoses: { code?: string | null; description: string; diagnosedAt?: string | null }[];
+  recentNotes: { id: string; type: string; content: string; createdAt: string }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -89,6 +101,10 @@ export class ClinicalApiService {
 
   patient(id: string): Observable<ApiPatient> {
     return this.http.get<ApiPatient>(`${API_URL}/patients/${id}`);
+  }
+
+  quickSummary(id: string): Observable<PatientQuickSummary> {
+    return this.http.get<PatientQuickSummary>(`${API_URL}/patients/${id}/quick-summary`);
   }
 
   /** HU-03: alta de paciente dentro del tenant autenticado. */

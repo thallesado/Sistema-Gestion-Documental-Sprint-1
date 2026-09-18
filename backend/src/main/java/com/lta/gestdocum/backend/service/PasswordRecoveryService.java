@@ -63,7 +63,9 @@ public class PasswordRecoveryService {
 
     @Transactional
     public String requestRecovery(ForgotPasswordRequest request) {
-        userRepository.findByTenantAndIdentifier(request.tenantId(), request.email())
+        (request.tenantId() == null
+                ? userRepository.findByPlatformIdentifier(request.email())
+                : userRepository.findByTenantAndIdentifier(request.tenantId(), request.email()))
                 .filter(user -> user.getDeletedAt() == null && user.getStatus() == User.UserStatus.ACTIVE)
                 .ifPresent(user -> createAndSend(user));
         return GENERIC_RESPONSE;
@@ -87,7 +89,9 @@ public class PasswordRecoveryService {
 
         authSessionService.revokeAll(user.getId());
 
-        var authorities = userRepository.findAuthorityCodes(user.getId(), user.getTenantId());
+        var authorities = user.isPlatformAdmin()
+                ? java.util.List.of("platform:tenant:manage", "audit:read_global")
+                : userRepository.findAuthorityCodes(user.getId(), user.getTenantId());
         if (authorities.isEmpty()) {
             throw new InvalidCredentialsException();
         }

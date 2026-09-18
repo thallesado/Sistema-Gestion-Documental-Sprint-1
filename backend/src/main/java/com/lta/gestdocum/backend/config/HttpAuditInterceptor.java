@@ -1,9 +1,11 @@
 package com.lta.gestdocum.backend.config;
 
 import com.lta.gestdocum.backend.security.AuthenticatedUser;
-import com.lta.gestdocum.backend.service.HttpAuditService;
+import com.lta.gestdocum.backend.service.HttpAuditRecorder;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -11,9 +13,10 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 @Component
 public class HttpAuditInterceptor implements HandlerInterceptor {
-    private final HttpAuditService auditService;
+    private static final Logger LOGGER = LoggerFactory.getLogger(HttpAuditInterceptor.class);
+    private final HttpAuditRecorder auditService;
 
-    public HttpAuditInterceptor(HttpAuditService auditService) {
+    public HttpAuditInterceptor(HttpAuditRecorder auditService) {
         this.auditService = auditService;
     }
 
@@ -27,8 +30,10 @@ public class HttpAuditInterceptor implements HandlerInterceptor {
             auditService.record(user, request.getMethod(), request.getRequestURI(), response.getStatus(),
                     forwarded == null ? request.getRemoteAddr() : forwarded,
                     request.getHeader("User-Agent"));
-        } catch (RuntimeException ignored) {
-            // La auditoría no debe sustituir la respuesta ya producida; los fallos se observan en logs.
+        } catch (RuntimeException auditException) {
+            LOGGER.warn("No se pudo persistir la auditoría HTTP method={} path={} status={} failure={}",
+                    request.getMethod(), request.getRequestURI(), response.getStatus(),
+                    auditException.getClass().getSimpleName());
         }
     }
 }

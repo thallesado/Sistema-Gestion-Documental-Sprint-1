@@ -1,12 +1,17 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
+export type AuditFilterOption = {
+  value: string;
+  label: string;
+};
+
 export type AuditFilterField = {
   key: string;
   label: string;
   type?: 'text' | 'date' | 'select';
   placeholder?: string;
-  options?: string[];
+  options?: AuditFilterOption[];
 };
 
 @Component({
@@ -22,7 +27,7 @@ export type AuditFilterField = {
           @if (field.type === 'select') {
             <select [value]="values[field.key] || ''" (change)="change(field.key, $event)">
               <option value="">Todos</option>
-              @for (option of field.options ?? []; track option) { <option [value]="option">{{ option }}</option> }
+              @for (option of field.options ?? []; track option.value) { <option [value]="option.value">{{ option.label }}</option> }
             </select>
           } @else {
             <input [type]="field.type || 'text'" [value]="values[field.key] || ''" [placeholder]="field.placeholder || ''" (input)="change(field.key, $event)" />

@@ -5,6 +5,8 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -12,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -21,7 +22,6 @@ public class JwtService {
     private final Key key;
     private final long expiration;
     private final long refreshExpiration;
-    private final Set<String> revokedTokens = ConcurrentHashMap.newKeySet();
 
     public JwtService(String secret, long expiration) {
         this(secret, expiration, 604800000L);
@@ -53,18 +53,11 @@ public class JwtService {
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(username)
+                .setId(UUID.randomUUID().toString())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
-    }
-
-    public void revoke(String token) {
-        revokedTokens.add(token);
-    }
-
-    public boolean isRevoked(String token) {
-        return revokedTokens.contains(token);
     }
 
     public String generateRefreshToken(UUID userId, UUID tenantId, String username) {
@@ -77,6 +70,7 @@ public class JwtService {
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(username)
+                .setId(UUID.randomUUID().toString())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + refreshExpiration))
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -88,9 +82,6 @@ public class JwtService {
     }
 
     public RefreshIdentity extractRefreshIdentity(String token) {
-        if (isRevoked(token)) {
-            throw new MalformedJwtException("El refresh token fue revocado");
-        }
         Claims claims = parse(token);
         if (!"refresh".equals(claims.get("tokenType", String.class))) {
             throw new MalformedJwtException("El token no es de renovación");
@@ -111,6 +102,8 @@ public class JwtService {
 
     public record RefreshIdentity(UUID userId, UUID tenantId, String username) {}
 
+    public record AccessTokenDetails(AuthenticatedUser identity, OffsetDateTime expiresAt) {}
+
     /**
      * Compatibilidad para emisores antiguos: el rol no concede ningún permiso
      * de módulo; solo evita volver a generar tokens con authorities vacías.
@@ -120,7 +113,14 @@ public class JwtService {
     }
 
     public AuthenticatedUser extractAuthenticatedUser(String token) {
+        return extractAccessTokenDetails(token).identity();
+    }
+
+    public AccessTokenDetails extractAccessTokenDetails(String token) {
         Claims claims = parse(token);
+        if (!"access".equals(claims.get("tokenType", String.class))) {
+            throw new MalformedJwtException("El JWT no es un token de acceso");
+        }
         String username = claims.getSubject();
         UUID userId = parseRequiredUuid(claims, "userId");
         UUID tenantId = parseOptionalUuid(claims, "tenantId");
@@ -133,7 +133,13 @@ public class JwtService {
                 .map(String.class::cast)
                 .filter(value -> !value.isBlank())
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
-        return new AuthenticatedUser(userId, tenantId, username, authorities);
+        Date expiresAt = claims.getExpiration();
+        if (expiresAt == null) {
+            throw new MalformedJwtException("Falta la expiración del JWT");
+        }
+        return new AccessTokenDetails(
+                new AuthenticatedUser(userId, tenantId, username, authorities),
+                expiresAt.toInstant().atOffset(ZoneOffset.UTC));
     }
 
     public String extractUsername(String token) {

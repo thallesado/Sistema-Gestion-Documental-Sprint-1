@@ -28,6 +28,59 @@ DO $$ BEGIN
   PERFORM pg_temp.assert_true(NOT (SELECT rolbypassrls OR rolsuper OR rolcreaterole FROM pg_roles WHERE rolname='nexodocs_app'), 'sin privilegios de evasión');
   PERFORM pg_temp.assert_true(NOT has_schema_privilege('nexodocs_app','app','CREATE'), 'funciones protegidas');
   PERFORM pg_temp.assert_true(NOT has_table_privilege('nexodocs_app','app.schema_migrations','INSERT'), 'migraciones protegidas');
+  PERFORM pg_temp.assert_true(to_regclass('public.revoked_access_tokens') IS NOT NULL, 'tabla de revocaciones de access token');
+  PERFORM pg_temp.assert_true(EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='017_revoked_access_tokens'), 'migración de revocaciones registrada');
+  PERFORM pg_temp.assert_true(
+    (SELECT array_agg(column_name::text ORDER BY column_name)
+     FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='revoked_access_tokens')
+    = ARRAY['expires_at','revoked_at','tenant_id','token_hash','user_id']::text[],
+    'revocaciones guardan únicamente hash y trazabilidad, nunca token crudo'
+  );
+  PERFORM pg_temp.assert_true(
+    EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='revoked_access_tokens'
+        AND column_name='tenant_id' AND is_nullable='YES'
+    ),
+    'tenant nullable para usuarios de plataforma'
+  );
+  PERFORM pg_temp.assert_true(
+    NOT EXISTS (
+      SELECT 1
+      FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relname='revoked_access_tokens'
+        AND c.relrowsecurity
+    ),
+    'sin RLS para el chequeo de revocación del filtro de seguridad'
+  );
+  PERFORM pg_temp.assert_true(
+    EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conrelid='public.revoked_access_tokens'::regclass
+        AND conname='pk_revoked_access_tokens' AND contype='p'
+    )
+    AND EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conrelid='public.revoked_access_tokens'::regclass
+        AND conname='fk_revoked_access_tokens_user' AND contype='f'
+    ),
+    'clave de hash y FK de usuario para revocaciones'
+  );
+  PERFORM pg_temp.assert_true(
+    to_regclass('public.idx_revoked_access_tokens_expiry') IS NOT NULL,
+    'índice de limpieza de revocaciones vencidas'
+  );
+  PERFORM pg_temp.assert_true(
+    has_table_privilege('nexodocs_app','revoked_access_tokens','SELECT')
+    AND has_table_privilege('nexodocs_app','revoked_access_tokens','INSERT')
+    AND has_table_privilege('nexodocs_app','revoked_access_tokens','DELETE')
+    AND NOT has_table_privilege('nexodocs_app','revoked_access_tokens','UPDATE')
+    AND NOT has_table_privilege('nexodocs_app','revoked_access_tokens','TRUNCATE')
+    AND NOT has_table_privilege('nexodocs_app','revoked_access_tokens','REFERENCES')
+    AND NOT has_table_privilege('nexodocs_app','revoked_access_tokens','TRIGGER'),
+    'privilegios mínimos de revocaciones para nexodocs_app'
+  );
 END $$;
 
 -- 101/102: tenants; 201..204: usuarios; 301/302: tipos; 401..403: documentos.
@@ -42,6 +95,10 @@ INSERT INTO users(id,tenant_id,username,email,password_hash,first_name,last_name
 UPDATE users SET status='BLOCKED' WHERE id=pg_temp.id(203);
 INSERT INTO users(id,username,email,password_hash,first_name,last_name,is_platform_admin)
 VALUES (pg_temp.id(205),'fixture.platform','platform@fixture.test','!disabled-test','Platform','Admin',true);
+INSERT INTO revoked_access_tokens(token_hash,user_id,tenant_id,expires_at)
+VALUES
+  (repeat('a',64),pg_temp.id(201),pg_temp.id(101),now() + interval '1 hour'),
+  (repeat('b',64),pg_temp.id(205),NULL,now() + interval '1 hour');
 INSERT INTO roles(tenant_id,name) VALUES (pg_temp.id(101),'FIXTURE_ADMIN'),(pg_temp.id(101),'FIXTURE_OPERATOR'),(pg_temp.id(102),'FIXTURE_ADMIN');
 INSERT INTO role_permissions(tenant_id,role_id,permission_id)
 SELECT r.tenant_id,r.id,p.id FROM roles r CROSS JOIN permissions p
@@ -120,6 +177,34 @@ DO $$ DECLARE t text; BEGIN
   PERFORM pg_temp.expect_error('TRUNCATE audit_events','55000');
   PERFORM pg_temp.expect_error('TRUNCATE workflow_events','55000');
   PERFORM pg_temp.expect_error('TRUNCATE document_versions','0A000');
+  PERFORM pg_temp.assert_true(
+    EXISTS (
+      SELECT 1 FROM revoked_access_tokens
+      WHERE token_hash=repeat('b',64) AND user_id=pg_temp.id(205)
+        AND tenant_id IS NULL
+    ),
+    'la revocación de usuario de plataforma no requiere tenant'
+  );
+  PERFORM pg_temp.expect_error(
+    $q$INSERT INTO revoked_access_tokens(token_hash,user_id,tenant_id,expires_at)
+       VALUES ('plain-access-token',pg_temp.id(201),pg_temp.id(101),now() + interval '1 hour')$q$,
+    '23514'
+  );
+  PERFORM pg_temp.expect_error(
+    $q$INSERT INTO revoked_access_tokens(token_hash,user_id,tenant_id,expires_at)
+       VALUES (repeat('c',64),pg_temp.id(201),pg_temp.id(102),now() + interval '1 hour')$q$,
+    '23514'
+  );
+  PERFORM pg_temp.expect_error(
+    $q$UPDATE revoked_access_tokens
+         SET expires_at=expires_at
+       WHERE token_hash=repeat('a',64)$q$,
+    '55000'
+  );
+  PERFORM pg_temp.expect_error(
+    $q$DELETE FROM revoked_access_tokens WHERE token_hash=repeat('a',64)$q$,
+    '55000'
+  );
 END $$;
 \echo 'Integridad relacional e históricos: OK'
 
@@ -136,6 +221,15 @@ DO $$ DECLARE r record; visible bigint; BEGIN
     EXECUTE format('SELECT count(*) FROM public.%I',r.relname) INTO visible;
     PERFORM pg_temp.assert_true(visible=0,'sin contexto no hay filas en ' || r.relname);
   END LOOP;
+END $$;
+DO $$ BEGIN
+  PERFORM pg_temp.assert_true(
+    EXISTS (
+      SELECT 1 FROM revoked_access_tokens
+      WHERE token_hash=repeat('a',64) AND expires_at > now()
+    ),
+    'el filtro de seguridad consulta revocaciones sin contexto RLS'
+  );
 END $$;
 SELECT set_config('app.tenant_id',pg_temp.id(101)::text,true);
 DO $$ BEGIN PERFORM pg_temp.assert_true((SELECT count(*)=0 FROM documents),'tenant sin usuario no da acceso'); END $$;
@@ -178,6 +272,16 @@ DO $$ DECLARE affected integer; BEGIN
   PERFORM pg_temp.expect_error('DELETE FROM documents','42501');
   PERFORM pg_temp.expect_error('UPDATE document_versions SET change_reason=change_reason','42501');
   PERFORM pg_temp.expect_error('DELETE FROM audit_events','42501');
+  INSERT INTO revoked_access_tokens(token_hash,user_id,tenant_id,expires_at,revoked_at)
+  VALUES (repeat('d',64),pg_temp.id(201),pg_temp.id(101),now() + interval '1 hour',now());
+  PERFORM pg_temp.assert_true(
+    EXISTS (SELECT 1 FROM revoked_access_tokens WHERE token_hash=repeat('d',64)),
+    'el rol de aplicación registra el hash de revocación'
+  );
+  PERFORM pg_temp.expect_error(
+    $q$UPDATE revoked_access_tokens SET expires_at=expires_at WHERE token_hash=repeat('d',64)$q$,
+    '42501'
+  );
   PERFORM pg_temp.expect_error('CREATE TABLE app.forbidden(id integer)','42501');
   PERFORM pg_temp.expect_error($q$INSERT INTO documents(tenant_id,document_type_id,author_id,code,name) VALUES (pg_temp.id(102),pg_temp.id(302),pg_temp.id(204),'FORBIDDEN','TEST')$q$,'42501');
   PERFORM pg_temp.expect_error($q$INSERT INTO audit_events(tenant_id,user_id,action,entity_type) VALUES (pg_temp.id(101),pg_temp.id(202),'FORGED','TEST')$q$,'42501');

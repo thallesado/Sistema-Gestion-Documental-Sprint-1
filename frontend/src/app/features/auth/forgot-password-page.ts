@@ -45,8 +45,8 @@ export class ForgotPasswordPage {
   readonly isSubmitting = signal(false);
   readonly errorMessage = signal('');
   readonly successMessage = signal('');
-  tenantId = '20000000-0000-0000-0000-000000000001';
-  email = 'laura@acme.com';
+  tenantId = '';
+  email = '';
 
   submit(): void {
     this.errorMessage.set('');

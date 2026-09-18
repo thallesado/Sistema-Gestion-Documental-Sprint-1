@@ -6,6 +6,7 @@ import com.lta.gestdocum.backend.dto.RefreshTokenRequest;
 import com.lta.gestdocum.backend.exception.InvalidCredentialsException;
 import com.lta.gestdocum.backend.model.User;
 import com.lta.gestdocum.backend.repository.UserRepository;
+import com.lta.gestdocum.backend.security.AuthenticatedUser;
 import com.lta.gestdocum.backend.security.JwtService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,15 +20,18 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthSessionService authSessionService;
+    private final AccessTokenRevocationService accessTokenRevocationService;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
-                       AuthSessionService authSessionService) {
+                       AuthSessionService authSessionService,
+                       AccessTokenRevocationService accessTokenRevocationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authSessionService = authSessionService;
+        this.accessTokenRevocationService = accessTokenRevocationService;
     }
 
     public AuthResponse login(AuthRequest request) {
@@ -90,8 +94,8 @@ public class AuthService {
         return new AuthResponse(token, "Bearer", replacementRefreshToken, jwtService.getExpiration());
     }
 
-    public void logout(String token, String refreshToken) {
-        jwtService.revoke(token);
+    public void logout(AuthenticatedUser authenticatedUser, String token, String refreshToken) {
+        accessTokenRevocationService.revoke(authenticatedUser, token);
         authSessionService.revoke(refreshToken);
     }
 
