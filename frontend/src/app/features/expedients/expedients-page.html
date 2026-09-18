@@ -1,0 +1,62 @@
+<section class="expedients-page">
+  <header class="expedients-header">
+    <div class="heading-icon" aria-hidden="true">EX</div>
+    <div>
+      <p class="eyebrow">Expedientes <span>·</span> {{ title }}</p>
+      <h1>{{ title }}</h1>
+      <p>{{ description }}</p>
+    </div>
+    @if (!isForm) {
+      <a class="primary-button" routerLink="/expedients/new"><span>＋</span> Crear expediente</a>
+    }
+  </header>
+
+  @if (isForm) {
+    <section class="creation-layout">
+      <aside class="steps-card">
+        <p class="eyebrow">Nuevo expediente</p>
+        @for (label of ['Información básica', 'Responsables', 'Confirmación']; track label; let i = $index) {
+          <div class="step-item" [class.current]="step() === i + 1" [class.done]="step() > i + 1">
+            <span>{{ step() > i + 1 ? '✓' : i + 1 }}</span><div><b>{{ label }}</b><small>{{ ['Identifica la unidad documental', 'Define acceso y seguimiento', 'Revisa antes de guardar'][i] }}</small></div>
+          </div>
+        }
+        <div class="demo-callout"><b>Vista de demostración</b><span>Los datos se mantienen únicamente en esta pantalla y no se guardan en un servidor.</span></div>
+      </aside>
+      <section class="panel form-card">
+        <div class="panel-heading"><div><span class="step-label">Paso {{ step() }} de 3</span><h2>{{ ['Información básica', 'Responsables y acceso', 'Confirmar expediente'][step() - 1] }}</h2><p>{{ ['Completa los datos principales del expediente.', 'Indica quién será responsable de su gestión.', 'Revisa la información antes de finalizar.'][step() - 1] }}</p></div></div>
+        @if (saved()) {
+          <div class="success-state"><span>✓</span><h2>Expediente preparado</h2><p>La creación se simuló correctamente. No se realizó ninguna operación persistente.</p><a routerLink="/expedients">Volver a expedientes</a></div>
+        } @else if (step() === 1) {
+          <div class="form-grid">
+            <label class="wide">Nombre del expediente <input [value]="form().name" (input)="updateField('name', $event)" placeholder="Ej. Alta de proveedor Andes"></label>
+            <label>Tipo de expediente <select [value]="form().type" (change)="updateField('type', $event)">@for (type of types; track type) { <option>{{ type }}</option> }</select></label>
+            <label>Área responsable <select [value]="form().area" (change)="updateField('area', $event)">@for (item of areas; track item) { <option>{{ item }}</option> }</select></label>
+            <label class="wide">Descripción <textarea [value]="form().description" (input)="updateField('description', $event)" placeholder="Describe el objetivo y alcance del expediente"></textarea></label>
+          </div>
+        } @else if (step() === 2) {
+          <div class="form-grid"><label>Responsable principal <input [value]="form().responsible" (input)="updateField('responsible', $event)" placeholder="Nombre del responsable"></label><label>Nivel de acceso <select><option>Equipo del área</option><option>Solo responsables</option><option>Todo el tenant</option></select></label><label class="wide">Participantes <input placeholder="Añade usuarios o equipos"></label></div>
+          <div class="info-banner">Podrás agregar documentos y participantes después de crear el expediente.</div>
+        } @else {
+          <dl class="review-list"><div><dt>Nombre</dt><dd>{{ form().name || 'Sin nombre indicado' }}</dd></div><div><dt>Tipo y área</dt><dd>{{ form().type }} · {{ form().area }}</dd></div><div><dt>Responsable</dt><dd>{{ form().responsible || 'Sin responsable indicado' }}</dd></div><div><dt>Descripción</dt><dd>{{ form().description || 'Sin descripción' }}</dd></div></dl>
+        }
+        <div class="form-actions"><button type="button" class="secondary-button" (click)="previousStep()" [disabled]="step() === 1">Atrás</button>@if (step() < 3) { <button type="button" class="primary-button" (click)="nextStep()">Continuar <span>→</span></button> } @else { <button type="button" class="primary-button" (click)="saveExpedient()">Crear expediente</button> }</div>
+      </section>
+    </section>
+  } @else {
+    <section class="stats-row"><article><span class="stat-symbol teal">▤</span><div><small>Total registrados</small><strong>{{ expedients.length }}</strong><span>En todos los estados</span></div></article><article><span class="stat-symbol blue">◷</span><div><small>Activos</small><strong>{{ activeCount }}</strong><span>En seguimiento</span></div></article><article><span class="stat-symbol slate">✓</span><div><small>Documentos</small><strong>96</strong><span>En los expedientes</span></div></article></section>
+    <section class="panel list-panel">
+      <div class="toolbar"><div class="search-control"><span>⌕</span><input aria-label="Buscar expedientes" placeholder="Buscar por nombre, código o área..." [value]="search()" (input)="setSearch($event)"></div><select aria-label="Filtrar por área" [value]="area()" (change)="setArea($event)"><option value="">Todas las áreas</option>@for (item of areas; track item) { <option>{{ item }}</option> }</select><button type="button" class="filter-button" (click)="clearFilters()">Limpiar filtros</button></div>
+      <div class="list-heading"><div><h2>{{ view === 'active' ? 'Seguimiento activo' : view === 'closed' ? 'Historial de expedientes cerrados' : view === 'archived' ? 'Archivo histórico' : 'Repositorio de expedientes' }}</h2><p>{{ countLabel }} · datos de demostración</p></div><button type="button" class="view-toggle" aria-label="Vista de tarjetas">▦</button></div>
+      @if (view === 'active' || view === 'archived') {
+        <div class="expedient-cards">@for (item of items(); track item.title) { <button class="expedient-card" (click)="choose(item)"><div class="card-top"><span class="folder-icon">{{ icon(item) }}</span><span [class]="statusClass(item.status)">{{ item.status }}</span></div><h3>{{ item.title }}</h3><p>{{ item.meta }}</p><div class="card-footer"><span>{{ item.area }}</span><span>{{ item.date }}</span></div></button> } @empty { <div class="empty-state">No hay expedientes en este estado.</div> }</div>
+      } @else {
+        <div class="expedient-table"><div class="table-row table-head"><span>Expediente</span><span>Área</span><span>Última actualización</span><span>Estado</span><span></span></div>@for (item of items(); track item.title) { <button class="table-row" (click)="choose(item)"><span class="item-name"><span class="folder-icon">{{ icon(item) }}</span><b>{{ item.title }}</b><small>{{ item.meta }}</small></span><span>{{ item.area }}</span><span>{{ item.date }}</span><span [class]="statusClass(item.status)">{{ item.status }}</span><span class="chevron">›</span></button> } @empty { <div class="empty-state">No se encontraron expedientes. Prueba con otros filtros.</div> }</div>
+      }
+    </section>
+    <footer class="demo-footnote">ⓘ <span>Vista de demostración con datos simulados de <b>Acme Consulting</b>. No realiza operaciones persistentes.</span></footer>
+  }
+
+  @if (selected(); as item) {
+    <div class="detail-backdrop" (click)="closeDetail()"></div><aside class="detail-panel" aria-label="Detalle del expediente"><button class="close-detail" type="button" (click)="closeDetail()" aria-label="Cerrar detalle">×</button><div class="detail-cover"><span class="folder-icon large">{{ icon(item) }}</span><span [class]="statusClass(item.status)">{{ item.status }}</span></div><p class="eyebrow">Expediente {{ item.title.split(' - ')[0] }}</p><h2>{{ item.title.split(' - ')[1] }}</h2><p class="muted">{{ item.meta }}</p><hr><dl class="detail-data"><div><dt>Área responsable</dt><dd>{{ item.area }}</dd></div><div><dt>Última actualización</dt><dd>{{ item.date }}</dd></div><div><dt>Documentos</dt><dd>{{ item.meta.split(' - ')[2] || 'Sin documentos' }}</dd></div></dl><button type="button" class="primary-button full" (click)="goTo('/documents')">Ver documentos</button><button type="button" class="secondary-button full" (click)="closeDetail()">Cerrar panel</button></aside>
+  }
+</section>

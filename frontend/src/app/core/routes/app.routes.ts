@@ -11,9 +11,11 @@ import { ForgotPasswordPage } from '../../features/auth/forgot-password-page';
 import { ResetPasswordPage } from '../../features/auth/reset-password-page';
 import { AdministrationPage } from '../../features/administration/administration-page';
 import { DocumentPage } from '../../features/documents/document-page';
+import { ExpedientsPage } from '../../features/expedients/expedients-page';
 
 const clinicalPaths = new Set(['expedients/clinical', 'expedients/clinical/notes']);
 const documentPaths = new Set(['documents', 'settings/statuses']);
+const expedientPaths = new Set(['expedients', 'expedients/new', 'expedients/active', 'expedients/closed', 'expedients/archived']);
 
 export const routes: Routes = [
   {
@@ -86,8 +88,21 @@ export const routes: Routes = [
     title: 'Estados documentales - NexoDocs',
     canActivate: [authGuard],
   },
+  ...[
+    ['expedients', 'all', 'Todos los expedientes'],
+    ['expedients/new', 'new', 'Crear expediente'],
+    ['expedients/active', 'active', 'Activos'],
+    ['expedients/closed', 'closed', 'Cerrados'],
+    ['expedients/archived', 'archived', 'Archivados'],
+  ].map(([path, expedientView, title]) => ({
+    path,
+    component: ExpedientsPage,
+    title: `${title} - NexoDocs`,
+    data: { expedientView },
+    canActivate: [authGuard],
+  })),
   ...navigationRoutes
-    .filter((route) => !clinicalPaths.has(route.href.slice(1)) && !documentPaths.has(route.href.slice(1)))
+    .filter((route) => !clinicalPaths.has(route.href.slice(1)) && !documentPaths.has(route.href.slice(1)) && !expedientPaths.has(route.href.slice(1)))
     .map((route) => ({
       path: route.href === '/' ? '' : route.href.slice(1),
       component: route.module === 'Reportes'
