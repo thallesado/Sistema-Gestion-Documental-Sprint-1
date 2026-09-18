@@ -1,5 +1,22 @@
 # Registro de cambios del proyecto
 
+## 2026-09-18 — tenant FinoCode y separación de administración de plataforma
+
+- Se añadió la migración incremental `016_finocode_tenant_name.sql`, que
+  actualiza únicamente el nombre visible del tenant UUID
+  `20000000-0000-0000-0000-000000000001` a `FinoCode`.
+- `/auth/me` ahora expone `tenantName`, `platformAdmin` y `roleNames`; el
+  frontend deja de mostrar el UUID como nombre de organización y elimina el
+  selector de rol visual editable.
+- La administración global de tenants exige `platform:tenant:manage`, emitido
+  únicamente para usuarios marcados como administradores de plataforma.
+  `/tenants` y `/tenants/new` tienen además un guard frontend y una pantalla
+  propia de acceso restringido; el backend responde 403 ante acceso manual.
+- La migración crea identidades de plataforma separadas para las seis cuentas
+  demo, con `tenant_id = NULL` e `is_platform_admin = true`. Las identidades
+  históricas tenant y sus UUID, relaciones documentales y asignaciones se
+  conservan intactas porque `tenant_id` es inmutable.
+
 ## 2026-09-18 — contratos mínimos de documentos para el frontend
 
 - Se añadió `GET /api/v1/documents/mine`, siempre limitado al tenant del JWT,

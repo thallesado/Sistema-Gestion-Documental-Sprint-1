@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Seed incremental y exclusivamente demostrativo para Acme Consulting.
+-- Seed incremental y exclusivamente demostrativo para FinoCode.
 -- Las contraseñas comparten el valor documentado en database/README.md.
 -- crypt(..., gen_salt('bf')) genera hashes BCrypt compatibles con Spring Security.
 BEGIN;
@@ -39,7 +39,7 @@ SELECT EXISTS (
   VALUES (
     '20000000-0000-0000-0000-000000000001',
     'Superadministrador',
-    'Cuenta de demostración con permisos completos dentro de Acme Consulting.',
+    'Cuenta de demostración con permisos completos dentro de FinoCode.',
     true
   )
   ON CONFLICT (tenant_id, name) DO NOTHING;

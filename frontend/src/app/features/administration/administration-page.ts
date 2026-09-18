@@ -104,7 +104,7 @@ export class AdministrationPage {
   readonly isCreate = this.route.snapshot.url[1]?.path === 'new';
   readonly isSuperadmin = this.session.role() === 'Superadministrador';
   readonly canManageUsers = this.session.role() === 'Administrador de tenant' || this.isSuperadmin;
-  readonly tenantName = () => this.auth.user()?.tenantId || 'la organización autenticada';
+  readonly tenantName = () => this.auth.user()?.tenantName || 'la organización autenticada';
 
   constructor() { if (this.isTenantArea && this.isSuperadmin && !this.isCreate) this.loadTenants(); else if (this.canManageUsers && !this.isCreate) { this.loadUsers(); this.loadRoles(); } else if (this.canManageUsers && this.isCreate) this.loadRoles(); }
 

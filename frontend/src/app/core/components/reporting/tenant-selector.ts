@@ -19,10 +19,10 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
   `,
 })
 export class TenantSelector {
-  @Input() tenant = 'Acme Consulting';
+  @Input() tenant = 'Organización autenticada';
   @Input() role = '';
   @Output() tenantChange = new EventEmitter<string>();
-  readonly options = ['Acme Consulting', 'Todos los tenants', 'Clínica Central', 'Universidad del Valle'];
+  readonly options = ['Todos los tenants'];
 
   get isSuperAdmin(): boolean { return this.role === 'Superadministrador'; }
 }

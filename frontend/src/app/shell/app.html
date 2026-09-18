@@ -14,14 +14,7 @@
       <div class="tenant-box">
         <small>Organización activa</small>
         <div class="tenant-name"><b>{{ tenantName() }}</b></div>
-        <label class="role-switcher">
-          <span>Rol visual</span>
-          <select [value]="role()" (change)="role.set($any($event.target).value)">
-            @for (item of roles; track item) {
-              <option [value]="item">{{ item }}</option>
-            }
-          </select>
-        </label>
+        <small class="tenant-role">Rol: {{ role() }}</small>
       </div>
 
       <nav class="sidebar-nav" aria-label="Navegación principal">

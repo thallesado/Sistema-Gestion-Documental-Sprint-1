@@ -137,7 +137,7 @@ export class AuditPage {
   private readonly auditApi = inject(AuditApiService);
   readonly routeInfo = this.route.snapshot.data['routeInfo'] as RouteInfo;
   readonly view: AuditView = auditViewFromPath(this.routeInfo.href);
-  readonly tenant = signal(this.auth.user()?.tenantId || 'Tenant autenticado');
+  readonly tenant = signal(this.auth.user()?.tenantName || 'Tenant autenticado');
   readonly isSuperAdmin = computed(() => this.session.role() === 'Superadministrador');
   readonly globalSearch = signal('');
   readonly filterValues = signal<Record<string, string>>({});

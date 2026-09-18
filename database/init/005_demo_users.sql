@@ -18,7 +18,7 @@ SELECT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version = '005_demo_use
   \echo '005_demo_users ya aplicada'
 \else
 
--- Roles adicionales para Clínica Central, mismo patrón que Acme Consulting
+-- Roles adicionales para Clínica Central, mismo patrón que FinoCode
 INSERT INTO roles (tenant_id, name, description, is_system)
 SELECT '20000000-0000-0000-0000-000000000002', v.name, v.description, true
 FROM (VALUES
@@ -56,7 +56,7 @@ INSERT INTO tmp_names (idx, first_name, last_name) VALUES
 (13,'Martina','Aguilar'),(14,'Benjamin','Campos'),(15,'Luciana','Herrera'),(16,'Agustin','Medina'),
 (17,'Victoria','Cabrera'),(18,'Tomas','Paredes'),(19,'Regina','Cordero'),(20,'Maximiliano','Nunez');
 
--- 17 usuarios nuevos para Acme Consulting (ya tiene 3 del seed 003 -> total 20)
+-- 17 usuarios nuevos para FinoCode (ya tiene 3 del seed 003 -> total 20)
 -- Distribución: 1 Administrador de tenant, 5 Supervisor, 11 Usuario operativo
 WITH depts AS (
   SELECT id, code, row_number() OVER (ORDER BY code) AS rn, count(*) OVER () AS n

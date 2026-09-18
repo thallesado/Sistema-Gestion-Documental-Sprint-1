@@ -14,12 +14,12 @@ import org.springframework.http.HttpStatus;
 public class TenantController {
     private final TenantService service;
     public TenantController(TenantService service) { this.service = service; }
-    @GetMapping @PreAuthorize("hasAuthority('tenant:manage')")
+    @GetMapping @PreAuthorize("hasAuthority('platform:tenant:manage')")
     public List<TenantResponse> list() { return service.list(); }
-    @PostMapping @PreAuthorize("hasAuthority('tenant:manage')")
+    @PostMapping @PreAuthorize("hasAuthority('platform:tenant:manage')")
     @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.CREATED)
     public TenantResponse create(@Valid @RequestBody TenantCreateRequest request) { return service.create(request); }
-    @PatchMapping("/{id}/status") @PreAuthorize("hasAuthority('tenant:manage')")
+    @PatchMapping("/{id}/status") @PreAuthorize("hasAuthority('platform:tenant:manage')")
     public TenantResponse status(@PathVariable java.util.UUID id, @RequestParam String value) {
         return service.changeStatus(id, value);
     }

@@ -14,7 +14,10 @@ public class UserResponse {
     private String firstName;
     private String lastName;
     private String status;
+    private String tenantName;
+    private boolean platformAdmin;
     private String staffType;
     private String specialty;
     private java.util.Set<Long> roleIds;
+    private java.util.Set<String> roleNames;
 }

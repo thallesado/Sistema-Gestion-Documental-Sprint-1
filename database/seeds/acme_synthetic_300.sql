@@ -11,9 +11,9 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM tenants
     WHERE id = '20000000-0000-0000-0000-000000000001'
-      AND name = 'Acme Consulting'
+      AND name = 'FinoCode'
   ) THEN
-    RAISE EXCEPTION 'No existe el tenant Acme Consulting esperado';
+    RAISE EXCEPTION 'No existe el tenant FinoCode esperado';
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM users

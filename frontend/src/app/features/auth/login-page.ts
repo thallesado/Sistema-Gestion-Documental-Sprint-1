@@ -18,8 +18,8 @@ import { AuthService } from '../../core/auth/auth.service';
         }
         <label>
           Organización
-          <input name="tenantId" [(ngModel)]="tenantId" required />
-          <small>Usa el identificador asignado por tu organización.</small>
+          <input name="tenantId" [(ngModel)]="tenantId" />
+          <small>Usa el UUID asignado por tu organización. Déjalo vacío para una cuenta de plataforma.</small>
         </label>
         <label>
           Correo
@@ -51,7 +51,7 @@ export class LoginPage {
     this.errorMessage.set('');
     this.isSubmitting.set(true);
     this.auth.login({
-      tenantId: this.tenantId,
+      tenantId: this.tenantId.trim() || null,
       usernameOrEmail: this.usernameOrEmail,
       password: this.password,
     }).subscribe({

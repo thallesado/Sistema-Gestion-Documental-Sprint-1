@@ -5,13 +5,14 @@ import { NotFoundPage } from '../../features/not-found/not-found-page';
 import { WorkspacePage } from '../../features/workspace/workspace-page';
 import { ReportsPage } from '../../features/reports/reports-page';
 import { AuditPage } from '../../features/audit/audit-page';
-import { authGuard } from '../auth/auth.guard';
+import { authGuard, platformAdminGuard } from '../auth/auth.guard';
 import { ClinicalPage } from '../../features/clinical/clinical-page';
 import { ForgotPasswordPage } from '../../features/auth/forgot-password-page';
 import { ResetPasswordPage } from '../../features/auth/reset-password-page';
 import { AdministrationPage } from '../../features/administration/administration-page';
 import { DocumentPage } from '../../features/documents/document-page';
 import { ExpedientsPage } from '../../features/expedients/expedients-page';
+import { AccessDeniedPage } from '../../features/not-found/access-denied-page';
 
 const clinicalPaths = new Set(['expedients/clinical', 'expedients/clinical/notes']);
 const documentPaths = new Set(['documents', 'documents/mine', 'documents/shared', 'documents/new', 'documents/upload', 'settings/statuses']);
@@ -65,16 +66,22 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'access-denied',
+    component: AccessDeniedPage,
+    title: 'Acceso restringido - NexoDocs',
+    canActivate: [authGuard],
+  },
+  {
     path: 'tenants',
     component: AdministrationPage,
     title: 'Tenants - NexoDocs',
-    canActivate: [authGuard],
+    canActivate: [platformAdminGuard],
   },
   {
     path: 'tenants/new',
     component: AdministrationPage,
     title: 'Crear tenant - NexoDocs',
-    canActivate: [authGuard],
+    canActivate: [platformAdminGuard],
   },
   {
     path: 'documents',

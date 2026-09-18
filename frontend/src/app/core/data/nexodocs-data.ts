@@ -272,7 +272,7 @@ export const users: DemoItem[] = [
 ];
 
 export const tenants: DemoItem[] = [
-  { title: 'Acme Consulting', meta: 'acme.nexodocs.app - Empresarial - 42 usuarios', date: '6.8 GB de 10 GB', status: 'Activo' },
+  { title: 'Organización autenticada', meta: 'Tenant activo - usuarios del tenant', date: 'Almacenamiento consultado', status: 'Activo' },
   { title: 'Clinica Central', meta: 'clinica.nexodocs.app - Profesional - 86 usuarios', date: '14.2 GB de 25 GB', status: 'Activo' },
   { title: 'Universidad del Valle', meta: 'univalle.nexodocs.app - Empresarial - 124 usuarios', date: '31.6 GB de 50 GB', status: 'Activo' },
   { title: 'Grupo Norte', meta: 'gruponorte.nexodocs.app - Basico - 8 usuarios', date: '2.1 GB de 5 GB', status: 'Suspendido' },
@@ -329,7 +329,7 @@ const descriptions: Record<string, string> = {
   'Auditoria|Registro general': 'Historico inmutable de acciones relevantes realizadas dentro del tenant.',
   'Reportes|Documentos': 'Distribucion documental por estado, tipo, area y periodo.',
   'Notificaciones|No leidas': 'Notificaciones nuevas que todavia requieren tu atencion.',
-  'Configuracion|General': 'Datos institucionales y preferencias generales de Acme Consulting.',
+  'Configuracion|General': 'Datos institucionales y preferencias generales del tenant autenticado.',
   'Tenants|Todos los tenants': 'Administra las organizaciones aisladas registradas en la plataforma.',
   'Expedientes|Expediente clínico': 'Visualiza la historia clínica del paciente ordenada cronológicamente por fecha y evento.',
   'Expedientes|Notas médicas': 'Busca pacientes por documento de identidad o nombre y registra notas de evolución.',

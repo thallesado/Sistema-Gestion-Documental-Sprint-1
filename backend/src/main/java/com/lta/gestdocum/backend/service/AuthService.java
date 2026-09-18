@@ -49,7 +49,7 @@ public class AuthService {
         }
 
         List<String> authorities = user.isPlatformAdmin()
-                ? List.of("tenant:manage", "audit:read_global")
+                ? List.of("platform:tenant:manage", "audit:read_global")
                 : userRepository.findAuthorityCodes(user.getId(), user.getTenantId());
         if (authorities.isEmpty()) {
             throw new org.springframework.security.access.AccessDeniedException(
@@ -75,7 +75,7 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
         List<String> authorities = user.isPlatformAdmin()
-                ? List.of("tenant:manage", "audit:read_global")
+                ? List.of("platform:tenant:manage", "audit:read_global")
                 : userRepository.findAuthorityCodes(user.getId(), user.getTenantId());
         if (authorities.isEmpty()) {
             throw new org.springframework.security.access.AccessDeniedException(

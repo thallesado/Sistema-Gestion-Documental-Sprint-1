@@ -22,7 +22,7 @@ están en .env.example. Si necesitas personalizarlas, crea .env antes del primer
 inicio; no sobrescribas uno existente. Los usuarios y contraseñas del seed son
 exclusivamente de demostración.
 
-### Usuarios demo de Acme Consulting
+### Usuarios demo de FinoCode
 
 La migración incremental `015_acme_superadmin_demo_users.sql` añade, de forma
 idempotente, seis cuentas con el rol `Superadministrador` (`Andres`, `Edixon`,
@@ -32,7 +32,7 @@ valor exclusivamente local de demostración:
 
 - Usuario: el nombre indicado o su correo `.invalid`.
 - Contraseña: `DemoPass123!`
-- Tenant: `Acme Consulting`
+- Tenant: `FinoCode`
   (`20000000-0000-0000-0000-000000000001`)
 
 | Nombre | Usuario | Rol |

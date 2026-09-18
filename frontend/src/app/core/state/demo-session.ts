@@ -8,5 +8,5 @@ import { Role } from '../data/nexodocs-data';
 @Injectable({ providedIn: 'root' })
 export class DemoSessionState {
   readonly role = signal<Role>('Administrador de tenant');
-  readonly tenant = signal('Acme Consulting');
+  readonly tenant = signal('Organización autenticada');
 }

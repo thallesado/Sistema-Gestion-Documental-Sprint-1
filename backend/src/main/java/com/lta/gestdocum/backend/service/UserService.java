@@ -29,21 +29,24 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticatedUserContext authenticatedUserContext;
     private final com.lta.gestdocum.backend.repository.RoleRepository roleRepository;
+    private final com.lta.gestdocum.backend.repository.TenantRepository tenantRepository;
 
     @org.springframework.beans.factory.annotation.Autowired
     public UserService(UserRepository userRepository, 
                        ClinicalStaffRepository clinicalStaffRepository, 
                        PasswordEncoder passwordEncoder,
                        AuthenticatedUserContext authenticatedUserContext,
-                       com.lta.gestdocum.backend.repository.RoleRepository roleRepository) {
+                       com.lta.gestdocum.backend.repository.RoleRepository roleRepository,
+                       com.lta.gestdocum.backend.repository.TenantRepository tenantRepository) {
         this.userRepository = userRepository;
         this.clinicalStaffRepository = clinicalStaffRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticatedUserContext = authenticatedUserContext;
         this.roleRepository = roleRepository;
+        this.tenantRepository = tenantRepository;
     }
     public UserService(UserRepository u, ClinicalStaffRepository c, PasswordEncoder p, AuthenticatedUserContext a) {
-        this(u,c,p,a,null);
+        this(u,c,p,a,null,null);
     }
 
     @Transactional
@@ -185,10 +188,16 @@ public class UserService {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .status(user.getStatus().name())
+                .tenantName(user.getTenantId() == null || tenantRepository == null ? null
+                        : tenantRepository.findById(user.getTenantId()).map(t -> t.getName()).orElse(null))
+                .platformAdmin(user.isPlatformAdmin())
                 .staffType(staffType)
                 .specialty(specialty)
                 .roleIds(roleRepository == null || user.getTenantId() == null ? Set.of()
                         : roleRepository.findIds(user.getTenantId(), user.getId()))
+                .roleNames(roleRepository == null || user.getTenantId() == null
+                        ? (user.isPlatformAdmin() ? Set.of("SUPER_ADMIN") : Set.of())
+                        : roleRepository.findNames(user.getTenantId(), user.getId()))
                 .build();
     }
     private void assignRoles(UUID tenantId, UUID userId, Set<Long> ids) {

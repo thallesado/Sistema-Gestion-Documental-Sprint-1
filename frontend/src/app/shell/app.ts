@@ -19,14 +19,20 @@ export class App {
   readonly sections = navSections;
   readonly currentUrl = signal(this.router.url);
   readonly expanded = signal<string[]>(['Inicio']);
-  readonly role = signal<Role>('Administrador de tenant');
+  readonly role = computed<Role>(() => {
+    const user = this.currentUser();
+    if (user?.platformAdmin || user?.roleNames?.includes('SUPER_ADMIN')) return 'Superadministrador';
+    if (user?.roleNames?.some((name) => name.toUpperCase() === 'ADMINISTRADOR DE TENANT' || name.toUpperCase() === 'TENANT_ADMIN')) return 'Administrador de tenant';
+    if (user?.roleNames?.some((name) => name.toUpperCase() === 'SUPERVISOR')) return 'Supervisor';
+    return 'Usuario basico';
+  });
   readonly currentUser = this.auth.user;
   readonly displayName = computed(() => {
     const user = this.currentUser();
     return user ? `${user.firstName} ${user.lastName}`.trim() : 'Usuario';
   });
   readonly initials = computed(() => this.displayName().split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || 'U');
-  readonly tenantName = computed(() => this.currentUser()?.tenantId || 'Organización autenticada');
+  readonly tenantName = computed(() => this.currentUser()?.tenantName || (this.currentUser()?.platformAdmin ? 'Todos los tenants' : 'Organización autenticada'));
   readonly toast = signal('');
   readonly chatOpen = signal(false);
   readonly mobileNavOpen = signal(false);
@@ -38,7 +44,7 @@ export class App {
     this.sections
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) => !item.roles || item.roles.includes(this.role() as Role)),
+        items: section.items.filter((item) => !item.roles || item.roles.includes(this.role())),
       }))
       .filter((section) => section.items.length > 0),
   );

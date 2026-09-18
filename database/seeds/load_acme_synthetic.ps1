@@ -22,7 +22,7 @@ for ($n = 1; $n -le 300; $n++) {
     $name = ('patient-{0:D4}.txt' -f $n)
     @(
         'NexoDocs SYNTHETIC FIXTURE',
-        ('Acme Consulting / patient-{0:D4}' -f $n),
+        ('FinoCode / patient-{0:D4}' -f $n),
         'No contiene datos personales reales. Uso exclusivo para pruebas.',
         ('Deterministic fixture sequence: {0}' -f $n)
     ) | Set-Content -Encoding utf8 -NoNewline (Join-Path $staging $name)
