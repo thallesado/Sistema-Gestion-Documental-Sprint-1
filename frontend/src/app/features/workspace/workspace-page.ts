@@ -2,12 +2,14 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
-  demoList,
   DemoItem,
   RouteInfo,
   screenCopy,
 } from '../../core/data/nexodocs-data';
 import { Pagination } from '../../core/components/pagination/pagination';
+import { AuthService } from '../../core/auth/auth.service';
+import { DocumentApiService, ApiDocument } from '../../core/api/document-api.service';
+import { WorkspaceApiService, ApiActivity, ApiTask } from '../../core/api/workspace-api.service';
 
 type PageStat = { icon: string; label: string; value: string; detail: string; tone: string };
 type OcrStatus = 'QUEUED' | 'PROCESSING' | 'REQUIRES_VALIDATION' | 'VALIDATED' | 'INDEXED';
@@ -21,9 +23,9 @@ type TabLink = { label: string; href: string };
       @if (isHome) {
         <section class="dashboard-welcome">
           <div>
-            <p class="eyebrow">Miércoles, 16 de septiembre de 2026</p>
-            <h1>Buenos días, Laura</h1>
-            <p class="welcome-copy">Aquí tienes un resumen de lo que está ocurriendo en Acme Consulting.</p>
+            <p class="eyebrow">{{ todayLabel }}</p>
+            <h1>Buenos días, {{ displayName() }}</h1>
+            <p class="welcome-copy">Aquí tienes un resumen de lo que está ocurriendo en tu organización.</p>
           </div>
           <div class="hero-actions">
             <a routerLink="/documents/new"><span>＋</span> Crear documento</a>
@@ -33,40 +35,41 @@ type TabLink = { label: string; href: string };
         <div class="dashboard-grid">
           <article class="dashboard-card task-card">
             <div class="card-heading"><div><span class="card-icon amber">◷</span><div><h2>Mis tareas</h2><p>Requieren tu atención</p></div></div><a routerLink="/dashboard/tasks">Ver todas →</a></div>
-            <div class="task-summary"><strong>8</strong><span>pendientes</span><b>3</b><span>alta prioridad</span></div>
-            <div class="task-line"><span class="dot amber-dot"></span><div><b>Revisar contrato marco proveedores</b><small>Vence mañana · Legal</small></div><span class="status pending">Pendiente</span></div>
-            <div class="task-line"><span class="dot blue-dot"></span><div><b>Aprobar política de seguridad</b><small>Vence en 3 días · Dirección</small></div><span class="status review">En revisión</span></div>
+            <div class="task-summary"><strong>{{ tasks().length }}</strong><span>pendientes</span><b>{{ highPriorityTasks() }}</b><span>alta prioridad</span></div>
+            @for (task of tasks(); track task.id) {
+              <div class="task-line"><span class="dot amber-dot"></span><div><b>{{ task.title }}</b><small>{{ task.dueAt ? (task.dueAt | date:'dd/MM/yyyy') : 'Sin fecha límite' }}{{ task.area ? ' · ' + task.area : '' }}</small></div><span class="status pending">{{ task.status }}</span></div>
+            } @empty { <div class="empty-state">No tienes tareas pendientes.</div> }
           </article>
           <article class="dashboard-card activity-card">
             <div class="card-heading"><div><span class="card-icon teal">↗</span><div><h2>Actividad reciente</h2><p>Últimos movimientos del tenant</p></div></div><a routerLink="/dashboard/activity">Ver actividad →</a></div>
-            <div class="activity-row"><span class="activity-avatar">MG</span><div><b>María González aprobó un documento</b><small>Política de seguridad de la información</small></div><time>Hace 18 min</time></div>
-            <div class="activity-row"><span class="activity-avatar blue">CM</span><div><b>Carlos Méndez subió un archivo</b><small>Contrato marco proveedores 2025</small></div><time>Hace 1 h</time></div>
-            <div class="activity-row"><span class="activity-avatar purple">AR</span><div><b>Ana López completó un workflow</b><small>Alta de proveedor · EXP-2041</small></div><time>Ayer</time></div>
+            @for (event of activities(); track event.id) {
+              <div class="activity-row"><span class="activity-avatar">{{ initials(event.userId || 'Usuario') }}</span><div><b>{{ event.action }}</b><small>{{ event.entityType }}{{ event.entityId ? ' · ' + event.entityId : '' }}</small></div><time>{{ event.occurredAt | date:'short' }}</time></div>
+            } @empty { <div class="empty-state">No hay actividad reciente.</div> }
           </article>
         </div>
         <section class="panel dashboard-documents">
           <div class="panel-title"><div><h2>Documentos recientes</h2><p>Los documentos que han tenido actividad recientemente.</p></div><a routerLink="/documents">Ver todos →</a></div>
           <div class="list document-list">
-            @for (item of pagedDocuments(); track item.title) {
+            @for (item of recentDocuments(); track item.id) {
               <article>
-                <span class="file-icon">{{ fileType(item) }}</span>
-                <div><h3>{{ item.title }}</h3><p>{{ item.meta }}</p></div>
-                <time>{{ item.date }}</time><span [class]="statusClass(item)">{{ item.status }}</span>
+                <span class="file-icon">DOC</span>
+                <div><h3>{{ item.name }}</h3><p>{{ item.code }}</p></div>
+                <time>{{ item.updatedAt | date:'dd/MM/yyyy' }}</time><span class="status muted">{{ item.status }}</span>
                 <div class="row-actions">
-                  <button class="more-button" type="button" (click)="toggleRowMenu(item.title)" [attr.aria-expanded]="openRowMenu === item.title" aria-label="Abrir opciones">•••</button>
-                  @if (openRowMenu === item.title) {
+                  <button class="more-button" type="button" (click)="toggleRowMenu(item.id)" [attr.aria-expanded]="openRowMenu === item.id" aria-label="Abrir opciones">•••</button>
+                  @if (openRowMenu === item.id) {
                     <div class="row-menu">
-                      <button type="button" (click)="rowAction('Ver', item.title)">Ver</button>
-                      <button type="button" (click)="rowAction('Editar', item.title)">Editar</button>
-                      <button type="button" class="danger-action" (click)="rowAction('Eliminar', item.title)">Eliminar</button>
+                      <button type="button" (click)="rowAction('Ver', item.name)">Ver</button>
+                      <button type="button" (click)="rowAction('Editar', item.name)">Editar</button>
+                      <button type="button" class="danger-action" (click)="rowAction('Eliminar', item.name)">Eliminar</button>
                     </div>
                   }
                 </div>
               </article>
-            }
+            } @empty { <div class="empty-state">No hay documentos recientes.</div> }
           </div>
           <app-pagination
-            [total]="documents.length"
+            [total]="recentDocuments().length"
             [page]="dashboardPage()"
             [pageSize]="dashboardPageSize()"
             (pageChange)="dashboardPage.set($event)"
@@ -89,7 +92,7 @@ type TabLink = { label: string; href: string };
               @if (actionMenuOpen) {
                 <div class="action-menu-panel">
                   <a routerLink="/expedients/new" (click)="actionMenuOpen = false"><b>＋</b><span><strong>Crear expediente</strong><small>Registra una nueva unidad documental</small></span></a>
-                  <button type="button" (click)="handleExpedientAction('Importar expedientes')"><b>⇧</b><span><strong>Importar expedientes</strong><small>Preparar una carga masiva de demostración</small></span></button>
+                  <button type="button" (click)="handleExpedientAction('Importar expedientes')"><b>⇧</b><span><strong>Importar expedientes</strong><small>Preparar una carga masiva</small></span></button>
                   <button type="button" (click)="handleExpedientAction('Iniciar workflow')"><b>↗</b><span><strong>Iniciar workflow</strong><small>Asocia un proceso al expediente activo</small></span></button>
                 </div>
               }
@@ -113,7 +116,7 @@ type TabLink = { label: string; href: string };
 
       @if (isScanPage) {
         <section class="panel scan-panel">
-          <div class="panel-title"><div><h2>Selecciona el origen del documento</h2><p>La captura es local y queda preparada para una futura integración con OCR.</p></div><span class="status muted">Demo local</span></div>
+          <div class="panel-title"><div><h2>Selecciona el origen del documento</h2><p>La captura es local y queda preparada para una futura integración con OCR.</p></div><span class="status muted">Pendiente de integración</span></div>
           <div class="scan-source-grid">
             <article class="scan-source">
               <span class="scan-source-icon">↑</span><h3>Subir archivo</h3><p>Selecciona un PDF o una imagen desde este dispositivo.</p>
@@ -147,18 +150,18 @@ type TabLink = { label: string; href: string };
               <div class="panel-title"><div><h2>Documento origen</h2><p>Entrada seleccionada para este proceso</p></div><span class="status review">{{ ocrStatus() }}</span></div>
               <div class="ocr-file"><span class="file-icon">PDF</span><div><strong>{{ ocrFileName }}</strong><small>Origen: digitalización local · 2.4 MB</small></div></div>
               <dl class="ocr-details"><div><dt>Identificador</dt><dd>OCR-2026-0098</dd></div><div><dt>Páginas</dt><dd>4 páginas</dd></div><div><dt>Confianza</dt><dd>91.4%</dd></div></dl>
-              <p class="simulated-note"><b>Estado real de la demo</b><span>{{ ocrStatusDescription }}</span></p>
+              <p class="simulated-note"><b>Estado del procesamiento</b><span>{{ ocrStatusDescription }}</span></p>
             </article>
             <article class="panel ocr-result-card">
               <div class="panel-title"><div><h2>Resultado OCR</h2><p>Texto extraído y resumen para revisión humana</p></div><span class="status ok">Texto disponible</span></div>
-              <div class="ocr-summary"><span class="side-kicker">RESUMEN EXTRAÍDO</span><p>Contrato marco de prestación de servicios para proveedores de Acme Consulting, con vigencia anual y cláusulas de renovación.</p></div>
+              <div class="ocr-summary"><span class="side-kicker">RESUMEN EXTRAÍDO</span><p>El resumen aparecerá cuando el servicio OCR devuelva información del documento.</p></div>
               <div class="extracted-text"><span class="side-kicker">TEXTO EXTRAÍDO</span><p>“Las partes acuerdan establecer las condiciones generales para la prestación de servicios profesionales. La vigencia del presente documento será de doce meses...”</p></div>
               @if (ocrStep === 'validation') {
                 <div class="ocr-actions"><button type="button" class="secondary-button" (click)="rejectOcr()">Rechazar resultado</button><button type="button" class="primary-button" (click)="validateOcr()">Confirmar extracción</button></div>
               } @else if (ocrStep === 'indexing') {
                 <div class="metadata-preview"><label>Tipo documental <select><option>Contrato</option><option>Informe</option></select></label><label>Área <select><option>Legal</option><option>Compras</option></select></label><button type="button" class="primary-button" (click)="indexOcr()">Guardar indexación</button></div>
               } @else {
-                <div class="metadata-preview"><label>Responsable <input value="Laura Martinez" /></label><label>Etiqueta <input value="proveedores-2026" /></label><button type="button" class="primary-button" (click)="correctMetadata()">Confirmar metadatos</button></div>
+                <div class="metadata-preview"><label>Responsable <input /></label><label>Etiqueta <input /></label><button type="button" class="primary-button" (click)="correctMetadata()">Confirmar metadatos</button></div>
               }
             </article>
           </div>
@@ -169,7 +172,7 @@ type TabLink = { label: string; href: string };
             <div class="form-title"><h2>{{ routeInfo.subcategory }}</h2><span class="required-note">* Campos obligatorios</span></div>
             <div class="form-fields">
               <label>Nombre <input placeholder="Ej. Contrato marco proveedores" /></label>
-              <label>Responsable <input placeholder="Laura Martinez" /></label>
+              <label>Responsable <input placeholder="Nombre del responsable" /></label>
               <label>Área <select><option>Dirección</option><option>Legal</option><option>Archivo</option></select></label>
               <label>Tipo documental <select><option>Contrato</option><option>Política</option><option>Informe</option></select></label>
             </div>
@@ -199,7 +202,7 @@ type TabLink = { label: string; href: string };
               }
             </nav>
           }
-          <div class="panel-title"><div><h2>{{ listTitle }}</h2><p>Datos de demostración filtrados por el tenant actual.</p></div>
+          <div class="panel-title"><div><h2>{{ listTitle }}</h2><p>Datos del tenant autenticado.</p></div>
             <div class="export-menu">
               <button type="button" class="panel-action" (click)="exportMenuOpen = !exportMenuOpen" [attr.aria-expanded]="exportMenuOpen">↓ Exportar</button>
               @if (exportMenuOpen) {
@@ -245,18 +248,24 @@ type TabLink = { label: string; href: string };
       }
 
       @if (actionMessage) { <div class="inline-toast" role="status">{{ actionMessage }}</div> }
-      <footer class="demo-note"><span>ⓘ</span> Vista de demostración con datos simulados de <b>Acme Consulting</b>. No realiza operaciones persistentes.</footer>
+      <footer class="demo-note"><span>ⓘ</span> Las operaciones disponibles dependen de la API y los permisos de la sesión autenticada.</footer>
     </section>
   `,
 })
 export class WorkspacePage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly auth = inject(AuthService);
+  private readonly documentApi = inject(DocumentApiService);
+  private readonly workspaceApi = inject(WorkspaceApiService);
   @ViewChild('fileInput') private fileInput?: ElementRef<HTMLInputElement>;
   readonly routeInfo = this.route.snapshot.data['routeInfo'] as RouteInfo;
   readonly copy = screenCopy(this.routeInfo);
-  readonly items = demoList(this.routeInfo.module);
-  readonly documents = demoList('Documentos');
+  readonly items: DemoItem[] = [];
+  readonly tasks = signal<ApiTask[]>([]);
+  readonly activities = signal<ApiActivity[]>([]);
+  readonly recentDocuments = signal<ApiDocument[]>([]);
+  readonly dataError = signal('');
   readonly isHome = this.routeInfo.href === '/';
   readonly isFormPage = ['Crear', 'Nuevo', 'Subir'].some((word) => this.routeInfo.subcategory.includes(word));
   readonly isUploadPage = this.routeInfo.subcategory.includes('Subir');
@@ -292,6 +301,16 @@ export class WorkspacePage {
   readonly ocrStatus = signal<OcrStatus>('REQUIRES_VALIDATION');
   readonly ocrFileName = 'contrato-marco-proveedores-2025.pdf';
   readonly stats: PageStat[] = this.buildStats(this.routeInfo.module);
+  readonly todayLabel = new Intl.DateTimeFormat('es-BO', { dateStyle: 'long' }).format(new Date());
+  readonly displayName = computed(() => {
+    const user = this.auth.user();
+    return user ? `${user.firstName} ${user.lastName}`.trim() : 'Usuario';
+  });
+  readonly highPriorityTasks = computed(() => this.tasks().filter((task) => (task.priority ?? '').toLowerCase() === 'high' || (task.priority ?? '').toLowerCase() === 'alta').length);
+
+  constructor() {
+    if (this.isHome) this.loadDashboard();
+  }
 
   readonly filteredItems = computed(() => {
     const query = this.searchTerm().trim().toLowerCase();
@@ -313,11 +332,6 @@ export class WorkspacePage {
   readonly visibleItems = computed(() => {
     const start = (this.page() - 1) * this.pageSize();
     return this.filteredItems().slice(start, start + this.pageSize());
-  });
-
-  readonly pagedDocuments = computed(() => {
-    const start = (this.dashboardPage() - 1) * this.dashboardPageSize();
-    return this.documents.slice(start, start + this.dashboardPageSize());
   });
 
   get listTitle(): string {
@@ -375,13 +389,32 @@ export class WorkspacePage {
 
   useScannerStub(): void {
     this.selectedSource = 'Escáner conectado (stub de escritorio)';
-    this.selectedFileName = 'captura-escaner-demo.pdf (1.1 MB)';
+    this.selectedFileName = 'captura-escaner.pdf (1.1 MB)';
     this.actionMessage = 'Stub de escáner activado: falta integrar el conector de escritorio';
   }
 
   handleExpedientAction(action: string): void {
     this.actionMenuOpen = false;
-    this.actionMessage = `${action}: acción preparada para la demo local, sin persistencia`;
+    this.actionMessage = `${action}: operación pendiente de integración con la API`;
+  }
+
+  initials(value: string): string {
+    return value.split(/[\s._-]+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || 'U';
+  }
+
+  private loadDashboard(): void {
+    this.workspaceApi.tasks().subscribe({
+      next: (response) => this.tasks.set(response.content),
+      error: () => this.tasks.set([]),
+    });
+    this.workspaceApi.activity().subscribe({
+      next: (response) => this.activities.set(response.content),
+      error: () => this.activities.set([]),
+    });
+    this.documentApi.documents('', undefined, 0, 10).subscribe({
+      next: (response) => this.recentDocuments.set(response.content),
+      error: () => this.recentDocuments.set([]),
+    });
   }
 
   setSearchTerm(event: Event): void { this.searchTerm.set((event.target as HTMLInputElement).value); this.resetPage(); }

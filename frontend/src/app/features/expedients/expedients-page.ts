@@ -32,6 +32,7 @@ export class ExpedientsPage {
   readonly selected = signal<ExpedientItem | null>(null);
   readonly step = signal(1);
   readonly saved = signal(false);
+  readonly saving = signal(false);
   readonly loading = signal(false);
   readonly apiError = signal('');
   readonly totalCount = signal(0);
@@ -80,7 +81,31 @@ export class ExpedientsPage {
   closeDetail(): void { this.selected.set(null); }
   nextStep(): void { if (this.step() < 3) this.step.update((value) => value + 1); }
   previousStep(): void { if (this.step() > 1) this.step.update((value) => value - 1); }
-  saveExpedient(): void { this.saved.set(true); }
+  saveExpedient(): void {
+    const form = this.form();
+    if (!form.name.trim()) {
+      this.apiError.set('El nombre del expediente es obligatorio.');
+      return;
+    }
+    this.saving.set(true);
+    this.apiError.set('');
+    this.api.create({
+      name: form.name.trim(),
+      type: form.type,
+      area: form.area,
+      responsible: form.responsible.trim() || undefined,
+      description: form.description.trim() || undefined,
+    }).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.saved.set(true);
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.apiError.set(this.apiErrorMessage(error));
+      },
+    });
+  }
   clearFilters(): void {
     this.search.set('');
     this.area.set('');

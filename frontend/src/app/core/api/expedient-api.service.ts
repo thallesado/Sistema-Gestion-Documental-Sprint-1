@@ -25,6 +25,14 @@ export interface ExpedientPage {
   size?: number;
 }
 
+export interface CreateExpedientPayload {
+  name: string;
+  description?: string;
+  type?: string;
+  area?: string;
+  responsible?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ExpedientApiService {
   private readonly http = inject(HttpClient);
@@ -35,6 +43,10 @@ export class ExpedientApiService {
     return this.http.get<unknown>(`${API_URL}/expedients`, { params }).pipe(
       map((response) => normalizePage(response)),
     );
+  }
+
+  create(payload: CreateExpedientPayload): Observable<ApiExpedient> {
+    return this.http.post<ApiExpedient>(`${API_URL}/expedients`, payload);
   }
 }
 

@@ -13,7 +13,7 @@
 
       <div class="tenant-box">
         <small>Organización activa</small>
-        <div class="tenant-name"><b>Acme Consulting</b><span aria-hidden="true">⌄</span></div>
+        <div class="tenant-name"><b>{{ tenantName() }}</b></div>
         <label class="role-switcher">
           <span>Rol visual</span>
           <select [value]="role()" (change)="role.set($any($event.target).value)">
@@ -72,8 +72,8 @@
       </div>
 
       <div class="user-footer">
-        <span class="avatar">LM</span>
-        <div><b>{{ currentUser()?.firstName ?? 'Usuario' }} {{ currentUser()?.lastName ?? '' }}</b><small>{{ currentUser()?.username ?? 'Cuenta autenticada' }}</small></div>
+        <span class="avatar">{{ initials() }}</span>
+        <div><b>{{ displayName() }}</b><small>{{ currentUser()?.username ?? 'Cuenta autenticada' }}</small></div>
         <button type="button" aria-label="Opciones de usuario" [attr.aria-expanded]="sidebarUserMenuOpen()" (click)="toggleSidebarUserMenu()">⌄</button>
         @if (sidebarUserMenuOpen()) {
           <div class="account-menu sidebar-account-menu">
@@ -106,7 +106,7 @@
           <span class="topbar-divider"></span>
           <div class="topbar-user">
             <button type="button" class="topbar-user-trigger" [attr.aria-expanded]="headerUserMenuOpen()" (click)="toggleHeaderUserMenu()">
-              <span class="avatar">{{ (currentUser()?.firstName?.[0] ?? 'U') + (currentUser()?.lastName?.[0] ?? '') }}</span><b>{{ currentUser()?.firstName ?? 'Usuario' }} {{ currentUser()?.lastName ?? '' }}</b><span aria-hidden="true">⌄</span>
+              <span class="avatar">{{ initials() }}</span><b>{{ displayName() }}</b><span aria-hidden="true">⌄</span>
             </button>
             @if (headerUserMenuOpen()) {
               <div class="account-menu header-account-menu">

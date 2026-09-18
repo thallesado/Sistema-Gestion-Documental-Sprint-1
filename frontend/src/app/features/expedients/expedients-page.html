@@ -20,12 +20,12 @@
             <span>{{ step() > i + 1 ? '✓' : i + 1 }}</span><div><b>{{ label }}</b><small>{{ ['Identifica la unidad documental', 'Define acceso y seguimiento', 'Revisa antes de guardar'][i] }}</small></div>
           </div>
         }
-        <div class="demo-callout"><b>Vista de demostración</b><span>Los datos se mantienen únicamente en esta pantalla y no se guardan en un servidor.</span></div>
+        <div class="demo-callout"><b>Persistencia protegida</b><span>El expediente se guardará en el tenant autenticado.</span></div>
       </aside>
       <section class="panel form-card">
         <div class="panel-heading"><div><span class="step-label">Paso {{ step() }} de 3</span><h2>{{ ['Información básica', 'Responsables y acceso', 'Confirmar expediente'][step() - 1] }}</h2><p>{{ ['Completa los datos principales del expediente.', 'Indica quién será responsable de su gestión.', 'Revisa la información antes de finalizar.'][step() - 1] }}</p></div></div>
         @if (saved()) {
-          <div class="success-state"><span>✓</span><h2>Expediente preparado</h2><p>La creación se simuló correctamente. No se realizó ninguna operación persistente.</p><a routerLink="/expedients">Volver a expedientes</a></div>
+          <div class="success-state"><span>✓</span><h2>Expediente creado</h2><p>El registro fue guardado. Consulta el listado para ver los datos persistidos.</p><a routerLink="/expedients">Volver a expedientes</a></div>
         } @else if (step() === 1) {
           <div class="form-grid">
             <label class="wide">Nombre del expediente <input [value]="form().name" (input)="updateField('name', $event)" placeholder="Ej. Alta de proveedor Andes"></label>
@@ -39,7 +39,8 @@
         } @else {
           <dl class="review-list"><div><dt>Nombre</dt><dd>{{ form().name || 'Sin nombre indicado' }}</dd></div><div><dt>Tipo y área</dt><dd>{{ form().type }} · {{ form().area }}</dd></div><div><dt>Responsable</dt><dd>{{ form().responsible || 'Sin responsable indicado' }}</dd></div><div><dt>Descripción</dt><dd>{{ form().description || 'Sin descripción' }}</dd></div></dl>
         }
-        <div class="form-actions"><button type="button" class="secondary-button" (click)="previousStep()" [disabled]="step() === 1">Atrás</button>@if (step() < 3) { <button type="button" class="primary-button" (click)="nextStep()">Continuar <span>→</span></button> } @else { <button type="button" class="primary-button" (click)="saveExpedient()">Crear expediente</button> }</div>
+        @if (apiError()) { <div class="state error" role="alert">{{ apiError() }}</div> }
+        <div class="form-actions"><button type="button" class="secondary-button" (click)="previousStep()" [disabled]="step() === 1 || saving()">Atrás</button>@if (step() < 3) { <button type="button" class="primary-button" (click)="nextStep()">Continuar <span>→</span></button> } @else { <button type="button" class="primary-button" (click)="saveExpedient()" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Crear expediente' }}</button> }</div>
       </section>
     </section>
   } @else {

@@ -3,7 +3,6 @@ import { Component, computed, inject, signal, ViewEncapsulation } from '@angular
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
-import { DemoSessionState } from '../core/state/demo-session';
 import { AuthService } from '../core/auth/auth.service';
 
 @Component({
@@ -15,14 +14,19 @@ import { AuthService } from '../core/auth/auth.service';
 })
 export class App {
   private readonly router = inject(Router);
-  private readonly session = inject(DemoSessionState);
   private readonly auth = inject(AuthService);
   readonly roles = roles;
   readonly sections = navSections;
   readonly currentUrl = signal(this.router.url);
   readonly expanded = signal<string[]>(['Inicio']);
-  readonly role = this.session.role;
+  readonly role = signal<Role>('Administrador de tenant');
   readonly currentUser = this.auth.user;
+  readonly displayName = computed(() => {
+    const user = this.currentUser();
+    return user ? `${user.firstName} ${user.lastName}`.trim() : 'Usuario';
+  });
+  readonly initials = computed(() => this.displayName().split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || 'U');
+  readonly tenantName = computed(() => this.currentUser()?.tenantId || 'Organización autenticada');
   readonly toast = signal('');
   readonly chatOpen = signal(false);
   readonly mobileNavOpen = signal(false);
@@ -74,8 +78,6 @@ export class App {
   }
 
   unreadCount(label: string): string {
-    if (label === 'Workflows') return '8';
-    if (label === 'Notificaciones') return '3';
     return '';
   }
 

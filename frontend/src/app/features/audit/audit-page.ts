@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { DemoSessionState } from '../../core/state/demo-session';
+import { AuthService } from '../../core/auth/auth.service';
 import { RouteInfo } from '../../core/data/nexodocs-data';
 import { ApiAuditEvent, AuditApiService } from '../../core/api/audit-api.service';
 import { AuditEventDrawer, AuditDrawerDetail } from './components/audit-event-drawer';
@@ -9,24 +10,25 @@ import { AuditFilterField, AuditFilters } from './components/audit-filters';
 import { AuditPagination } from './components/audit-pagination';
 import {
   ApprovalRecord,
-  approvals,
   AuditEvent,
-  auditEvents,
   AuditView,
   AccessSession,
-  accessSessions,
   CreationActivity,
-  documentCreations,
   DeletionRecord,
-  deletions,
   DownloadRecord,
-  downloads,
   ModificationRecord,
-  modifications,
   PermissionRecord,
-  permissionChanges,
   auditViewFromPath,
 } from './data/audit-mock';
+
+const accessSessions: AccessSession[] = [];
+const approvals: ApprovalRecord[] = [];
+const auditEvents: AuditEvent[] = [];
+const documentCreations: CreationActivity[] = [];
+const modifications: ModificationRecord[] = [];
+const downloads: DownloadRecord[] = [];
+const deletions: DeletionRecord[] = [];
+const permissionChanges: PermissionRecord[] = [];
 
 @Component({
   selector: 'app-audit-page',
@@ -41,7 +43,7 @@ import {
         </div>
         <div class="audit-header-actions">
           @if (isSuperAdmin()) {
-            <label class="audit-tenant-selector"><span>Tenant visual</span><select [value]="tenant()" (change)="changeTenant($event)"><option>Acme Consulting</option><option>Clínica Central</option><option>Universidad del Valle</option></select></label>
+            <label class="audit-tenant-selector"><span>Tenant autenticado</span><select [value]="tenant()" (change)="changeTenant($event)"><option [value]="tenant()">{{ tenant() }}</option></select></label>
           }
           <button type="button" class="audit-export-button" (click)="exportAudit()">↓ Exportar</button>
         </div>
@@ -131,10 +133,11 @@ import {
 export class AuditPage {
   private readonly route = inject(ActivatedRoute);
   private readonly session = inject(DemoSessionState);
+  private readonly auth = inject(AuthService);
   private readonly auditApi = inject(AuditApiService);
   readonly routeInfo = this.route.snapshot.data['routeInfo'] as RouteInfo;
   readonly view: AuditView = auditViewFromPath(this.routeInfo.href);
-  readonly tenant = signal(this.session.tenant());
+  readonly tenant = signal(this.auth.user()?.tenantId || 'Tenant autenticado');
   readonly isSuperAdmin = computed(() => this.session.role() === 'Superadministrador');
   readonly globalSearch = signal('');
   readonly filterValues = signal<Record<string, string>>({});
@@ -142,7 +145,7 @@ export class AuditPage {
   readonly pageSize = signal(10);
   readonly drawerDetail = signal<AuditDrawerDetail | null>(null);
   readonly actionMessage = signal('');
-  readonly auditSource = signal<AuditEvent[]>(auditEvents);
+  readonly auditSource = signal<AuditEvent[]>([]);
   readonly usingApi = signal(false);
   readonly selectedModificationId = signal(modifications[0]?.id ?? '');
 
@@ -183,7 +186,7 @@ export class AuditPage {
     if (this.view === 'general') {
       this.auditApi.events().subscribe({
         next: page => { this.auditSource.set(page.content.map(event => this.mapApiEvent(event))); this.usingApi.set(true); },
-        error: () => this.usingApi.set(false),
+        error: () => { this.usingApi.set(false); this.actionMessage.set('No se pudo consultar la auditoría persistente.'); },
       });
     }
   }

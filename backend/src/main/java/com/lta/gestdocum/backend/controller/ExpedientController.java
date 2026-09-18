@@ -1,6 +1,7 @@
 package com.lta.gestdocum.backend.controller;
 
 import com.lta.gestdocum.backend.dto.ExpedientResponse;
+import com.lta.gestdocum.backend.dto.ExpedientCreateRequest;
 import com.lta.gestdocum.backend.service.ExpedientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -14,6 +15,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import jakarta.validation.Valid;
 
 import java.util.UUID;
 
@@ -37,6 +41,13 @@ public class ExpedientController {
             @RequestParam(required = false) String filter,
             Pageable pageable) {
         return ResponseEntity.ok(service.find(filter, pageable));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAuthority('expedient:create')")
+    @Operation(summary = "Crear expediente")
+    public ResponseEntity<ExpedientResponse> create(@Valid @RequestBody ExpedientCreateRequest request) {
+        return ResponseEntity.status(201).body(service.create(request));
     }
 
     @GetMapping("/{id}")

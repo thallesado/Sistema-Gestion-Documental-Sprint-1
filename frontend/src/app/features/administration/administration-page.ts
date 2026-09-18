@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AdministrationApiService, ApiRole, ApiTenant, ApiUser } from '../../core/api/administration-api.service';
 import { DemoSessionState } from '../../core/state/demo-session';
+import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-administration-page',
@@ -34,7 +35,7 @@ import { DemoSessionState } from '../../core/state/demo-session';
         <div class="admin-state forbidden" role="alert"><b>Acceso restringido</b><span>Solo un Administrador de tenant o Superadministrador puede gestionar usuarios.</span></div>
       } @else {
         <header class="admin-header">
-          <div><p class="eyebrow">Gestión · Usuarios y equipos</p><h1>{{ isCreate ? 'Crear usuario' : 'Usuarios del tenant' }}</h1><p>Administra las cuentas de {{ session.tenant() }} sin salir del tenant autenticado.</p></div>
+          <div><p class="eyebrow">Gestión · Usuarios y equipos</p><h1>{{ isCreate ? 'Crear usuario' : 'Usuarios del tenant' }}</h1><p>Administra las cuentas de {{ tenantName() }} sin salir del tenant autenticado.</p></div>
           @if (!isCreate) { <a class="admin-primary" routerLink="/users/new">＋ Crear usuario</a> }
         </header>
         @if (isCreate) {
@@ -70,6 +71,7 @@ import { DemoSessionState } from '../../core/state/demo-session';
 export class AdministrationPage {
   readonly api = inject(AdministrationApiService);
   readonly session = inject(DemoSessionState);
+  private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   readonly users = signal<ApiUser[]>([]);
   readonly tenants = signal<ApiTenant[]>([]);
@@ -85,6 +87,7 @@ export class AdministrationPage {
   readonly isCreate = this.route.snapshot.url[1]?.path === 'new';
   readonly isSuperadmin = this.session.role() === 'Superadministrador';
   readonly canManageUsers = this.session.role() === 'Administrador de tenant' || this.isSuperadmin;
+  readonly tenantName = () => this.auth.user()?.tenantId || 'la organización autenticada';
 
   constructor() { if (this.isTenantArea && this.isSuperadmin && !this.isCreate) this.loadTenants(); else if (this.canManageUsers && !this.isCreate) this.loadUsers(); else if (this.canManageUsers && this.isCreate) this.loadRoles(); }
 

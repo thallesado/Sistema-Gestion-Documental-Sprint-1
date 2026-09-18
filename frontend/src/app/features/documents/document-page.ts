@@ -2,7 +2,6 @@ import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DocumentApiService, ApiDocument, ApiDocumentType, ApiDocumentVersion } from '../../core/api/document-api.service';
-import { documents } from '../../core/data/nexodocs-data';
 
 @Component({
   selector: 'app-document-page',
@@ -28,16 +27,14 @@ import { documents } from '../../core/data/nexodocs-data';
       } @else {
         @if (apiError()) { <div class="notice error" role="alert"><b>No se pudo consultar el catálogo documental.</b><span>{{ apiError() }}</span><button type="button" (click)="loadTypes()">Reintentar</button></div> }
         @if (loading()) { <div class="notice" role="status">Consultando tipos documentales…</div> }
-        @if (usingDemo()) { <div class="notice"><b>Modo demo</b><span>La API documental no respondió; estos registros locales son solo referencia visual.</span></div> }
         @if (actionMessage()) { <div class="notice" role="status">{{ actionMessage() }}</div> }
         <section class="panel">
-          <div class="toolbar"><div><h2>Actividad reciente</h2><p>{{ types().length ? 'Tipos documentales disponibles en la API.' : 'Documentos de ejemplo para revisar la interfaz.' }}</p></div><input aria-label="Filtrar documentos" placeholder="Buscar…" (input)="filter($event)"></div>
+          <div class="toolbar"><div><h2>Actividad reciente</h2><p>Documentos disponibles en el tenant autenticado.</p></div><input aria-label="Filtrar documentos" placeholder="Buscar…" (input)="filter($event)"></div>
           <div class="document-list">
-            @for (item of demoDocuments; track item.title) {
-              <article class="document-row"><span class="file">DOC</span><div><b>{{ item.title }}</b><small>{{ item.meta }}</small></div><time>{{ item.date }}</time><span class="pill">{{ item.status }}</span></article>
-            }
             @for (item of apiDocuments(); track item.id) {
               <article class="document-row"><span class="file">API</span><div><b>{{ item.name }}</b><small>{{ item.code }} · versión {{ item.currentVersion || 'sin archivo' }}</small>@for (version of versions()[item.id] || []; track version.id) { <button type="button" class="version-link" (click)="download(item, version)">v{{ version.versionNumber }} · {{ version.fileName }}</button> }</div><time>{{ item.createdAt | date:'dd/MM/yyyy' }}</time><span class="pill">{{ item.status }}</span><span class="document-actions"><button type="button" (click)="loadVersions(item)">Versiones</button><label>Subir<input type="file" accept=".pdf,.png,.jpg,.jpeg,.docx" (change)="uploadVersion(item, $event)" /></label></span></article>
+            } @empty {
+              @if (!loading()) { <div class="empty-state">No hay documentos para mostrar.</div> }
             }
           </div>
           @if (types().length) { <h3 class="subheading">Tipos documentales del tenant</h3><div class="types">@for (type of types(); track type.id) { <span>{{ type.name }} <code>{{ type.code }}</code></span> }</div> }
@@ -55,12 +52,10 @@ export class DocumentPage {
   readonly isStatuses = this.route.snapshot.routeConfig?.path === 'settings/statuses';
   readonly loading = signal(false);
   readonly apiError = signal('');
-  readonly usingDemo = signal(false);
   readonly types = signal<ApiDocumentType[]>([]);
   readonly apiDocuments = signal<ApiDocument[]>([]);
   readonly versions = signal<Record<string, ApiDocumentVersion[]>>({});
   readonly actionMessage = signal('');
-  readonly demoDocuments = documents.slice(0, 6);
   readonly statuses = [
     { code: 'DRAFT', label: 'Borrador', description: 'Edición inicial', tone: 'gray' },
     { code: 'PENDING', label: 'Pendiente', description: 'Esperando revisión', tone: 'amber' },
@@ -73,13 +68,13 @@ export class DocumentPage {
     this.loading.set(true); this.apiError.set('');
     this.api.documentTypes().subscribe({ next: response => { this.types.set(response.content); }, error: () => undefined });
     this.api.documents().subscribe({
-      next: response => { this.apiDocuments.set(response.content); this.usingDemo.set(false); this.loading.set(false); },
-      error: () => { this.usingDemo.set(true); this.apiError.set('La API de documentos no respondió; se conserva la referencia demo.'); this.loading.set(false); },
+      next: response => { this.apiDocuments.set(response.content); this.apiError.set(''); this.loading.set(false); },
+      error: error => { this.apiDocuments.set([]); this.apiError.set(error instanceof Error ? error.message : 'La API de documentos no respondió.'); this.loading.set(false); },
     });
   }
   filter(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
-    this.api.documents(value).subscribe({ next: response => this.apiDocuments.set(response.content), error: () => this.usingDemo.set(true) });
+    this.api.documents(value).subscribe({ next: response => this.apiDocuments.set(response.content), error: error => { this.apiDocuments.set([]); this.apiError.set(error instanceof Error ? error.message : 'La API de documentos no respondió.'); } });
   }
   loadVersions(document: ApiDocument): void { this.api.versions(document.id).subscribe({next: versions => this.versions.update(current => ({...current,[document.id]:versions})),error:()=>this.actionMessage.set('No se pudieron cargar las versiones.')}); }
   uploadVersion(document: ApiDocument, event: Event): void { const input=event.target as HTMLInputElement;const file=input.files?.[0];if(!file)return;const reason=window.prompt('Motivo de la nueva versión','Carga de archivo');if(!reason){input.value='';return;}this.api.uploadVersion(document.id,file,reason).subscribe({next:()=>{this.actionMessage.set('Versión almacenada con checksum SHA-256.');this.loadVersions(document);this.loadTypes();input.value='';},error:()=>{this.actionMessage.set('No se pudo almacenar la versión.');input.value='';}}); }
