@@ -8,6 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Service
 public class DashboardService {
@@ -37,19 +40,23 @@ public class DashboardService {
 
         List<DashboardTaskResponse> tasks = repository.findMyTasks(tenantId, userId, limit).stream()
                 .map(value -> new DashboardTaskResponse(value.getId(), value.getDocumentId(),
-                        value.getTitle(), value.getStatus(), value.getPriority(), value.getDueAt()))
+                        value.getTitle(), value.getStatus(), value.getPriority(), toOffset(value.getDueAt())))
                 .toList();
         List<DashboardActivityResponse> activity = repository.findRecentActivity(tenantId, limit).stream()
                 .map(value -> new DashboardActivityResponse(value.getId(), value.getUserId(),
                         value.getActorName(), value.getAction(), value.getEntityType(),
-                        value.getEntityId(), value.getOccurredAt(), value.getResult()))
+                        value.getEntityId(), toOffset(value.getOccurredAt()), value.getResult()))
                 .toList();
         List<DashboardDocumentResponse> documents = repository.findRecentDocuments(tenantId, limit).stream()
                 .map(value -> new DashboardDocumentResponse(value.getId(), value.getExpedientId(),
-                        value.getCode(), value.getName(), value.getStatus(), value.getUpdatedAt()))
+                        value.getCode(), value.getName(), value.getStatus(), toOffset(value.getUpdatedAt())))
                 .toList();
         List<ExpedientResponse> expedients = expedientService.find(null,
                 org.springframework.data.domain.PageRequest.of(0, limit)).getContent();
         return new DashboardResponse(userService.getCurrentUser(), tasks, activity, documents, expedients);
+    }
+
+    private static OffsetDateTime toOffset(Instant value) {
+        return value == null ? null : value.atOffset(ZoneOffset.UTC);
     }
 }

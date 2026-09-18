@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,7 +17,7 @@ public interface DashboardRepository extends Repository<Expedient, UUID> {
         String getTitle();
         String getStatus();
         Integer getPriority();
-        OffsetDateTime getDueAt();
+        Instant getDueAt();
     }
 
     interface ActivityProjection {
@@ -27,7 +27,7 @@ public interface DashboardRepository extends Repository<Expedient, UUID> {
         String getAction();
         String getEntityType();
         UUID getEntityId();
-        OffsetDateTime getOccurredAt();
+        Instant getOccurredAt();
         String getResult();
     }
 
@@ -37,7 +37,7 @@ public interface DashboardRepository extends Repository<Expedient, UUID> {
         String getCode();
         String getName();
         String getStatus();
-        OffsetDateTime getUpdatedAt();
+        Instant getUpdatedAt();
     }
 
     @Query(value = """
