@@ -22,6 +22,30 @@ están en .env.example. Si necesitas personalizarlas, crea .env antes del primer
 inicio; no sobrescribas uno existente. Los usuarios y contraseñas del seed son
 exclusivamente de demostración.
 
+### Usuarios demo de Acme Consulting
+
+La migración incremental `015_acme_superadmin_demo_users.sql` añade, de forma
+idempotente, seis cuentas con el rol `Superadministrador` (`Andres`, `Edixon`,
+`Oscar`, `Diego`, `Denilson` y `Mauricio`) y cuatro cuentas adicionales con los
+roles existentes `Supervisor` y `Usuario operativo`. Todas usan el siguiente
+valor exclusivamente local de demostración:
+
+- Usuario: el nombre indicado o su correo `.invalid`.
+- Contraseña: `DemoPass123!`
+- Tenant: `Acme Consulting`
+  (`20000000-0000-0000-0000-000000000001`)
+
+| Nombre | Usuario | Rol |
+| --- | --- | --- |
+| Andres, Edixon, Oscar, Diego, Denilson, Mauricio | `<nombre>.superadmin` | Superadministrador |
+| Usuario Supervisor / Prueba Supervisor | `acme.supervisor.test` / `acme.supervisor.test2` | Supervisor |
+| Usuario Operativo / Prueba Operativo | `acme.operativo.test` / `acme.operativo.test2` | Usuario operativo |
+
+No reutilices estas credenciales fuera de una base de demostración ni las
+consideres secretos de producción. Los hashes se generan con
+`crypt(..., gen_salt('bf'))`, compatibles con `BCryptPasswordEncoder`; nunca se
+guardan las contraseñas en texto plano.
+
 Los archivos 001, 002 y 003 son la base histórica. Docker ejecuta también 004 en un
 volumen vacío. Reiniciar un contenedor con un volumen existente no aplica SQL nuevo.
 
@@ -118,6 +142,7 @@ no lo concedas al backend ni a personas.
 | init/012_http_access_audit.sql | Registro inmutable de accesos HTTP autenticados, incluidas lecturas. |
 | init/013_document_checksum_compatibility.sql | Compatibilidad del checksum documental con Hibernate sin alterar datos. |
 | init/014_auth_user_password_hash_privilege.sql | Permite al rol RLS del backend leer únicamente el hash necesario para materializar la entidad de autenticación. |
+| init/015_acme_superadmin_demo_users.sql | Usuarios demo de Acme para probar superadministración y permisos por rol. |
 | migrate.ps1 | Respaldo y aplicación al servicio local existente. |
 | tests/validate.sql | Regresión de integridad, aislamiento y autorización con rollback. |
 | tests/run.ps1 | Inicialización, upgrade, errores, login real y concurrencia en Docker temporal. |

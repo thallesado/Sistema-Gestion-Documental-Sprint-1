@@ -1,5 +1,20 @@
 # Registro de cambios del proyecto
 
+## 2026-09-18 — API REST tenant-scoped de expedientes y usuarios demo de Acme
+
+- Se añadió `GET /api/v1/expedients` (paginado, filtro por código, nombre o
+  descripción) y `GET /api/v1/expedients/{id}`. Ambos requieren
+  `expedient:read`, usan el tenant del JWT y establecen el contexto RLS antes
+  de consultar; nunca aceptan `tenantId` desde el cliente.
+- Se incorporó el mapeo backend de `expedients` (`Expedient`, repositorio,
+  servicio y DTO), complementando las APIs existentes de pacientes e historias
+  clínicas para que Angular pueda consumir datos reales.
+- Se añadió la migración idempotente `database/init/015_acme_superadmin_demo_users.sql`
+  con seis cuentas demo `Superadministrador` (Andres, Edixon, Oscar, Diego,
+  Denilson y Mauricio) y cuatro usuarios de prueba con roles existentes.
+  Usa hashes BCrypt generados por PostgreSQL y credenciales solo de demostración.
+- No se modificaron migraciones aplicadas ni archivos del frontend.
+
 ## 2026-09-18 — dataset sintético reproducible de Acme Consulting
 
 - Se añadieron `database/seeds/acme_synthetic_300.sql` y

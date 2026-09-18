@@ -43,17 +43,19 @@
       </section>
     </section>
   } @else {
-    <section class="stats-row"><article><span class="stat-symbol teal">▤</span><div><small>Total registrados</small><strong>{{ expedients.length }}</strong><span>En todos los estados</span></div></article><article><span class="stat-symbol blue">◷</span><div><small>Activos</small><strong>{{ activeCount }}</strong><span>En seguimiento</span></div></article><article><span class="stat-symbol slate">✓</span><div><small>Documentos</small><strong>96</strong><span>En los expedientes</span></div></article></section>
+    @if (apiError()) { <div class="state error" role="alert"><b>No fue posible consultar los expedientes.</b><span>{{ apiError() }}</span><button type="button" (click)="retry()">Reintentar</button></div> }
+    @if (loading()) { <div class="state" role="status">Cargando expedientes del tenant autenticado…</div> }
+    <section class="stats-row"><article><span class="stat-symbol teal">▤</span><div><small>Total registrados</small><strong>{{ expedients().length }}</strong><span>En todos los estados</span></div></article><article><span class="stat-symbol blue">◷</span><div><small>Activos</small><strong>{{ activeCount() }}</strong><span>En seguimiento</span></div></article><article><span class="stat-symbol slate">✓</span><div><small>Documentos</small><strong>—</strong><span>Disponible en el módulo documental</span></div></article></section>
     <section class="panel list-panel">
       <div class="toolbar"><div class="search-control"><span>⌕</span><input aria-label="Buscar expedientes" placeholder="Buscar por nombre, código o área..." [value]="search()" (input)="setSearch($event)"></div><select aria-label="Filtrar por área" [value]="area()" (change)="setArea($event)"><option value="">Todas las áreas</option>@for (item of areas; track item) { <option>{{ item }}</option> }</select><button type="button" class="filter-button" (click)="clearFilters()">Limpiar filtros</button></div>
-      <div class="list-heading"><div><h2>{{ view === 'active' ? 'Seguimiento activo' : view === 'closed' ? 'Historial de expedientes cerrados' : view === 'archived' ? 'Archivo histórico' : 'Repositorio de expedientes' }}</h2><p>{{ countLabel }} · datos de demostración</p></div><button type="button" class="view-toggle" aria-label="Vista de tarjetas">▦</button></div>
+      <div class="list-heading"><div><h2>{{ view === 'active' ? 'Seguimiento activo' : view === 'closed' ? 'Historial de expedientes cerrados' : view === 'archived' ? 'Archivo histórico' : 'Repositorio de expedientes' }}</h2><p>{{ countLabel }} · tenant autenticado</p></div><button type="button" class="view-toggle" aria-label="Vista de tarjetas">▦</button></div>
       @if (view === 'active' || view === 'archived') {
         <div class="expedient-cards">@for (item of items(); track item.title) { <button class="expedient-card" (click)="choose(item)"><div class="card-top"><span class="folder-icon">{{ icon(item) }}</span><span [class]="statusClass(item.status)">{{ item.status }}</span></div><h3>{{ item.title }}</h3><p>{{ item.meta }}</p><div class="card-footer"><span>{{ item.area }}</span><span>{{ item.date }}</span></div></button> } @empty { <div class="empty-state">No hay expedientes en este estado.</div> }</div>
       } @else {
         <div class="expedient-table"><div class="table-row table-head"><span>Expediente</span><span>Área</span><span>Última actualización</span><span>Estado</span><span></span></div>@for (item of items(); track item.title) { <button class="table-row" (click)="choose(item)"><span class="item-name"><span class="folder-icon">{{ icon(item) }}</span><b>{{ item.title }}</b><small>{{ item.meta }}</small></span><span>{{ item.area }}</span><span>{{ item.date }}</span><span [class]="statusClass(item.status)">{{ item.status }}</span><span class="chevron">›</span></button> } @empty { <div class="empty-state">No se encontraron expedientes. Prueba con otros filtros.</div> }</div>
       }
     </section>
-    <footer class="demo-footnote">ⓘ <span>Vista de demostración con datos simulados de <b>Acme Consulting</b>. No realiza operaciones persistentes.</span></footer>
+    <footer class="demo-footnote">ⓘ <span>Expedientes consultados desde la API del tenant autenticado.</span></footer>
   }
 
   @if (selected(); as item) {

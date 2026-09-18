@@ -2,8 +2,11 @@ package com.lta.gestdocum.backend.controller;
 
 import com.lta.gestdocum.backend.dto.ClinicalHistoryResponse;
 import com.lta.gestdocum.backend.dto.TimelineEventResponse;
+import com.lta.gestdocum.backend.dto.ExpedientResponse;
 import com.lta.gestdocum.backend.service.ClinicalHistoryService;
+import com.lta.gestdocum.backend.service.ExpedientService;
 import com.lta.gestdocum.backend.service.PatientService;
+import com.lta.gestdocum.backend.model.Expedient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,9 +40,12 @@ class ClinicalControllerMockMvcTest {
     private ClinicalHistoryService clinicalHistoryService;
     @Mock
     private PatientService patientService;
+    @Mock
+    private ExpedientService expedientService;
 
     private MockMvc clinicalMockMvc;
     private MockMvc patientMockMvc;
+    private MockMvc expedientMockMvc;
 
     @BeforeEach
     void setUp() {
@@ -47,6 +53,9 @@ class ClinicalControllerMockMvcTest {
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .build();
         patientMockMvc = MockMvcBuilders.standaloneSetup(new PatientController(patientService))
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .build();
+        expedientMockMvc = MockMvcBuilders.standaloneSetup(new ExpedientController(expedientService))
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .build();
     }
@@ -145,5 +154,30 @@ class ClinicalControllerMockMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].eventType").value("CLINICAL_HISTORY_OPENED"))
                 .andExpect(jsonPath("$[0].code").value("HC-1"));
+    }
+
+    @Test
+    void listsTenantExpedientsThroughTheReadContract() throws Exception {
+        when(expedientService.find(isNull(), any(Pageable.class))).thenReturn(new PageImpl<>(
+                List.of(new ExpedientResponse(
+                        UUID.randomUUID(), UUID.randomUUID(), null, null, "HC-1001",
+                        "Expediente clínico", "Demostración", Expedient.ExpedientStatus.ACTIVE,
+                        java.util.Map.of(), null, null, java.time.OffsetDateTime.now(),
+                        java.time.OffsetDateTime.now())),
+                PageRequest.of(0, 20), 1));
+
+        expedientMockMvc.perform(get("/api/v1/expedients").param("page", "0").param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].code").value("HC-1001"))
+                .andExpect(jsonPath("$.content[0].status").value("ACTIVE"));
+    }
+
+    @Test
+    void exposesExpedientReadPermission() throws NoSuchMethodException {
+        PreAuthorize annotation = ExpedientController.class
+                .getDeclaredMethod("find", String.class, Pageable.class)
+                .getAnnotation(PreAuthorize.class);
+
+        assertEquals("hasAuthority('expedient:read')", annotation.value());
     }
 }
