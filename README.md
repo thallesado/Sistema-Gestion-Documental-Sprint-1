@@ -70,9 +70,9 @@ En una terminal:
 
 ```powershell
 cd backend
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd -pl bootstrap spring-boot:run
 ```
-*(En Linux/macOS/Git Bash: `./mvnw spring-boot:run`)*
+*(En Linux/macOS/Git Bash: `./mvnw -pl bootstrap spring-boot:run`)*
 
 - **API Base:** `http://localhost:8080/api/v1`
 - **Documentación Swagger / OpenAPI:** `http://localhost:8080/swagger-ui.html`
