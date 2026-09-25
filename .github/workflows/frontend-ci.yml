@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'frontend/**'
+      - 'packages/**'
       - '.github/workflows/frontend-ci.yml'
   pull_request:
     paths:
       - 'frontend/**'
+      - 'packages/**'
 
 jobs:
   build-and-test:
@@ -16,20 +18,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'pnpm'
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build Shared Package
+        run: pnpm run build:shared --if-present
 
       - name: Build Angular app
-        working-directory: frontend
-        run: pnpm run build --if-present
+        run: pnpm --filter @nexodocs/frontend build

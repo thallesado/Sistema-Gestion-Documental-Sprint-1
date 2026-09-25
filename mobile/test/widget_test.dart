@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexodocs_mobile/core/api/auth_api.dart';
 import 'package:nexodocs_mobile/main.dart';
 
 void main() {
