@@ -1,5 +1,5 @@
 packages:
-  - apps/frontend
+  - frontend
   - packages/*
 
 pmOnFail: ignore

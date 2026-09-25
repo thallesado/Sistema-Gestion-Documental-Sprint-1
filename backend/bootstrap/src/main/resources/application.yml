@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: gestdocum-backend
+  profiles:
+    active: dev
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+
+server:
+  port: 8080
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:9vB7wK2mN5qR8tU1xY4zA3cE6gH8jL0oP2sV4yB7eH9kM1pQ3tW6zC8fJ0mP2sU}
+    expiration-ms: 86400000
+    refresh-expiration-ms: 604800000
