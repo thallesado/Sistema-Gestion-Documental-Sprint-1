@@ -33,7 +33,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Build Shared Package
-        run: pnpm run build:shared --if-present
+        run: pnpm run build:shared
 
       - name: Build Angular app
         run: pnpm --filter @nexodocs/frontend build
