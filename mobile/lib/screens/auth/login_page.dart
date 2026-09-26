@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/api/auth_api.dart';
+import '../../core/constants/api_constants.dart';
 import '../../core/errors/auth_exception.dart';
-import '../patients/mobile_home_page.dart';
+import '../shell/main_shell_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.authApi});
@@ -27,6 +28,69 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  void showServerDialog() {
+    final serverController = TextEditingController(text: apiBaseUrl);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Servidor Backend'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Selecciona o ingresa la URL de la API de Spring Boot:',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: serverController,
+              decoration: const InputDecoration(
+                labelText: 'URL del servidor',
+                hintText: 'http://127.0.0.1:8080/api/v1',
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                ActionChip(
+                  avatar: const Icon(Icons.usb, size: 16),
+                  label: const Text('USB (127.0.0.1)'),
+                  onPressed: () => serverController.text = 'http://127.0.0.1:8080/api/v1',
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.wifi, size: 16),
+                  label: const Text('Wi-Fi (192.168.100.37)'),
+                  onPressed: () => serverController.text = 'http://192.168.100.37:8080/api/v1',
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              setState(() {
+                apiBaseUrl = serverController.text.trim();
+              });
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Servidor actualizado a $apiBaseUrl')),
+              );
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> submit() async {
     if (!formKey.currentState!.validate()) return;
     setState(() {
@@ -42,13 +106,13 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (_) => MobileHome(api: widget.authApi),
+          builder: (_) => MainShellPage(api: widget.authApi),
         ),
       );
     } on AuthException catch (exception) {
       if (mounted) setState(() => error = exception.message);
-    } catch (_) {
-      if (mounted) setState(() => error = 'No se pudo conectar con NexoDocs.');
+    } catch (e) {
+      if (mounted) setState(() => error = 'Error de conexión: $e');
     } finally {
       if (mounted) setState(() => submitting = false);
     }
@@ -70,6 +134,14 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: IconButton(
+                          icon: const Icon(Icons.settings_outlined, size: 20, color: Colors.grey),
+                          tooltip: 'Configurar servidor',
+                          onPressed: showServerDialog,
+                        ),
+                      ),
                       const Icon(
                         Icons.folder_shared_outlined,
                         size: 52,
@@ -85,12 +157,44 @@ class _LoginPageState extends State<LoginPage> {
                         'Acceso clínico móvil',
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          ActionChip(
+                            avatar: const Icon(Icons.business, size: 14),
+                            label: const Text('Admin (Laura)', style: TextStyle(fontSize: 12)),
+                            onPressed: () {
+                              setState(() {
+                                tenantController.text = '20000000-0000-0000-0000-000000000001';
+                                userController.text = 'laura@acme.com';
+                                passwordController.text = 'DemoPass123!';
+                                error = null;
+                              });
+                            },
+                          ),
+                          ActionChip(
+                            avatar: const Icon(Icons.shield_outlined, size: 14),
+                            label: const Text('SuperAdmin (Carlos)', style: TextStyle(fontSize: 12)),
+                            onPressed: () {
+                              setState(() {
+                                tenantController.text = '';
+                                userController.text = 'carlos@nexodocs.com';
+                                passwordController.text = 'DemoPass123!';
+                                error = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         key: const Key('tenant'),
                         controller: tenantController,
                         decoration: const InputDecoration(
-                          labelText: 'Organización',
+                          labelText: 'Organización (Tenant ID)',
                         ),
                         validator: requiredField,
                       ),
