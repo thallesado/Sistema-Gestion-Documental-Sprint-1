@@ -10,10 +10,10 @@ export interface ApiPatient {
   documentNumber: string;
   firstName: string;
   lastName: string;
-  birthDate: string;
-  gender: string;
-  phone: string;
-  email: string;
+  birthDate: string | null;
+  gender: string | null;
+  phone: string | null;
+  email: string | null;
   status: string;
 }
 
@@ -95,12 +95,14 @@ export class ClinicalApiService {
     let params = new HttpParams().set('page', page).set('size', size);
     if (filter.trim()) params = params.set('filter', filter.trim());
     return this.http.get<unknown>(`${API_URL}/patients`, { params }).pipe(
-      map((response) => normalizePage<ApiPatient>(response, isApiPatient)),
+      map((response) => normalizePatientPage(response)),
     );
   }
 
   patient(id: string): Observable<ApiPatient> {
-    return this.http.get<ApiPatient>(`${API_URL}/patients/${id}`);
+    return this.http.get<unknown>(`${API_URL}/patients/${id}`).pipe(
+      map((response) => normalizePatient(response)),
+    );
   }
 
   quickSummary(id: string): Observable<PatientQuickSummary> {
@@ -109,7 +111,9 @@ export class ClinicalApiService {
 
   /** HU-03: alta de paciente dentro del tenant autenticado. */
   createPatient(payload: CreatePatientPayload): Observable<ApiPatient> {
-    return this.http.post<ApiPatient>(`${API_URL}/patients`, payload);
+    return this.http.post<unknown>(`${API_URL}/patients`, payload).pipe(
+      map((response) => normalizePatient(response)),
+    );
   }
 
   histories(patientId: string): Observable<{ content: ClinicalHistory[]; totalElements: number }> {
@@ -130,22 +134,21 @@ export class ClinicalApiService {
   }
 }
 
-function normalizePage<T>(response: unknown, isItem: (value: unknown) => value is T): ApiPage<T> {
-  if (Array.isArray(response) && response.every(isItem)) {
-    return { content: response, totalElements: response.length };
+function normalizePatientPage(response: unknown): ApiPage<ApiPatient> {
+  if (Array.isArray(response)) {
+    const items = response.map(normalizePatient);
+    return { content: items, totalElements: items.length };
   }
 
-  if (!isRecord(response) || !Array.isArray(response['content']) || !response['content'].every(isItem)) {
+  if (!isRecord(response) || !Array.isArray(response['content'])) {
     throw new Error('La API clínica devolvió una respuesta de pacientes no válida.');
   }
 
-  const totalElements = response['totalElements'];
-  if (typeof totalElements !== 'number' || !Number.isFinite(totalElements) || totalElements < 0) {
-    throw new Error('La API clínica devolvió una paginación no válida.');
-  }
+  const items = (response['content'] as unknown[]).map(normalizePatient);
+  const totalElements = typeof response['totalElements'] === 'number' ? response['totalElements'] : items.length;
 
   return {
-    content: response['content'],
+    content: items,
     totalElements,
     totalPages: typeof response['totalPages'] === 'number' ? response['totalPages'] : undefined,
     number: typeof response['number'] === 'number' ? response['number'] : undefined,
@@ -153,18 +156,35 @@ function normalizePage<T>(response: unknown, isItem: (value: unknown) => value i
   };
 }
 
-function isApiPatient(value: unknown): value is ApiPatient {
-  if (!isRecord(value)) return false;
-  return typeof value['id'] === 'string'
-    && typeof value['documentType'] === 'string'
-    && typeof value['documentNumber'] === 'string'
-    && typeof value['firstName'] === 'string'
-    && typeof value['lastName'] === 'string'
-    && (typeof value['birthDate'] === 'string' || value['birthDate'] === null)
-    && typeof value['gender'] === 'string'
-    && (typeof value['phone'] === 'string' || value['phone'] === null)
-    && (typeof value['email'] === 'string' || value['email'] === null)
-    && typeof value['status'] === 'string';
+function normalizePatient(value: unknown): ApiPatient {
+  if (!isRecord(value)) {
+    throw new Error('Elemento de paciente no válido');
+  }
+
+  return {
+    id: String(value['id'] ?? ''),
+    documentType: String(value['documentType'] ?? 'CI'),
+    documentNumber: String(value['documentNumber'] ?? ''),
+    firstName: String(value['firstName'] ?? ''),
+    lastName: String(value['lastName'] ?? ''),
+    birthDate: normalizeBirthDate(value['birthDate']),
+    gender: typeof value['gender'] === 'string' ? value['gender'] : null,
+    phone: typeof value['phone'] === 'string' ? value['phone'] : null,
+    email: typeof value['email'] === 'string' ? value['email'] : null,
+    status: String(value['status'] ?? 'ACTIVE'),
+  };
+}
+
+function normalizeBirthDate(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value) && value.length >= 3) {
+    const y = String(value[0]).padStart(4, '0');
+    const m = String(value[1]).padStart(2, '0');
+    const d = String(value[2]).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

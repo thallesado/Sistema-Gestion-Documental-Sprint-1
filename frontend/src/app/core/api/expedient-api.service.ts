@@ -51,17 +51,23 @@ export class ExpedientApiService {
 }
 
 function normalizePage(response: unknown): ExpedientPage {
-  if (!isRecord(response) || !Array.isArray(response['content']) || !response['content'].every(isApiExpedient)) {
+  if (Array.isArray(response)) {
+    const items = response.map(normalizeExpedient);
+    return {
+      content: items,
+      totalElements: items.length,
+    };
+  }
+
+  if (!isRecord(response) || !Array.isArray(response['content'])) {
     throw new Error('La API de expedientes devolvió una respuesta no válida.');
   }
 
-  const totalElements = response['totalElements'];
-  if (typeof totalElements !== 'number' || !Number.isFinite(totalElements) || totalElements < 0) {
-    throw new Error('La API de expedientes devolvió una paginación no válida.');
-  }
+  const content = (response['content'] as unknown[]).map(normalizeExpedient);
+  const totalElements = typeof response['totalElements'] === 'number' ? response['totalElements'] : content.length;
 
   return {
-    content: response['content'],
+    content,
     totalElements,
     totalPages: optionalNumber(response['totalPages']),
     number: optionalNumber(response['number']),
@@ -69,18 +75,32 @@ function normalizePage(response: unknown): ExpedientPage {
   };
 }
 
-function isApiExpedient(value: unknown): value is ApiExpedient {
-  if (!isRecord(value)) return false;
-  return typeof value['id'] === 'string'
-    && typeof value['code'] === 'string'
-    && typeof value['name'] === 'string'
-    && (typeof value['description'] === 'string' || value['description'] === null)
-    && typeof value['status'] === 'string'
-    && (typeof value['departmentId'] === 'string' || value['departmentId'] === null)
-    && typeof value['createdAt'] === 'string'
-    && typeof value['updatedAt'] === 'string'
-    && (typeof value['closedAt'] === 'string' || value['closedAt'] === null)
-    && (typeof value['archivedAt'] === 'string' || value['archivedAt'] === null);
+function normalizeExpedient(value: unknown): ApiExpedient {
+  if (!isRecord(value)) {
+    throw new Error('Elemento de expediente no válido');
+  }
+  return {
+    id: String(value['id'] ?? ''),
+    code: String(value['code'] ?? ''),
+    name: String(value['name'] ?? ''),
+    description: typeof value['description'] === 'string' ? value['description'] : null,
+    status: String(value['status'] ?? 'ACTIVE'),
+    departmentId: typeof value['departmentId'] === 'string' ? value['departmentId'] : null,
+    createdAt: normalizeDate(value['createdAt']),
+    updatedAt: normalizeDate(value['updatedAt']),
+    closedAt: typeof value['closedAt'] === 'string' ? value['closedAt'] : null,
+    archivedAt: typeof value['archivedAt'] === 'string' ? value['archivedAt'] : null,
+  };
+}
+
+function normalizeDate(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    // Si viene en segundos (epoch timestamp con decimales o timestamp en ms)
+    const ms = value < 10000000000 ? value * 1000 : value;
+    return new Date(ms).toISOString();
+  }
+  return new Date().toISOString();
 }
 
 function optionalNumber(value: unknown): number | undefined {
