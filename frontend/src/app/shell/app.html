@@ -143,22 +143,5 @@
     @if (toast()) {
       <div class="toast" role="status">{{ toast() }}</div>
     }
-
-    <div class="assistant">
-      @if (chatOpen()) {
-        <div class="assistant-panel">
-          <div class="assistant-heading">
-            <div><span class="assistant-spark">✦</span><h2>Nexo AI</h2></div>
-            <button type="button" (click)="chatOpen.set(false)" aria-label="Cerrar asistente">×</button>
-          </div>
-          <p>Pregunta sobre documentos, revisiones o permisos.</p>
-          <div class="assistant-prompt">¿En qué puedo ayudarte hoy?</div>
-          <button type="button" (click)="notify('Conversación iniciada')">Iniciar conversación</button>
-        </div>
-      }
-      <button type="button" class="assistant-button" (click)="chatOpen.set(!chatOpen())">
-        <span>✦</span><b>Nexo AI</b>
-      </button>
-    </div>
   </main>
 }

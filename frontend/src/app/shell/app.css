@@ -254,18 +254,6 @@
 .mobile-nav-children a.active { background: #eafaf7; color: var(--teal); font-weight: 700; }
 
 .toast { background: #163a39; border-radius: 11px; bottom: 96px; color: #fff; font-size: 12px; font-weight: 700; left: 50%; padding: 12px 16px; position: fixed; transform: translateX(-50%); z-index: 40; }
-.assistant { bottom: 20px; position: fixed; right: 20px; z-index: 30; }
-.assistant-button { align-items: center; background: var(--teal); border: 0; border-radius: 999px; box-shadow: 0 10px 22px rgba(8,127,123,.22); color: #fff; cursor: pointer; display: flex; font-size: 13px; gap: 9px; padding: 7px 15px 7px 8px; }
-.assistant-button span { align-items: center; background: #d5f5f1; border-radius: 50%; color: var(--teal); display: flex; font-size: 18px; height: 31px; justify-content: center; width: 31px; }
-.assistant-panel { background: #fff; border: 1px solid #bfeae5; border-radius: 17px; box-shadow: 0 18px 36px rgba(20,78,75,.18); margin-bottom: 11px; padding: 15px; width: min(320px, calc(100vw - 32px)); }
-.assistant-heading { align-items: flex-start; display: flex; justify-content: space-between; }
-.assistant-heading > div { align-items: center; display: flex; gap: 7px; }
-.assistant-heading h2 { font-size: 14px; margin: 0; }
-.assistant-spark { color: #0f9d9a; font-size: 20px; }
-.assistant-heading button { background: transparent; border: 0; color: #7b9895; cursor: pointer; font-size: 20px; line-height: 1; }
-.assistant-panel p { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 5px 0 12px; }
-.assistant-prompt { background: #eafaf7; border-radius: 11px; color: #17635f; font-size: 12px; font-weight: 700; padding: 11px; }
-.assistant-panel > button:last-child { background: #0f9d9a; border: 0; border-radius: 10px; color: #fff; cursor: pointer; font-size: 12px; font-weight: 700; margin-top: 11px; padding: 10px; width: 100%; }
 .row-actions, .export-menu { position: relative; }
 .row-actions { margin-left: auto; }
 .row-menu { right: 0; top: 32px; }
@@ -297,9 +285,6 @@
   .topbar { gap: 10px; height: 64px; padding: 0 14px; }
   .search { display: none; }
   .topbar-actions { margin-left: auto; }
-  .assistant { bottom: 14px; right: 14px; }
-  .assistant-button b { display: none; }
-  .assistant-button { padding: 7px; }
   .page { padding: 20px 14px 30px; }
   .dashboard-welcome, .module-header { align-items: flex-start; flex-direction: column; padding: 20px; }
   .dashboard-welcome .hero-actions { justify-content: flex-start; }
