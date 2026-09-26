@@ -1,16 +1,16 @@
-:host {
+:root, :host, app-root {
   --ink: #102d2a;
   --muted: #648280;
   --line: #e2ece9;
   --surface: #ffffff;
   --canvas: #f4f8f7;
-  --teal: #087f7b;
-  --teal-strong: #066b67;
+  --teal: #0e6b66;
+  --teal-strong: #0a5652;
   --teal-text: #eafffc;
   --teal-muted: #88b7b2;
-  --sidebar-bg: #0d2826;
-  --sidebar-card-bg: rgba(255, 255, 255, 0.05);
-  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-bg: #0b2524;
+  --sidebar-card-bg: rgba(255, 255, 255, 0.04);
+  --sidebar-border: rgba(255, 255, 255, 0.07);
 }
 
 * {
@@ -24,9 +24,9 @@
 
 /* Sidebar Oscura Premium */
 .sidebar {
-  background-color: var(--sidebar-bg);
+  background-color: #0b2524 !important;
   bottom: 0;
-  color: #ffffff;
+  color: #ffffff !important;
   display: flex;
   flex-direction: column;
   left: 0;
@@ -36,7 +36,7 @@
   top: 0;
   width: 256px;
   z-index: 20;
-  border-right: 1px solid rgba(0, 0, 0, 0.05);
+  border-right: 1px solid rgba(0, 0, 0, 0.15);
 }
 
 .brand {
@@ -63,6 +63,7 @@
   font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.02em;
+  color: #ffffff;
 }
 
 .brand-copy small {
@@ -74,8 +75,8 @@
 
 /* Tarjeta Organización Activa */
 .tenant-card {
-  background: var(--sidebar-card-bg);
-  border: 1px solid var(--sidebar-border);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -85,10 +86,15 @@
 }
 
 .tenant-icon {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
   color: #2dd4bf;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .tenant-info {
@@ -116,7 +122,7 @@
 }
 
 .tenant-role-badge {
-  color: #88aba6;
+  color: #7fa19d;
   font-size: 8.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -139,7 +145,7 @@
 }
 
 .nav-section-title {
-  color: #5c8682;
+  color: #597d7a;
   font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -158,7 +164,7 @@
   font-size: 13px;
   font-weight: 600;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 8px 10px;
   text-decoration: none;
   transition: all 0.15s ease;
   position: relative;
@@ -170,22 +176,33 @@
 }
 
 .nav-item.active {
-  background: var(--teal);
+  background: linear-gradient(90deg, #0e6b66 0%, #0d5f5b 100%);
   color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 4px 12px rgba(8, 127, 123, 0.25);
+  box-shadow: 0 4px 14px rgba(14, 107, 102, 0.35);
 }
 
 .nav-icon-wrap {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: inherit;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.nav-item.active .nav-icon-wrap {
+  background: transparent;
+  color: #ffffff;
 }
 
 .nav-item b {
   flex: 1;
   font-weight: inherit;
+  color: inherit;
 }
 
 .nav-arrow {
@@ -206,19 +223,27 @@
 .nav-children-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin: 2px 0 6px 36px;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  padding-left: 10px;
+  gap: 3px;
+  margin: 4px 0 8px 16px;
+  padding-left: 12px;
 }
 
 .nav-children-list a {
-  color: #88aba6;
+  align-items: center;
+  display: flex;
+  gap: 9px;
+  color: #8daaa7;
   font-size: 12px;
   font-weight: 500;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
   text-decoration: none;
+  transition: all 0.12s;
+}
+
+.nav-children-list a svg {
+  color: #6a918e;
+  flex-shrink: 0;
 }
 
 .nav-children-list a:hover {
@@ -226,15 +251,23 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-.nav-children-list a.active {
+.nav-children-list a:hover svg {
   color: #2dd4bf;
+}
+
+.nav-children-list a.active {
+  color: #ffffff;
   font-weight: 700;
+}
+
+.nav-children-list a.active svg {
+  color: #2dd4bf;
 }
 
 /* Widget Almacenamiento */
 .storage-widget {
-  background: var(--sidebar-card-bg);
-  border: 1px solid var(--sidebar-border);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 12px;
   padding: 12px;
   display: flex;

@@ -87,6 +87,23 @@ import { AuthService } from '../../../core/auth/auth.service';
             }
 
             <div class="field-group">
+              <label for="tenant-input">Organización</label>
+              <div class="input-wrap">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><path d="M9 18h6v4H9z"/>
+                  </svg>
+                </span>
+                <input
+                  id="tenant-input"
+                  name="tenantId"
+                  [(ngModel)]="tenantId"
+                  placeholder="ID de organización o déjalo vacío"
+                />
+              </div>
+            </div>
+
+            <div class="field-group">
               <label for="email-input">Correo electrónico</label>
               <div class="input-wrap">
                 <span class="input-icon">
@@ -505,6 +522,7 @@ export class LoginPage {
   readonly isSubmitting = signal(false);
   readonly showPassword = signal(false);
 
+  tenantId = '';
   usernameOrEmail = '';
   password = '';
 
@@ -513,7 +531,7 @@ export class LoginPage {
     this.isSubmitting.set(true);
 
     this.auth.login({
-      tenantId: null,
+      tenantId: this.tenantId.trim() || null,
       usernameOrEmail: this.usernameOrEmail,
       password: this.password,
     }).subscribe({
