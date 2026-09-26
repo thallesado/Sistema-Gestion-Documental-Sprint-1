@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   DemoItem,
@@ -208,11 +209,11 @@ type TabLink = { label: string; href: string };
             (pageSizeChange)="changeDashboardPageSize($event)"
           />
         </section>
-      } @else if (isTasksView || isActivityView || isRolesView || isPermissionsView) {
+      } @else if (isTasksView || isActivityView || isRolesView || isPermissionsView || isNotificationsView) {
         <!-- HERO BANNER -->
         <section class="module-hero-banner">
           <div class="module-hero-left">
-            <span class="module-hero-badge" [class.badge-perm-icon]="isPermissionsView" [class.badge-role-icon]="isRolesView">
+            <span class="module-hero-badge" [class.badge-perm-icon]="isPermissionsView" [class.badge-role-icon]="isRolesView" [class.badge-notif-icon]="isNotificationsView">
               @if (isRolesView) {
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -223,6 +224,11 @@ type TabLink = { label: string; href: string };
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              } @else if (isNotificationsView) {
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                 </svg>
               } @else if (isTasksView) {
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
@@ -238,9 +244,9 @@ type TabLink = { label: string; href: string };
               }
             </span>
             <div class="module-hero-text">
-              <p class="eyebrow">{{ isRolesView ? 'USUARIOS Y EQUIPOS · ROLES' : isPermissionsView ? 'USUARIOS Y EQUIPOS · PERMISOS' : isTasksView ? 'INICIO · MIS TAREAS' : 'INICIO · ACTIVIDAD RECIENTE' }}</p>
-              <h1>{{ isRolesView ? 'Roles del sistema' : isPermissionsView ? 'Permisos del sistema' : isTasksView ? 'Mis tareas' : 'Actividad reciente' }}</h1>
-              <p>{{ isRolesView ? 'Define y administra los perfiles de acceso y responsabilidades de los usuarios en el tenant.' : isPermissionsView ? 'Controla qué acciones y operaciones puede realizar cada rol sobre los módulos de NexoDocs.' : isTasksView ? 'Prioriza revisiones, aprobaciones y validaciones asignadas a tu usuario.' : 'Consulta los últimos movimientos realizados dentro de la organización.' }}</p>
+              <p class="eyebrow">{{ isRolesView ? 'USUARIOS Y EQUIPOS · ROLES' : isPermissionsView ? 'USUARIOS Y EQUIPOS · PERMISOS' : isNotificationsView ? ('NOTIFICACIONES · ' + (routeInfo.subcategory || 'Todas') | uppercase) : isTasksView ? 'INICIO · MIS TAREAS' : 'INICIO · ACTIVIDAD RECIENTE' }}</p>
+              <h1>{{ isRolesView ? 'Roles del sistema' : isPermissionsView ? 'Permisos del sistema' : isNotificationsView ? (routeInfo.subcategory === 'Todas' ? 'Centro de notificaciones' : routeInfo.subcategory === 'No leidas' ? 'Notificaciones no leídas' : routeInfo.subcategory === 'Tareas' ? 'Notificaciones de tareas' : routeInfo.subcategory === 'Aprobaciones' ? 'Solicitudes de aprobación' : routeInfo.subcategory === 'Menciones' ? 'Menciones y comentarios' : routeInfo.subcategory) : isTasksView ? 'Mis tareas' : 'Actividad reciente' }}</h1>
+              <p>{{ isRolesView ? 'Define y administra los perfiles de acceso y responsabilidades de los usuarios en el tenant.' : isPermissionsView ? 'Controla qué acciones y operaciones puede realizar cada rol sobre los módulos de NexoDocs.' : isNotificationsView ? copy.description : isTasksView ? 'Prioriza revisiones, aprobaciones y validaciones asignadas a tu usuario.' : 'Consulta los últimos movimientos realizados dentro de la organización.' }}</p>
             </div>
           </div>
 
@@ -257,8 +263,11 @@ type TabLink = { label: string; href: string };
               <path d="M35 58 C35 54 38 51 42 51 L115 51 C119 51 122 54 122 58 L122 84 C122 88 119 92 115 92 L42 92 C38 92 35 88 35 84 Z" fill="#138072"/>
             </svg>
 
-            <button type="button" class="btn-primary-action" (click)="rowAction(isRolesView ? 'Nuevo rol' : isPermissionsView ? 'Crear permiso' : 'Nueva acción', isRolesView ? 'Formulario de rol' : isPermissionsView ? 'Formulario de permiso' : 'Acción')">
-              @if (isRolesView || isPermissionsView) {
+            <button type="button" class="btn-primary-action" (click)="handleHeaderAction()">
+              @if (isNotificationsView) {
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Marcar todo leído</span>
+              } @else if (isRolesView || isPermissionsView) {
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 <span>{{ isRolesView ? 'Nuevo rol' : 'Crear permiso' }}</span>
               } @else if (isTasksView) {
@@ -278,7 +287,63 @@ type TabLink = { label: string; href: string };
 
         <!-- KPI STATS CARDS ROW (3 Cards) -->
         <div class="kpi-stats-grid">
-          @if (isRolesView) {
+          @if (isNotificationsView) {
+            <article class="kpi-stat-card">
+              <div class="kpi-stat-main">
+                <span class="kpi-icon-wrap mint">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  </svg>
+                </span>
+                <div class="kpi-stat-info">
+                  <small>No leídas</small>
+                  <strong>6</strong>
+                  <p>2 de alta prioridad</p>
+                </div>
+              </div>
+              <button type="button" class="kpi-card-arrow" aria-label="Ver no leídas" routerLink="/notifications/unread">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </article>
+
+            <article class="kpi-stat-card">
+              <div class="kpi-stat-main">
+                <span class="kpi-icon-wrap amber">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </span>
+                <div class="kpi-stat-info">
+                  <small>Pendientes de acción</small>
+                  <strong>4</strong>
+                  <p>Aprobaciones y firmas</p>
+                </div>
+              </div>
+              <button type="button" class="kpi-card-arrow" aria-label="Ver pendientes" routerLink="/notifications/approvals">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </article>
+
+            <article class="kpi-stat-card">
+              <div class="kpi-stat-main">
+                <span class="kpi-icon-wrap green">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                </span>
+                <div class="kpi-stat-info">
+                  <small>Atendidas hoy</small>
+                  <strong>12</strong>
+                  <p>Tiempo prom. 18 min</p>
+                </div>
+              </div>
+              <button type="button" class="kpi-card-arrow" aria-label="Ver todas" routerLink="/notifications">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </article>
+          } @else if (isRolesView) {
             <article class="kpi-stat-card">
               <div class="kpi-stat-main">
                 <span class="kpi-icon-wrap mint">
@@ -460,9 +525,17 @@ type TabLink = { label: string; href: string };
 
         <!-- MAIN CARD PANEL -->
         <section class="module-main-card">
+          @if (isNotificationsView) {
+            <nav class="internal-tabs" aria-label="Vistas de notificaciones" style="padding-top: 14px; padding-bottom: 6px;">
+              @for (tab of notificationTabs; track tab.href) {
+                <a [routerLink]="tab.href" [class.active]="routeInfo.href === tab.href">{{ tab.label }}</a>
+              }
+            </nav>
+          }
+
           <div class="module-card-header">
-            <h2>{{ isRolesView ? 'Roles configurados' : isPermissionsView ? 'Matriz de permisos' : 'Inicio recientes' }}</h2>
-            <p>{{ isRolesView ? 'Perfiles de acceso y responsabilidades definidos en el tenant.' : isPermissionsView ? 'Operaciones autorizables en la plataforma documental.' : 'Datos del tenant autenticado.' }}</p>
+            <h2>{{ isNotificationsView ? 'Bandeja de notificaciones' : isRolesView ? 'Roles configurados' : isPermissionsView ? 'Matriz de permisos' : 'Inicio recientes' }}</h2>
+            <p>{{ isNotificationsView ? 'Avisos, asignaciones y eventos en tiempo real del tenant activo.' : isRolesView ? 'Perfiles de acceso y responsabilidades definidos en el tenant.' : isPermissionsView ? 'Operaciones autorizables en la plataforma documental.' : 'Datos del tenant autenticado.' }}</p>
           </div>
 
           <div class="module-filter-bar">
@@ -470,7 +543,7 @@ type TabLink = { label: string; href: string };
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="color: #648280;">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <input [placeholder]="isRolesView ? 'Buscar rol por nombre o alcance...' : isPermissionsView ? 'Buscar permiso por clave o módulo...' : 'Buscar en este módulo...'" [value]="searchTerm()" (input)="setSearchTerm($event)" />
+              <input [placeholder]="isNotificationsView ? 'Buscar notificación por asunto, remitente o detalle...' : isRolesView ? 'Buscar rol por nombre o alcance...' : isPermissionsView ? 'Buscar permiso por clave o módulo...' : 'Buscar en este módulo...'" [value]="searchTerm()" (input)="setSearchTerm($event)" />
             </div>
 
             <div class="module-filter-group">
@@ -502,13 +575,13 @@ type TabLink = { label: string; href: string };
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                 <span>Estado</span>
               </button>
-              <button type="button" class="filter-btn-pill" (click)="toggleActiveFilter(isPermissionsView ? 'modulo' : isRolesView ? 'tipo' : 'area')">
+              <button type="button" class="filter-btn-pill" (click)="toggleActiveFilter(isPermissionsView ? 'modulo' : isRolesView ? 'tipo' : isNotificationsView ? 'tipo' : 'area')">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                <span>{{ isPermissionsView ? 'Módulo' : isRolesView ? 'Tipo' : 'Área' }}</span>
+                <span>{{ isPermissionsView ? 'Módulo' : isRolesView ? 'Tipo' : isNotificationsView ? 'Tipo' : 'Área' }}</span>
               </button>
-              <button type="button" class="filter-btn-pill" (click)="toggleActiveFilter(isPermissionsView ? 'criticidad' : isRolesView ? 'nivel' : 'fecha')">
+              <button type="button" class="filter-btn-pill" (click)="toggleActiveFilter(isPermissionsView ? 'criticidad' : isRolesView ? 'nivel' : isNotificationsView ? 'prioridad' : 'fecha')">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                <span>{{ isPermissionsView ? 'Criticidad' : isRolesView ? 'Nivel' : 'Fecha' }}</span>
+                <span>{{ isPermissionsView ? 'Criticidad' : isRolesView ? 'Nivel' : isNotificationsView ? 'Prioridad' : 'Fecha' }}</span>
               </button>
             </div>
           </div>
@@ -537,6 +610,32 @@ type TabLink = { label: string; href: string };
                     <p>{{ event.entityType }}{{ event.entityId ? ' · ' + event.entityId : '' }} · {{ event.userId || 'Usuario' }}</p>
                   </div>
                   <time class="doc-item-right">{{ event.occurredAt | date:'short' }}</time>
+                </article>
+              }
+            </div>
+          } @else if (isNotificationsView && visibleItems().length) {
+            <div class="list">
+              @for (item of visibleItems(); track item.title) {
+                <article class="doc-item-row">
+                  <span class="doc-api-badge" [ngClass]="getNotifBadgeClass(item.type || 'DOC')">{{ item.type || 'DOC' }}</span>
+                  <div class="doc-item-main">
+                    <h3>{{ item.title }}</h3>
+                    <p>{{ item.meta }}</p>
+                  </div>
+                  <div class="doc-item-right">
+                    <time>{{ item.date }}</time>
+                    <span class="status status-pill" [ngClass]="item.status === 'No leída' ? 'review' : 'ok'">{{ item.status }}</span>
+                    <div class="row-actions">
+                      <button class="more-button" type="button" (click)="toggleRowMenu(item.title)" [attr.aria-expanded]="openRowMenu === item.title" aria-label="Abrir opciones">•••</button>
+                      @if (openRowMenu === item.title) {
+                        <div class="row-menu">
+                          <button type="button" (click)="rowAction(item.status === 'No leída' ? 'Marcar como leída' : 'Marcar como no leída', item.title)">{{ item.status === 'No leída' ? 'Marcar como leída' : 'Marcar como no leída' }}</button>
+                          <button type="button" (click)="rowAction('Ver detalle', item.title)">Ver detalle</button>
+                          <button type="button" class="danger-action" (click)="rowAction('Eliminar', item.title)">Eliminar</button>
+                        </div>
+                      }
+                    </div>
+                  </div>
                 </article>
               }
             </div>
@@ -636,7 +735,7 @@ type TabLink = { label: string; href: string };
         </header>
       }
 
-      @if (!isHome && !isTasksView && !isActivityView && !isRolesView && !isPermissionsView) {
+      @if (!isHome && !isTasksView && !isActivityView && !isRolesView && !isPermissionsView && !isNotificationsView) {
         <div class="stats">
           @for (stat of stats; track stat.label) {
             <article>
@@ -726,7 +825,7 @@ type TabLink = { label: string; href: string };
             <div class="simulated-note"><b>Operación simulada</b><span>Esta pantalla no guarda datos porque todavía no existe backend ni API autenticada.</span></div>
           </aside>
         </div>
-      } @else if (!isHome && !isTasksView && !isActivityView && !isRolesView && !isPermissionsView) {
+      } @else if (!isHome && !isTasksView && !isActivityView && !isRolesView && !isPermissionsView && !isNotificationsView) {
         <section class="panel list-panel">
           @if (isDocumentsHub) {
             <nav class="internal-tabs" aria-label="Vistas de documentos">
@@ -792,7 +891,7 @@ type TabLink = { label: string; href: string };
       }
 
       @if (actionMessage) { <div class="inline-toast" role="status">{{ actionMessage }}</div> }
-      @if (!isTasksView && !isActivityView && !isRolesView && !isPermissionsView) {
+      @if (!isTasksView && !isActivityView && !isRolesView && !isPermissionsView && !isNotificationsView) {
         <footer class="demo-note"><span>ⓘ</span> Las operaciones disponibles dependen de la API y los permisos de la sesión autenticada.</footer>
       }
     </section>
@@ -805,30 +904,54 @@ export class WorkspacePage {
   private readonly documentApi = inject(DocumentApiService);
   private readonly workspaceApi = inject(WorkspaceApiService);
   @ViewChild('fileInput') private fileInput?: ElementRef<HTMLInputElement>;
-  readonly routeInfo = this.route.snapshot.data['routeInfo'] as RouteInfo;
-  readonly copy = screenCopy(this.routeInfo);
-  readonly items: DemoItem[] = demoList(this.routeInfo.module, this.routeInfo.subcategory);
+  private readonly routeData = toSignal(this.route.data, {
+    initialValue: this.route.snapshot.data,
+  });
+
+  get routeInfo(): RouteInfo {
+    return (this.routeData()?.['routeInfo'] as RouteInfo) ?? (this.route.snapshot.data['routeInfo'] as RouteInfo);
+  }
+
+  get copy() {
+    return screenCopy(this.routeInfo);
+  }
+
+  readonly items = computed<DemoItem[]>(() => {
+    const info = this.routeInfo;
+    return demoList(info?.module || '', info?.subcategory || '');
+  });
+
   readonly tasks = signal<ApiTask[]>([]);
   readonly activities = signal<ApiActivity[]>([]);
   readonly recentDocuments = signal<ApiDocument[]>([]);
   readonly dataError = signal('');
-  readonly isHome = this.routeInfo.href === '/';
-  readonly isTasksView = this.routeInfo.href === '/dashboard/tasks' || this.routeInfo.subcategory === 'Mis tareas';
-  readonly isActivityView = this.routeInfo.href === '/dashboard/activity' || this.routeInfo.subcategory === 'Actividad reciente';
-  readonly isRolesView = this.routeInfo.href === '/users/roles' || this.routeInfo.subcategory === 'Roles';
-  readonly isPermissionsView = this.routeInfo.href === '/users/permissions' || this.routeInfo.subcategory === 'Permisos';
+
+  get isHome() { return this.routeInfo.href === '/'; }
+  get isTasksView() { return this.routeInfo.href === '/dashboard/tasks' || this.routeInfo.subcategory === 'Mis tareas'; }
+  get isActivityView() { return this.routeInfo.href === '/dashboard/activity' || this.routeInfo.subcategory === 'Actividad reciente'; }
+  get isRolesView() { return this.routeInfo.href === '/users/roles' || this.routeInfo.subcategory === 'Roles'; }
+  get isPermissionsView() { return this.routeInfo.href === '/users/permissions' || this.routeInfo.subcategory === 'Permisos'; }
+  get isNotificationsView() { return this.routeInfo.module === 'Notificaciones' || this.routeInfo.href.startsWith('/notifications'); }
+  get isFormPage() { return ['Crear', 'Nuevo', 'Subir'].some((word) => this.routeInfo.subcategory.includes(word)); }
+  get isUploadPage() { return this.routeInfo.subcategory.includes('Subir'); }
+  get isExpedientsModule() { return this.routeInfo.module === 'Expedientes'; }
+  get isExpedientList() { return this.isExpedientsModule && !this.isFormPage; }
+  get isDocumentsHub() { return this.routeInfo.module === 'Documentos' && !this.isFormPage; }
+  get isScanPage() { return this.routeInfo.href === '/digitization'; }
+  get isOcrFlow() { return ['/digitization/ocr', '/digitization/validation', '/digitization/indexing', '/digitization/metadata'].includes(this.routeInfo.href); }
+  get ocrStep() { return this.routeInfo.href === '/digitization/indexing' ? 'indexing' : this.routeInfo.href === '/digitization/metadata' ? 'metadata' : 'validation'; }
+
   readonly activeFilter = signal<string>('estado');
-  readonly isFormPage = ['Crear', 'Nuevo', 'Subir'].some((word) => this.routeInfo.subcategory.includes(word));
-  readonly isUploadPage = this.routeInfo.subcategory.includes('Subir');
-  readonly isExpedientsModule = this.routeInfo.module === 'Expedientes';
-  readonly isExpedientList = this.isExpedientsModule && !this.isFormPage;
-  readonly isDocumentsHub = this.routeInfo.module === 'Documentos' && !this.isFormPage;
-  readonly isScanPage = this.routeInfo.href === '/digitization';
-  readonly isOcrFlow = ['/digitization/ocr', '/digitization/validation', '/digitization/indexing', '/digitization/metadata'].includes(this.routeInfo.href);
-  readonly ocrStep = this.routeInfo.href === '/digitization/indexing' ? 'indexing' : this.routeInfo.href === '/digitization/metadata' ? 'metadata' : 'validation';
   readonly documentTabs: TabLink[] = [
     { label: 'Todos', href: '/documents' }, { label: 'Recientes', href: '/documents/recent' }, { label: 'Pendientes', href: '/documents/pending' },
     { label: 'En revisión', href: '/documents/in-review' }, { label: 'Aprobados', href: '/documents/approved' }, { label: 'Archivados', href: '/documents/archived' }, { label: 'Papelera', href: '/documents/trash' },
+  ];
+  readonly notificationTabs: TabLink[] = [
+    { label: 'Todas', href: '/notifications' },
+    { label: 'No leídas', href: '/notifications/unread' },
+    { label: 'Tareas', href: '/notifications/tasks' },
+    { label: 'Aprobaciones', href: '/notifications/approvals' },
+    { label: 'Menciones', href: '/notifications/mentions' },
   ];
   readonly ocrTabs: TabLink[] = [
     { label: 'Validación y extracción', href: '/digitization/ocr' }, { label: 'Indexación', href: '/digitization/indexing' }, { label: 'Corrección de metadatos', href: '/digitization/metadata' },
@@ -851,7 +974,7 @@ export class WorkspacePage {
   readonly exportMenuOpen = signal(false);
   readonly ocrStatus = signal<OcrStatus>('REQUIRES_VALIDATION');
   readonly ocrFileName = 'contrato-marco-proveedores-2025.pdf';
-  readonly stats: PageStat[] = this.buildStats(this.routeInfo.module);
+  get stats(): PageStat[] { return this.buildStats(this.routeInfo.module); }
   readonly todayLabel = new Intl.DateTimeFormat('es-BO', { dateStyle: 'long' }).format(new Date());
   readonly displayName = computed(() => {
     const user = this.auth.user();
@@ -863,11 +986,45 @@ export class WorkspacePage {
     if (this.isHome || this.isTasksView || this.isActivityView) {
       this.loadDashboard();
     }
+    this.route.data.subscribe(() => {
+      this.page.set(1);
+      this.searchTerm.set('');
+      this.openRowMenu = '';
+      this.exportMenuOpen.set(false);
+      if (this.isHome || this.isTasksView || this.isActivityView) {
+        this.loadDashboard();
+      }
+    });
   }
 
   toggleActiveFilter(filter: string): void {
     this.activeFilter.update((current) => current === filter ? '' : filter);
     this.actionMessage = `Filtro por ${filter} seleccionado`;
+  }
+
+  getNotifBadgeClass(type: string): string {
+    const t = (type || '').toUpperCase();
+    if (t === 'APR') return 'badge-apr';
+    if (t === 'TSK') return 'badge-tsk';
+    if (t === 'DOC') return 'badge-doc';
+    if (t === 'MEN') return 'badge-men';
+    return 'badge-sis';
+  }
+
+  markAllNotificationsRead(): void {
+    this.actionMessage = 'Todas las notificaciones han sido marcadas como leídas';
+  }
+
+  handleHeaderAction(): void {
+    if (this.isNotificationsView) {
+      this.markAllNotificationsRead();
+    } else if (this.isRolesView) {
+      this.rowAction('Nuevo rol', 'Formulario de rol');
+    } else if (this.isPermissionsView) {
+      this.rowAction('Crear permiso', 'Formulario de permiso');
+    } else {
+      this.rowAction('Nueva acción', 'Acción');
+    }
   }
 
   readonly filteredItems = computed(() => {
@@ -876,7 +1033,7 @@ export class WorkspacePage {
     const area = this.expedientArea();
     const from = this.dateFrom();
     const to = this.dateTo();
-    return this.items.filter((item) => {
+    return this.items().filter((item) => {
       const matchesQuery = !query || `${item.title} ${item.meta} ${item.date}`.toLowerCase().includes(query);
       const matchesStatus = !this.isExpedientList || !status || item.status === status;
       const matchesArea = !this.isExpedientList || !area || item.area === area;
@@ -1147,7 +1304,7 @@ export class WorkspacePage {
       else if (format === 'PDF') exportToPrintView('Registro de Actividad Reciente', 'Eventos y auditoría de acciones del tenant', data, cols);
       this.actionMessage = `Exportación de actividad a ${format} completada exitosamente.`;
     } else if (this.isRolesView) {
-      const data = this.visibleItems().length ? this.visibleItems() : this.items;
+      const data = this.visibleItems().length ? this.visibleItems() : this.items();
       const cols: ExportColumn[] = [
         { key: 'title', label: 'Rol' },
         { key: 'meta', label: 'Descripción / Alcance' },
@@ -1160,7 +1317,7 @@ export class WorkspacePage {
       else if (format === 'PDF') exportToPrintView('Catálogo de Roles de Usuario', 'Módulo Usuarios y Equipos · Control de Acceso RBAC · NexoDocs', data, cols);
       this.actionMessage = `Exportación de roles a ${format} completada exitosamente.`;
     } else if (this.isPermissionsView) {
-      const data = this.visibleItems().length ? this.visibleItems() : this.items;
+      const data = this.visibleItems().length ? this.visibleItems() : this.items();
       const cols: ExportColumn[] = [
         { key: 'title', label: 'Permiso' },
         { key: 'meta', label: 'Descripción / Regla operativa' },
@@ -1172,10 +1329,23 @@ export class WorkspacePage {
       else if (format === 'JSON') exportToJson(data, filename);
       else if (format === 'PDF') exportToPrintView('Matriz de Permisos del Sistema', 'Módulo Seguridad y Control de Acceso · NexoDocs', data, cols);
       this.actionMessage = `Exportación de permisos a ${format} completada exitosamente.`;
+    } else if (this.isNotificationsView) {
+      const data = this.visibleItems().length ? this.visibleItems() : this.items();
+      const cols: ExportColumn[] = [
+        { key: 'title', label: 'Notificación / Asunto' },
+        { key: 'meta', label: 'Detalle / Remitente' },
+        { key: 'date', label: 'Fecha' },
+        { key: 'status', label: 'Estado' },
+      ];
+      const filename = `notificaciones-${new Date().toISOString().split('T')[0]}`;
+      if (format === 'CSV' || format === 'Excel') exportToCsv(data, filename, cols);
+      else if (format === 'JSON') exportToJson(data, filename);
+      else if (format === 'PDF') exportToPrintView('Bandeja de Notificaciones', 'Avisos y eventos en tiempo real del tenant · NexoDocs', data, cols);
+      this.actionMessage = `Exportación de notificaciones a ${format} completada exitosamente.`;
     } else {
       let data = this.visibleItems();
       if (!data || data.length === 0) {
-        data = this.items.length ? this.items : demoList(this.routeInfo.module, this.routeInfo.subcategory);
+        data = this.items().length ? this.items() : demoList(this.routeInfo.module, this.routeInfo.subcategory);
       }
       const cols: ExportColumn[] = [
         { key: 'title', label: 'Título' },

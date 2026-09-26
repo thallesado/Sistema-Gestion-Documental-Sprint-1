@@ -1437,4 +1437,34 @@ a {
   color: #0284c7;
 }
 
+.module-hero-badge.badge-notif-icon {
+  background: #d4f3ec;
+  color: #087f7b;
+}
+
+.doc-api-badge.badge-apr {
+  background: #d4f3ec;
+  color: #087f7b;
+}
+
+.doc-api-badge.badge-tsk {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.doc-api-badge.badge-doc {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.doc-api-badge.badge-men {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.doc-api-badge.badge-sis {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 
