@@ -22,39 +22,150 @@ type TabLink = { label: string; href: string };
     <section class="page">
       @if (isHome) {
         <section class="dashboard-welcome">
-          <div>
-            <p class="eyebrow">{{ todayLabel }}</p>
+          <div class="welcome-left">
+            <p class="eyebrow">{{ todayLabel | uppercase }}</p>
             <h1>Buenos días, {{ displayName() }}</h1>
             <p class="welcome-copy">Aquí tienes un resumen de lo que está ocurriendo en tu organización.</p>
           </div>
+          <div class="welcome-illustration-wrap">
+            <svg viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg" class="hero-folder-svg">
+              <circle cx="120" cy="90" r="75" fill="#d9f3ee" fill-opacity="0.7"/>
+              <path d="M178 40 C194 36 206 48 202 65 C192 65 180 54 178 40 Z" fill="#8bc9bd"/>
+              <path d="M192 30 C207 27 217 37 214 50 C207 50 197 42 192 30 Z" fill="#a4dcce"/>
+              <path d="M188 112 C204 118 208 133 198 143 C188 138 183 123 188 112 Z" fill="#78bfb2"/>
+              <rect x="74" y="42" width="72" height="92" rx="8" fill="#ffffff" stroke="#c8e4de" stroke-width="2"/>
+              <rect x="88" y="58" width="44" height="4" rx="2" fill="#d4ece7"/>
+              <rect x="88" y="68" width="36" height="4" rx="2" fill="#d4ece7"/>
+              <rect x="88" y="78" width="28" height="4" rx="2" fill="#d4ece7"/>
+              <path d="M58 84 C58 78 63 74 69 74 L98 74 L110 84 L171 84 C177 84 182 89 182 95 L182 136 C182 143 177 148 170 148 L70 148 C63 148 58 143 58 136 Z" fill="#4ea99b"/>
+              <path d="M58 92 C58 86 63 82 69 82 L171 82 C177 82 182 87 182 93 L182 136 C182 143 177 148 170 148 L70 148 C63 148 58 143 58 136 Z" fill="#138072"/>
+            </svg>
+          </div>
           <div class="hero-actions">
-            <a routerLink="/documents/new"><span>＋</span> Crear documento</a>
-            <a routerLink="/documents/upload" class="secondary-action"><span>↑</span> Subir archivo</a>
+            <a routerLink="/documents/new" class="btn-primary-action">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Crear documento</span>
+            </a>
+            <a routerLink="/documents/upload" class="btn-secondary-action">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+              <span>Subir archivo</span>
+            </a>
           </div>
         </section>
+
         <div class="dashboard-grid">
+          <!-- Mis tareas Card -->
           <article class="dashboard-card task-card">
-            <div class="card-heading"><div><span class="card-icon amber">◷</span><div><h2>Mis tareas</h2><p>Requieren tu atención</p></div></div><a routerLink="/dashboard/tasks">Ver todas →</a></div>
-            <div class="task-summary"><strong>{{ tasks().length }}</strong><span>pendientes</span><b>{{ highPriorityTasks() }}</b><span>alta prioridad</span></div>
-            @for (task of tasks(); track task.id) {
-              <div class="task-line"><span class="dot amber-dot"></span><div><b>{{ task.title }}</b><small>{{ task.dueAt ? (task.dueAt | date:'dd/MM/yyyy') : 'Sin fecha límite' }}{{ task.area ? ' · ' + task.area : '' }}</small></div><span class="status pending">{{ task.status }}</span></div>
-            } @empty { <div class="empty-state">No tienes tareas pendientes.</div> }
+            <div class="card-heading">
+              <div class="heading-left">
+                <span class="card-icon-badge badge-amber">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </span>
+                <div>
+                  <h2>Mis tareas</h2>
+                  <p>Requieren tu atención</p>
+                </div>
+              </div>
+              <a routerLink="/dashboard/tasks" class="card-link">Ver todas →</a>
+            </div>
+
+            <div class="task-counter-strip">
+              <div class="counter-item"><strong>{{ tasks().length }}</strong><span>pendientes</span></div>
+              <div class="counter-item"><b>{{ highPriorityTasks() }}</b><span>alta prioridad</span></div>
+            </div>
+
+            @if (tasks().length) {
+              @for (task of tasks(); track task.id) {
+                <div class="task-line">
+                  <span class="dot amber-dot"></span>
+                  <div>
+                    <b>{{ task.title }}</b>
+                    <small>{{ task.dueAt ? (task.dueAt | date:'dd/MM/yyyy') : 'Sin fecha límite' }}{{ task.area ? ' · ' + task.area : '' }}</small>
+                  </div>
+                  <span class="status pending">{{ task.status }}</span>
+                </div>
+              }
+            } @else {
+              <div class="empty-state-wrap">
+                <span class="empty-icon">
+                  <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#9bbcb6" stroke-width="1.8">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                    <polyline points="9 13 11 15 15 11"/>
+                  </svg>
+                </span>
+                <p>No tienes tareas pendientes.</p>
+              </div>
+            }
           </article>
+
+          <!-- Actividad reciente Card -->
           <article class="dashboard-card activity-card">
-            <div class="card-heading"><div><span class="card-icon teal">↗</span><div><h2>Actividad reciente</h2><p>Últimos movimientos del tenant</p></div></div><a routerLink="/dashboard/activity">Ver actividad →</a></div>
-            @for (event of activities(); track event.id) {
-              <div class="activity-row"><span class="activity-avatar">{{ initials(event.userId || 'Usuario') }}</span><div><b>{{ event.action }}</b><small>{{ event.entityType }}{{ event.entityId ? ' · ' + event.entityId : '' }}</small></div><time>{{ event.occurredAt | date:'short' }}</time></div>
-            } @empty { <div class="empty-state">No hay actividad reciente.</div> }
+            <div class="card-heading">
+              <div class="heading-left">
+                <span class="card-icon-badge badge-mint">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>
+                  </svg>
+                </span>
+                <div>
+                  <h2>Actividad reciente</h2>
+                  <p>Últimos movimientos del tenant</p>
+                </div>
+              </div>
+              <a routerLink="/dashboard/activity" class="card-link">Ver actividad →</a>
+            </div>
+
+            @if (activities().length) {
+              @for (event of activities(); track event.id) {
+                <div class="activity-row">
+                  <span class="activity-avatar">{{ initials(event.userId || 'Usuario') }}</span>
+                  <div><b>{{ event.action }}</b><small>{{ event.entityType }}{{ event.entityId ? ' · ' + event.entityId : '' }}</small></div>
+                  <time>{{ event.occurredAt | date:'short' }}</time>
+                </div>
+              }
+            } @else {
+              <div class="empty-state-wrap">
+                <span class="empty-icon">
+                  <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#9bbcb6" stroke-width="1.8">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                </span>
+                <p>No hay actividad reciente.</p>
+              </div>
+            }
           </article>
         </div>
+
+        <!-- Documentos recientes Panel -->
         <section class="panel dashboard-documents">
-          <div class="panel-title"><div><h2>Documentos recientes</h2><p>Los documentos que han tenido actividad recientemente.</p></div><a routerLink="/documents">Ver todos →</a></div>
+          <div class="panel-title">
+            <div class="panel-title-left">
+              <span class="card-icon-badge badge-teal-light">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+              </span>
+              <div>
+                <h2>Documentos recientes</h2>
+                <p>Los documentos que han tenido actividad recientemente.</p>
+              </div>
+            </div>
+            <a routerLink="/documents" class="card-link">Ver todos →</a>
+          </div>
+
           <div class="list document-list">
             @for (item of recentDocuments(); track item.id) {
               <article>
                 <span class="file-icon">DOC</span>
-                <div><h3>{{ item.name }}</h3><p>{{ item.code }}</p></div>
-                <time>{{ item.updatedAt | date:'dd/MM/yyyy' }}</time><span class="status muted">{{ item.status }}</span>
+                <div class="doc-info">
+                  <h3>{{ item.name }}</h3>
+                  <p>{{ item.code }}</p>
+                </div>
+                <time>{{ item.updatedAt | date:'dd/MM/yyyy' }}</time>
+                <span class="status status-pill" [ngClass]="item.status ? item.status.toLowerCase() : 'in_review'">{{ item.status }}</span>
                 <div class="row-actions">
                   <button class="more-button" type="button" (click)="toggleRowMenu(item.id)" [attr.aria-expanded]="openRowMenu === item.id" aria-label="Abrir opciones">•••</button>
                   @if (openRowMenu === item.id) {
@@ -66,8 +177,18 @@ type TabLink = { label: string; href: string };
                   }
                 </div>
               </article>
-            } @empty { <div class="empty-state">No hay documentos recientes.</div> }
+            } @empty {
+              <div class="empty-state-wrap">
+                <span class="empty-icon">
+                  <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#9bbcb6" stroke-width="1.8">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                </span>
+                <p>No hay documentos recientes.</p>
+              </div>
+            }
           </div>
+
           <app-pagination
             [total]="recentDocuments().length"
             [page]="dashboardPage()"
