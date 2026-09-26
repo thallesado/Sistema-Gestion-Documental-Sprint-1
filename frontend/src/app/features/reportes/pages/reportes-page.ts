@@ -11,6 +11,7 @@ import {
 } from '../components';
 import { ChartPoint, ReportDefinition, ReportRow, reportDefinition } from '../../../core/data/report-data';
 import { DemoSessionState } from '../../../core/state/demo-session';
+import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
 
 type Kpi = { icon: string; label: string; value: string; detail: string; tone: string };
 
@@ -165,7 +166,17 @@ export class ReportsPage {
   }
 
   exportReport(format: string): void {
-    this.message.set(`Stub de exportación ${format}: se respetan ${this.filterSummary()} y ${this.filteredRows().length} resultados; la generación futura corresponde a la API.`);
+    const rows = this.filteredRows();
+    const cols: ExportColumn[] = this.report.columns.map((c) => ({ key: c.key, label: c.label }));
+    const filename = `reporte-${this.report.key}-${new Date().toISOString().split('T')[0]}`;
+    if (format === 'Excel' || format === 'CSV') {
+      exportToCsv(rows, filename, cols);
+    } else if (format === 'JSON') {
+      exportToJson(rows, filename);
+    } else if (format === 'PDF') {
+      exportToPrintView(this.report.title, `Reporte del tenant ${this.session.tenant()} · NexoDocs`, rows, cols);
+    }
+    this.message.set(`Reporte exportado exitosamente en formato ${format} (${rows.length} registros).`);
   }
 
   tableAction(row: ReportRow): void {

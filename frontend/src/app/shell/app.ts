@@ -18,7 +18,7 @@ export class App {
   readonly roles = roles;
   readonly sections = navSections;
   readonly currentUrl = signal(this.router.url);
-  readonly expanded = signal<string[]>(['Inicio']);
+  readonly expanded = signal<string[]>([]);
   readonly role = computed<Role>(() => {
     const user = this.currentUser();
     if (user?.platformAdmin || user?.roleNames?.includes('SUPER_ADMIN')) return 'Superadministrador';

@@ -59,7 +59,7 @@ export const navSections: NavSection[] = [
         children: [
           { label: 'Resumen', href: '/' },
           { label: 'Actividad reciente', href: '/dashboard/activity' },
-          { label: 'Mis tareas', href: '/dashboard/tasks', sprintEnabled: false },
+          { label: 'Mis tareas', href: '/dashboard/tasks' },
           { label: 'Indicadores', href: '/dashboard/indicators', sprintEnabled: false },
         ],
       },
@@ -83,7 +83,7 @@ export const navSections: NavSection[] = [
           { label: 'Todos los documentos', href: '/documents' },
           { label: 'Nuevo documento', href: '/documents/new' },
           { label: 'Subir archivo', href: '/documents/upload' },
-          { label: 'Mis documentos', href: '/documents/mine', sprintEnabled: false },
+          { label: 'Mis documentos', href: '/documents/mine' },
           { label: 'Compartidos conmigo', href: '/documents/shared', sprintEnabled: false },
           { label: 'Recientes', href: '/documents/recent', visible: false },
           { label: 'Pendientes', href: '/documents/pending', visible: false },
@@ -284,16 +284,38 @@ export const tenants: DemoItem[] = [
   { title: 'Grupo Norte', meta: 'gruponorte.nexodocs.app - Basico - 8 usuarios', date: '2.1 GB de 5 GB', status: 'Suspendido' },
 ];
 
+export const rolesItems: DemoItem[] = [
+  { title: 'Administrador de tenant', meta: 'ROL-ADM · Control total sobre usuarios, documentos, flujos y auditoría del tenant', date: '3 usuarios · Sistema', status: 'Activo' },
+  { title: 'Supervisor de área', meta: 'ROL-SUP · Aprobación de expedientes, supervisión de flujos y validación de tareas', date: '5 usuarios · Operativo', status: 'Activo' },
+  { title: 'Operador documental', meta: 'ROL-DOC · Creación, carga de archivos, edición de metadatos e indexación OCR', date: '14 usuarios · Estándar', status: 'Activo' },
+  { title: 'Auditor de calidad', meta: 'ROL-AUD · Consulta de registros de auditoría, trazabilidad y reportes de seguridad', date: '2 usuarios · Especial', status: 'Activo' },
+  { title: 'Usuario de consulta', meta: 'ROL-CON · Acceso de solo lectura a documentos aprobados y expedientes públicos', date: '8 usuarios · Básico', status: 'Activo' },
+];
+
+export const permissionsItems: DemoItem[] = [
+  { title: 'document:create', meta: 'DOC-01 · Permite crear y clasificar nuevos documentos en el repositorio institucional', date: 'Módulo Documentos · Total', status: 'Activo' },
+  { title: 'document:approve', meta: 'DOC-02 · Autorización y firma para pasar documentos a estado Aprobado o Vigente', date: 'Módulo Flujos · Supervisor', status: 'Activo' },
+  { title: 'document:version_upload', meta: 'DOC-03 · Carga de nuevas versiones físicas (.pdf, .docx, .png, .jpg)', date: 'Módulo Archivos · Estándar', status: 'Activo' },
+  { title: 'expedient:manage', meta: 'EXP-01 · Creación, cierre, foliación y vinculación de expedientes documentales', date: 'Módulo Expedientes · Total', status: 'Activo' },
+  { title: 'audit:view', meta: 'AUD-01 · Lectura inmutable del historial de eventos y accesos del sistema', date: 'Módulo Auditoría · Auditor', status: 'Activo' },
+  { title: 'user:manage', meta: 'USR-01 · Alta, edición de roles y suspensión de usuarios del tenant', date: 'Módulo Gestión · Admin', status: 'Activo' },
+  { title: 'ocr:validate', meta: 'OCR-01 · Revisión y confirmación de extracción de datos OCR en lote', date: 'Módulo Digitalización · Operador', status: 'Activo' },
+];
+
 export function screenCopy(route: RouteInfo): ScreenCopy {
   const action = route.subcategory.includes('Crear') || route.subcategory.includes('Nuevo')
     ? route.subcategory
     : route.subcategory.includes('Subir')
       ? 'Seleccionar archivo'
-      : route.module === 'Reportes' || route.module === 'Auditoria'
-        ? 'Exportar'
-        : route.module === 'Configuracion'
-          ? 'Guardar cambios'
-          : 'Nueva accion';
+      : route.subcategory === 'Roles'
+        ? 'Nuevo rol'
+        : route.subcategory === 'Permisos'
+          ? 'Crear permiso'
+          : route.module === 'Reportes' || route.module === 'Auditoria'
+            ? 'Exportar'
+            : route.module === 'Configuracion'
+              ? 'Guardar cambios'
+              : 'Nueva accion';
 
   return {
     action,
@@ -302,7 +324,9 @@ export function screenCopy(route: RouteInfo): ScreenCopy {
   };
 }
 
-export function demoList(module: string): DemoItem[] {
+export function demoList(module: string, subcategory?: string): DemoItem[] {
+  if (subcategory === 'Roles' || subcategory?.toLowerCase().includes('roles')) return rolesItems;
+  if (subcategory === 'Permisos' || subcategory?.toLowerCase().includes('permis') || subcategory?.toLowerCase().includes('permission')) return permissionsItems;
   if (module === 'Documentos' || module === 'Digitalizacion') return documents;
   if (module === 'Expedientes') return expedients;
   if (module === 'Workflows') return workflows;
