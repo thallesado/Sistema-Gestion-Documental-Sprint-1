@@ -5,6 +5,7 @@ import { NotFoundPage } from '../../features/not-found/not-found-page';
 import { WorkspacePage } from '../../features/workspace/workspace-page';
 import { ReportsPage } from '../../features/reports/reports-page';
 import { AuditPage } from '../../features/audit/audit-page';
+import { ClinicalHistoryPage } from '../../features/clinical/clinical-history-page';
 import { authGuard } from '../auth/auth.guard';
 
 export const routes: Routes = [
@@ -19,7 +20,9 @@ export const routes: Routes = [
       ? ReportsPage
       : route.module === 'Auditoria'
         ? AuditPage
-        : WorkspacePage,
+        : route.module === 'Módulo Clínico' && route.subcategory === 'Antecedentes'
+          ? ClinicalHistoryPage
+          : WorkspacePage,
     title: `${route.subcategory} - NexoDocs`,
     data: { routeInfo: route },
     canActivate: [authGuard],

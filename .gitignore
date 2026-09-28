@@ -22,3 +22,6 @@ database/backups/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# IDE
+.vscode/

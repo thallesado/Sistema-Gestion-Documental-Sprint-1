@@ -8,7 +8,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://127.0.0.1:5434/nexodocs}
     username: ${DB_USERNAME:nexodocs}
-    password: ${DB_PASSWORD}
+    password: ${DB_PASSWORD:nexodocs_dev}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -30,7 +30,7 @@ springdoc:
     tags-sorter: alpha
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:super_secret_jwt_token_key_for_nexodocs_development_environment_32bytes}
   expiration: ${JWT_EXPIRATION_MS:28800000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 

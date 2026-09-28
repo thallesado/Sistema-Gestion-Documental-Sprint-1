@@ -51,6 +51,14 @@ export const navSections: NavSection[] = [
         ],
       },
       {
+        label: 'Módulo Clínico',
+        icon: 'MC',
+        children: [
+          { label: 'Pacientes', href: '/clinical/patients' },
+          { label: 'Antecedentes', href: '/clinical/history' },
+        ],
+      },
+      {
         label: 'Documentos',
         icon: 'DO',
         children: [
@@ -305,4 +313,6 @@ const descriptions: Record<string, string> = {
   'Notificaciones|No leidas': 'Notificaciones nuevas que todavia requieren tu atencion.',
   'Configuracion|General': 'Datos institucionales y preferencias generales de Acme Consulting.',
   'Tenants|Todos los tenants': 'Administra las organizaciones aisladas registradas en la plataforma.',
+  'Módulo Clínico|Pacientes': 'Gestiona el registro e identificación unívoca de pacientes.',
+  'Módulo Clínico|Antecedentes': 'Captura estructurada de diagnósticos base, alergias y antecedentes.',
 };
