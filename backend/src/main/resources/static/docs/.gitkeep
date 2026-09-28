@@ -1,2 +1,0 @@
-# Esta carpeta es para almacenar documentos PDF estáticos temporalmente.
-# Al iniciar Spring Boot, estos archivos estarán disponibles en la URL: http://localhost:8080/docs/nombre_del_archivo.pdf

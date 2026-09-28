@@ -18,7 +18,7 @@ export class App {
   readonly roles = roles;
   readonly sections = navSections;
   readonly currentUrl = signal(this.router.url);
-  readonly expanded = signal<string[]>(['Inicio']);
+  readonly expanded = signal<string[]>([]);
   readonly role = computed<Role>(() => {
     const user = this.currentUser();
     if (user?.platformAdmin || user?.roleNames?.includes('SUPER_ADMIN')) return 'Superadministrador';
@@ -34,7 +34,6 @@ export class App {
   readonly initials = computed(() => this.displayName().split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || 'U');
   readonly tenantName = computed(() => this.currentUser()?.tenantName || (this.currentUser()?.platformAdmin ? 'Todos los tenants' : 'Organización autenticada'));
   readonly toast = signal('');
-  readonly chatOpen = signal(false);
   readonly mobileNavOpen = signal(false);
   readonly sidebarUserMenuOpen = signal(false);
   readonly headerUserMenuOpen = signal(false);
