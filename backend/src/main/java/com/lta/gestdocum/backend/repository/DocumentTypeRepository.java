@@ -18,7 +18,7 @@ public interface DocumentTypeRepository extends JpaRepository<DocumentType, UUID
         SELECT d FROM DocumentType d
         WHERE d.tenantId = :tenantId
           AND (:active IS NULL OR d.active = :active)
-          AND (:filter IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%', :filter, '%'))
+          AND (:filter = '' OR LOWER(d.name) LIKE LOWER(CONCAT('%', :filter, '%'))
             OR LOWER(d.code) LIKE LOWER(CONCAT('%', :filter, '%')))
         """)
     Page<DocumentType> findByTenant(

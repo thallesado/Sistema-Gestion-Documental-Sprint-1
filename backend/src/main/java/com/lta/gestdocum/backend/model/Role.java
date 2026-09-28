@@ -29,4 +29,7 @@ public class Role {
     @Builder.Default
     @Column(name = "is_system")
     private boolean isSystem = false;
+    @Builder.Default
+    @Column(name = "is_active")
+    private boolean isActive = true;
 }

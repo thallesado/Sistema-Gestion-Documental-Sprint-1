@@ -18,8 +18,8 @@ import { AuthService } from '../../core/auth/auth.service';
         }
         <label>
           Organización
-          <input name="tenantId" [(ngModel)]="tenantId" required />
-          <small>Usa el identificador asignado por tu organización.</small>
+          <input name="tenantId" [(ngModel)]="tenantId" />
+          <small>Usa el UUID asignado por tu organización. Déjalo vacío para una cuenta de plataforma.</small>
         </label>
         <label>
           Correo
@@ -43,15 +43,15 @@ export class LoginPage {
   private readonly route = inject(ActivatedRoute);
   readonly errorMessage = signal('');
   readonly isSubmitting = signal(false);
-  tenantId = '20000000-0000-0000-0000-000000000001';
-  usernameOrEmail = 'laura@acme.com';
-  password = 'DemoPass123!';
+  tenantId = '';
+  usernameOrEmail = '';
+  password = '';
 
   submit(): void {
     this.errorMessage.set('');
     this.isSubmitting.set(true);
     this.auth.login({
-      tenantId: this.tenantId,
+      tenantId: this.tenantId.trim() || null,
       usernameOrEmail: this.usernameOrEmail,
       password: this.password,
     }).subscribe({
@@ -70,6 +70,6 @@ export class LoginPage {
   }
 
   requestRecovery(): void {
-    this.errorMessage.set('La recuperación requiere configurar el proveedor de correo del backend.');
+    void this.router.navigateByUrl('/forgot-password');
   }
 }

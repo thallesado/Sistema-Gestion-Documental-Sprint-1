@@ -27,7 +27,7 @@ import { TenantSelector } from './tenant-selector';
 export class ReportHeader {
   @Input() title = '';
   @Input() description = '';
-  @Input() tenant = 'Acme Consulting';
+  @Input() tenant = 'Organización autenticada';
   @Input() role = '';
   @Input() filterSummary = 'Filtros actuales';
   @Output() tenantChange = new EventEmitter<string>();

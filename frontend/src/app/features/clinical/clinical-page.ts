@@ -1,428 +1,905 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { patients, Patient, ClinicalEvent } from '../../core/data/nexodocs-data';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
+import { EMPTY, Subject, catchError, debounceTime, distinctUntilChanged, finalize, switchMap, tap } from 'rxjs';
+import {
+  ApiPatient,
+  ClinicalApiService,
+  ClinicalHistory,
+  ClinicalHistoryPayload,
+  PatientQuickSummary,
+  TimelineEvent,
+} from '../../core/api/clinical-api.service';
+import { DocumentApiService, MedicalNote } from '../../core/api/document-api.service';
+
+type TimelineItem = {
+  id: string;
+  occurredAt: string;
+  title: string;
+  description: string;
+  source: string;
+  status: string;
+};
 
 @Component({
   selector: 'app-clinical-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   template: `
     <section class="clinical-page">
       <header class="clinical-header">
-        <div class="clinical-icon">⚕</div>
-        <div class="clinical-heading">
-          <p class="eyebrow">Expedientes · {{ mode() === 'records' ? 'Expediente clínico' : 'Notas médicas' }}</p>
-          <h1>{{ mode() === 'records' ? 'Expediente Clínico' : 'Notas Médicas' }}</h1>
-          <p>{{ mode() === 'records' ? 'Visualiza la historia clínica del paciente ordenada cronológicamente.' : 'Busca pacientes y registra notas de evolución.' }}</p>
+        <div class="clinical-icon" aria-hidden="true">⚕</div>
+        <div>
+          <p class="eyebrow">Expedientes · {{ isNotes() ? 'Notas médicas' : 'Expediente clínico' }}</p>
+          <h1>{{ isNotes() ? 'Notas médicas' : 'Expediente clínico' }}</h1>
+          <p>HU-03, HU-04, HU-07, HU-08 y HU-10 · información del tenant autenticado.</p>
         </div>
       </header>
 
-      <!-- ── Buscador de Pacientes ── -->
-      <section class="panel search-panel">
+      @if (apiError()) {
+        <div class="state error" role="alert">
+          <b>No fue posible consultar los pacientes.</b>
+          <span>{{ apiError() }}</span>
+          <button type="button" (click)="loadPatients()">Reintentar consulta</button>
+        </div>
+      }
+
+      <section class="panel">
         <div class="panel-title">
-          <div><h2>Buscador de pacientes</h2><p>Busca por nombre o documento de identidad</p></div>
-          <span class="patient-count">{{ filteredPatients().length }} pacientes encontrados</span>
+          <div>
+            <h2>Buscar paciente</h2>
+            <p>Nombre o documento; la consulta se filtra en el tenant autenticado.</p>
+          </div>
+          <button
+            class="primary"
+            type="button"
+            [attr.aria-expanded]="showNewPatient()"
+            aria-controls="patient-registration"
+            (click)="togglePatientForm()"
+          >{{ showNewPatient() ? 'Cerrar alta' : '＋ Alta de paciente' }}</button>
         </div>
+
         <div class="search-bar">
-          <span class="search-icon">⌕</span>
+          <span aria-hidden="true">⌕</span>
           <input
-            placeholder="Escribe el nombre o CI del paciente..."
+            aria-label="Buscar paciente por nombre o documento"
+            autocomplete="off"
+            placeholder="Nombre o CI…"
             [value]="searchTerm()"
-            (input)="onSearch($event)"
-            aria-label="Buscar paciente"
-          />
-          @if (searchTerm()) {
-            <button type="button" class="clear-search" (click)="clearSearch()" aria-label="Limpiar búsqueda">✕</button>
-          }
+            (input)="search($event)"
+          >
         </div>
-        <div class="patient-list">
-          @for (patient of filteredPatients(); track patient.id) {
-            <article
+
+        @if (loading()) {
+          <div class="inline-state" role="status">Buscando pacientes…</div>
+        }
+
+        <div class="patient-list" [attr.aria-busy]="loading()">
+          @for (patient of patients(); track patient.id) {
+            <button
               class="patient-row"
-              [class.selected]="selectedPatient()?.id === patient.id"
-              (click)="selectPatient(patient)"
+              type="button"
+              [class.selected]="selected()?.id === patient.id"
+              [attr.aria-pressed]="selected()?.id === patient.id"
+              (click)="select(patient)"
             >
-              <span class="patient-avatar">{{ initials(patient.name) }}</span>
-              <div class="patient-info">
-                <h3>{{ patient.name }}</h3>
-                <p>CI: {{ patient.documentId }} · {{ patient.gender }} · {{ age(patient.birthDate) }} años · {{ patient.bloodType }}</p>
-              </div>
-              <span class="patient-events-count">{{ patient.events.length }} {{ patient.events.length === 1 ? 'evento' : 'eventos' }}</span>
-              <span class="patient-chevron">›</span>
-            </article>
+              <span class="avatar" aria-hidden="true">{{ initials(patientLabel(patient)) }}</span>
+              <span class="patient-info">
+                <b>{{ patientLabel(patient) }}</b>
+                <small>{{ patientDocument(patient) }} · {{ patient.gender || 'Sin género informado' }}</small>
+              </span>
+              <span aria-hidden="true">›</span>
+            </button>
           } @empty {
-            <div class="empty-state"><strong>No se encontraron pacientes</strong><span>Intenta con otro nombre o número de documento.</span></div>
+            <div class="empty" role="status">
+              {{ apiError() ? 'No hay pacientes disponibles mientras la API no responde.' : 'No se encontraron pacientes.' }}
+            </div>
           }
         </div>
       </section>
 
-      <!-- ── Detalle del Paciente Seleccionado ── -->
-      @if (selectedPatient()) {
-        <div class="patient-detail-grid">
-          <!-- Ficha del paciente -->
-          <section class="panel patient-card">
-            <div class="panel-title"><div><h2>Ficha del paciente</h2><p>Información personal y de contacto</p></div>
-              <a [href]="pdfUrl(selectedPatient()!)" target="_blank" class="view-pdf-button">▤ Ver historia clínica PDF</a>
+      @if (showNewPatient()) {
+        <section id="patient-registration" class="panel form-panel" aria-labelledby="patient-registration-title">
+          <div class="panel-title">
+            <div>
+              <h2 id="patient-registration-title">Alta de paciente</h2>
+              <p>HU-03 · registro real mediante <code>POST /api/v1/patients</code>.</p>
             </div>
-            <div class="patient-data">
-              <dl>
-                <div><dt>Nombre completo</dt><dd>{{ selectedPatient()!.name }}</dd></div>
-                <div><dt>Documento de identidad</dt><dd>{{ selectedPatient()!.documentId }}</dd></div>
-                <div><dt>Fecha de nacimiento</dt><dd>{{ formatDate(selectedPatient()!.birthDate) }}</dd></div>
-                <div><dt>Edad</dt><dd>{{ age(selectedPatient()!.birthDate) }} años</dd></div>
-                <div><dt>Género</dt><dd>{{ selectedPatient()!.gender }}</dd></div>
-                <div><dt>Tipo de sangre</dt><dd><span class="blood-badge">{{ selectedPatient()!.bloodType }}</span></dd></div>
-                <div><dt>Teléfono</dt><dd>{{ selectedPatient()!.phone }}</dd></div>
-                <div><dt>Email</dt><dd>{{ selectedPatient()!.email }}</dd></div>
-                <div class="full-width"><dt>Dirección</dt><dd>{{ selectedPatient()!.address }}</dd></div>
-                <div><dt>Seguro médico</dt><dd>{{ selectedPatient()!.insuranceProvider }}</dd></div>
-              </dl>
-            </div>
-          </section>
+          </div>
 
-          <!-- Línea de tiempo del expediente clínico (HU-07) -->
-          <section class="panel timeline-panel">
-            <div class="panel-title">
-              <div><h2>Expediente cronológico</h2><p>Historia clínica ordenada por fecha</p></div>
-              <span class="status review">{{ selectedPatient()!.events.length }} registros</span>
-            </div>
-            <div class="timeline">
-              @for (event of selectedPatient()!.events; track $index) {
-                <article class="timeline-event">
-                  <div class="timeline-connector">
-                    <span class="timeline-dot" [class]="eventDotClass(event)"></span>
-                    @if (!$last) { <span class="timeline-line"></span> }
-                  </div>
-                  <div class="timeline-content">
-                    <div class="timeline-header">
-                      <span class="event-type-badge" [class]="eventTypeClass(event)">{{ event.type }}</span>
-                      <time>{{ formatDate(event.date) }}</time>
-                    </div>
-                    <h3>{{ event.title }}</h3>
-                    <p>{{ event.description }}</p>
-                    <div class="event-footer">
-                      <span class="event-doctor">👤 {{ event.doctor }}</span>
-                      <span [class]="eventStatusClass(event)">{{ event.status }}</span>
-                    </div>
-                  </div>
-                </article>
-              }
-            </div>
-          </section>
-        </div>
+          @if (patientFormError()) {
+            <div class="state error" role="alert">{{ patientFormError() }}</div>
+          }
+          @if (patientFormMessage()) {
+            <p class="success" role="status">{{ patientFormMessage() }}</p>
+          }
 
-        <!-- Formulario de Notas Médicas (HU-08) -->
-        @if (mode() === 'notes') {
-          <section class="panel notes-form-panel">
-            <div class="panel-title"><div><h2>Registrar nota de evolución</h2><p>Paciente: {{ selectedPatient()!.name }} — CI: {{ selectedPatient()!.documentId }}</p></div></div>
-            <form class="notes-form" (submit)="$event.preventDefault(); saveNote()">
-              <div class="notes-form-fields">
-                <label>Tipo de evento *
-                  <select [value]="noteType()" (change)="noteType.set(asSelectValue($event))">
-                    <option value="Consulta">Consulta</option>
-                    <option value="Nota de evolución">Nota de evolución</option>
-                    <option value="Laboratorio">Laboratorio</option>
-                    <option value="Imagen">Imagen</option>
-                    <option value="Receta">Receta</option>
-                    <option value="Cirugía">Cirugía</option>
-                    <option value="Urgencia">Urgencia</option>
-                    <option value="Ecografía">Ecografía</option>
-                  </select>
-                </label>
-                <label>Título de la nota *
-                  <input placeholder="Ej. Control de rutina" [value]="noteTitle()" (input)="noteTitle.set(asInputValue($event))" />
-                </label>
-                <label>Médico responsable *
-                  <input placeholder="Ej. Dr. Carlos Mendoza" [value]="noteDoctor()" (input)="noteDoctor.set(asInputValue($event))" />
-                </label>
-                <label>Estado
-                  <select [value]="noteStatus()" (change)="noteStatus.set(asSelectValue($event))">
-                    <option value="Completado">Completado</option>
-                    <option value="En tratamiento">En tratamiento</option>
-                    <option value="Vigente">Vigente</option>
-                    <option value="Pendiente">Pendiente</option>
-                  </select>
-                </label>
-              </div>
-              <label class="full-label">Descripción clínica *
-                <textarea rows="4" placeholder="Escriba la descripción detallada de la nota médica..." [value]="noteDescription()" (input)="noteDescription.set(asTextareaValue($event))"></textarea>
+          <form (submit)="createPatient($event)">
+            <div class="form-grid">
+              <label>Tipo de documento
+                <select [value]="newDocumentType()" (change)="newDocumentType.set(value($event))">
+                  <option value="CI">CI</option>
+                  <option value="SEGURO">Seguro</option>
+                </select>
               </label>
-              <div class="form-actions">
-                <button type="button" class="cancel-button" (click)="resetNoteForm()">Cancelar</button>
-                <button type="submit" [disabled]="!isNoteValid()">Guardar nota de evolución</button>
-              </div>
-            </form>
-          </section>
-        }
+              <label>Número de documento
+                <input required maxlength="40" [value]="newDocument()" (input)="newDocument.set(value($event))">
+              </label>
+              <label>Nombres
+                <input required maxlength="100" [value]="newFirstName()" (input)="newFirstName.set(value($event))">
+              </label>
+              <label>Apellidos
+                <input required maxlength="100" [value]="newLastName()" (input)="newLastName.set(value($event))">
+              </label>
+              <label>Fecha de nacimiento
+                <input type="date" [value]="newBirthDate()" (input)="newBirthDate.set(value($event))">
+              </label>
+              <label>Género
+                <input maxlength="30" [value]="newGender()" (input)="newGender.set(value($event))">
+              </label>
+              <label>Teléfono
+                <input maxlength="30" inputmode="tel" [value]="newPhone()" (input)="newPhone.set(value($event))">
+              </label>
+              <label>Correo electrónico
+                <input type="email" maxlength="150" [value]="newEmail()" (input)="newEmail.set(value($event))">
+              </label>
+            </div>
+            <button class="primary" type="submit" [disabled]="savingPatient() || !canCreatePatient()">
+              {{ savingPatient() ? 'Guardando…' : 'Guardar alta' }}
+            </button>
+          </form>
+        </section>
       }
 
-      @if (actionMessage()) { <div class="inline-toast" role="status">{{ actionMessage() }}</div> }
-      <footer class="demo-note"><span>ⓘ</span> Módulo clínico opcional con datos simulados de <b>Acme Consulting</b>. Los PDFs se sirven desde el backend estático.</footer>
+      @if (isNotes()) {
+        <section class="panel notes-panel" aria-labelledby="medical-note-title">
+          <div class="panel-title">
+            <div>
+              <h2 id="medical-note-title">Registrar nota médica</h2>
+              <p>HU-08 · la nota se guarda de forma inmutable en la historia seleccionada.</p>
+            </div>
+            <span class="badge">API clínica</span>
+          </div>
+
+          @if (noteError()) {
+            <div class="state error" role="alert">{{ noteError() }}</div>
+          }
+          @if (noteMessage()) {
+            <p class="success" role="status">{{ noteMessage() }}</p>
+          }
+
+          <form (submit)="saveNote($event)">
+            <div class="form-grid">
+              <label>Paciente
+                <input disabled [value]="selected() ? patientLabel(selected()!) : 'Selecciona un paciente'">
+              </label>
+              <label>Tipo de nota
+                <select [value]="noteType()" (change)="noteType.set(value($event))">
+                  <option value="EVOLUTION">Evolución</option>
+                  <option value="CONSULTATION">Consulta</option>
+                  <option value="ASSESSMENT">Evaluación</option>
+                </select>
+              </label>
+              <label class="wide">Título
+                <input required maxlength="200" [value]="noteTitle()" (input)="noteTitle.set(value($event))" placeholder="Motivo o encabezado de la nota">
+              </label>
+              <label class="wide">Contenido
+                <textarea required maxlength="20000" [value]="noteBody()" (input)="noteBody.set(value($event))" placeholder="Describe hallazgos, indicaciones y seguimiento"></textarea>
+              </label>
+            </div>
+            <button class="primary" type="submit" [disabled]="!history() || savingNote() || !noteTitle().trim() || !noteBody().trim()">
+              {{ savingNote() ? 'Guardando…' : 'Guardar nota' }}
+            </button>
+          </form>
+
+          <div class="note-history" aria-live="polite">
+            @if (notesLoading()) {
+              <div class="inline-state" role="status">Cargando notas médicas…</div>
+            } @else if (notesError()) {
+              <div class="state error" role="alert">
+                <span>{{ notesError() }}</span>
+                @if (history()) {
+                  <button type="button" (click)="loadMedicalNotes(selected()!.id, history()!.id, detailRequestId)">Reintentar consulta</button>
+                }
+              </div>
+            } @else {
+              @for (note of medicalNotes(); track note.id) {
+                <article class="summary">
+                  <b>{{ note.noteType }} · {{ note.createdAt | date:'dd/MM/yyyy HH:mm' }}</b>
+                  <span class="multiline">{{ note.content }}</span>
+                </article>
+              } @empty {
+                @if (selected() && history()) {
+                  <div class="empty">No hay notas médicas registradas para esta historia.</div>
+                }
+              }
+            }
+          </div>
+        </section>
+      }
+
+      @if (selected(); as patient) {
+        <section class="detail-grid">
+          <article class="panel patient-detail">
+            <div class="panel-title">
+              <div>
+                <h2>{{ patientLabel(patient) }}</h2>
+                <p>{{ patientDocument(patient) }} · {{ patientStatus(patient) }}</p>
+              </div>
+              <span class="badge">Expediente único</span>
+            </div>
+            <dl class="data">
+              <div><dt>Fecha de nacimiento</dt><dd>{{ patient.birthDate ? (patient.birthDate | date:'dd/MM/yyyy') : '—' }}</dd></div>
+              <div><dt>Teléfono</dt><dd>{{ patient.phone || '—' }}</dd></div>
+              <div><dt>Correo</dt><dd>{{ patient.email || '—' }}</dd></div>
+            </dl>
+          </article>
+
+          <article class="panel quick-summary-panel" aria-labelledby="quick-summary-title" [attr.aria-busy]="quickSummaryLoading()">
+            <div class="panel-title">
+              <div>
+                <h2 id="quick-summary-title">Resumen rápido</h2>
+                <p>HU-10 · alergias, diagnósticos y las cinco notas más recientes.</p>
+              </div>
+              <button class="secondary" type="button" (click)="reloadSelectedPatient()">Actualizar</button>
+            </div>
+
+            @if (quickSummaryLoading()) {
+              <div class="state" role="status">Consultando resumen rápido…</div>
+            } @else if (quickSummaryError()) {
+              <div class="state error" role="alert">
+                <b>No fue posible cargar el resumen rápido.</b>
+                <span>{{ quickSummaryError() }}</span>
+                <button type="button" (click)="reloadSelectedPatient()">Reintentar consulta</button>
+              </div>
+            } @else if (quickSummary(); as summary) {
+              <div class="quick-summary-grid">
+                <section>
+                  <h3>Alergias</h3>
+                  @for (allergy of summary.allergies; track allergy.allergen) {
+                    <div class="quick-item">
+                      <b>{{ allergy.allergen }}</b>
+                      <span>{{ allergy.severity || 'Severidad no indicada' }}{{ allergy.reaction ? ' · ' + allergy.reaction : '' }}</span>
+                    </div>
+                  } @empty {
+                    <p class="empty">No hay alergias registradas.</p>
+                  }
+                </section>
+                <section>
+                  <h3>Diagnósticos base</h3>
+                  @for (diagnosis of summary.baseDiagnoses; track diagnosis.code + diagnosis.description) {
+                    <div class="quick-item">
+                      <b>{{ diagnosis.description }}</b>
+                      <span>{{ diagnosis.code || 'Sin código' }}{{ diagnosis.diagnosedAt ? ' · ' + (diagnosis.diagnosedAt | date:'dd/MM/yyyy') : '' }}</span>
+                    </div>
+                  } @empty {
+                    <p class="empty">No hay diagnósticos base registrados.</p>
+                  }
+                </section>
+                <section class="recent-notes">
+                  <h3>Notas recientes</h3>
+                  @for (note of summary.recentNotes; track note.id) {
+                    <div class="quick-item">
+                      <b>{{ note.type }} · {{ note.createdAt | date:'dd/MM/yyyy HH:mm' }}</b>
+                      <span class="multiline">{{ note.content }}</span>
+                    </div>
+                  } @empty {
+                    <p class="empty">No hay notas médicas recientes.</p>
+                  }
+                </section>
+              </div>
+            }
+          </article>
+
+          <article class="panel history-panel" aria-labelledby="clinical-history-title">
+            <div class="panel-title">
+              <div>
+                <h2 id="clinical-history-title">Antecedentes y diagnósticos</h2>
+                <p>HU-04 · captura estructurada de la historia clínica.</p>
+              </div>
+            </div>
+
+            @if (historyLoading()) {
+              <div class="state" role="status">Cargando historia clínica…</div>
+            } @else if (historyError()) {
+              <div class="state error" role="alert">
+                <span>{{ historyError() }}</span>
+                <button type="button" (click)="reloadSelectedPatient()">Reintentar consulta</button>
+              </div>
+            } @else {
+              @if (history(); as clinicalHistory) {
+                <div class="summary"><b>Historia {{ clinicalHistory.code }}</b><span>Actualiza los antecedentes clínicos mediante la API.</span></div>
+              } @else {
+                <div class="state warning">No hay una historia clínica disponible. Puedes registrar los antecedentes iniciales.</div>
+              }
+            }
+
+            @if (historySaveError()) {
+              <div class="state error" role="alert">{{ historySaveError() }}</div>
+            }
+            @if (historyMessage()) {
+              <p class="success" role="status">{{ historyMessage() }}</p>
+            }
+
+            <form (submit)="saveHistory($event)">
+              <div class="form-grid">
+                <label>Tipo sanguíneo
+                  <input maxlength="10" [value]="bloodType()" (input)="bloodType.set(value($event))">
+                </label>
+                <label>Condiciones crónicas
+                  <input maxlength="2000" [value]="chronic()" (input)="chronic.set(value($event))">
+                </label>
+                <label>Alergia / sustancia
+                  <input maxlength="255" [value]="allergy()" (input)="allergy.set(value($event))" placeholder="Ej. penicilina">
+                </label>
+                <label>Severidad
+                  <select [value]="allergySeverity()" (change)="allergySeverity.set(value($event))">
+                    <option value="">No indicada</option>
+                    <option value="LEVE">Leve</option>
+                    <option value="MODERADA">Moderada</option>
+                    <option value="GRAVE">Grave</option>
+                  </select>
+                </label>
+                <label class="wide">Reacción alérgica
+                  <input maxlength="255" [value]="allergyReaction()" (input)="allergyReaction.set(value($event))" placeholder="Ej. urticaria">
+                </label>
+                <label>Código diagnóstico
+                  <input maxlength="40" [value]="diagnosisCode()" (input)="diagnosisCode.set(value($event))" placeholder="Ej. CIE-10">
+                </label>
+                <label>Diagnóstico base
+                  <input maxlength="500" [value]="diagnosisDescription()" (input)="diagnosisDescription.set(value($event))">
+                </label>
+                <label>Fecha del diagnóstico
+                  <input type="date" [value]="diagnosisDate()" (input)="diagnosisDate.set(value($event))">
+                </label>
+                <label>Medicamento actual
+                  <input maxlength="255" [value]="medicationName()" (input)="medicationName.set(value($event))">
+                </label>
+                <label>Dosis
+                  <input maxlength="120" [value]="medicationDose()" (input)="medicationDose.set(value($event))" placeholder="Ej. 500 mg">
+                </label>
+                <label>Frecuencia
+                  <input maxlength="120" [value]="medicationFrequency()" (input)="medicationFrequency.set(value($event))" placeholder="Ej. cada 8 h">
+                </label>
+                <label>Antecedentes patológicos
+                  <textarea maxlength="4000" [value]="pathological()" (input)="pathological.set(value($event))"></textarea>
+                </label>
+                <label>Antecedentes no patológicos
+                  <textarea maxlength="4000" [value]="nonPathological()" (input)="nonPathological.set(value($event))"></textarea>
+                </label>
+                <label>Antecedentes familiares
+                  <textarea maxlength="4000" [value]="family()" (input)="family.set(value($event))"></textarea>
+                </label>
+                <label>Observaciones
+                  <textarea maxlength="4000" [value]="observations()" (input)="observations.set(value($event))"></textarea>
+                </label>
+              </div>
+              <button class="primary" type="submit" [disabled]="historyLoading() || savingHistory()">
+                {{ savingHistory() ? 'Guardando…' : 'Guardar historia clínica' }}
+              </button>
+            </form>
+          </article>
+
+          <article class="panel timeline-panel" aria-labelledby="timeline-title">
+            <div class="panel-title">
+              <div>
+                <h2 id="timeline-title">Línea cronológica</h2>
+                <p>HU-07 · eventos disponibles para este expediente.</p>
+              </div>
+            </div>
+
+            @if (timelineLoading()) {
+              <div class="state" role="status">Cargando eventos clínicos…</div>
+            } @else if (timelineError()) {
+              <div class="state error" role="alert">
+                <span>{{ timelineError() }}</span>
+                <button type="button" (click)="reloadSelectedPatient()">Reintentar consulta</button>
+              </div>
+            } @else if (timeline().length) {
+              <div class="timeline">
+                @for (event of timeline(); track event.id) {
+                  <div class="event">
+                    <i aria-hidden="true"></i>
+                    <div>
+                      <time>{{ event.occurredAt | date:'dd/MM/yyyy HH:mm' }}</time>
+                      <b>{{ event.title }}</b>
+                      <p>{{ event.description }}</p>
+                      <small>{{ event.source }} · {{ event.status }}</small>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="empty">No hay eventos clínicos registrados.</div>
+            }
+          </article>
+        </section>
+      }
     </section>
   `,
   styles: [`
-    :host {
-      --ink: #153a39;
-      --muted: #6b8583;
-      --line: #dcebe8;
-      --surface: #fff;
-      --canvas: #f6faf9;
-      --teal: #087f7b;
-      --teal-strong: #05635f;
-      --mint: #dff7f3;
-    }
-
-    .clinical-page { margin: 0 auto; max-width: 1440px; padding: 30px 36px 42px; }
-
-    .clinical-header { align-items: flex-end; display: flex; gap: 14px; margin: 4px 0 22px; }
-    .clinical-icon { align-items: center; background: var(--mint); border-radius: 14px; color: var(--teal); display: flex; flex: 0 0 auto; font-size: 26px; height: 54px; justify-content: center; width: 54px; }
-    .clinical-heading { flex: 1; }
-    .clinical-heading .eyebrow { color: #0f9d9a; font-size: 11px; font-weight: 800; letter-spacing: .08em; margin: 0 0 7px; text-transform: uppercase; }
-    .clinical-heading h1 { color: #163a39; font-size: clamp(26px, 3vw, 34px); letter-spacing: -.04em; margin: 0 0 7px; }
-    .clinical-heading p { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0; }
-
-    .panel { background: #fff; border: 1px solid var(--line); border-radius: 17px; box-shadow: 0 5px 16px rgba(20,78,75,.035); padding: 20px; margin-bottom: 18px; }
-    .panel-title { align-items: center; display: flex; gap: 15px; justify-content: space-between; margin-bottom: 16px; }
-    .panel-title h2 { color: #163a39; font-size: 16px; margin: 0 0 4px; }
-    .panel-title p { color: var(--muted); font-size: 11px; margin: 0; }
-
-    /* ── Buscador ── */
-    .search-bar { align-items: center; display: flex; position: relative; margin-bottom: 14px; }
-    .search-icon { color: #87a3a1; font-size: 23px; left: 14px; line-height: 1; position: absolute; top: 10px; }
-    .search-bar input { background: #f8fbfa; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); font-size: 14px; height: 46px; outline: none; padding: 0 40px 0 42px; width: 100%; }
-    .search-bar input:focus { border-color: #0f9d9a; box-shadow: 0 0 0 3px rgba(15,157,154,.12); }
-    .clear-search { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; position: absolute; right: 14px; top: 12px; }
-    .patient-count { background: var(--mint); border-radius: 999px; color: var(--teal); font-size: 11px; font-weight: 800; padding: 5px 12px; white-space: nowrap; }
-
-    /* ── Lista de pacientes ── */
-    .patient-list { display: grid; gap: 2px; max-height: 420px; overflow-y: auto; }
-    .patient-row { align-items: center; border: 1px solid transparent; border-radius: 12px; cursor: pointer; display: flex; gap: 12px; padding: 12px 14px; transition: all .15s; }
-    .patient-row:hover { background: #fbfefd; border-color: var(--line); }
-    .patient-row.selected { background: var(--mint); border-color: #bfeae5; }
-    .patient-avatar { align-items: center; background: #d5f5f1; border-radius: 50%; color: var(--teal); display: inline-flex; flex: 0 0 auto; font-size: 11px; font-weight: 900; height: 40px; justify-content: center; width: 40px; }
-    .patient-row.selected .patient-avatar { background: var(--teal); color: #fff; }
-    .patient-info { flex: 1; min-width: 0; }
-    .patient-info h3 { color: #244b49; font-size: 13px; margin: 0 0 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .patient-info p { color: #8aa19f; font-size: 10px; margin: 0; }
-    .patient-events-count { color: var(--muted); font-size: 10px; font-weight: 700; white-space: nowrap; }
-    .patient-chevron { color: #aac0bd; font-size: 22px; }
-
-    /* ── Detalle del paciente ── */
-    .patient-detail-grid { display: grid; gap: 18px; grid-template-columns: minmax(320px, .9fr) minmax(0, 1.3fr); }
-
-    /* ── Ficha ── */
-    .patient-data dl { display: grid; gap: 1px; grid-template-columns: 1fr 1fr; }
-    .patient-data dl > div { border-bottom: 1px solid #edf3f1; padding: 10px 0; }
-    .patient-data dl > div.full-width { grid-column: 1 / -1; }
-    .patient-data dt { color: var(--muted); font-size: 10px; font-weight: 800; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .06em; }
-    .patient-data dd { color: var(--ink); font-size: 12px; font-weight: 600; margin: 0; }
-    .blood-badge { background: #fee2e2; border-radius: 6px; color: #b91c1c; font-size: 11px; font-weight: 900; padding: 3px 8px; }
-    .view-pdf-button { align-items: center; background: var(--teal); border: 0; border-radius: 9px; color: #fff; cursor: pointer; display: inline-flex; font-size: 11px; font-weight: 800; gap: 5px; padding: 9px 13px; text-decoration: none; white-space: nowrap; }
-    .view-pdf-button:hover { background: var(--teal-strong); }
-
-    /* ── Timeline ── */
-    .timeline { display: grid; gap: 0; }
-    .timeline-event { display: flex; gap: 16px; }
-    .timeline-connector { align-items: center; display: flex; flex-direction: column; padding-top: 4px; width: 20px; }
-    .timeline-dot { border-radius: 50%; flex: 0 0 auto; height: 12px; width: 12px; }
-    .timeline-dot.consulta { background: #0f9d9a; }
-    .timeline-dot.laboratorio { background: #6366f1; }
-    .timeline-dot.receta { background: #f59e0b; }
-    .timeline-dot.imagen { background: #3b82f6; }
-    .timeline-dot.cirugia { background: #ef4444; }
-    .timeline-dot.urgencia { background: #dc2626; }
-    .timeline-dot.nota { background: #8b5cf6; }
-    .timeline-dot.otro { background: #64748b; }
-    .timeline-line { background: #dcebe8; flex: 1; min-height: 20px; width: 2px; }
-    .timeline-content { border-bottom: 1px solid #edf3f1; flex: 1; padding-bottom: 18px; margin-bottom: 4px; }
-    .timeline-event:last-child .timeline-content { border-bottom: 0; }
-    .timeline-header { align-items: center; display: flex; gap: 10px; margin-bottom: 8px; }
-    .timeline-header time { color: #78918f; font-size: 10px; margin-left: auto; }
-    .timeline-content h3 { color: #244b49; font-size: 13px; margin: 0 0 6px; }
-    .timeline-content p { color: #66817f; font-size: 11px; line-height: 1.65; margin: 0 0 10px; }
-    .event-type-badge { border-radius: 6px; font-size: 10px; font-weight: 800; padding: 4px 9px; }
-    .event-type-badge.type-consulta { background: var(--mint); color: var(--teal); }
-    .event-type-badge.type-laboratorio { background: #eef2ff; color: #4f46e5; }
-    .event-type-badge.type-receta { background: #fef3c7; color: #92400e; }
-    .event-type-badge.type-imagen, .event-type-badge.type-ecografia, .event-type-badge.type-espirometria { background: #dbeafe; color: #1d4ed8; }
-    .event-type-badge.type-cirugia { background: #fee2e2; color: #b91c1c; }
-    .event-type-badge.type-urgencia { background: #fef2f2; color: #dc2626; }
-    .event-type-badge.type-nota { background: #f3e8ff; color: #7c3aed; }
-    .event-type-badge.type-otro { background: #f1f5f9; color: #475569; }
-    .event-footer { align-items: center; display: flex; gap: 12px; }
-    .event-doctor { color: #8aa19f; font-size: 10px; }
-
-    /* ── Status badges ── */
-    .status { border-radius: 999px; font-size: 10px; font-weight: 900; padding: 5px 9px; white-space: nowrap; }
-    .status.ok { background: #dcfce7; color: #166534; }
-    .status.review { background: #dbeafe; color: #1d4ed8; }
-    .status.pending { background: #fef3c7; color: #92400e; }
-    .status.danger { background: #fee2e2; color: #b91c1c; }
-    .status.muted { background: #f1f5f9; color: #475569; }
-    .status.active { background: #dff7f3; color: #05635f; }
-
-    /* ── Formulario de notas ── */
-    .notes-form { display: grid; gap: 16px; }
-    .notes-form-fields { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .notes-form label, .full-label { color: #315a57; display: grid; font-size: 11px; font-weight: 800; gap: 6px; }
-    .notes-form input, .notes-form select, .notes-form textarea { background: #f8fbfa; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); font: inherit; outline: none; padding: 10px; width: 100%; }
-    .notes-form input:focus, .notes-form select:focus, .notes-form textarea:focus { border-color: #0f9d9a; box-shadow: 0 0 0 3px rgba(15,157,154,.1); }
-    .notes-form textarea { resize: vertical; }
-    .form-actions { display: flex; gap: 8px; justify-content: flex-end; }
-    .form-actions .cancel-button { background: #fff; border: 1px solid var(--line); border-radius: 10px; color: #5a7775; cursor: pointer; font-size: 11px; font-weight: 800; padding: 10px 14px; }
-    .form-actions button[type="submit"] { background: #0f9d9a; border: 0; border-radius: 10px; color: #fff; cursor: pointer; font-size: 12px; font-weight: 800; padding: 11px 14px; }
-    .form-actions button[type="submit"]:disabled { opacity: .5; cursor: not-allowed; }
-
-    /* ── Toast y notas ── */
-    .inline-toast { background: #eafaf7; border: 1px solid #bfeae5; border-radius: 9px; color: #17635f; font-size: 11px; font-weight: 700; margin-top: 14px; padding: 10px 12px; }
-    .demo-note { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 11px; color: #78918f; display: flex; font-size: 10px; gap: 5px; margin-top: 17px; padding: 11px 13px; }
-    .demo-note span { color: #0f9d9a; font-size: 14px; }
-    .empty-state { color: var(--muted); display: grid; gap: 6px; justify-items: center; padding: 34px 20px; text-align: center; }
-    .empty-state strong { color: var(--ink); font-size: 13px; }
-    .empty-state span { font-size: 11px; }
-
-    @media (max-width: 900px) {
-      .patient-detail-grid { grid-template-columns: 1fr; }
-      .notes-form-fields { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 620px) {
-      .clinical-page { padding: 20px 14px 30px; }
-      .clinical-header { flex-direction: column; align-items: flex-start; }
-      .patient-data dl { grid-template-columns: 1fr; }
-    }
+    .clinical-page{max-width:1440px;margin:auto;padding:30px 36px 48px}.clinical-header{display:flex;gap:14px;align-items:center;margin-bottom:22px}.clinical-icon{background:#dff7f3;border-radius:14px;padding:15px;font-size:25px}.eyebrow{color:#087f7b;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.clinical-header h1{margin:5px 0;color:#153a39;font-size:34px;letter-spacing:-.04em}.clinical-header p:last-child{color:#6b8583;font-size:13px}.panel{background:#fff;border:1px solid #dcebe8;border-radius:16px;padding:20px;margin-bottom:18px}.panel-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}.panel h2{font-size:16px;margin:0 0 4px;color:#153a39}.panel h3{font-size:12px;color:#153a39;margin:0 0 9px}.panel-title p{font-size:11px;color:#6b8583;margin:0}.primary,.secondary{border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}.primary{background:#087f7b;color:#fff;border:0}.secondary{background:#fff;border:1px solid #9dd8d1;color:#087f7b}.primary:disabled{opacity:.55;cursor:not-allowed}.search-bar{display:flex;align-items:center;background:#f8fbfa;border:1px solid #dcebe8;border-radius:11px;padding:0 12px}.search-bar input{border:0;background:transparent;outline:0;height:44px;width:100%;padding-left:10px}.patient-list{display:grid;gap:3px;margin-top:12px}.patient-row{display:flex;align-items:center;gap:12px;text-align:left;background:transparent;border:1px solid transparent;border-radius:10px;padding:10px;cursor:pointer;color:#153a39}.patient-row:hover,.patient-row:focus-visible,.patient-row.selected{background:#dff7f3;border-color:#bfeae5}.avatar{background:#d5f5f1;color:#087f7b;border-radius:50%;height:38px;width:38px;display:grid;place-items:center;font-weight:800}.patient-info{display:grid;gap:4px;flex:1}.patient-info small,.empty{color:#6b8583;font-size:11px}.inline-state{color:#356d9e;font-size:11px;padding:10px 0}.state{background:#eef7ff;border:1px solid #cfe3f5;border-radius:10px;color:#356d9e;padding:12px;margin-bottom:15px;display:flex;gap:10px;flex-wrap:wrap}.state.error{background:#fff4f3;border-color:#f3d2d0;color:#a65050}.state.warning{background:#fff8e8;border-color:#f3e1b6;color:#8b671c}.state button{border:0;background:transparent;text-decoration:underline;color:inherit;cursor:pointer;padding:0}.success{color:#087f7b;font-size:11px;font-weight:700}.detail-grid{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(360px,1.2fr);gap:18px}.quick-summary-panel,.timeline-panel{grid-column:1/-1}.badge{background:#dff7f3;color:#087f7b;border-radius:99px;padding:5px 9px;font-size:10px;font-weight:800}.data{display:grid;grid-template-columns:1fr 1fr;gap:12px}.data dt{font-size:10px;color:#6b8583;text-transform:uppercase;font-weight:800}.data dd{margin:4px 0;color:#153a39;font-size:12px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px}.form-grid label{display:grid;gap:5px;font-size:11px;color:#6b8583;font-weight:800}.form-grid input,.form-grid select,.form-grid textarea{border:1px solid #dcebe8;border-radius:8px;padding:9px;color:#153a39;min-width:0;background:#fff}.form-grid input:disabled{background:#f3f7f6;color:#6b8583}.form-grid textarea{min-height:70px;resize:vertical}.form-grid .wide{grid-column:1/-1}.summary{display:grid;gap:5px;background:#f8fbfa;border-radius:9px;padding:11px;margin-bottom:15px;font-size:11px;color:#6b8583}.quick-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.quick-summary-grid section{background:#f8fbfa;border-radius:10px;padding:12px}.quick-item{display:grid;gap:4px;padding:9px 0;border-bottom:1px solid #e4efed;font-size:11px;color:#6b8583}.quick-item:last-child{border-bottom:0;padding-bottom:0}.quick-item b{color:#153a39}.multiline{white-space:pre-line}.timeline{display:grid;gap:0}.event{display:flex;gap:13px;border-bottom:1px solid #edf3f1;padding:10px 0}.event i{width:11px;height:11px;border-radius:50%;background:#087f7b;margin-top:4px;flex:0 0 auto}.event div{display:grid;gap:4px}.event time,.event small{color:#6b8583;font-size:10px}.event p{margin:0;color:#466765;font-size:11px}.event b{font-size:13px}@media(max-width:800px){.clinical-page{padding:22px 16px}.detail-grid{grid-template-columns:1fr}.quick-summary-panel,.timeline-panel{grid-column:auto}.form-grid,.data,.quick-summary-grid{grid-template-columns:1fr}.clinical-header{align-items:flex-start}.panel-title{align-items:flex-start;flex-direction:column}}
   `],
 })
 export class ClinicalPage {
   private readonly route = inject(ActivatedRoute);
-  readonly mode = signal<'records' | 'notes'>(this.route.snapshot.data['mode'] ?? 'records');
+  private readonly api = inject(ClinicalApiService);
+  private readonly documentApi = inject(DocumentApiService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly searchTerms = new Subject<string>();
+  private readonly patientRequests = new Subject<string>();
+  private patientRequestId = 0;
+  detailRequestId = 0;
+
+  readonly isNotes = signal(this.route.snapshot.data['mode'] === 'notes');
+  readonly loading = signal(false);
+  readonly historyLoading = signal(false);
+  readonly quickSummaryLoading = signal(false);
+  readonly timelineLoading = signal(false);
+  readonly notesLoading = signal(false);
+  readonly savingPatient = signal(false);
+  readonly savingHistory = signal(false);
+  readonly savingNote = signal(false);
+
+  readonly apiError = signal('');
+  readonly patientFormError = signal('');
+  readonly patientFormMessage = signal('');
+  readonly historyError = signal('');
+  readonly historySaveError = signal('');
+  readonly historyMessage = signal('');
+  readonly quickSummaryError = signal('');
+  readonly timelineError = signal('');
+  readonly notesError = signal('');
+  readonly noteError = signal('');
+  readonly noteMessage = signal('');
+
   readonly searchTerm = signal('');
-  readonly selectedPatient = signal<Patient | null>(null);
-  readonly actionMessage = signal('');
+  readonly patients = signal<ApiPatient[]>([]);
+  readonly selected = signal<ApiPatient | null>(null);
+  readonly history = signal<ClinicalHistory | null>(null);
+  readonly quickSummary = signal<PatientQuickSummary | null>(null);
+  readonly timeline = signal<TimelineItem[]>([]);
+  readonly medicalNotes = signal<MedicalNote[]>([]);
+  readonly showNewPatient = signal(false);
 
-  // Form signals for HU-08
-  readonly noteType = signal('Consulta');
+  readonly newDocumentType = signal('CI');
+  readonly newDocument = signal('');
+  readonly newFirstName = signal('');
+  readonly newLastName = signal('');
+  readonly newBirthDate = signal('');
+  readonly newGender = signal('');
+  readonly newPhone = signal('');
+  readonly newEmail = signal('');
+
+  readonly bloodType = signal('');
+  readonly pathological = signal('');
+  readonly nonPathological = signal('');
+  readonly family = signal('');
+  readonly chronic = signal('');
+  readonly allergy = signal('');
+  readonly allergySeverity = signal('');
+  readonly allergyReaction = signal('');
+  readonly diagnosisCode = signal('');
+  readonly diagnosisDescription = signal('');
+  readonly diagnosisDate = signal('');
+  readonly medicationName = signal('');
+  readonly medicationDose = signal('');
+  readonly medicationFrequency = signal('');
+  readonly observations = signal('');
+
   readonly noteTitle = signal('');
-  readonly noteDoctor = signal('');
-  readonly noteStatus = signal('Completado');
-  readonly noteDescription = signal('');
+  readonly noteBody = signal('');
+  readonly noteType = signal('EVOLUTION');
 
-  readonly allPatients = patients;
+  constructor() {
+    this.searchTerms.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((filter) => this.patientRequests.next(filter));
 
-  readonly filteredPatients = computed(() => {
-    const query = this.searchTerm().trim().toLowerCase();
-    if (!query) return this.allPatients;
-    return this.allPatients.filter(
-      (p) =>
-        p.name.toLowerCase().includes(query) ||
-        p.documentId.includes(query),
+    this.patientRequests.pipe(
+      switchMap((filter) => this.fetchPatients(filter)),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe();
+
+    this.loadPatients();
+  }
+
+  loadPatients(): void {
+    this.patientRequests.next(this.searchTerm().trim());
+  }
+
+  search(event: Event): void {
+    const filter = this.value(event);
+    this.searchTerm.set(filter);
+    this.searchTerms.next(filter.trim());
+  }
+
+  togglePatientForm(): void {
+    this.showNewPatient.update((isVisible) => !isVisible);
+    this.patientFormError.set('');
+    this.patientFormMessage.set('');
+  }
+
+  select(patient: ApiPatient): void {
+    this.selected.set(patient);
+    this.resetPatientDetails();
+    this.loadPatientDetails(patient.id);
+  }
+
+  reloadSelectedPatient(): void {
+    const patient = this.selected();
+    if (patient) this.loadPatientDetails(patient.id);
+  }
+
+  createPatient(event: Event): void {
+    event.preventDefault();
+    if (!this.canCreatePatient() || this.savingPatient()) return;
+
+    this.savingPatient.set(true);
+    this.patientFormError.set('');
+    this.patientFormMessage.set('');
+    this.api.createPatient({
+      documentType: this.newDocumentType(),
+      documentNumber: this.newDocument().trim(),
+      firstName: this.newFirstName().trim(),
+      lastName: this.newLastName().trim(),
+      birthDate: this.newBirthDate() || undefined,
+      gender: this.newGender().trim() || undefined,
+      phone: this.newPhone().trim() || undefined,
+      email: this.newEmail().trim() || undefined,
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (patient) => {
+        this.savingPatient.set(false);
+        this.patientFormMessage.set('Paciente registrado correctamente.');
+        this.resetPatientForm();
+        this.showNewPatient.set(false);
+        this.select(patient);
+        this.searchTerm.set('');
+        this.loadPatients();
+      },
+      error: () => {
+        this.savingPatient.set(false);
+        this.patientFormError.set('No se pudo completar el alta. Verifica los datos, la disponibilidad de la API y el permiso patient:create. No se guardó información localmente.');
+      },
+    });
+  }
+
+  saveHistory(event: Event): void {
+    event.preventDefault();
+    const patient = this.selected();
+    if (!patient || this.savingHistory() || this.historyLoading()) return;
+
+    this.savingHistory.set(true);
+    this.historySaveError.set('');
+    this.historyMessage.set('');
+    const payload = this.historyPayload(patient.id);
+    const request = this.history()
+      ? this.api.updateHistory(this.history()!.id, payload)
+      : this.api.createHistory(payload);
+
+    request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.savingHistory.set(false);
+        this.historyMessage.set('Historia clínica guardada correctamente.');
+        this.loadPatientDetails(patient.id);
+      },
+      error: () => {
+        this.savingHistory.set(false);
+        this.historySaveError.set('No se pudo guardar la historia clínica. Verifica los permisos patient:create o patient:update; no se guardó información localmente.');
+      },
+    });
+  }
+
+  saveNote(event: Event): void {
+    event.preventDefault();
+    const history = this.history();
+    if (!history || this.savingNote() || !this.noteTitle().trim() || !this.noteBody().trim()) return;
+
+    this.savingNote.set(true);
+    this.noteError.set('');
+    this.noteMessage.set('');
+    this.documentApi.createMedicalNote({
+      clinicalHistoryId: history.id,
+      noteType: this.noteType(),
+      content: `${this.noteTitle().trim()}\n${this.noteBody().trim()}`,
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.savingNote.set(false);
+        this.noteTitle.set('');
+        this.noteBody.set('');
+        this.noteMessage.set('Nota médica guardada correctamente.');
+        this.reloadSelectedPatient();
+      },
+      error: () => {
+        this.savingNote.set(false);
+        this.noteError.set('No se pudo guardar la nota. Verifica el permiso medical_note:create; no se guardó información localmente.');
+      },
+    });
+  }
+
+  loadMedicalNotes(patientId: string, historyId: string, requestId: number): void {
+    this.notesLoading.set(true);
+    this.notesError.set('');
+    this.documentApi.medicalNotes(historyId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (page) => {
+        if (!this.isCurrentDetail(patientId, requestId)) return;
+        this.medicalNotes.set(page.content);
+        this.notesLoading.set(false);
+      },
+      error: () => {
+        if (!this.isCurrentDetail(patientId, requestId)) return;
+        this.medicalNotes.set([]);
+        this.notesError.set('No fue posible consultar las notas médicas. La lista se mantiene vacía.');
+        this.notesLoading.set(false);
+      },
+    });
+  }
+
+  canCreatePatient(): boolean {
+    return Boolean(
+      this.newDocumentType().trim()
+      && this.newDocument().trim()
+      && this.newFirstName().trim()
+      && this.newLastName().trim(),
     );
-  });
-
-  readonly isNoteValid = computed(() =>
-    this.noteTitle().trim() !== '' &&
-    this.noteDoctor().trim() !== '' &&
-    this.noteDescription().trim() !== ''
-  );
-
-  onSearch(event: Event): void {
-    this.searchTerm.set((event.target as HTMLInputElement).value);
   }
 
-  clearSearch(): void {
-    this.searchTerm.set('');
+  patientLabel(patient: ApiPatient): string {
+    return `${patient.firstName} ${patient.lastName}`.trim();
   }
 
-  selectPatient(patient: Patient): void {
-    this.selectedPatient.set(patient);
+  patientDocument(patient: ApiPatient): string {
+    return `${patient.documentType} ${patient.documentNumber}`.trim();
   }
 
-  initials(name: string): string {
-    return name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  patientStatus(patient: ApiPatient): string {
+    return patient.status || 'Sin estado informado';
   }
 
-  age(birthDate: string): number {
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let a = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) a--;
-    return a;
+  initials(value: string): string {
+    return value.split(' ').filter(Boolean).slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase();
   }
 
-  formatDate(dateStr: string): string {
-    const d = new Date(dateStr + 'T12:00:00');
-    return d.toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' });
+  value(event: Event): string {
+    return (event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value;
   }
 
-  pdfUrl(patient: Patient): string {
-    return `/docs/${patient.pdfFile}`;
+  private fetchPatients(filter: string) {
+    const requestId = ++this.patientRequestId;
+    this.loading.set(true);
+    this.apiError.set('');
+
+    return this.api.patients(filter).pipe(
+      tap((page) => {
+        if (requestId !== this.patientRequestId) return;
+        this.patients.set(page.content);
+        const selectedId = this.selected()?.id;
+        if (selectedId && !page.content.some((patient) => patient.id === selectedId)) {
+          this.clearSelection();
+        }
+      }),
+      catchError(() => {
+        if (requestId === this.patientRequestId) {
+          this.patients.set([]);
+          this.clearSelection();
+          this.apiError.set('La API no respondió o devolvió datos no válidos. La lista permanece vacía.');
+        }
+        return EMPTY;
+      }),
+      finalize(() => {
+        if (requestId === this.patientRequestId) this.loading.set(false);
+      }),
+    );
   }
 
-  eventDotClass(event: ClinicalEvent): string {
-    const t = event.type.toLowerCase();
-    if (t.includes('consulta')) return 'consulta';
-    if (t.includes('laboratorio')) return 'laboratorio';
-    if (t.includes('receta')) return 'receta';
-    if (t.includes('imagen') || t.includes('ecograf') || t.includes('espiro') || t.includes('densito') || t.includes('radiograf')) return 'imagen';
-    if (t.includes('cirug')) return 'cirugia';
-    if (t.includes('urgencia')) return 'urgencia';
-    if (t.includes('nota')) return 'nota';
-    return 'otro';
+  private loadPatientDetails(patientId: string): void {
+    const requestId = ++this.detailRequestId;
+    this.historyLoading.set(true);
+    this.historyError.set('');
+    this.quickSummaryLoading.set(true);
+    this.quickSummaryError.set('');
+    this.timelineLoading.set(false);
+    this.timelineError.set('');
+    this.notesLoading.set(false);
+    this.notesError.set('');
+    this.medicalNotes.set([]);
+    this.timeline.set([]);
+
+    this.api.histories(patientId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (page) => {
+        if (!this.isCurrentDetail(patientId, requestId)) return;
+        const clinicalHistory = page.content[0] ?? null;
+        this.history.set(clinicalHistory);
+        this.historyLoading.set(false);
+        if (clinicalHistory) {
+          this.fillHistoryForm(clinicalHistory);
+          this.loadTimeline(patientId, clinicalHistory.id, requestId);
+          if (this.isNotes()) this.loadMedicalNotes(patientId, clinicalHistory.id, requestId);
+        } else {
+          this.resetHistoryForm();
+        }
+      },
+      error: () => {
+        if (!this.isCurrentDetail(patientId, requestId)) return;
+        this.history.set(null);
+        this.resetHistoryForm();
+        this.historyError.set('No fue posible consultar la historia clínica. No hay datos alternativos para mostrar.');
+        this.historyLoading.set(false);
+      },
+    });
+
+    this.api.quickSummary(patientId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (summary) => {
+        if (!this.isCurrentDetail(patientId, requestId)) return;
+        this.quickSummary.set(summary);
+        this.quickSummaryLoading.set(false);
+      },
+      error: () => {
+        if (!this.isCurrentDetail(patientId, requestId)) return;
+        this.quickSummary.set(null);
+        this.quickSummaryError.set('La API no pudo devolver alergias, diagnósticos y notas recientes. No hay un resumen alternativo para mostrar.');
+        this.quickSummaryLoading.set(false);
+      },
+    });
   }
 
-  eventTypeClass(event: ClinicalEvent): string {
-    return 'event-type-badge type-' + this.eventDotClass(event);
+  private loadTimeline(patientId: string, historyId: string, requestId: number): void {
+    this.timelineLoading.set(true);
+    this.timelineError.set('');
+    this.api.timeline(historyId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (events) => {
+        if (!this.isCurrentDetail(patientId, requestId)) return;
+        this.timeline.set(events.map((event) => this.mapTimeline(event)));
+        this.timelineLoading.set(false);
+      },
+      error: () => {
+        if (!this.isCurrentDetail(patientId, requestId)) return;
+        this.timeline.set([]);
+        this.timelineError.set('No fue posible consultar la línea cronológica. La lista se mantiene vacía.');
+        this.timelineLoading.set(false);
+      },
+    });
   }
 
-  eventStatusClass(event: ClinicalEvent): string {
-    const s = event.status;
-    if (['Completado'].includes(s)) return 'status ok';
-    if (['En tratamiento', 'Vigente'].includes(s)) return 'status active';
-    if (['Pendiente'].includes(s)) return 'status pending';
-    if (['Vencida'].includes(s)) return 'status danger';
-    return 'status muted';
-  }
+  private historyPayload(patientId: string): ClinicalHistoryPayload {
+    const previous = this.history();
+    const allergy = this.allergy().trim();
+    const diagnosis = this.diagnosisDescription().trim();
+    const medication = this.medicationName().trim();
+    const preservedAllergies = (previous?.allergies.slice(1) ?? []).map((entry) => ({
+      allergen: entry.allergen,
+      severity: entry.severity ?? '',
+      reaction: entry.reaction ?? '',
+    }));
+    const preservedMedications = (previous?.currentMedications.slice(1) ?? []).map((entry) => ({
+      name: entry.name,
+      dose: entry.dose ?? '',
+      frequency: entry.frequency ?? '',
+    }));
+    const preservedDiagnoses = (previous?.baseDiagnoses.slice(1) ?? []).map((entry) => ({
+      code: entry.code ?? '',
+      description: entry.description,
+      diagnosedAt: entry.diagnosedAt ?? '',
+    }));
 
-  saveNote(): void {
-    if (!this.isNoteValid() || !this.selectedPatient()) return;
-    const patient = this.selectedPatient()!;
-    const newEvent: ClinicalEvent = {
-      date: new Date().toISOString().split('T')[0],
-      type: this.noteType(),
-      title: this.noteTitle(),
-      description: this.noteDescription(),
-      doctor: this.noteDoctor(),
-      status: this.noteStatus(),
+    return {
+      patientId,
+      bloodType: this.bloodType().trim(),
+      pathologicalAntecedents: this.pathological().trim(),
+      nonPathologicalAntecedents: this.nonPathological().trim(),
+      familyAntecedents: this.family().trim(),
+      allergies: allergy
+        ? [{ allergen: allergy, severity: this.allergySeverity(), reaction: this.allergyReaction().trim() }, ...preservedAllergies]
+        : preservedAllergies,
+      chronicConditions: this.chronic().trim(),
+      currentMedications: medication
+        ? [{
+            name: medication,
+            dose: this.medicationDose().trim(),
+            frequency: this.medicationFrequency().trim(),
+            }, ...preservedMedications]
+        : preservedMedications,
+      baseDiagnoses: diagnosis
+        ? [{
+            code: this.diagnosisCode().trim(),
+            description: diagnosis,
+            diagnosedAt: this.diagnosisDate() || new Date().toISOString().slice(0, 10),
+          }, ...preservedDiagnoses]
+        : preservedDiagnoses,
+      observations: this.observations().trim(),
     };
-    patient.events.unshift(newEvent);
-    this.selectedPatient.set({ ...patient });
-    this.resetNoteForm();
-    this.showToast(`Nota de evolución "${newEvent.title}" registrada para ${patient.name} (demo local)`);
   }
 
-  resetNoteForm(): void {
-    this.noteType.set('Consulta');
-    this.noteTitle.set('');
-    this.noteDoctor.set('');
-    this.noteStatus.set('Completado');
-    this.noteDescription.set('');
+  private fillHistoryForm(history: ClinicalHistory): void {
+    const allergy = history.allergies[0];
+    const diagnosis = history.baseDiagnoses[0];
+    const medication = history.currentMedications[0];
+    this.bloodType.set(history.bloodType ?? '');
+    this.pathological.set(history.pathologicalAntecedents ?? '');
+    this.nonPathological.set(history.nonPathologicalAntecedents ?? '');
+    this.family.set(history.familyAntecedents ?? '');
+    this.chronic.set(history.chronicConditions ?? '');
+    this.allergy.set(allergy?.allergen ?? '');
+    this.allergySeverity.set(allergy?.severity ?? '');
+    this.allergyReaction.set(allergy?.reaction ?? '');
+    this.diagnosisCode.set(diagnosis?.code ?? '');
+    this.diagnosisDescription.set(diagnosis?.description ?? '');
+    this.diagnosisDate.set(diagnosis?.diagnosedAt ?? '');
+    this.medicationName.set(medication?.name ?? '');
+    this.medicationDose.set(medication?.dose ?? '');
+    this.medicationFrequency.set(medication?.frequency ?? '');
+    this.observations.set(history.observations ?? '');
   }
 
-  showToast(message: string): void {
-    this.actionMessage.set(message);
-    setTimeout(() => this.actionMessage.set(''), 5000);
+  private resetPatientDetails(): void {
+    this.history.set(null);
+    this.quickSummary.set(null);
+    this.timeline.set([]);
+    this.medicalNotes.set([]);
+    this.historyError.set('');
+    this.quickSummaryError.set('');
+    this.timelineError.set('');
+    this.notesError.set('');
+    this.noteError.set('');
+    this.noteMessage.set('');
+    this.historySaveError.set('');
+    this.historyMessage.set('');
+    this.resetHistoryForm();
   }
 
-  asInputValue(event: Event): string {
-    return (event.target as HTMLInputElement).value;
+  private clearSelection(): void {
+    this.selected.set(null);
+    this.resetPatientDetails();
+    this.historyLoading.set(false);
+    this.quickSummaryLoading.set(false);
+    this.timelineLoading.set(false);
+    this.notesLoading.set(false);
   }
 
-  asSelectValue(event: Event): string {
-    return (event.target as HTMLSelectElement).value;
+  private resetPatientForm(): void {
+    this.newDocumentType.set('CI');
+    this.newDocument.set('');
+    this.newFirstName.set('');
+    this.newLastName.set('');
+    this.newBirthDate.set('');
+    this.newGender.set('');
+    this.newPhone.set('');
+    this.newEmail.set('');
   }
 
-  asTextareaValue(event: Event): string {
-    return (event.target as HTMLTextAreaElement).value;
+  private resetHistoryForm(): void {
+    this.bloodType.set('');
+    this.pathological.set('');
+    this.nonPathological.set('');
+    this.family.set('');
+    this.chronic.set('');
+    this.allergy.set('');
+    this.allergySeverity.set('');
+    this.allergyReaction.set('');
+    this.diagnosisCode.set('');
+    this.diagnosisDescription.set('');
+    this.diagnosisDate.set('');
+    this.medicationName.set('');
+    this.medicationDose.set('');
+    this.medicationFrequency.set('');
+    this.observations.set('');
+  }
+
+  private isCurrentDetail(patientId: string, requestId: number): boolean {
+    return this.selected()?.id === patientId && this.detailRequestId === requestId;
+  }
+
+  private mapTimeline(event: TimelineEvent): TimelineItem {
+    return {
+      id: event.referenceId ?? `${event.occurredAt}-${event.eventType}-${event.code ?? ''}`,
+      occurredAt: event.occurredAt,
+      title: event.eventType || 'Evento clínico',
+      description: event.description || 'Sin descripción',
+      source: event.code || 'Historia clínica',
+      status: event.status || 'Registrado',
+    };
   }
 }

@@ -1,6 +1,8 @@
 package com.lta.gestdocum.backend.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -40,10 +42,11 @@ public class Document {
     private String description;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "document_status")
     private DocumentStatus status;
 
-    @Column(name = "current_version", nullable = false)
+    @Column(name = "current_version")
     private Integer currentVersion;
 
     @Column(name = "is_external_source")
@@ -83,7 +86,6 @@ public class Document {
         this.code = code;
         this.name = name;
         this.status = DocumentStatus.DRAFT;
-        this.currentVersion = 1;
     }
 
     // Getters & Setters

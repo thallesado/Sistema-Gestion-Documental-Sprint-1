@@ -32,18 +32,21 @@ public class TenantDepartmentService {
     @Transactional(readOnly = true)
     public Page<TenantDepartmentResponse> find(String filter, Boolean active, Pageable pageable) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         return repository.findByTenant(tenantId, CrudTextSupport.optionalFilter(filter), active, pageable)
                 .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
     public TenantDepartmentResponse findById(UUID id) {
+        userContext.establishDatabaseContext();
         return toResponse(getForTenant(id));
     }
 
     @Transactional
     public TenantDepartmentResponse create(TenantDepartmentRequest request) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         String name = CrudTextSupport.required(request.getName(), "name");
         String code = CrudTextSupport.required(request.getCode(), "code");
         ensureUnique(tenantId, code, name, null);
@@ -64,6 +67,7 @@ public class TenantDepartmentService {
     @Transactional
     public TenantDepartmentResponse update(UUID id, TenantDepartmentRequest request) {
         UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
         TenantDepartment department = getForTenant(id);
         String name = request.getName() == null
                 ? department.getName()
@@ -87,6 +91,7 @@ public class TenantDepartmentService {
 
     @Transactional
     public void deactivate(UUID id) {
+        userContext.establishDatabaseContext();
         TenantDepartment department = getForTenant(id);
         department.setActive(false);
         department.setUpdatedAt(OffsetDateTime.now());

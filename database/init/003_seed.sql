@@ -30,7 +30,7 @@ CROSS JOIN (VALUES
 ) AS features(feature_key, basic_enabled, description);
 
 INSERT INTO tenants (id, plan_id, name, code, slug, email, primary_color, subscription_status, subscription_start_date, storage_limit_bytes) VALUES
-('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'Acme Consulting', 'ACME', 'acme', 'documentos@acme.com', '#087f7b', 'ACTIVE', current_date, 26843545600),
+('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'FinoCode', 'ACME', 'acme', 'documentos@acme.com', '#087f7b', 'ACTIVE', current_date, 26843545600),
 ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000003', 'Clínica Central', 'CLINICA', 'clinica-central', 'archivo@clinicacentral.test', '#2563eb', 'ACTIVE', current_date, 107374182400);
 
 INSERT INTO tenant_departments (id, tenant_id, name, code) VALUES

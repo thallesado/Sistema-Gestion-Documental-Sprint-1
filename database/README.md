@@ -1,7 +1,8 @@
 # Base de datos de NexoDocs
 
 PostgreSQL 17 para el SaaS multitenant de gestión documental. El dominio mantiene
-49 tablas públicas y 45 tablas con RLS; el registro técnico de migraciones está en
+al menos 49 tablas públicas y 45 tablas con RLS (51/46 tras las extensiones
+actuales); el registro técnico de migraciones está en
 `app.schema_migrations`. El módulo clínico permanece separado del núcleo documental.
 
 Las decisiones, el contrato para el futuro backend y los límites están en
@@ -20,6 +21,30 @@ instalaciones locales de PostgreSQL en 5433. Las variables
 están en .env.example. Si necesitas personalizarlas, crea .env antes del primer
 inicio; no sobrescribas uno existente. Los usuarios y contraseñas del seed son
 exclusivamente de demostración.
+
+### Usuarios demo de FinoCode
+
+La migración incremental `015_acme_superadmin_demo_users.sql` añade, de forma
+idempotente, seis cuentas con el rol `Superadministrador` (`Andres`, `Edixon`,
+`Oscar`, `Diego`, `Denilson` y `Mauricio`) y cuatro cuentas adicionales con los
+roles existentes `Supervisor` y `Usuario operativo`. Todas usan el siguiente
+valor exclusivamente local de demostración:
+
+- Usuario: el nombre indicado o su correo `.invalid`.
+- Contraseña: `DemoPass123!`
+- Tenant: `FinoCode`
+  (`20000000-0000-0000-0000-000000000001`)
+
+| Nombre | Usuario | Rol |
+| --- | --- | --- |
+| Andres, Edixon, Oscar, Diego, Denilson, Mauricio | `<nombre>.superadmin` | Superadministrador |
+| Usuario Supervisor / Prueba Supervisor | `acme.supervisor.test` / `acme.supervisor.test2` | Supervisor |
+| Usuario Operativo / Prueba Operativo | `acme.operativo.test` / `acme.operativo.test2` | Usuario operativo |
+
+No reutilices estas credenciales fuera de una base de demostración ni las
+consideres secretos de producción. Los hashes se generan con
+`crypt(..., gen_salt('bf'))`, compatibles con `BCryptPasswordEncoder`; nunca se
+guardan las contraseñas en texto plano.
 
 Los archivos 001, 002 y 003 son la base histórica. Docker ejecuta también 004 en un
 volumen vacío. Reiniciar un contenedor con un volumen existente no aplica SQL nuevo.
@@ -108,9 +133,82 @@ no lo concedas al backend ni a personas.
 | init/002_security.sql | Roles y RLS iniciales, reforzados por 004. |
 | init/003_seed.sql | Catálogos y datos exclusivamente de demostración. |
 | init/004_saas_hardening.sql | Migración incremental de integridad, permisos, índices y auditoría. |
+| init/006_password_recovery.sql | Tokens de recuperación de contraseña de un solo uso. |
+| init/007_tenant_user_management.sql | Administración de usuarios, roles y auditoría de tenant. |
+| init/008_tenant_status_compatibility.sql | Compatibilidad e integridad de estados de tenants y usuarios. |
+| init/009_clinical_domain_extensions.sql | Extensiones para identificadores, antecedentes y cronología de expedientes. |
+| init/010_medical_notes.sql | Notas médicas append-only con RLS y permisos clínicos. |
+| init/011_persistent_auth_sessions.sql | Sesiones refresh persistentes, rotación y revocación por usuario. |
+| init/012_http_access_audit.sql | Registro inmutable de accesos HTTP autenticados, incluidas lecturas. |
+| init/013_document_checksum_compatibility.sql | Compatibilidad del checksum documental con Hibernate sin alterar datos. |
+| init/014_auth_user_password_hash_privilege.sql | Permite al rol RLS del backend leer únicamente el hash necesario para materializar la entidad de autenticación. |
+| init/015_acme_superadmin_demo_users.sql | Usuarios demo de Acme para probar superadministración y permisos por rol. |
+| init/016_finocode_tenant_name.sql | Renombra el tenant demo a FinoCode y ajusta datos asociados. |
+| init/017_revoked_access_tokens.sql | Revocación persistente de access tokens (tabla `revoked_access_tokens` con hash SHA-256, sin RLS por diseño para que el filtro de seguridad la consulte antes de establecer contexto). |
 | migrate.ps1 | Respaldo y aplicación al servicio local existente. |
 | tests/validate.sql | Regresión de integridad, aislamiento y autorización con rollback. |
 | tests/run.ps1 | Inicialización, upgrade, errores, login real y concurrencia en Docker temporal. |
+| seeds/acme_synthetic_300.sql | Carga explícita, idempotente y no destructiva de 300 pacientes sintéticos de Acme. |
+| seeds/load_acme_synthetic.ps1 | Ejecuta la carga y crea/copía los 300 archivos fixture fuera de `database/init`. |
 
 No ejecutes docker compose down --volumes para aplicar una migración: ese comando
 elimina los datos del volumen.
+
+### Dataset sintético reproducible de Acme
+
+La carga no se ejecuta automáticamente: `database/seeds/` está fuera de
+`database/init/`. Requiere que el esquema esté inicializado y se ejecuta con el
+propietario local de demostración (no con `nexodocs_app`, cuyas políticas exigen
+un contexto autenticado y permisos RBAC). No borra ni actualiza filas existentes;
+usa UUID deterministas y `ON CONFLICT DO NOTHING`, y aborta ante colisiones fuera
+del tenant.
+
+```powershell
+docker compose up -d --wait
+powershell -NoProfile -File .\database\seeds\load_acme_synthetic.ps1 -CopyToDockerStorage
+```
+
+La ejecución crea 300 pacientes, una `clinical_history`, un documento, una versión
+1 y un vínculo clínico por paciente en Acme Consulting
+(`20000000-0000-0000-0000-000000000001`). Los nombres, teléfonos, correos
+`.invalid`, identificadores y textos son manifiestamente sintéticos. Los archivos
+son pequeños `.txt` diferenciados por secuencia y se copian al volumen del
+servicio `backend` únicamente con `-CopyToDockerStorage`; la ruta almacenada en
+la base es `synthetic/acme-patients/patient-NNNN.txt`.
+
+Para una EC2 con Compose desplegado, copie `database/seeds/` al host y ejecute
+los mismos comandos desde el directorio del despliegue (no exponga PostgreSQL
+públicamente ni ejecute el SQL desde el navegador):
+
+```powershell
+docker compose up -d --wait
+powershell -NoProfile -File .\database\seeds\load_acme_synthetic.ps1 -CopyToDockerStorage
+```
+
+El script imprime los cinco conteos esperados: `300` en `patients`,
+`clinical_histories`, `documents`, `document_versions` y
+`clinical_document_links`. Para validar relaciones adicionalmente:
+
+```powershell
+docker compose exec -T postgres psql -X -U nexodocs -d nexodocs -v ON_ERROR_STOP=1 -c "SELECT count(*) AS links_without_history FROM clinical_document_links l LEFT JOIN clinical_histories h ON h.tenant_id=l.tenant_id AND h.id=l.clinical_history_id WHERE l.tenant_id='20000000-0000-0000-0000-000000000001' AND h.id IS NULL; SELECT count(*) AS versions_without_document FROM document_versions v LEFT JOIN documents d ON d.tenant_id=v.tenant_id AND d.id=v.document_id WHERE v.tenant_id='20000000-0000-0000-0000-000000000001' AND d.id IS NULL;"
+```
+
+La inserción SQL no puede crear archivos dentro del volumen del backend:
+PostgreSQL no tiene acceso a ese filesystem y no se debe inventar una API.
+`load_acme_synthetic.ps1` ofrece la alternativa operacional mediante
+`docker compose cp`. En EC2, si el backend no está levantado, genere primero
+sin `-CopyToDockerStorage` y copie los fixtures cuando el servicio esté
+disponible. La carga física real de producción debería usar la API autenticada
+de documentos cuando exista un endpoint de subida; esta utilidad queda limitada
+a fixtures locales/EC2 controladas.
+
+### Compatibilidad del backend con el rol RLS
+
+Desde `004_saas_hardening`, el backend debe cambiar a `nexodocs_app` dentro de
+la transacción y fijar `app.tenant_id` y `app.user_id`. Esa separación revoca
+el `SELECT` de tabla completo sobre `users` y conserva solo privilegios por
+columna. La entidad JPA actual se carga completa y su consulta incluye
+`users.password_hash`; por ello `014_auth_user_password_hash_privilege.sql`
+concede únicamente `SELECT` sobre esa columna. El hash nunca forma parte de
+las respuestas HTTP. La migración es segura de repetir y se aplica con
+`database\migrate.ps1` sobre un volumen existente, sin reinicializarlo.

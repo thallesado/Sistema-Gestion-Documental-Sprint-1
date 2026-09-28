@@ -29,4 +29,7 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
                                Pageable pageable);
 
     Optional<Patient> findByIdAndTenantIdAndDeletedAtIsNull(UUID id, UUID tenantId);
+
+    boolean existsByTenantIdAndDocumentTypeIgnoreCaseAndDocumentNumberIgnoreCaseAndDeletedAtIsNull(
+            UUID tenantId, String documentType, String documentNumber);
 }

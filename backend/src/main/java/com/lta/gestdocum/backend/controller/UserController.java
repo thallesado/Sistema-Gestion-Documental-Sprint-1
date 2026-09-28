@@ -38,6 +38,16 @@ public class UserController {
         return ResponseEntity.ok(userService.findUsers(filter, pageable));
     }
 
+    @GetMapping("/responsible")
+    @PreAuthorize("hasAuthority('user:read')")
+    @Operation(summary = "Listar responsables disponibles",
+            description = "Usuarios activos del tenant autenticado que pueden asignarse a documentos")
+    public ResponseEntity<Page<UserResponse>> findResponsibleUsers(
+            @RequestParam(required = false) String filter,
+            Pageable pageable) {
+        return ResponseEntity.ok(userService.findUsers(filter, pageable));
+    }
+
     @PostMapping
     @PreAuthorize("hasAuthority('user:create')")
     @Operation(summary = "Crear Usuario", description = "Registra un nuevo usuario asignándole un perfil de personal clínico (Doctor, Enfermero, etc.)")
@@ -47,11 +57,13 @@ public class UserController {
 /* 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('user:update')")
+    @PreAuthorize("hasAuthority('user:update')")
     @Operation(summary = "Actualizar Usuario", description = "Actualiza los datos del usuario y su especialidad médica")
     public ResponseEntity<UserResponse> updateUser(@PathVariable UUID id, @RequestBody UserCreateRequest request) {
         return ResponseEntity.ok(userService.updateUser(id, request));
     }*/
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('user:update')")
     @Operation(summary = "Actualizar Usuario", description = "Actualiza los datos del usuario y su especialidad médica")
     public ResponseEntity<UserResponse> updateUser(
         @PathVariable UUID id, 

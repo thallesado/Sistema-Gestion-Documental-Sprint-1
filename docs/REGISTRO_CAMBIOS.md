@@ -1,9 +1,379 @@
 # Registro de cambios del proyecto
 
+## 2026-09-19 ‚Äî Correcciones de auditor√≠a, revocaci√≥n JWT persistente y documentos
+
+- **Revocaci√≥n de tokens persistente**: se a√±adi√≥ la migraci√≥n
+  `database/init/017_revoked_access_tokens.sql` (tabla `revoked_access_tokens`
+  con hash SHA-256, sin RLS por dise√±o: el filtro de seguridad debe poder
+  consultarla antes de establecer el contexto de la petici√≥n). El logout ahora
+  revoca de forma persistente tanto el access token como el refresh token;
+  antes la revocaci√≥n de access tokens no sobreviv√≠a a un reinicio.
+- **Auditor√≠a de autenticaci√≥n real**: `AuthenticatedUserContext` gana una
+  sobrecarga `establishDatabaseContext(AuthenticatedUser)` que no depende del
+  `SecurityContextHolder`, porque `/api/v1/auth/**` est√° excluido del filtro
+  JWT y por tanto no hay `SecurityContext` poblado durante el login. Con este
+  cambio, login/logout/refresh/reset ahora s√≠ generan eventos de auditor√≠a
+  persistidos (antes fallaban silenciosamente con un WARN). El
+  `HttpAuditInterceptor` excluye `/api/v1/auth/**` para no duplicar eventos con
+  `AuthenticationAuditService`.
+- **Auditor√≠a con filtros**: se reemplaz√≥ una consulta JPQL con par√°metros
+  nullable (`AuditEventRepository.findForTenant`, que romp√≠a en PostgreSQL con
+  `SQLState 42P18: could not determine data type of parameter`) por
+  `Specification`/`JpaSpecificationExecutor`, que s√≥lo a√±ade un predicado si el
+  filtro correspondiente no es nulo.
+- **Colisi√≥n de tokens en logins concurrentes**: `JwtService` ahora asigna un
+  JTI aleatorio (`.setId(UUID.randomUUID().toString())`) a cada access y
+  refresh token emitido, evitando que dos logins simult√°neos con el mismo
+  `issuedAt` produzcan tokens id√©nticos y violen el √≠ndice √∫nico de
+  `auth_sessions`.
+- **Alta documental corregida**: `Document.status` ahora declara
+  `@JdbcTypeCode(SqlTypes.NAMED_ENUM)` con `columnDefinition = "document_status"`
+  para que Hibernate valide contra el nombre real del tipo en PostgreSQL (antes
+  intentaba `documentstatus`). Se elimin√≥ adem√°s la asignaci√≥n inv√°lida
+  `currentVersion = 1` en el constructor: un documento reci√©n creado no tiene
+  versi√≥n hasta que se sube contenido real, tal como lo exige el trigger
+  `fk_document_current_version` de la migraci√≥n `004_saas_hardening`.
+- **Frontend**: `document-page.ts` usa ahora la paginaci√≥n real que devuelve el
+  backend (`totalDocuments`) en vez de paginar sobre los datos ya filtrados en
+  el cliente. `audit-page.ts` y `administration-page.ts` reconocen el literal
+  de rol `Superadministrador` (adem√°s de `SUPER_ADMIN`), evitando que cuentas
+  de plataforma pierdan acceso a pantallas para las que s√≠ tienen autoridad.
+- **Validado end-to-end** contra un stack Docker reconstruido: login
+  concurrente, logout con revocaci√≥n real (401 posterior), auditor√≠a con y sin
+  filtros, alta de documento con versi√≥n y descarga, RBAC plataforma/tenant, y
+  el flujo cl√≠nico completo (paciente, historia, nota, timeline, resumen).
+- **Pendiente conocido**: `AuditQueryService` sigue exigiendo un `tenantId` no
+  nulo, por lo que una cuenta de plataforma con `audit:read_global` a√∫n no
+  puede consultar auditor√≠a global cross-tenant desde este endpoint; se
+  necesitar√≠a una ruta o l√≥gica separada que no dependa del contexto RLS
+  tenant-scoped.
+
+## 2026-09-18 ‚Äî tenant FinoCode y separaci√≥n de administraci√≥n de plataforma
+
+- Se a√±adi√≥ la migraci√≥n incremental `016_finocode_tenant_name.sql`, que
+  actualiza √∫nicamente el nombre visible del tenant UUID
+  `20000000-0000-0000-0000-000000000001` a `FinoCode`.
+- `/auth/me` ahora expone `tenantName`, `platformAdmin` y `roleNames`; el
+  frontend deja de mostrar el UUID como nombre de organizaci√≥n y elimina el
+  selector de rol visual editable.
+- La administraci√≥n global de tenants exige `platform:tenant:manage`, emitido
+  √∫nicamente para usuarios marcados como administradores de plataforma.
+  `/tenants` y `/tenants/new` tienen adem√°s un guard frontend y una pantalla
+  propia de acceso restringido; el backend responde 403 ante acceso manual.
+- La migraci√≥n crea identidades de plataforma separadas para las seis cuentas
+  demo, con `tenant_id = NULL` e `is_platform_admin = true`. Las identidades
+  hist√≥ricas tenant y sus UUID, relaciones documentales y asignaciones se
+  conservan intactas porque `tenant_id` es inmutable.
+
+## 2026-09-18 ‚Äî contratos m√≠nimos de documentos para el frontend
+
+- Se a√±adi√≥ `GET /api/v1/documents/mine`, siempre limitado al tenant del JWT,
+  para devolver documentos creados por el usuario autenticado o asignados a √©l.
+- Se a√±adi√≥ `GET /api/v1/users/responsible` como alias tenant-scoped del listado
+  de usuarios activos existente, protegido por `user:read`.
+- El alta documental acepta `responsibleUserId` como alias JSON de la columna y
+  campo de modelo existente `responsible_id`; no fue necesaria una migraci√≥n.
+- No se a√±adi√≥ `/documents/shared`: el esquema actual no tiene una relaci√≥n de
+  compartici√≥n o visibilidad que permita implementarlo sin inventar permisos.
+
+## 2026-09-18 ‚Äî API REST tenant-scoped de expedientes y usuarios demo de Acme
+
+- Se a√±adi√≥ `GET /api/v1/expedients` (paginado, filtro por c√≥digo, nombre o
+  descripci√≥n) y `GET /api/v1/expedients/{id}`. Ambos requieren
+  `expedient:read`, usan el tenant del JWT y establecen el contexto RLS antes
+  de consultar; nunca aceptan `tenantId` desde el cliente.
+- Se incorpor√≥ el mapeo backend de `expedients` (`Expedient`, repositorio,
+  servicio y DTO), complementando las APIs existentes de pacientes e historias
+  cl√≠nicas para que Angular pueda consumir datos reales.
+- Se a√±adi√≥ la migraci√≥n idempotente `database/init/015_acme_superadmin_demo_users.sql`
+  con seis cuentas demo `Superadministrador` (Andres, Edixon, Oscar, Diego,
+  Denilson y Mauricio) y cuatro usuarios de prueba con roles existentes.
+  Usa hashes BCrypt generados por PostgreSQL y credenciales solo de demostraci√≥n.
+- No se modificaron migraciones aplicadas ni archivos del frontend.
+
+## 2026-09-18 ‚Äî dataset sint√©tico reproducible de Acme Consulting
+
+- Se a√±adieron `database/seeds/acme_synthetic_300.sql` y
+  `database/seeds/load_acme_synthetic.ps1`, fuera de `database/init`, para
+  cargar expl√≠citamente 300 pacientes sint√©ticos con una historia cl√≠nica,
+  documento, versi√≥n y v√≠nculo por paciente.
+- La carga usa UUID deterministas, transacci√≥n, preflight de tenant y
+  `ON CONFLICT DO NOTHING`; no edita migraciones, no borra datos y no se
+  ejecuta autom√°ticamente en producci√≥n. Los correos usan `example.invalid` y
+  todos los valores est√°n marcados como sint√©ticos.
+- La base solo conserva la ruta del archivo. El script genera 300 fixtures
+  peque√±os y opcionalmente los copia al volumen persistente del backend.
+  PostgreSQL no puede escribir ese volumen directamente; para producci√≥n real
+  debe usarse la futura API autenticada de subida.
+
+## 2026-09-18 ‚Äî correcci√≥n de permisos de `/api/v1/auth/me` con volumen existente
+
+- Se identific√≥ que `AuthenticatedUserContext` cambia la conexi√≥n a
+  `nexodocs_app`, mientras `004_saas_hardening` revoca el `SELECT` de tabla
+  sobre `users` y concede columnas expl√≠citas, omitiendo correctamente
+  `password_hash` para listados pero incompatiblemente con la entidad JPA
+  completa del backend.
+- Se a√±ade `database/init/014_auth_user_password_hash_privilege.sql`, sin
+  editar migraciones aplicadas ni tocar datos. La correcci√≥n concede solo
+  `SELECT(password_hash)` al rol `nexodocs_app`; RLS contin√∫a limitando las
+  filas y el DTO no expone el hash.
+- En una instalaci√≥n existente debe ejecutarse
+  `powershell -NoProfile -File .\database\migrate.ps1`; no se debe eliminar el
+  volumen PostgreSQL. La migraci√≥n es transaccional e idempotente.
+
+## 2026-09-18 ‚Äî healthcheck del frontend Docker
+
+- El healthcheck de Nginx usa `127.0.0.1` en lugar de `localhost` para evitar
+  que la resoluci√≥n IPv6 compruebe una direcci√≥n donde el listener no est√°
+  publicado.
+- El cambio corrige el estado `unhealthy` sin alterar el puerto p√∫blico ni el
+  proxy `/api/`.
+
+## 2026-09-18 ‚Äî compatibilidad del checksum documental
+
+- Se a√±ade la migraci√≥n incremental `013_document_checksum_compatibility.sql`
+  para convertir `document_versions.checksum_sha256` de `char(64)` a
+  `varchar(64)`, que es el tipo declarado por Hibernate.
+- La conversi√≥n elimina √∫nicamente el padding propio de `char`; los valores
+  existentes y la restricci√≥n de formato SHA-256 se conservan.
+
+## 2026-09-18 ‚Äî arranque integrado con Docker Compose
+
+- Se documenta el flujo recomendado para levantar PostgreSQL, Spring Boot y
+  Angular/Nginx con `docker compose up -d --build --wait`.
+- Se mantienen separados los vol√∫menes de PostgreSQL y almacenamiento
+  documental para evitar perder datos al detener o recrear contenedores.
+- El flujo local con hot reload permanece disponible para desarrollo diario.
+- La inicializaci√≥n autom√°tica de `database/init/` aplica solo sobre un volumen
+  PostgreSQL nuevo; las bases existentes deben actualizarse con el migrador
+  incremental.
+
+## 2026-09-18 ‚Äî cierre incremental HU-03 a HU-12
+
+Esta entrada reemplaza las limitaciones hist√≥ricas que m√°s abajo indicaban que
+no exist√≠an Flutter, carga binaria o cronolog√≠a documental.
+
+- HU-03 abre la historia cl√≠nica √∫nica en la misma transacci√≥n que el alta del
+  paciente. HU-04 valida y captura alergias, medicaci√≥n y diagn√≥sticos base
+  estructurados desde Angular y REST.
+- HU-05 elimina credenciales precargadas y a√±ade renovaci√≥n coordinada de JWT
+  ante respuestas 401. HU-06 publica roles activos por tenant, los consume en
+  el alta de usuarios y conecta el registro general a la auditor√≠a persistente.
+- HU-07 integra apertura, episodios, notas y documentos vinculados en la l√≠nea
+  cronol√≥gica. HU-08 a√±ade b√∫squeda con debounce, alta y consulta de notas
+  m√©dicas inmutables.
+- HU-09 incorpora `mobile/`, cliente Flutter Android/iOS con tokens en almac√©n
+  seguro. HU-10 a√±ade `quick-summary` y consulta m√≥vil de alergias,
+  diagn√≥sticos y cinco notas recientes.
+- HU-11 incorpora versiones binarias append-only en almacenamiento local,
+  l√≠mites/tipos permitidos, checksum SHA-256, descarga autenticada y
+  transiciones documentales expl√≠citas. Los binarios viven fuera del webroot;
+  la base conserva la ruta, tipo, tama√±o, hash y autor. Este contrato permite
+  que OCR futuro genere candidatos de metadatos sin modificar el original.
+- HU-12 a√±ade im√°genes multi-stage de backend/frontend, Nginx sin privilegios,
+  Compose PostgreSQL + Spring Boot + Angular, healthchecks y volumen separado
+  para archivos. Los secretos obligatorios se reciben por entorno.
+
+Verificaci√≥n: pruebas dirigidas Java por cada HU, `DATABASE_TESTS_OK`,
+`pnpm typecheck`, pruebas y build Angular, `flutter analyze`, `flutter test`,
+`docker compose config` y build correcto de ambas im√°genes.
+
+Limitaciones vigentes: OCR/catalogaci√≥n autom√°tica, validaci√≥n humana de
+metadatos extra√≠dos y adaptador S3 quedan para Sprint 2. El proveedor activo de
+HU-11 es almacenamiento local persistente; el bundle Angular mantiene una
+advertencia de presupuesto (617.91 kB frente a 500 kB).
+
+## 2026-09-18 ‚Äî HU-02: contexto RLS y auditor√≠a de accesos HTTP
+
+- El contexto transaccional cambia expl√≠citamente a `nexodocs_app` antes de
+  fijar `app.tenant_id` y `app.user_id`, por lo que una conexi√≥n propietaria de
+  desarrollo deja de omitir RLS en los servicios que usan el contexto.
+- Usuarios, tipos documentales, etiquetas, departamentos y consulta de auditor√≠a
+  ahora establecen tambi√©n el contexto RLS en operaciones tenant-scoped.
+- La migraci√≥n incremental `012_http_access_audit.sql` incorpora una funci√≥n
+  `SECURITY DEFINER` que registra m√©todo, ruta, resultado, IP y user-agent sin
+  copiar cuerpos, tokens ni contenido cl√≠nico.
+- Un interceptor registra las peticiones `/api/**` autenticadas. Las operaciones
+  globales de plataforma quedan fuera hasta separar formalmente su datasource y
+  rol PostgreSQL privilegiado.
+
+## 2026-09-18 ‚Äî HU-01: sesiones refresh persistentes
+
+- Se a√±adi√≥ la migraci√≥n incremental `011_persistent_auth_sessions.sql`; no se
+  modificaron migraciones hist√≥ricas ni el volumen PostgreSQL local.
+- Los refresh tokens se almacenan √∫nicamente como SHA-256, rotan en cada uso y
+  una reutilizaci√≥n revoca las sesiones activas del usuario.
+- Logout revoca persistentemente el refresh token y el cambio de contrase√±a
+  revoca todas las sesiones anteriores antes de emitir una nueva.
+- La revocaci√≥n del access token contin√∫a en memoria hasta que expire; resolver
+  esa limitaci√≥n requiere persistir identificadores `jti` o reducir su duraci√≥n.
+- Verificaci√≥n: `AuthSessionServiceTest`, `JwtServiceTest` y
+  `JwtAuthenticationFilterTest` correctos; prueba PostgreSQL aislada finaliz√≥
+  con `DATABASE_TESTS_OK`.
+
+## 2026-09-18 ‚Äî HU-08 y HU-11: notas m√©dicas y documentos tenant-scoped
+
+### Cambios arquitect√≥nicos
+
+- Se a√±adi√≥ la migraci√≥n incremental `010_medical_notes.sql`; no se editaron
+  migraciones aplicadas. `medical_notes` vincula cada nota al tenant, historia
+  cl√≠nica, autor y opcionalmente episodio. Tiene RLS `FORCE`, FK compuesta para
+  impedir referencias cruzadas y permisos separados `medical_note:read/create`.
+- Se incorpor√≥ `MedicalNoteController` con listado paginado por historia y alta
+  append-only. La API nunca acepta `tenantId` ni `authorId`; ambos salen del
+  JWT/contexto autenticado. No se expone edici√≥n o borrado de notas para
+  conservar trazabilidad cl√≠nica.
+- Se incorpor√≥ `DocumentController` y `DocumentService` para listar/buscar,
+  consultar, crear documentos y cambiar estados. Todas las consultas usan el
+  tenant autenticado, fijan el contexto RLS por transacci√≥n y respetan las
+  autoridades de documento existentes; la base sigue siendo la autoridad final
+  sobre transiciones y versiones.
+
+### Limitaciones reales
+
+- La creaci√≥n de documentos requiere que el cliente conozca IDs v√°lidos de tipo,
+  expediente, departamento y responsables; no se a√±adi√≥ carga binaria ni alta
+  de versiones porque `document_versions` es inmutable y su contrato de
+  almacenamiento todav√≠a no est√° definido.
+- Las notas m√©dicas requieren que `010_medical_notes` est√© aplicada y que el JWT
+  contenga los permisos derivados de `role_permissions`. No se modific√≥ Angular.
+- `docs/CONTEXTO_PROYECTO.md` y `docs/database/DISE√ëO_Y_OPERACION.md` no est√°n
+  presentes f√≠sicamente en esta revisi√≥n; se verificaron `AGENTS.md`,
+  `database/README.md` y el esquema SQL real.
+
+## 2026-09-18 ‚Äî Alcance m√≥vil web de HU-09 y HU-10
+
+- Se aclara el alcance del sprint: HU-09 no requiere una aplicaci√≥n Flutter
+  independiente. La autenticaci√≥n y el acceso desde tel√©fono se realizar√°n
+  mediante la aplicaci√≥n Angular responsive publicada en la nube.
+- HU-09 se evaluar√° por adaptaci√≥n responsive, navegaci√≥n, login, manejo de
+  sesi√≥n y compatibilidad con navegadores m√≥viles.
+- HU-10 se evaluar√° por la consulta r√°pida y legible del expediente, alergias,
+  diagn√≥sticos y notas recientes desde una pantalla m√≥vil. No implica crear una
+  aplicaci√≥n nativa separada.
+
+## 2026-09-18 ‚Äî HU-03, HU-04 y HU-07: expediente cl√≠nico REST
+
+### Cambios arquitect√≥nicos
+
+- Se normalizaron los nombres de las migraciones incrementales a
+  `007_tenant_user_management.sql`, `008_tenant_status_compatibility.sql` y
+  `009_clinical_domain_extensions.sql`. La relaci√≥n con HU-02, HU-03, HU-04 y
+  HU-07 queda documentada dentro de cada SQL, no en el nombre t√©cnico del
+  archivo.
+- Se conservaron los identificadores hist√≥ricos de `app.schema_migrations` como
+  alias compatibles. Al actualizar una instalaci√≥n existente se registra el
+  identificador t√©cnico sin repetir cambios, revertir datos ni eliminar el
+  volumen PostgreSQL.
+
+- Se a√±adi√≥ la migraci√≥n incremental `009_clinical_domain_extensions.sql`, sin
+  modificar 004 ni migraciones anteriores. Normaliza y hace √∫nico por tenant el
+  par `documentType/documentNumber` (CI o SEGURO) y agrega diagn√≥sticos base
+  estructurados en `clinical_histories.base_diagnoses`.
+- `POST /api/v1/patients` crea el paciente/expediente inicial; la restricci√≥n SQL
+  es la protecci√≥n definitiva contra carreras y responde 409 ante duplicados.
+- `POST` y `PUT/PATCH /api/v1/clinical-histories` capturan antecedentes,
+  alergias, medicaci√≥n y diagn√≥sticos base; todas las consultas se filtran por
+  tenant y requieren permisos `patient:*`.
+- `GET /api/v1/clinical-histories/{id}/timeline` devuelve la apertura y
+  episodios existentes ordenados por fecha descendente. No se inventan
+  documentos ni episodios: los episodios solo se muestran cuando ya existen en
+  `clinical_episodes`.
+- Antes de operar sobre el m√≥dulo cl√≠nico, el backend fija `app.tenant_id` y
+  `app.user_id` con `set_config(..., true)` en la transacci√≥n actual. Los valores
+  proceden del JWT validado, no de par√°metros del cliente.
+
+### Contratos y limitaciones
+
+El alta exige `documentType` (`CI` o `SEGURO`), `documentNumber`, `firstName` y
+`lastName`. El cuerpo de historia acepta `allergies` (`allergen`, `severity`,
+`reaction`) y `baseDiagnoses` (`code`, `description`, `diagnosedAt`), adem√°s de
+los campos de antecedentes existentes. La cronolog√≠a actualmente incluye
+apertura y episodios; a√∫n no existe endpoint de alta/cierre de episodios ni
+versionado cl√≠nico independiente. La documentaci√≥n referenciada
+`docs/CONTEXTO_PROYECTO.md` y `docs/database/DISE√ëO_Y_OPERACION.md` no est√°
+presente f√≠sicamente en esta revisi√≥n; se siguieron las reglas disponibles en
+`AGENTS.md`, `database/README.md` y el esquema real.
+
+## 2026-09-18 ‚Äî HU-02: administraci√≥n global y usuarios por tenant
+
+### Revisi√≥n correctiva
+
+- `PUT /api/v1/users/{id}` conserva autorizaci√≥n expl√≠cita `user:update`.
+- La asignaci√≥n de roles exige adem√°s `role:assign` o `user:manage`; los IDs se
+  resuelven siempre por `tenant_id`, por lo que un rol de otro tenant no es
+  asignable. Los roles de plataforma/Superadmin son rechazados.
+- La primera versi√≥n de 007 no pod√≠a imponer CHECK sobre los estados p√∫blicos:
+  los enums hist√≥ricos contienen `PAST_DUE`, `INVITED` y `SUSPENDED`. Se retir√≥
+  ese CHECK de 007 y se a√±adi√≥ `008_tenant_status_compatibility.sql`: elimina
+  CHECKs incompatibles si una instalaci√≥n anterior los ten√≠a y valida √∫nicamente
+  nuevas inserciones o cambios de estado, conservando filas hist√≥ricas.
+- 007 asigna expl√≠citamente permisos HU-02 al rol `Administrador de tenant`.
+
+### Cambios arquitect√≥nicos
+
+- Se a√±adi√≥ la migraci√≥n incremental `database/init/007_tenant_user_management.sql`;
+  no se modific√≥ `004_saas_hardening.sql`. La migraci√≥n formaliza los estados p√∫blicos
+  de HU-02, agrega permisos expl√≠citos de tenant/roles/auditor√≠a y protege mediante
+  trigger la existencia del √∫ltimo administrador activo.
+- El login de un Superadmin admite `tenantId` nulo y emite √∫nicamente permisos
+  globales (`tenant:manage`, `audit:read_global`). Un usuario de tenant contin√∫a
+  recibiendo los permisos calculados desde `user_roles`.
+- Se incorporaron `TenantController` para listar/cambiar estado globalmente y
+  `AuditController` con consulta global para Superadmin o filtrada por tenant para
+  administradores. La gesti√≥n de usuarios conserva rutas tenant-scoped, valida el
+  contexto autenticado y permite asignar roles activos del tenant; nunca acepta un
+  rol de plataforma.
+- La baja y cambio de estado del propio usuario se rechazan en servicio. El
+  trigger SQL impide dejar un tenant sin administrador activo, tambi√©n ante
+  escrituras directas que no pasen por HTTP.
+
+### Verificaci√≥n y limitaciones
+
+- `backend/mvnw.cmd -DskipTests package` ‚Äî correcto.
+- `backend/mvnw.cmd test` compila, pero el contexto de integraci√≥n no pudo abrir
+  PostgreSQL por credenciales/configuraci√≥n local de la sesi√≥n; las pruebas unitarias
+  existentes no se pudieron reportar como suite verde.
+- No se modific√≥ Angular. La escritura detallada de auditor√≠a depende de los triggers
+  y funciones de auditor√≠a ya instalados por 004; el backend expone lectura, no inventa
+  eventos para operaciones que la base a√∫n no genera.
+
 Este documento conserva el historial explicativo de cambios relevantes. Cada
 entrada indica qu√© exist√≠a antes, qu√© se modific√≥ o mejor√≥ y qu√© limitaciones
 contin√∫an. Los agentes deben actualizarlo cuando realicen cambios derivados de
 una exploraci√≥n o una decisi√≥n arquitect√≥nica.
+
+## 2026-09-17 ‚Äî HU-01: recuperaci√≥n segura de contrase√±a
+
+### Estado anterior
+
+- La pantalla de login mostraba un aviso, pero no exist√≠a flujo de recuperaci√≥n.
+- No hab√≠a endpoint ni almacenamiento de solicitudes de recuperaci√≥n.
+
+### Cambios realizados
+
+- Se agreg√≥ la migraci√≥n incremental `006_password_recovery.sql`.
+- Se agregaron solicitudes con token aleatorio hasheado, expiraci√≥n y uso √∫nico.
+- Se agregaron `POST /api/v1/auth/forgot-password` y
+  `POST /api/v1/auth/reset-password`.
+- La respuesta de solicitud es gen√©rica para no revelar si un correo existe.
+- El correo se env√≠a mediante SMTP configurable, compatible con Mailtrap.
+- Angular ahora incluye `/forgot-password` y `/reset-password`.
+
+### Validaci√≥n
+
+- La migraci√≥n `006_password_recovery` se aplic√≥ al PostgreSQL local sin borrar
+  el volumen.
+- `mvnw.cmd test` ‚Äî correcto, 21 pruebas sin fallos.
+- `pnpm typecheck` ‚Äî correcto.
+- El test de rutas refleja el cat√°logo actual de 80 rutas.
+
+### Limitaciones reales
+
+- El env√≠o requiere credenciales SMTP de Mailtrap u otro proveedor.
+- La revocaci√≥n persistente de todos los refresh tokens anteriores al cambiar
+  la contrase√±a todav√≠a requiere almacenamiento de sesiones/tokens.
+- El token se guarda como hash; el enlace expira por defecto en 30 minutos.
 
 ## 2026-09-16 ‚Äî Correcci√≥n de conexi√≥n local PostgreSQL
 
@@ -429,7 +799,7 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
 - Un backend futuro deber√° resolver autenticaci√≥n, tenant autorizado, RBAC,
   sesiones reales, auditor√≠a append-only, consultas paginadas y aislamiento
   RLS antes de reemplazar estos mocks.
-  #   #       2   0   2   6   -   0   9   -   1   6   :       I   m   p   l   e   m   e   n   t   a   c   i    %  % n       H   U   -   1   0       »   √   ˜       C   o   n   s   u   l   t   a       R    % ›   p   i   d   a       d   e       E   x   p   e   d   i   e   n   t   e       a       P   i   e       d   e       C   a   m   a    
+  #   #       2   0   2   6   -   0   9   -   1   6   :       I   m   p   l   e   m   e   n   t   a   c   i    %  % n       H   U   -   1   0       ÔøΩ   ÔøΩ   ÔøΩ       C   o   n   s   u   l   t   a       R    % ÔøΩ   p   i   d   a       d   e       E   x   p   e   d   i   e   n   t   e       a       P   i   e       d   e       C   a   m   a    
     
     
     
@@ -445,13 +815,13 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
    #   #   #   #       1   .       *   *   D   e   p   e   n   d   e   n   c   i   a   s       (   p   o   m   .   x   m   l   )   *   *    
     
-   -       »   ˙   ”       A   g   r   e   g   a   d   o   :       `   o   r   g   .   s   p   r   i   n   g   f   r   a   m   e   w   o   r   k   .   a   i   :   s   p   r   i   n   g   -   a   i   -   o   p   e   n   a   i   -   s   p   r   i   n   g   -   b   o   o   t   -   s   t   a   r   t   e   r   :   1   .   0   .   0   -   M   1   `    
+   -       ÔøΩ   ÔøΩ   ÔøΩ       A   g   r   e   g   a   d   o   :       `   o   r   g   .   s   p   r   i   n   g   f   r   a   m   e   w   o   r   k   .   a   i   :   s   p   r   i   n   g   -   a   i   -   o   p   e   n   a   i   -   s   p   r   i   n   g   -   b   o   o   t   -   s   t   a   r   t   e   r   :   1   .   0   .   0   -   M   1   `    
     
     
     
    #   #   #   #       2   .       *   *   M   o   d   e   l   o   s       J   P   A   *   *    
     
-   -       »   ˙   ”       C   r   e   a   d   o   :       `   D   o   c   u   m   e   n   t   .   j   a   v   a   `       (   `   b   a   c   k   e   n   d   /   s   r   c   /   m   a   i   n   /   j   a   v   a   /   .   .   .   /   m   o   d   e   l   /   D   o   c   u   m   e   n   t   .   j   a   v   a   `   )    
+   -       ÔøΩ   ÔøΩ   ÔøΩ       C   r   e   a   d   o   :       `   D   o   c   u   m   e   n   t   .   j   a   v   a   `       (   `   b   a   c   k   e   n   d   /   s   r   c   /   m   a   i   n   /   j   a   v   a   /   .   .   .   /   m   o   d   e   l   /   D   o   c   u   m   e   n   t   .   j   a   v   a   `   )    
     
            -       M   a   p   e   a       t   a   b   l   a       `   d   o   c   u   m   e   n   t   s   `       d   e   l       s   c   h   e   m   a       `   a   p   p   `    
     
@@ -463,51 +833,51 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
    #   #   #   #       3   .       *   *   R   e   p   o   s   i   t   o   r   i   o   s       J   P   A   *   *    
     
-   -       »   ˙   ”       C   r   e   a   d   o   :       `   D   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   .   j   a   v   a   `       (   `   b   a   c   k   e   n   d   /   s   r   c   /   m   a   i   n   /   j   a   v   a   /   .   .   .   /   r   e   p   o   s   i   t   o   r   y   /   D   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   .   j   a   v   a   `   )    
+   -       ÔøΩ   ÔøΩ   ÔøΩ       C   r   e   a   d   o   :       `   D   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   .   j   a   v   a   `       (   `   b   a   c   k   e   n   d   /   s   r   c   /   m   a   i   n   /   j   a   v   a   /   .   .   .   /   r   e   p   o   s   i   t   o   r   y   /   D   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   .   j   a   v   a   `   )    
     
-           -       M    % ´   t   o   d   o   s       d   e       b    % Q % s   q   u   e   d   a   :       `   f   i   n   d   B   y   T   e   n   a   n   t   I   d   A   n   d   N   a   m   e   C   o   n   t   a   i   n   i   n   g   I   g   n   o   r   e   C   a   s   e   (   U   U   I   D       t   e   n   a   n   t   I   d   ,       S   t   r   i   n   g       n   a   m   e   )   `    
+           -       M    % ÔøΩ   t   o   d   o   s       d   e       b    % Q % s   q   u   e   d   a   :       `   f   i   n   d   B   y   T   e   n   a   n   t   I   d   A   n   d   N   a   m   e   C   o   n   t   a   i   n   i   n   g   I   g   n   o   r   e   C   a   s   e   (   U   U   I   D       t   e   n   a   n   t   I   d   ,       S   t   r   i   n   g       n   a   m   e   )   `    
     
            -       O   t   r   o   s   :       b    % Q % s   q   u   e   d   a       p   o   r       e   s   t   a   d   o   ,       f   i   l   t   r   a   d   o       d   e       e   l   i   m   i   n   a   d   o   s   ,       e   t   c   .    
     
-           -       *   *   C   r    % Ì   t   i   c   o   *   *   :       T   o   d   o   s       l   o   s       m    % ´   t   o   d   o   s       r   e   q   u   i   e   r   e   n       `   t   e   n   a   n   t   I   d   `       e   x   p   l    % Ì   c   i   t   o       e   n       l   a       f   i   r   m   a    
+           -       *   *   C   r    % ÔøΩ   t   i   c   o   *   *   :       T   o   d   o   s       l   o   s       m    % ÔøΩ   t   o   d   o   s       r   e   q   u   i   e   r   e   n       `   t   e   n   a   n   t   I   d   `       e   x   p   l    % ÔøΩ   c   i   t   o       e   n       l   a       f   i   r   m   a    
     
     
     
    #   #   #   #       4   .       *   *   S   e   r   v   i   c   i   o   s   *   *    
     
-   -       »   ˙   ”       R   e   f   a   c   t   o   r   i   z   a   d   o   :       `   D   o   c   u   m   e   n   t   S   e   a   r   c   h   S   e   r   v   i   c   e   .   j   a   v   a   `    
+   -       ÔøΩ   ÔøΩ   ÔøΩ       R   e   f   a   c   t   o   r   i   z   a   d   o   :       `   D   o   c   u   m   e   n   t   S   e   a   r   c   h   S   e   r   v   i   c   e   .   j   a   v   a   `    
     
-           -       »   œ   Ø       R   e   m   o   v   i   d   o   :       D   e   c   o   r   a   d   o   r       `   @   S   e   r   v   i   c   e   `   ;       a   h   o   r   a       e   s       `   @   C   o   m   p   o   n   e   n   t   `    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       R   e   m   o   v   i   d   o   :       D   e   c   o   r   a   d   o   r       `   @   S   e   r   v   i   c   e   `   ;       a   h   o   r   a       e   s       `   @   C   o   m   p   o   n   e   n   t   `    
     
-           -       »   ˙   ”       I   n   y   e   c   t   a   d   o   :       `   D   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   `       y       `   A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   `    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       I   n   y   e   c   t   a   d   o   :       `   D   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   `       y       `   A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   `    
     
-           -       »   ˙   ”       C   a   m   b   i   o       d   e       f   i   r   m   a   :       `   s   e   a   r   c   h   D   o   c   u   m   e   n   t   s   B   y   T   e   n   a   n   t   (   S   t   r   i   n   g       q   u   e   r   y   ,       i   n   t       l   i   m   i   t   )   `       »   √   ˜       y   a       N   O       t   o   m   a       `   t   e   n   a   n   t   I   d   `       c   o   m   o       p   a   r    % ›   m   e   t   r   o    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       C   a   m   b   i   o       d   e       f   i   r   m   a   :       `   s   e   a   r   c   h   D   o   c   u   m   e   n   t   s   B   y   T   e   n   a   n   t   (   S   t   r   i   n   g       q   u   e   r   y   ,       i   n   t       l   i   m   i   t   )   `       ÔøΩ   ÔøΩ   ÔøΩ       y   a       N   O       t   o   m   a       `   t   e   n   a   n   t   I   d   `       c   o   m   o       p   a   r    % ÔøΩ   m   e   t   r   o    
     
-                   -       O   b   t   i   e   n   e       `   t   e   n   a   n   t   I   d   `       i   n   t   e   r   n   a   m   e   n   t   e       v    % Ì   a       `   a   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   .   r   e   q   u   i   r   e   T   e   n   a   n   t   I   d   (   )   `    
+                   -       O   b   t   i   e   n   e       `   t   e   n   a   n   t   I   d   `       i   n   t   e   r   n   a   m   e   n   t   e       v    % ÔøΩ   a       `   a   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   .   r   e   q   u   i   r   e   T   e   n   a   n   t   I   d   (   )   `    
     
-           -       »   ˙   ”       C   a   m   b   i   o       d   e       b   a   c   k   e   n   d   :       C   o   n   s   u   l   t   a       r   e   a   l       a       B   D       (   `   d   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   .   f   i   n   d   B   y   T   e   n   a   n   t   I   d   A   n   d   N   a   m   e   C   o   n   t   a   i   n   i   n   g   I   g   n   o   r   e   C   a   s   e   (   t   e   n   a   n   t   I   d   ,       q   u   e   r   y   )   `   )    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       C   a   m   b   i   o       d   e       b   a   c   k   e   n   d   :       C   o   n   s   u   l   t   a       r   e   a   l       a       B   D       (   `   d   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   .   f   i   n   d   B   y   T   e   n   a   n   t   I   d   A   n   d   N   a   m   e   C   o   n   t   a   i   n   i   n   g   I   g   n   o   r   e   C   a   s   e   (   t   e   n   a   n   t   I   d   ,       q   u   e   r   y   )   `   )    
     
-           -       »   ˙   ”       M   a   n   t   i   e   n   e   :       `   b   u   i   l   d   R   A   G   C   o   n   t   e   x   t   (   L   i   s   t   <   D   o   c   u   m   e   n   t   D   T   O   >   )   `       p   a   r   a       f   o   r   m   a   t   e   a   r       d   o   c   u   m   e   n   t   o   s       e   n       c   o   n   t   e   x   t   o       L   L   M    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       M   a   n   t   i   e   n   e   :       `   b   u   i   l   d   R   A   G   C   o   n   t   e   x   t   (   L   i   s   t   <   D   o   c   u   m   e   n   t   D   T   O   >   )   `       p   a   r   a       f   o   r   m   a   t   e   a   r       d   o   c   u   m   e   n   t   o   s       e   n       c   o   n   t   e   x   t   o       L   L   M    
     
     
     
-   -       »   ˙   ”       R   e   f   a   c   t   o   r   i   z   a   d   o   :       `   R   A   G   S   e   r   v   i   c   e   .   j   a   v   a   `    
+   -       ÔøΩ   ÔøΩ   ÔøΩ       R   e   f   a   c   t   o   r   i   z   a   d   o   :       `   R   A   G   S   e   r   v   i   c   e   .   j   a   v   a   `    
     
-           -       »   ˙   ”       I   n   y   e   c   t   a   d   o   :       `   F   u   n   c   t   i   o   n   <   S   t   r   i   n   g   ,       S   t   r   i   n   g   >       d   o   c   u   m   e   n   t   S   e   a   r   c   h   `       (   l   a       h   e   r   r   a   m   i   e   n   t   a       d   e   s   d   e       `   C   h   a   t   B   o   t   T   o   o   l   s   C   o   n   f   i   g   `   )    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       I   n   y   e   c   t   a   d   o   :       `   F   u   n   c   t   i   o   n   <   S   t   r   i   n   g   ,       S   t   r   i   n   g   >       d   o   c   u   m   e   n   t   S   e   a   r   c   h   `       (   l   a       h   e   r   r   a   m   i   e   n   t   a       d   e   s   d   e       `   C   h   a   t   B   o   t   T   o   o   l   s   C   o   n   f   i   g   `   )    
     
-           -       »   ˙   ”       I   n   y   e   c   t   a   d   o   :       `   A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   `    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       I   n   y   e   c   t   a   d   o   :       `   A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   `    
     
-           -       »   ˙   ”       C   a   m   b   i   o       d   e       f   i   r   m   a   :       `   p   r   o   c   e   s   s   Q   u   e   r   y   (   S   t   r   i   n   g       u   s   e   r   Q   u   e   r   y   ,       b   o   o   l   e   a   n       i   n   c   l   u   d   e   D   o   c   u   m   e   n   t   s   )   `       »   √   ˜       r   e   m   o   v   i   d   o       p   a   r    % ›   m   e   t   r   o       `   t   e   n   a   n   t   I   d   `    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       C   a   m   b   i   o       d   e       f   i   r   m   a   :       `   p   r   o   c   e   s   s   Q   u   e   r   y   (   S   t   r   i   n   g       u   s   e   r   Q   u   e   r   y   ,       b   o   o   l   e   a   n       i   n   c   l   u   d   e   D   o   c   u   m   e   n   t   s   )   `       ÔøΩ   ÔøΩ   ÔøΩ       r   e   m   o   v   i   d   o       p   a   r    % ÔøΩ   m   e   t   r   o       `   t   e   n   a   n   t   I   d   `    
     
-           -       »   ˙   ”       I   n   t   e   g   r   a   c   i    %  % n   :       `   .   f   u   n   c   t   i   o   n   (   "   d   o   c   u   m   e   n   t   S   e   a   r   c   h   "   ,       d   o   c   u   m   e   n   t   S   e   a   r   c   h   T   o   o   l   )   `       e   n       e   l       p   r   o   m   p   t    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       I   n   t   e   g   r   a   c   i    %  % n   :       `   .   f   u   n   c   t   i   o   n   (   "   d   o   c   u   m   e   n   t   S   e   a   r   c   h   "   ,       d   o   c   u   m   e   n   t   S   e   a   r   c   h   T   o   o   l   )   `       e   n       e   l       p   r   o   m   p   t    
     
-           -       »   ˙   ”       S   e   g   u   r   i   d   a   d   :       V   a   l   i   d   a       `   a   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   .   r   e   q   u   i   r   e   T   e   n   a   n   t   I   d   (   )   `       a   l       i   n   i   c   i   o    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       S   e   g   u   r   i   d   a   d   :       V   a   l   i   d   a       `   a   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   .   r   e   q   u   i   r   e   T   e   n   a   n   t   I   d   (   )   `       a   l       i   n   i   c   i   o    
     
     
     
    #   #   #   #       5   .       *   *   C   o   n   f   i   g   u   r   a   c   i    %  % n   *   *    
     
-   -       »   ˙   ”       I   m   p   l   e   m   e   n   t   a   d   o   :       `   C   h   a   t   B   o   t   T   o   o   l   s   C   o   n   f   i   g   .   j   a   v   a   `       (   `   b   a   c   k   e   n   d   /   s   r   c   /   m   a   i   n   /   j   a   v   a   /   .   .   .   /   c   o   n   f   i   g   /   C   h   a   t   B   o   t   T   o   o   l   s   C   o   n   f   i   g   .   j   a   v   a   `   )    
+   -       ÔøΩ   ÔøΩ   ÔøΩ       I   m   p   l   e   m   e   n   t   a   d   o   :       `   C   h   a   t   B   o   t   T   o   o   l   s   C   o   n   f   i   g   .   j   a   v   a   `       (   `   b   a   c   k   e   n   d   /   s   r   c   /   m   a   i   n   /   j   a   v   a   /   .   .   .   /   c   o   n   f   i   g   /   C   h   a   t   B   o   t   T   o   o   l   s   C   o   n   f   i   g   .   j   a   v   a   `   )    
     
            -       C   r   e   a       `   @   B   e   a   n       F   u   n   c   t   i   o   n   <   S   t   r   i   n   g   ,       S   t   r   i   n   g   >       d   o   c   u   m   e   n   t   S   e   a   r   c   h   (   )   `    
     
@@ -515,51 +885,51 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
            -       A   n   o   t   a   d   o       c   o   n       `   @   D   e   s   c   r   i   p   t   i   o   n   `       p   a   r   a       q   u   e       S   p   r   i   n   g       A   I       r   e   c   o   n   o   z   c   a       l   a       h   e   r   r   a   m   i   e   n   t   a    
     
-           -       S   p   r   i   n   g       A   I       r   e   g   i   s   t   r   a       a   u   t   o   m    % ›   t   i   c   a   m   e   n   t   e       c   o   m   o       h   e   r   r   a   m   i   e   n   t   a       d   i   s   p   o   n   i   b   l   e       p   a   r   a       C   l   a   u   d   e    
+           -       S   p   r   i   n   g       A   I       r   e   g   i   s   t   r   a       a   u   t   o   m    % ÔøΩ   t   i   c   a   m   e   n   t   e       c   o   m   o       h   e   r   r   a   m   i   e   n   t   a       d   i   s   p   o   n   i   b   l   e       p   a   r   a       C   l   a   u   d   e    
     
     
     
    #   #   #   #       6   .       *   *   C   o   n   t   r   o   l   a   d   o   r   e   s   *   *    
     
-   -       »   ˙   ”       R   e   f   a   c   t   o   r   i   z   a   d   o   :       `   C   h   a   t   C   o   n   t   r   o   l   l   e   r   .   j   a   v   a   `    
+   -       ÔøΩ   ÔøΩ   ÔøΩ       R   e   f   a   c   t   o   r   i   z   a   d   o   :       `   C   h   a   t   C   o   n   t   r   o   l   l   e   r   .   j   a   v   a   `    
     
-           -       »   ˙   ”       I   n   y   e   c   t   a   d   o   :       `   A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   `    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       I   n   y   e   c   t   a   d   o   :       `   A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   `    
     
-           -       »   ˙   ”       A   n   o   t   a   d   o   :       `   @   P   r   e   A   u   t   h   o   r   i   z   e   (   "   i   s   A   u   t   h   e   n   t   i   c   a   t   e   d   (   )   "   )   `       e   n       `   /   a   p   i   /   c   h   a   t   /   a   s   k   `    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       A   n   o   t   a   d   o   :       `   @   P   r   e   A   u   t   h   o   r   i   z   e   (   "   i   s   A   u   t   h   e   n   t   i   c   a   t   e   d   (   )   "   )   `       e   n       `   /   a   p   i   /   c   h   a   t   /   a   s   k   `    
     
-           -       »   ˙   ”       R   e   m   o   v   i   d   o   :       C   a   m   p   o       `   t   e   n   a   n   t   I   d   `       d   e   l       D   T   O       d   e       e   n   t   r   a   d   a    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       R   e   m   o   v   i   d   o   :       C   a   m   p   o       `   t   e   n   a   n   t   I   d   `       d   e   l       D   T   O       d   e       e   n   t   r   a   d   a    
     
-           -       »   ˙   ”       C   a   m   b   i   o       d   e       f   i   r   m   a   :       `   c   h   a   t   (   C   h   a   t   R   e   q   u   e   s   t   D   T   O   )   `       »   ’   „       `   r   a   g   S   e   r   v   i   c   e   .   p   r   o   c   e   s   s   Q   u   e   r   y   (   m   e   s   s   a   g   e   ,       i   n   c   l   u   d   e   D   o   c   u   m   e   n   t   s   )   `       (   s   i   n       `   t   e   n   a   n   t   I   d   `   )    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       C   a   m   b   i   o       d   e       f   i   r   m   a   :       `   c   h   a   t   (   C   h   a   t   R   e   q   u   e   s   t   D   T   O   )   `       ÔøΩ   ÔøΩ   ÔøΩ       `   r   a   g   S   e   r   v   i   c   e   .   p   r   o   c   e   s   s   Q   u   e   r   y   (   m   e   s   s   a   g   e   ,       i   n   c   l   u   d   e   D   o   c   u   m   e   n   t   s   )   `       (   s   i   n       `   t   e   n   a   n   t   I   d   `   )    
     
-           -       »   ˙   ”       V   a   l   i   d   a   c   i    %  % n   :       L   l   a   m   a       `   a   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   .   r   e   q   u   i   r   e   T   e   n   a   n   t   I   d   (   )   `       y       `   r   e   q   u   i   r   e   U   s   e   r   I   d   (   )   `       p   a   r   a       g   a   r   a   n   t   i   z   a   r       c   o   n   t   e   x   t   o    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       V   a   l   i   d   a   c   i    %  % n   :       L   l   a   m   a       `   a   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   .   r   e   q   u   i   r   e   T   e   n   a   n   t   I   d   (   )   `       y       `   r   e   q   u   i   r   e   U   s   e   r   I   d   (   )   `       p   a   r   a       g   a   r   a   n   t   i   z   a   r       c   o   n   t   e   x   t   o    
     
     
     
    #   #   #   #       7   .       *   *   D   T   O   s   *   *    
     
-   -       »   ˙   ”       A   c   t   u   a   l   i   z   a   d   o   :       `   C   h   a   t   R   e   q   u   e   s   t   D   T   O   .   j   a   v   a   `    
+   -       ÔøΩ   ÔøΩ   ÔøΩ       A   c   t   u   a   l   i   z   a   d   o   :       `   C   h   a   t   R   e   q   u   e   s   t   D   T   O   .   j   a   v   a   `    
     
-           -       »   œ   Ø       R   e   m   o   v   i   d   o   :       C   a   m   p   o   s       `   t   e   n   a   n   t   I   d   `       y       `   u   s   e   r   I   d   `    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       R   e   m   o   v   i   d   o   :       C   a   m   p   o   s       `   t   e   n   a   n   t   I   d   `       y       `   u   s   e   r   I   d   `    
     
-           -       »   ˙   ”       M   a   n   t   i   e   n   e   :       `   m   e   s   s   a   g   e   `   ,       `   i   n   c   l   u   d   e   D   o   c   u   m   e   n   t   s   `    
+           -       ÔøΩ   ÔøΩ   ÔøΩ       M   a   n   t   i   e   n   e   :       `   m   e   s   s   a   g   e   `   ,       `   i   n   c   l   u   d   e   D   o   c   u   m   e   n   t   s   `    
     
-           -       A   h   o   r   a       c   o   n   t   i   e   n   e       s   o   l   o       l   o       q   u   e       e   l       c   l   i   e   n   t   e       e   n   v    % Ì   a   ;       t   e   n   a   n   t       y       u   s   e   r       v   i   e   n   e   n       d   e   l       J   W   T    
-    
-    
-    
-   -       »   ˙   ”       A   c   t   u   a   l   i   z   a   d   o   :       `   C   h   a   t   R   e   s   p   o   n   s   e   D   T   O   .   j   a   v   a   `    
-    
-           -       S   i   n       c   a   m   b   i   o   s       d   e       l    %  % g   i   c   a   ;       s   o   l   o       p   a   q   u   e   t   e       c   o   r   r   e   c   t   o    
+           -       A   h   o   r   a       c   o   n   t   i   e   n   e       s   o   l   o       l   o       q   u   e       e   l       c   l   i   e   n   t   e       e   n   v    % ÔøΩ   a   ;       t   e   n   a   n   t       y       u   s   e   r       v   i   e   n   e   n       d   e   l       J   W   T    
     
     
     
-   -       »   ˙   ”       A   c   t   u   a   l   i   z   a   d   o   :       `   D   o   c   u   m   e   n   t   D   T   O   .   j   a   v   a   `    
+   -       ÔøΩ   ÔøΩ   ÔøΩ       A   c   t   u   a   l   i   z   a   d   o   :       `   C   h   a   t   R   e   s   p   o   n   s   e   D   T   O   .   j   a   v   a   `    
     
            -       S   i   n       c   a   m   b   i   o   s       d   e       l    %  % g   i   c   a   ;       s   o   l   o       p   a   q   u   e   t   e       c   o   r   r   e   c   t   o    
     
     
     
-   #   #   #       G   a   r   a   n   t    % Ì   a   s       d   e       S   e   g   u   r   i   d   a   d       M   u   l   t   i   t   e   n   a   n   t    
+   -       ÔøΩ   ÔøΩ   ÔøΩ       A   c   t   u   a   l   i   z   a   d   o   :       `   D   o   c   u   m   e   n   t   D   T   O   .   j   a   v   a   `    
+    
+           -       S   i   n       c   a   m   b   i   o   s       d   e       l    %  % g   i   c   a   ;       s   o   l   o       p   a   q   u   e   t   e       c   o   r   r   e   c   t   o    
+    
+    
+    
+   #   #   #       G   a   r   a   n   t    % ÔøΩ   a   s       d   e       S   e   g   u   r   i   d   a   d       M   u   l   t   i   t   e   n   a   n   t    
     
     
     
@@ -581,7 +951,7 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
    3   .       *   *   R   L   S       d   e       P   o   s   t   g   r   e   S   Q   L   *   *    
     
-               -       T   a   b   l   a       `   d   o   c   u   m   e   n   t   s   `       t   i   e   n   e       p   o   l    % Ì   t   i   c   a       R   L   S       c   o   n   f   i   g   u   r   a   d   a       e   n       m   i   g   r   a   c   i    %  % n       `   0   0   4   _   s   a   a   s   _   h   a   r   d   e   n   i   n   g   `    
+               -       T   a   b   l   a       `   d   o   c   u   m   e   n   t   s   `       t   i   e   n   e       p   o   l    % ÔøΩ   t   i   c   a       R   L   S       c   o   n   f   i   g   u   r   a   d   a       e   n       m   i   g   r   a   c   i    %  % n       `   0   0   4   _   s   a   a   s   _   h   a   r   d   e   n   i   n   g   `    
     
                -       F   i   l   t   r   a       a   d   i   c   i   o   n   a   l   e   s       p   o   r       `   t   e   n   a   n   t   _   i   d   `       a       n   i   v   e   l       B   D       (   d   e   f   e   n   s   a       e   n       p   r   o   f   u   n   d   i   d   a   d   )    
     
@@ -591,7 +961,7 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
                -       J   w   t   A   u   t   h   e   n   t   i   c   a   t   i   o   n   F   i   l   t   e   r       p   o   p   u   l   a       `   S   e   c   u   r   i   t   y   C   o   n   t   e   x   t   H   o   l   d   e   r   `       c   o   n       `   A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   `    
     
-               -       `   A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   `       e   x   t   r   a   e       d   e   s   d   e       a   h    % Ì    
+               -       `   A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   `       e   x   t   r   a   e       d   e   s   d   e       a   h    % ÔøΩ    
     
     
     
@@ -607,25 +977,25 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
    {    
     
-           "   t   e   n   a   n   t   _   i   d   "   :       "   a   b   c   -   1   2   3   "   ,           »   ’   T%      E   n   v   i   a   d   o       p   o   r       c   l   i   e   n   t   e    
+           "   t   e   n   a   n   t   _   i   d   "   :       "   a   b   c   -   1   2   3   "   ,           ÔøΩ   ÔøΩ   T%      E   n   v   i   a   d   o       p   o   r       c   l   i   e   n   t   e    
     
            "   u   s   e   r   _   i   d   "   :       "   u   s   e   r   -   4   5   6   "   ,    
     
-           "   m   e   s   s   a   g   e   "   :       "   , %  % C   u    % ›   l   e   s       s   o   n       m   i   s       e   x   p   e   d   i   e   n   t   e   s   ?   "   ,    
+           "   m   e   s   s   a   g   e   "   :       "   , %  % C   u    % ÔøΩ   l   e   s       s   o   n       m   i   s       e   x   p   e   d   i   e   n   t   e   s   ?   "   ,    
     
            "   i   n   c   l   u   d   e   _   d   o   c   u   m   e   n   t   s   "   :       t   r   u   e    
     
    }    
     
-   »   ’   „       D   o   c   u   m   e   n   t   S   e   a   r   c   h   S   e   r   v   i   c   e   .   s   e   a   r   c   h   D   o   c   u   m   e   n   t   s   B   y   T   e   n   a   n   t   (   "   a   b   c   -   1   2   3   "   ,       "   , %  % C   u    % ›   l   e   s   .   .   .   "   ,       5   )    
+   ÔøΩ   ÔøΩ   ÔøΩ       D   o   c   u   m   e   n   t   S   e   a   r   c   h   S   e   r   v   i   c   e   .   s   e   a   r   c   h   D   o   c   u   m   e   n   t   s   B   y   T   e   n   a   n   t   (   "   a   b   c   -   1   2   3   "   ,       "   , %  % C   u    % ÔøΩ   l   e   s   .   .   .   "   ,       5   )    
     
-   »   ’   „       R   e   t   o   r   n   a       d   a   t   o   s       m   o   c   k       s   i   n       c   o   n   s   u   l   t   a   r       B   D    
+   ÔøΩ   ÔøΩ   ÔøΩ       R   e   t   o   r   n   a       d   a   t   o   s       m   o   c   k       s   i   n       c   o   n   s   u   l   t   a   r       B   D    
     
    `   `   `    
     
     
     
-   *   *   D   e   s   p   u    % ´   s       (   S   e   g   u   r   o       +       R   e   a   l   )   :   *   *    
+   *   *   D   e   s   p   u    % ÔøΩ   s       (   S   e   g   u   r   o       +       R   e   a   l   )   :   *   *    
     
    `   `   `    
     
@@ -635,31 +1005,31 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
    {    
     
-           "   m   e   s   s   a   g   e   "   :       "   , %  % C   u    % ›   l   e   s       s   o   n       m   i   s       e   x   p   e   d   i   e   n   t   e   s   ?   "   ,    
+           "   m   e   s   s   a   g   e   "   :       "   , %  % C   u    % ÔøΩ   l   e   s       s   o   n       m   i   s       e   x   p   e   d   i   e   n   t   e   s   ?   "   ,    
     
            "   i   n   c   l   u   d   e   _   d   o   c   u   m   e   n   t   s   "   :       t   r   u   e    
     
    }    
     
-   »   ’   „       C   h   a   t   C   o   n   t   r   o   l   l   e   r       v   a   l   i   d   a       J   W   T    
+   ÔøΩ   ÔøΩ   ÔøΩ       C   h   a   t   C   o   n   t   r   o   l   l   e   r       v   a   l   i   d   a       J   W   T    
     
-   »   ’   „       A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   .   r   e   q   u   i   r   e   T   e   n   a   n   t   I   d   (   )       »   ’   „       <   U   U   I   D       d   e   l       J   W   T   >    
+   ÔøΩ   ÔøΩ   ÔøΩ       A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   .   r   e   q   u   i   r   e   T   e   n   a   n   t   I   d   (   )       ÔøΩ   ÔøΩ   ÔøΩ       <   U   U   I   D       d   e   l       J   W   T   >    
     
-   »   ’   „       R   A   G   S   e   r   v   i   c   e   .   p   r   o   c   e   s   s   Q   u   e   r   y   (   m   e   s   s   a   g   e   ,       t   r   u   e   )    
+   ÔøΩ   ÔøΩ   ÔøΩ       R   A   G   S   e   r   v   i   c   e   .   p   r   o   c   e   s   s   Q   u   e   r   y   (   m   e   s   s   a   g   e   ,       t   r   u   e   )    
     
-   »   ’   „       D   o   c   u   m   e   n   t   S   e   a   r   c   h   S   e   r   v   i   c   e   .   s   e   a   r   c   h   D   o   c   u   m   e   n   t   s   B   y   T   e   n   a   n   t   (   q   u   e   r   y   ,       5   )    
+   ÔøΩ   ÔøΩ   ÔøΩ       D   o   c   u   m   e   n   t   S   e   a   r   c   h   S   e   r   v   i   c   e   .   s   e   a   r   c   h   D   o   c   u   m   e   n   t   s   B   y   T   e   n   a   n   t   (   q   u   e   r   y   ,       5   )    
     
-           »   ’   „       O   b   t   i   e   n   e       t   e   n   a   n   t   I   d       d   e   l       c   o   n   t   e   x   t   o       (   n   o       d   e   l       c   l   i   e   n   t   e   )    
+           ÔøΩ   ÔøΩ   ÔøΩ       O   b   t   i   e   n   e       t   e   n   a   n   t   I   d       d   e   l       c   o   n   t   e   x   t   o       (   n   o       d   e   l       c   l   i   e   n   t   e   )    
     
-           »   ’   „       D   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   .   f   i   n   d   B   y   T   e   n   a   n   t   I   d   A   n   d   N   a   m   e   C   o   n   t   a   i   n   i   n   g   I   g   n   o   r   e   C   a   s   e   (   t   e   n   a   n   t   I   d   ,       q   u   e   r   y   )    
+           ÔøΩ   ÔøΩ   ÔøΩ       D   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   .   f   i   n   d   B   y   T   e   n   a   n   t   I   d   A   n   d   N   a   m   e   C   o   n   t   a   i   n   i   n   g   I   g   n   o   r   e   C   a   s   e   (   t   e   n   a   n   t   I   d   ,       q   u   e   r   y   )    
     
-           »   ’   „       C   o   n   s   u   l   t   a       r   e   a   l       a       B   D       +       R   L   S    
+           ÔøΩ   ÔøΩ   ÔøΩ       C   o   n   s   u   l   t   a       r   e   a   l       a       B   D       +       R   L   S    
     
-   »   ’   „       M   a   p   e   a       a       D   o   c   u   m   e   n   t   D   T   O    
+   ÔøΩ   ÔøΩ   ÔøΩ       M   a   p   e   a       a       D   o   c   u   m   e   n   t   D   T   O    
     
-   »   ’   „       C   h   a   t   C   l   i   e   n   t       l   l   a   m   a       h   e   r   r   a   m   i   e   n   t   a       d   o   c   u   m   e   n   t   S   e   a   r   c   h       »   ’   „       b   u   i   l   d   R   A   G   C   o   n   t   e   x   t   (   )    
+   ÔøΩ   ÔøΩ   ÔøΩ       C   h   a   t   C   l   i   e   n   t       l   l   a   m   a       h   e   r   r   a   m   i   e   n   t   a       d   o   c   u   m   e   n   t   S   e   a   r   c   h       ÔøΩ   ÔøΩ   ÔøΩ       b   u   i   l   d   R   A   G   C   o   n   t   e   x   t   (   )    
     
-   »   ’   „       C   l   a   u   d   e       r   e   s   p   o   n   d   e       c   o   n       c   o   n   t   e   x   t   o       d   o   c   u   m   e   n   t   o   s       d   e   l       t   e   n   a   n   t       a   u   t   e   n   t   i   c   a   d   o    
+   ÔøΩ   ÔøΩ   ÔøΩ       C   l   a   u   d   e       r   e   s   p   o   n   d   e       c   o   n       c   o   n   t   e   x   t   o       d   o   c   u   m   e   n   t   o   s       d   e   l       t   e   n   a   n   t       a   u   t   e   n   t   i   c   a   d   o    
     
    `   `   `    
     
@@ -669,13 +1039,13 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
     
     
-   -       »   ˙   ”       B   a   c   k   e   n   d       i   m   p   l   e   m   e   n   t   a   d   o       c   o   n       S   p   r   i   n   g       A   I       y       s   e   g   u   r   i   d   a   d       m   u   l   t   i   t   e   n   a   n   t    
+   -       ÔøΩ   ÔøΩ   ÔøΩ       B   a   c   k   e   n   d       i   m   p   l   e   m   e   n   t   a   d   o       c   o   n       S   p   r   i   n   g       A   I       y       s   e   g   u   r   i   d   a   d       m   u   l   t   i   t   e   n   a   n   t    
     
-   -       »   <%   %     F   r   o   n   t   e   n   d       (   A   n   g   u   l   a   r   )   :       A   j   u   s   t   a   r       l   l   a   m   a   d   a       a       `   /   a   p   i   /   c   h   a   t   /   a   s   k   `       (   r   e   m   o   v   i   d   o       `   t   e   n   a   n   t   _   i   d   `   ,       a   g   r   e   g   a   r       J   W   T       e   n       h   e   a   d   e   r   )    
+   -       ÔøΩ   <%   %     F   r   o   n   t   e   n   d       (   A   n   g   u   l   a   r   )   :       A   j   u   s   t   a   r       l   l   a   m   a   d   a       a       `   /   a   p   i   /   c   h   a   t   /   a   s   k   `       (   r   e   m   o   v   i   d   o       `   t   e   n   a   n   t   _   i   d   `   ,       a   g   r   e   g   a   r       J   W   T       e   n       h   e   a   d   e   r   )    
     
-   -       »   <%   %     B   D   :       V   e   r   i   f   i   c   a   r       R   L   S       e   s   t    % ›       a   c   t   i   v   o       e   n       m   i   g   r   a   c   i    %  % n       `   0   0   4   _   s   a   a   s   _   h   a   r   d   e   n   i   n   g   `    
+   -       ÔøΩ   <%   %     B   D   :       V   e   r   i   f   i   c   a   r       R   L   S       e   s   t    % ÔøΩ       a   c   t   i   v   o       e   n       m   i   g   r   a   c   i    %  % n       `   0   0   4   _   s   a   a   s   _   h   a   r   d   e   n   i   n   g   `    
     
-   -       »   <%   %     T   e   s   t   s   :       U   n   i   t   a   r   i   o   s       p   a   r   a       `   D   o   c   u   m   e   n   t   S   e   a   r   c   h   S   e   r   v   i   c   e   `       y       `   R   A   G   S   e   r   v   i   c   e   `    
+   -       ÔøΩ   <%   %     T   e   s   t   s   :       U   n   i   t   a   r   i   o   s       p   a   r   a       `   D   o   c   u   m   e   n   t   S   e   a   r   c   h   S   e   r   v   i   c   e   `       y       `   R   A   G   S   e   r   v   i   c   e   `    
     
     
     
@@ -685,9 +1055,9 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
    -       *   *   S   p   r   i   n   g       A   I       V   e   r   s   i   o   n   *   *   :       `   1   .   0   .   0   -   M   1   `       (   m   i   l   e   s   t   o   n   e   )   .       E   v   a   l   u   a   r       e   s   t   a   b   i   l   i   d   a   d       e   n       p   r   o   d   u   c   c   i    %  % n   .    
     
-   -       *   *   C   h   a   t   C   l   i   e   n   t   .   B   u   i   l   d   e   r   *   *   :       S   e       i   n   y   e   c   t   a       a   u   t   o   m    % ›   t   i   c   a   m   e   n   t   e       d   e   s   d   e       S   p   r   i   n   g       B   o   o   t    
+   -       *   *   C   h   a   t   C   l   i   e   n   t   .   B   u   i   l   d   e   r   *   *   :       S   e       i   n   y   e   c   t   a       a   u   t   o   m    % ÔøΩ   t   i   c   a   m   e   n   t   e       d   e   s   d   e       S   p   r   i   n   g       B   o   o   t    
     
-   -       *   *   F   u   n   c   t   i   o   n       a   s       T   o   o   l   *   *   :       S   p   r   i   n   g       A   I       d   e   s   c   u   b   r   e       a   u   t   o   m    % ›   t   i   c   a   m   e   n   t   e       f   u   n   c   i   o   n   e   s       `   @   B   e   a   n   `       a   n   o   t   a   d   a   s       c   o   n       `   @   D   e   s   c   r   i   p   t   i   o   n   `    
+   -       *   *   F   u   n   c   t   i   o   n       a   s       T   o   o   l   *   *   :       S   p   r   i   n   g       A   I       d   e   s   c   u   b   r   e       a   u   t   o   m    % ÔøΩ   t   i   c   a   m   e   n   t   e       f   u   n   c   i   o   n   e   s       `   @   B   e   a   n   `       a   n   o   t   a   d   a   s       c   o   n       `   @   D   e   s   c   r   i   p   t   i   o   n   `    
     
    -       *   *   A   u   t   h   e   n   t   i   c   a   t   e   d   U   s   e   r   C   o   n   t   e   x   t   *   *   :       S   i   n   g   l   e   t   o   n       `   @   C   o   m   p   o   n   e   n   t   `       q   u   e       l   e   e       `   S   e   c   u   r   i   t   y   C   o   n   t   e   x   t   H   o   l   d   e   r   `    
     
@@ -701,17 +1071,17 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
    P   a   r   a       v   e   r   i   f   i   c   a   r       l   a       i   m   p   l   e   m   e   n   t   a   c   i    %  % n   :    
     
-   1   .       C   o   m   p   i   l   a   r   :       `   m   v   n       c   l   e   a   n       c   o   m   p   i   l   e   `       (   M   a   v   e   n       d   e   s   c   a   r   g   a   r    % ›       S   p   r   i   n   g       A   I   )    
+   1   .       C   o   m   p   i   l   a   r   :       `   m   v   n       c   l   e   a   n       c   o   m   p   i   l   e   `       (   M   a   v   e   n       d   e   s   c   a   r   g   a   r    % ÔøΩ       S   p   r   i   n   g       A   I   )    
     
    2   .       P   r   u   e   b   a       d   e       B   D   :       `   p   o   w   e   r   s   h   e   l   l       -   N   o   P   r   o   f   i   l   e       -   F   i   l   e       d   a   t   a   b   a   s   e   /   t   e   s   t   s   /   r   u   n   .   p   s   1   `       (   v   a   l   i   d   a       R   L   S   )    
     
-   3   .       P   r   u   e   b   a       d   e       A   P   I   :       P   O   S   T       `   /   a   p   i   /   c   h   a   t   /   a   s   k   `       c   o   n       J   W   T       v    % ›   l   i   d   o       (   s   i   n       `   t   e   n   a   n   t   _   i   d   `       e   n       b   o   d   y   )    
+   3   .       P   r   u   e   b   a       d   e       A   P   I   :       P   O   S   T       `   /   a   p   i   /   c   h   a   t   /   a   s   k   `       c   o   n       J   W   T       v    % ÔøΩ   l   i   d   o       (   s   i   n       `   t   e   n   a   n   t   _   i   d   `       e   n       b   o   d   y   )    
     
-   4   .       L   o   g   s   :       V   e   r   i   f   i   c   a   r       q   u   e       `   D   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   `       c   o   n   s   u   l   t   a       c   o   n       c   l    % ›   u   s   u   l   a       `   W   H   E   R   E       t   e   n   a   n   t   _   i   d       =       ?   `    
+   4   .       L   o   g   s   :       V   e   r   i   f   i   c   a   r       q   u   e       `   D   o   c   u   m   e   n   t   R   e   p   o   s   i   t   o   r   y   `       c   o   n   s   u   l   t   a       c   o   n       c   l    % ÔøΩ   u   s   u   l   a       `   W   H   E   R   E       t   e   n   a   n   t   _   i   d       =       ?   `    
     
     
     
-   #   #       2   0   2   6   -   0   9   -   1   6   :       C   o   r   r   e   c   c   i    %  % n       »   √   ˜       e   l       b   a   c   k   e   n   d       n   o       a   r   r   a   n   c   a   b   a       (   c   h   a   t   b   o   t       d   e   s   h   a   b   i   l   i   t   a   d   o       t   e   m   p   o   r   a   l   m   e   n   t   e   )       +       d   a   t   o   s       d   e       d   e   m   o   s   t   r   a   c   i    %  % n       a   m   p   l   i   a   d   o   s    
+   #   #       2   0   2   6   -   0   9   -   1   6   :       C   o   r   r   e   c   c   i    %  % n       ÔøΩ   ÔøΩ   ÔøΩ       e   l       b   a   c   k   e   n   d       n   o       a   r   r   a   n   c   a   b   a       (   c   h   a   t   b   o   t       d   e   s   h   a   b   i   l   i   t   a   d   o       t   e   m   p   o   r   a   l   m   e   n   t   e   )       +       d   a   t   o   s       d   e       d   e   m   o   s   t   r   a   c   i    %  % n       a   m   p   l   i   a   d   o   s    
     
     
     
@@ -719,13 +1089,13 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
     
     
-   A   l       i   n   t   e   n   t   a   r       l   e   v   a   n   t   a   r       e   l       b   a   c   k   e   n   d       (   `   m   v   n   w       s   p   r   i   n   g   -   b   o   o   t   :   r   u   n   `   )       p   a   r   a       p   r   u   e   b   a   s       m   a   n   u   a   l   e   s       c   o   n       P   o   s   t   m   a   n   ,       l   a       a   p   l   i   c   a   c   i    %  % n       *   *   n   o       a   r   r   a   n   c   a   b   a   *   *   .       L   a       e   n   t   r   a   d   a       a   n   t   e   r   i   o   r       d   e       e   s   t   e       r   e   g   i   s   t   r   o       d   o   c   u   m   e   n   t   a   b   a       `   s   p   r   i   n   g   -   a   i   -   b   o   m       1   .   0   .   0   -   M   1   `   ,       p   e   r   o       `   p   o   m   .   x   m   l   `       t   e   n    % Ì   a       f   i   j   a   d   o       `   2   .   0   .   1   `   .       S   e       c   o   m   p   r   o   b    %  %     c   o   n   t   r   a       l   a       d   o   c   u   m   e   n   t   a   c   i    %  % n       o   f   i   c   i   a   l       d   e       S   p   r   i   n   g       A   I       q   u   e   :    
+   A   l       i   n   t   e   n   t   a   r       l   e   v   a   n   t   a   r       e   l       b   a   c   k   e   n   d       (   `   m   v   n   w       s   p   r   i   n   g   -   b   o   o   t   :   r   u   n   `   )       p   a   r   a       p   r   u   e   b   a   s       m   a   n   u   a   l   e   s       c   o   n       P   o   s   t   m   a   n   ,       l   a       a   p   l   i   c   a   c   i    %  % n       *   *   n   o       a   r   r   a   n   c   a   b   a   *   *   .       L   a       e   n   t   r   a   d   a       a   n   t   e   r   i   o   r       d   e       e   s   t   e       r   e   g   i   s   t   r   o       d   o   c   u   m   e   n   t   a   b   a       `   s   p   r   i   n   g   -   a   i   -   b   o   m       1   .   0   .   0   -   M   1   `   ,       p   e   r   o       `   p   o   m   .   x   m   l   `       t   e   n    % ÔøΩ   a       f   i   j   a   d   o       `   2   .   0   .   1   `   .       S   e       c   o   m   p   r   o   b    %  %     c   o   n   t   r   a       l   a       d   o   c   u   m   e   n   t   a   c   i    %  % n       o   f   i   c   i   a   l       d   e       S   p   r   i   n   g       A   I       q   u   e   :    
     
     
     
    -       `   s   p   r   i   n   g   -   a   i   -   b   o   m       2   .   0   .   1   `       r   e   q   u   i   e   r   e       *   *   S   p   r   i   n   g       B   o   o   t       4       /       S   p   r   i   n   g       F   r   a   m   e   w   o   r   k       7   *   *   .    
     
-   -       L   a       l    % Ì   n   e   a       `   1   .   0   .   x   `       d   e       S   p   r   i   n   g       A   I       r   e   q   u   i   e   r   e       *   *   S   p   r   i   n   g       B   o   o   t       3   .   4   .   x   /   3   .   5   .   x   *   *   .    
+   -       L   a       l    % ÔøΩ   n   e   a       `   1   .   0   .   x   `       d   e       S   p   r   i   n   g       A   I       r   e   q   u   i   e   r   e       *   *   S   p   r   i   n   g       B   o   o   t       3   .   4   .   x   /   3   .   5   .   x   *   *   .    
     
    -       E   s   t   e       b   a   c   k   e   n   d       u   s   a       *   *   S   p   r   i   n   g       B   o   o   t       3   .   2   .   4   *   *       (   f   i   j   a   d   o       e   n       A   G   E   N   T   S   .   m   d       c   o   m   o       a   r   q   u   i   t   e   c   t   u   r   a       v   i   g   e   n   t   e   )   .    
     
@@ -741,7 +1111,7 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
    #   #   #   #       `   b   a   c   k   e   n   d   /   p   o   m   .   x   m   l   `    
     
-   -       C   o   m   e   n   t   a   d   o       e   l       `   d   e   p   e   n   d   e   n   c   y   M   a   n   a   g   e   m   e   n   t   `       d   e       `   s   p   r   i   n   g   -   a   i   -   b   o   m   `       y       l   a       d   e   p   e   n   d   e   n   c   i   a       `   s   p   r   i   n   g   -   a   i   -   s   t   a   r   t   e   r   -   m   o   d   e   l   -   g   o   o   g   l   e   -   g   e   n   a   i   `   ,       c   o   n       u   n       `   T   O   D   O   `       e   x   p   l   i   c   a   n   d   o       p   o   r       q   u    % ´       y       q   u    % ´       v   e   r   s   i    %  % n       o   b   j   e   t   i   v   o       s   e       n   e   c   e   s   i   t   a   .    
+   -       C   o   m   e   n   t   a   d   o       e   l       `   d   e   p   e   n   d   e   n   c   y   M   a   n   a   g   e   m   e   n   t   `       d   e       `   s   p   r   i   n   g   -   a   i   -   b   o   m   `       y       l   a       d   e   p   e   n   d   e   n   c   i   a       `   s   p   r   i   n   g   -   a   i   -   s   t   a   r   t   e   r   -   m   o   d   e   l   -   g   o   o   g   l   e   -   g   e   n   a   i   `   ,       c   o   n       u   n       `   T   O   D   O   `       e   x   p   l   i   c   a   n   d   o       p   o   r       q   u    % ÔøΩ       y       q   u    % ÔøΩ       v   e   r   s   i    %  % n       o   b   j   e   t   i   v   o       s   e       n   e   c   e   s   i   t   a   .    
     
    -       A   g   r   e   g   a   d   o       `   m   a   v   e   n   -   c   o   m   p   i   l   e   r   -   p   l   u   g   i   n   `       c   o   n       `   <   e   x   c   l   u   d   e   s   >   `       p   a   r   a       `   C   h   a   t   B   o   t   T   o   o   l   s   C   o   n   f   i   g   .   j   a   v   a   `   ,       `   R   A   G   S   e   r   v   i   c   e   .   j   a   v   a   `       y       `   C   h   a   t   C   o   n   t   r   o   l   l   e   r   .   j   a   v   a   `       (   u   s   a   n       t   i   p   o   s       d   e       S   p   r   i   n   g       A   I       c   o   m   o       `   T   o   o   l   C   a   l   l   b   a   c   k   `   ;       s   i   n       l   a       d   e   p   e   n   d   e   n   c   i   a       n   o       c   o   m   p   i   l   a   n   )   .       E   l       c    %  % d   i   g   o       *   *   n   o       s   e       b   o   r   r    %  % *   *   ,       s   o   l   o       s   e       e   x   c   l   u   y    %  %     d   e       l   a       b   u   i   l   d       h   a   s   t   a       e   l       u   p   g   r   a   d   e   .    
     
@@ -749,13 +1119,13 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
    #   #   #   #       `   b   a   c   k   e   n   d   /   s   r   c   /   m   a   i   n   /   r   e   s   o   u   r   c   e   s   /   a   p   p   l   i   c   a   t   i   o   n   .   y   m   l   `    
     
-   -       C   o   m   e   n   t   a   d   o       e   l       b   l   o   q   u   e       `   s   p   r   i   n   g   .   a   i   .   g   o   o   g   l   e   .   g   e   n   a   i   .   *   `       (   d   e   p   e   n   d    % Ì   a       d   e       l   a       d   e   p   e   n   d   e   n   c   i   a       r   e   m   o   v   i   d   a   )   .    
+   -       C   o   m   e   n   t   a   d   o       e   l       b   l   o   q   u   e       `   s   p   r   i   n   g   .   a   i   .   g   o   o   g   l   e   .   g   e   n   a   i   .   *   `       (   d   e   p   e   n   d    % ÔøΩ   a       d   e       l   a       d   e   p   e   n   d   e   n   c   i   a       r   e   m   o   v   i   d   a   )   .    
     
     
     
    #   #   #   #       `   b   a   c   k   e   n   d   /   s   r   c   /   m   a   i   n   /   j   a   v   a   /   .   .   .   /   m   o   d   e   l   /   D   o   c   u   m   e   n   t   .   j   a   v   a   `    
     
-   -       *   *   B   u   g       r   e   a   l       e   n   c   o   n   t   r   a   d   o       y       c   o   r   r   e   g   i   d   o   *   *   :       l   a       e   n   t   i   d   a   d       t   e   n    % Ì   a       `   @   T   a   b   l   e   (   n   a   m   e       =       "   d   o   c   u   m   e   n   t   s   "   ,       s   c   h   e   m   a       =       "   a   p   p   "   )   `   .       L   a       e   n   t   r   a   d   a       a   n   t   e   r   i   o   r       d   e       e   s   t   e       r   e   g   i   s   t   r   o       d   o   c   u   m   e   n   t   a   b   a       q   u   e       l   a       t   a   b   l   a       v   i   v    % Ì   a       e   n       e   l       s   c   h   e   m   a       `   a   p   p   `   ,       p   e   r   o       l   a       b   a   s   e       r   e   a   l       (   v   e   r   i   f   i   c   a   d   a       c   o   n       `   \   d   t       a   p   p   .   *   `   )       s   o   l   o       t   i   e   n   e       `   a   p   p   .   s   c   h   e   m   a   _   m   i   g   r   a   t   i   o   n   s   `   ;       `   d   o   c   u   m   e   n   t   s   `       (   c   o   m   o       e   l       r   e   s   t   o       d   e       l   a   s       t   a   b   l   a   s       d   e       n   e   g   o   c   i   o   )       v   i   v   e       e   n       `   p   u   b   l   i   c   `   .       S   e       c   o   r   r   i   g   i    %  %     a       `   @   T   a   b   l   e   (   n   a   m   e       =       "   d   o   c   u   m   e   n   t   s   "   )   `   .       S   i   n       e   s   t   e       f   i   x   ,       H   i   b   e   r   n   a   t   e       f   a   l   l   a   b   a       l   a       v   a   l   i   d   a   c   i    %  % n       d   e       e   s   q   u   e   m   a       a   l       a   r   r   a   n   c   a   r       (   `   S   c   h   e   m   a   -   v   a   l   i   d   a   t   i   o   n   :       m   i   s   s   i   n   g       t   a   b   l   e       [   a   p   p   .   d   o   c   u   m   e   n   t   s   ]   `   )       p   a   r   a       c   u   a   l   q   u   i   e   r       r   e   q   u   e   s   t   ,       n   o       s   o   l   o       p   a   r   a       e   l       c   h   a   t   b   o   t   .    
+   -       *   *   B   u   g       r   e   a   l       e   n   c   o   n   t   r   a   d   o       y       c   o   r   r   e   g   i   d   o   *   *   :       l   a       e   n   t   i   d   a   d       t   e   n    % ÔøΩ   a       `   @   T   a   b   l   e   (   n   a   m   e       =       "   d   o   c   u   m   e   n   t   s   "   ,       s   c   h   e   m   a       =       "   a   p   p   "   )   `   .       L   a       e   n   t   r   a   d   a       a   n   t   e   r   i   o   r       d   e       e   s   t   e       r   e   g   i   s   t   r   o       d   o   c   u   m   e   n   t   a   b   a       q   u   e       l   a       t   a   b   l   a       v   i   v    % ÔøΩ   a       e   n       e   l       s   c   h   e   m   a       `   a   p   p   `   ,       p   e   r   o       l   a       b   a   s   e       r   e   a   l       (   v   e   r   i   f   i   c   a   d   a       c   o   n       `   \   d   t       a   p   p   .   *   `   )       s   o   l   o       t   i   e   n   e       `   a   p   p   .   s   c   h   e   m   a   _   m   i   g   r   a   t   i   o   n   s   `   ;       `   d   o   c   u   m   e   n   t   s   `       (   c   o   m   o       e   l       r   e   s   t   o       d   e       l   a   s       t   a   b   l   a   s       d   e       n   e   g   o   c   i   o   )       v   i   v   e       e   n       `   p   u   b   l   i   c   `   .       S   e       c   o   r   r   i   g   i    %  %     a       `   @   T   a   b   l   e   (   n   a   m   e       =       "   d   o   c   u   m   e   n   t   s   "   )   `   .       S   i   n       e   s   t   e       f   i   x   ,       H   i   b   e   r   n   a   t   e       f   a   l   l   a   b   a       l   a       v   a   l   i   d   a   c   i    %  % n       d   e       e   s   q   u   e   m   a       a   l       a   r   r   a   n   c   a   r       (   `   S   c   h   e   m   a   -   v   a   l   i   d   a   t   i   o   n   :       m   i   s   s   i   n   g       t   a   b   l   e       [   a   p   p   .   d   o   c   u   m   e   n   t   s   ]   `   )       p   a   r   a       c   u   a   l   q   u   i   e   r       r   e   q   u   e   s   t   ,       n   o       s   o   l   o       p   a   r   a       e   l       c   h   a   t   b   o   t   .    
     
     
     
@@ -765,9 +1135,9 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
    -       *   *   D   e   s   h   a   b   i   l   i   t   a   d   o   .   *   *       N   o       c   o   m   p   i   l   a       n   i       s   e       e   j   e   c   u   t   a       n   i   n   g    % Q % n       c    %  % d   i   g   o       d   e       `   C   h   a   t   B   o   t   T   o   o   l   s   C   o   n   f   i   g   `   ,       `   R   A   G   S   e   r   v   i   c   e   `       n   i       `   C   h   a   t   C   o   n   t   r   o   l   l   e   r   `   .    
     
-   -       P   a   r   a       r   e   a   c   t   i   v   a   r   l   o       h   a   c   e       f   a   l   t   a       p   r   i   m   e   r   o       s   u   b   i   r       `   s   p   r   i   n   g   -   b   o   o   t   -   s   t   a   r   t   e   r   -   p   a   r   e   n   t   `       a       `   3   .   4   .   x   `   /   `   3   .   5   .   x   `       (   c   a   m   b   i   o       a   r   q   u   i   t   e   c   t    %  % n   i   c   o       m   a   y   o   r   ,       a   f   e   c   t   a       S   e   c   u   r   i   t   y   /   J   P   A   /   o   t   r   o   s       s   t   a   r   t   e   r   s       »   √   ˜       p   e   n   d   i   e   n   t   e   ,       n   o       r   e   a   l   i   z   a   d   o       e   n       e   s   t   a       s   e   s   i    %  % n   )   ,       y       l   u   e   g   o       r   e   a   c   t   i   v   a   r       `   s   p   r   i   n   g   -   a   i   -   b   o   m   `       e   n       u   n   a       v   e   r   s   i    %  % n       `   1   .   0   .   x   `       y       l   o   s       3       a   r   c   h   i   v   o   s       e   x   c   l   u   i   d   o   s   .    
+   -       P   a   r   a       r   e   a   c   t   i   v   a   r   l   o       h   a   c   e       f   a   l   t   a       p   r   i   m   e   r   o       s   u   b   i   r       `   s   p   r   i   n   g   -   b   o   o   t   -   s   t   a   r   t   e   r   -   p   a   r   e   n   t   `       a       `   3   .   4   .   x   `   /   `   3   .   5   .   x   `       (   c   a   m   b   i   o       a   r   q   u   i   t   e   c   t    %  % n   i   c   o       m   a   y   o   r   ,       a   f   e   c   t   a       S   e   c   u   r   i   t   y   /   J   P   A   /   o   t   r   o   s       s   t   a   r   t   e   r   s       ÔøΩ   ÔøΩ   ÔøΩ       p   e   n   d   i   e   n   t   e   ,       n   o       r   e   a   l   i   z   a   d   o       e   n       e   s   t   a       s   e   s   i    %  % n   )   ,       y       l   u   e   g   o       r   e   a   c   t   i   v   a   r       `   s   p   r   i   n   g   -   a   i   -   b   o   m   `       e   n       u   n   a       v   e   r   s   i    %  % n       `   1   .   0   .   x   `       y       l   o   s       3       a   r   c   h   i   v   o   s       e   x   c   l   u   i   d   o   s   .    
     
-   -       E   l       r   e   s   t   o       d   e   l       b   a   c   k   e   n   d       (   a   u   t   h   ,       C   R   U   D   s       d   e       c   a   t    % ›   l   o   g   o   s   ,       R   L   S       a       n   i   v   e   l       d   e       q   u   e   r   i   e   s   )       f   u   n   c   i   o   n   a       n   o   r   m   a   l   m   e   n   t   e       s   o   b   r   e       S   p   r   i   n   g       B   o   o   t       3   .   2   .   4   ;       s   e       v   e   r   i   f   i   c    %  %     l   o   g   i   n       r   e   a   l       v    % Ì   a       `   P   O   S   T       /   a   p   i   /   v   1   /   a   u   t   h   /   l   o   g   i   n   `       c   o   n       u   n       u   s   u   a   r   i   o       d   e   l       s   e   e   d   .    
+   -       E   l       r   e   s   t   o       d   e   l       b   a   c   k   e   n   d       (   a   u   t   h   ,       C   R   U   D   s       d   e       c   a   t    % ÔøΩ   l   o   g   o   s   ,       R   L   S       a       n   i   v   e   l       d   e       q   u   e   r   i   e   s   )       f   u   n   c   i   o   n   a       n   o   r   m   a   l   m   e   n   t   e       s   o   b   r   e       S   p   r   i   n   g       B   o   o   t       3   .   2   .   4   ;       s   e       v   e   r   i   f   i   c    %  %     l   o   g   i   n       r   e   a   l       v    % ÔøΩ   a       `   P   O   S   T       /   a   p   i   /   v   1   /   a   u   t   h   /   l   o   g   i   n   `       c   o   n       u   n       u   s   u   a   r   i   o       d   e   l       s   e   e   d   .    
     
     
     
@@ -775,21 +1145,21 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
     
     
-   N   u   e   v   a       m   i   g   r   a   c   i    %  % n       i   n   c   r   e   m   e   n   t   a   l       (   n   u   m   e   r   a   d   a       t   r   a   s       `   0   0   4   _   s   a   a   s   _   h   a   r   d   e   n   i   n   g   `   ,       s   i   n       m   o   d   i   f   i   c   a   r   l   a   )       q   u   e       a   m   p   l    % Ì   a       e   l       s   e   e   d       d   e       `   0   0   3   `   :    
+   N   u   e   v   a       m   i   g   r   a   c   i    %  % n       i   n   c   r   e   m   e   n   t   a   l       (   n   u   m   e   r   a   d   a       t   r   a   s       `   0   0   4   _   s   a   a   s   _   h   a   r   d   e   n   i   n   g   `   ,       s   i   n       m   o   d   i   f   i   c   a   r   l   a   )       q   u   e       a   m   p   l    % ÔøΩ   a       e   l       s   e   e   d       d   e       `   0   0   3   `   :    
     
     
     
-   -       A   g   r   e   g   a       r   o   l   e   s       `   S   u   p   e   r   v   i   s   o   r   `       y       `   U   s   u   a   r   i   o       o   p   e   r   a   t   i   v   o   `       a       *   *   C   l    % Ì   n   i   c   a       C   e   n   t   r   a   l   *   *       (   a   n   t   e   s       s   o   l   o       t   e   n    % Ì   a       `   A   d   m   i   n   i   s   t   r   a   d   o   r       d   e       t   e   n   a   n   t   `   )   ,       c   o   n       l   o   s       m   i   s   m   o   s       p   e   r   m   i   s   o   s       q   u   e       s   u   s       e   q   u   i   v   a   l   e   n   t   e   s       e   n       A   c   m   e   .    
+   -       A   g   r   e   g   a       r   o   l   e   s       `   S   u   p   e   r   v   i   s   o   r   `       y       `   U   s   u   a   r   i   o       o   p   e   r   a   t   i   v   o   `       a       *   *   C   l    % ÔøΩ   n   i   c   a       C   e   n   t   r   a   l   *   *       (   a   n   t   e   s       s   o   l   o       t   e   n    % ÔøΩ   a       `   A   d   m   i   n   i   s   t   r   a   d   o   r       d   e       t   e   n   a   n   t   `   )   ,       c   o   n       l   o   s       m   i   s   m   o   s       p   e   r   m   i   s   o   s       q   u   e       s   u   s       e   q   u   i   v   a   l   e   n   t   e   s       e   n       A   c   m   e   .    
     
-   -       A   g   r   e   g   a       2       d   e   p   a   r   t   a   m   e   n   t   o   s       a       C   l    % Ì   n   i   c   a       C   e   n   t   r   a   l       (   `   A   d   m   i   n   i   s   t   r   a   c   i    %  % n   `   ,       `   R   a   d   i   o   l   o   g    % Ì   a   `   )       p   a   r   a       r   e   p   a   r   t   i   r       u   s   u   a   r   i   o   s   .    
+   -       A   g   r   e   g   a       2       d   e   p   a   r   t   a   m   e   n   t   o   s       a       C   l    % ÔøΩ   n   i   c   a       C   e   n   t   r   a   l       (   `   A   d   m   i   n   i   s   t   r   a   c   i    %  % n   `   ,       `   R   a   d   i   o   l   o   g    % ÔøΩ   a   `   )       p   a   r   a       r   e   p   a   r   t   i   r       u   s   u   a   r   i   o   s   .    
     
-   -       L   l   e   v   a       a       *   *   2   0       u   s   u   a   r   i   o   s       a   c   t   i   v   o   s       p   o   r       t   e   n   a   n   t   *   *       (   A   c   m   e       y       C   l    % Ì   n   i   c   a       C   e   n   t   r   a   l   )   ,       r   e   p   a   r   t   i   d   o   s       2       A   d   m   i   n   i   s   t   r   a   d   o   r       d   e       t   e   n   a   n   t       /       6       S   u   p   e   r   v   i   s   o   r       /       1   2       U   s   u   a   r   i   o       o   p   e   r   a   t   i   v   o       p   o   r       t   e   n   a   n   t   .       C   o   n   t   r   a   s   e    % ∆ % a       d   e       t   o   d   o   s   :       `   D   e   m   o   P   a   s   s   1   2   3   !   `       (   e   x   c   l   u   s   i   v   a   m   e   n   t   e       d   e       d   e   m   o   s   t   r   a   c   i    %  % n   ,       i   g   u   a   l       q   u   e       e   l       r   e   s   t   o       d   e   l       s   e   e   d   )   .    
+   -       L   l   e   v   a       a       *   *   2   0       u   s   u   a   r   i   o   s       a   c   t   i   v   o   s       p   o   r       t   e   n   a   n   t   *   *       (   A   c   m   e       y       C   l    % ÔøΩ   n   i   c   a       C   e   n   t   r   a   l   )   ,       r   e   p   a   r   t   i   d   o   s       2       A   d   m   i   n   i   s   t   r   a   d   o   r       d   e       t   e   n   a   n   t       /       6       S   u   p   e   r   v   i   s   o   r       /       1   2       U   s   u   a   r   i   o       o   p   e   r   a   t   i   v   o       p   o   r       t   e   n   a   n   t   .       C   o   n   t   r   a   s   e    % ÔøΩ % a       d   e       t   o   d   o   s   :       `   D   e   m   o   P   a   s   s   1   2   3   !   `       (   e   x   c   l   u   s   i   v   a   m   e   n   t   e       d   e       d   e   m   o   s   t   r   a   c   i    %  % n   ,       i   g   u   a   l       q   u   e       e   l       r   e   s   t   o       d   e   l       s   e   e   d   )   .    
     
    -       E   s       i   d   e   m   p   o   t   e   n   t   e       (   `   O   N       C   O   N   F   L   I   C   T       D   O       N   O   T   H   I   N   G   `   )       y       s   i   g   u   e       e   l       m   i   s   m   o       p   a   t   r    %  % n       t   r   a   n   s   a   c   c   i   o   n   a   l       q   u   e       `   0   0   4   `       (   a   d   v   i   s   o   r   y       l   o   c   k   ,       r   e   g   i   s   t   r   o       e   n       `   a   p   p   .   s   c   h   e   m   a   _   m   i   g   r   a   t   i   o   n   s   `   )   .    
     
     
     
-   *   *   V   e   r   i   f   i   c   a   c   i    %  % n       r   e   a   l   i   z   a   d   a   :   *   *       s   e       a   p   l   i   c    %  %     c   o   n       `   d   a   t   a   b   a   s   e   /   m   i   g   r   a   t   e   .   p   s   1   `       s   o   b   r   e       u   n   a       b   a   s   e       e   x   i   s   t   e   n   t   e       (   n   o   -   o   p       l   i   m   p   i   o   ,       s   i   n       d   u   p   l   i   c   a   r       f   i   l   a   s   )       y       s   e       p   r   o   b    %  %     d   e       p   u   n   t   a       a       p   u   n   t   a       e   n       u   n   a       i   n   s   t   a   n   c   i   a       P   o   s   t   g   r   e   s       a   i   s   l   a   d   a       c   o   n       v   o   l   u   m   e   n       1   0   0   %       n   u   e   v   o       (   c   o   n   t   e   n   e   d   o   r       y       v   o   l   u   m   e   n       t   e   m   p   o   r   a   l   e   s   ,       s   i   n       t   o   c   a   r       l   a       b   a   s   e       r   e   a   l   )   ,       c   o   n   f   i   r   m   a   n   d   o       q   u   e       `   d   o   c   k   e   r   -   e   n   t   r   y   p   o   i   n   t   -   i   n   i   t   d   b   .   d   `       e   j   e   c   u   t   a       `   0   0   1   `   »   ’   „   `   0   0   5   `       e   n       o   r   d   e   n       y       p   r   o   d   u   c   e       e   l       m   i   s   m   o       r   e   s   u   l   t   a   d   o   :       2   0   /   2   0       u   s   u   a   r   i   o   s   ,       d   i   s   t   r   i   b   u   c   i    %  % n       d   e       r   o   l   e   s       i   d    % ´   n   t   i   c   a   .    
+   *   *   V   e   r   i   f   i   c   a   c   i    %  % n       r   e   a   l   i   z   a   d   a   :   *   *       s   e       a   p   l   i   c    %  %     c   o   n       `   d   a   t   a   b   a   s   e   /   m   i   g   r   a   t   e   .   p   s   1   `       s   o   b   r   e       u   n   a       b   a   s   e       e   x   i   s   t   e   n   t   e       (   n   o   -   o   p       l   i   m   p   i   o   ,       s   i   n       d   u   p   l   i   c   a   r       f   i   l   a   s   )       y       s   e       p   r   o   b    %  %     d   e       p   u   n   t   a       a       p   u   n   t   a       e   n       u   n   a       i   n   s   t   a   n   c   i   a       P   o   s   t   g   r   e   s       a   i   s   l   a   d   a       c   o   n       v   o   l   u   m   e   n       1   0   0   %       n   u   e   v   o       (   c   o   n   t   e   n   e   d   o   r       y       v   o   l   u   m   e   n       t   e   m   p   o   r   a   l   e   s   ,       s   i   n       t   o   c   a   r       l   a       b   a   s   e       r   e   a   l   )   ,       c   o   n   f   i   r   m   a   n   d   o       q   u   e       `   d   o   c   k   e   r   -   e   n   t   r   y   p   o   i   n   t   -   i   n   i   t   d   b   .   d   `       e   j   e   c   u   t   a       `   0   0   1   `   ÔøΩ   ÔøΩ   ÔøΩ   `   0   0   5   `       e   n       o   r   d   e   n       y       p   r   o   d   u   c   e       e   l       m   i   s   m   o       r   e   s   u   l   t   a   d   o   :       2   0   /   2   0       u   s   u   a   r   i   o   s   ,       d   i   s   t   r   i   b   u   c   i    %  % n       d   e       r   o   l   e   s       i   d    % ÔøΩ   n   t   i   c   a   .    
     
     
     
@@ -799,7 +1169,7 @@ una exploraci√≥n o una decisi√≥n arquitect√≥nica.
     
    -       C   h   a   t   b   o   t       n   o       f   u   n   c   i   o   n   a   l       h   a   s   t   a       e   l       u   p   g   r   a   d   e       d   e       S   p   r   i   n   g       B   o   o   t       (   v   e   r       a   r   r   i   b   a   )   .    
     
-   -       E   l       u   p   g   r   a   d   e       d   e       S   p   r   i   n   g       B   o   o   t       n   o       s   e       e   v   a   l   u    %  %     e   n       e   s   t   a       s   e   s   i    %  % n       m    % ›   s       a   l   l    % ›       d   e       c   o   n   f   i   r   m   a   r       l   a       i   n   c   o   m   p   a   t   i   b   i   l   i   d   a   d       d   e       v   e   r   s   i   o   n   e   s   ;       f   a   l   t   a       r   e   v   i   s   a   r       b   r   e   a   k   i   n   g       c   h   a   n   g   e   s       d   e       S   e   c   u   r   i   t   y   /   J   P   A       a   n   t   e   s       d   e       i   n   t   e   n   t   a   r   l   o   .    
+   -       E   l       u   p   g   r   a   d   e       d   e       S   p   r   i   n   g       B   o   o   t       n   o       s   e       e   v   a   l   u    %  %     e   n       e   s   t   a       s   e   s   i    %  % n       m    % ÔøΩ   s       a   l   l    % ÔøΩ       d   e       c   o   n   f   i   r   m   a   r       l   a       i   n   c   o   m   p   a   t   i   b   i   l   i   d   a   d       d   e       v   e   r   s   i   o   n   e   s   ;       f   a   l   t   a       r   e   v   i   s   a   r       b   r   e   a   k   i   n   g       c   h   a   n   g   e   s       d   e       S   e   c   u   r   i   t   y   /   J   P   A       a   n   t   e   s       d   e       i   n   t   e   n   t   a   r   l   o   .    
     
    -       L   o   s       2   0       u   s   u   a   r   i   o   s       n   u   e   v   o   s       p   o   r       t   e   n   a   n   t       n   o       t   i   e   n   e   n       `   d   o   c   u   m   e   n   t   _   t   y   p   e   `   /   `   d   o   c   u   m   e   n   t   _   n   u   m   b   e   r   `   /   `   p   h   o   n   e   `   ;       q   u   e   d   a   n       `   N   U   L   L   `       c   o   m   o       e   n       e   l       r   e   s   t   o       d   e   l       s   e   e   d   .    
     
