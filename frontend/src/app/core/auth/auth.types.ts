@@ -7,7 +7,10 @@ export interface AuthResponse {
 
 export interface AuthUser {
   id: string;
-  tenantId: string;
+  tenantId: string | null;
+  tenantName: string | null;
+  platformAdmin: boolean;
+  roleNames: string[];
   username: string;
   email: string;
   firstName: string;
@@ -16,7 +19,7 @@ export interface AuthUser {
 }
 
 export interface LoginRequest {
-  tenantId: string;
+  tenantId: string | null;
   usernameOrEmail: string;
   password: string;
 }

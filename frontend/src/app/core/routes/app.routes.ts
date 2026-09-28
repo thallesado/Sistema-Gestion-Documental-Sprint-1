@@ -1,35 +1,47 @@
 import { Routes } from '@angular/router';
-import { LoginPage } from '../../features/auth/login-page';
 import { navigationRoutes } from '../data/nexodocs-data';
-import { NotFoundPage } from '../../features/not-found/not-found-page';
-import { WorkspacePage } from '../../features/workspace/workspace-page';
-import { ReportsPage } from '../../features/reports/reports-page';
-import { AuditPage } from '../../features/audit/audit-page';
-import { ClinicalHistoryPage } from '../../features/clinical/clinical-history-page';
 import { authGuard } from '../auth/auth.guard';
+import { autenticacionRoutes } from '../../features/auth/auth.routes';
+import { clinicoRoutes } from '../../features/clinico/clinico.routes';
+import { administracionRoutes } from '../../features/users/users.routes';
+import { documentosRoutes } from '../../features/documentos/documentos.routes';
+import { expedientesRoutes } from '../../features/expedientes/expedientes.routes';
 
-export const routes: Routes = [
-  {
-    path: 'login',
-    component: LoginPage,
-    title: 'Login - NexoDocs',
-  },
-  ...navigationRoutes.map((route) => ({
+const clinicalPaths = new Set(['expedients/clinical', 'expedients/clinical/notes']);
+const documentPaths = new Set(['documents', 'documents/mine', 'documents/shared', 'documents/new', 'documents/upload', 'settings/statuses']);
+const expedientPaths = new Set(['expedientes', 'expedients', 'expedientes/new', 'expedientes/active', 'expedientes/closed', 'expedientes/archived']);
+
+const dynamicCatalogRoutes: Routes = navigationRoutes
+  .filter((route) => !clinicalPaths.has(route.href.slice(1)) && !documentPaths.has(route.href.slice(1)) && !expedientPaths.has(route.href.slice(1)))
+  .map((route) => ({
     path: route.href === '/' ? '' : route.href.slice(1),
-    component: route.module === 'Reportes'
-      ? ReportsPage
-      : route.module === 'Auditoria'
-        ? AuditPage
-        : route.module === 'Módulo Clínico' && route.subcategory === 'Antecedentes'
-          ? ClinicalHistoryPage
-          : WorkspacePage,
+    loadComponent: () => {
+      if (route.module === 'Reportes') {
+        return import('../../features/reportes/pages/reportes-page').then((m) => m.ReportsPage);
+      }
+      if (route.module === 'Auditoria') {
+        return import('../../features/auditoria/pages/auditoria-page').then((m) => m.AuditPage);
+      }
+      if (route.module === 'Módulo Clínico' && route.subcategory === 'Antecedentes') {
+        return import('../../features/clinico/pages/antecedentes-page').then((m) => m.AntecedentesPage);
+      }
+      return import('../../features/tablero/pages/espacio-trabajo-page').then((m) => m.WorkspacePage);
+    },
     title: `${route.subcategory} - NexoDocs`,
     data: { routeInfo: route },
     canActivate: [authGuard],
-  })),
+  }));
+
+export const routes: Routes = [
+  ...autenticacionRoutes,
+  ...clinicoRoutes,
+  ...administracionRoutes,
+  ...documentosRoutes,
+  ...expedientesRoutes,
+  ...dynamicCatalogRoutes,
   {
     path: '**',
-    component: NotFoundPage,
+    loadComponent: () => import('../../features/no-encontrado/pages/no-encontrado-page').then((m) => m.NotFoundPage),
     title: 'Pagina no encontrada - NexoDocs',
   },
 ];

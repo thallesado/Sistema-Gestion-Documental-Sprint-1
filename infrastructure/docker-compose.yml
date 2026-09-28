@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: nexodocs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nexodocs}
+      POSTGRES_USER: ${POSTGRES_USER:-nexodocs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexodocs_dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - nexodocs_postgres_data:/var/lib/postgresql/data
+      - ../database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nexodocs} -d ${POSTGRES_DB:-nexodocs}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/backend.Dockerfile
+    container_name: nexodocs-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-nexodocs}
+      DB_USER: ${POSTGRES_USER:-nexodocs}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-nexodocs_dev}
+      JWT_SECRET: ${JWT_SECRET:-change-this-development-secret-at-least-32-bytes}
+      CORS_ALLOWED_ORIGINS: ${FRONTEND_URL:-http://localhost:4200}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4200}
+      STORAGE_LOCAL_PATH: /data/storage
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - nexodocs_document_storage:/data/storage
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/frontend.Dockerfile
+    container_name: nexodocs-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    depends_on:
+      - backend
+
+volumes:
+  nexodocs_postgres_data:
+  nexodocs_document_storage:

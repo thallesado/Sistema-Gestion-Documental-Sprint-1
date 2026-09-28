@@ -4,8 +4,8 @@ export type Role =
   | 'Administrador de tenant'
   | 'Superadministrador';
 
-export type NavChild = { label: string; href: string; visible?: boolean };
-export type NavItem = { label: string; icon: string; children: NavChild[]; roles?: Role[] };
+export type NavChild = { label: string; href: string; visible?: boolean; sprintEnabled?: boolean };
+export type NavItem = { label: string; icon: string; children: NavChild[]; roles?: Role[]; sprintEnabled?: boolean };
 export type NavSection = { title: string; items: NavItem[] };
 export type RouteInfo = { module: string; subcategory: string; href: string };
 export type ScreenCopy = { description: string; action: string };
@@ -16,6 +16,31 @@ export type DemoItem = {
   status: string;
   area?: string;
   createdAt?: string;
+  type?: string;
+};
+
+export type ClinicalEvent = {
+  date: string;
+  type: string;
+  title: string;
+  description: string;
+  doctor: string;
+  status: string;
+};
+
+export type Patient = {
+  id: number;
+  name: string;
+  documentId: string;
+  birthDate: string;
+  gender: string;
+  bloodType: string;
+  phone: string;
+  email: string;
+  address: string;
+  insuranceProvider: string;
+  pdfFile: string;
+  events: ClinicalEvent[];
 };
 
 export const roles: Role[] = [
@@ -36,7 +61,7 @@ export const navSections: NavSection[] = [
           { label: 'Resumen', href: '/' },
           { label: 'Actividad reciente', href: '/dashboard/activity' },
           { label: 'Mis tareas', href: '/dashboard/tasks' },
-          { label: 'Indicadores', href: '/dashboard/indicators' },
+          { label: 'Indicadores', href: '/dashboard/indicators', sprintEnabled: false },
         ],
       },
       {
@@ -45,9 +70,19 @@ export const navSections: NavSection[] = [
         children: [
           { label: 'Todos los expedientes', href: '/expedients' },
           { label: 'Crear expediente', href: '/expedients/new' },
-          { label: 'Activos', href: '/expedients/active' },
-          { label: 'Cerrados', href: '/expedients/closed' },
-          { label: 'Archivados', href: '/expedients/archived' },
+          { label: 'Activos', href: '/expedients/active', sprintEnabled: false },
+          { label: 'Cerrados', href: '/expedients/closed', sprintEnabled: false },
+          { label: 'Archivados', href: '/expedients/archived', sprintEnabled: false },
+          { label: 'Expediente clínico', href: '/expedients/clinical' },
+          { label: 'Notas médicas', href: '/expedients/clinical/notes' },
+        ],
+      },
+      {
+        label: 'Módulo Clínico',
+        icon: 'MC',
+        children: [
+          { label: 'Pacientes', href: '/clinical/patients' },
+          { label: 'Antecedentes', href: '/clinical/history' },
         ],
       },
       {
@@ -66,7 +101,7 @@ export const navSections: NavSection[] = [
           { label: 'Nuevo documento', href: '/documents/new' },
           { label: 'Subir archivo', href: '/documents/upload' },
           { label: 'Mis documentos', href: '/documents/mine' },
-          { label: 'Compartidos conmigo', href: '/documents/shared' },
+          { label: 'Compartidos conmigo', href: '/documents/shared', sprintEnabled: false },
           { label: 'Recientes', href: '/documents/recent', visible: false },
           { label: 'Pendientes', href: '/documents/pending', visible: false },
           { label: 'En revision', href: '/documents/in-review', visible: false },
@@ -79,6 +114,7 @@ export const navSections: NavSection[] = [
         label: 'Digitalizacion',
         icon: 'DG',
         roles: ['Administrador de tenant', 'Superadministrador'],
+        sprintEnabled: false,
         children: [
           { label: 'Escanear documento', href: '/digitization' },
           { label: 'Subir documento', href: '/digitization/upload', visible: false },
@@ -96,6 +132,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Workflows',
         icon: 'WF',
+        sprintEnabled: false,
         children: [
           { label: 'Todos los workflows', href: '/workflows' },
           { label: 'Mis tareas', href: '/workflows/tasks' },
@@ -119,12 +156,12 @@ export const navSections: NavSection[] = [
         children: [
           { label: 'Todos los usuarios', href: '/users' },
           { label: 'Crear usuario', href: '/users/new' },
-          { label: 'Activos', href: '/users/active' },
-          { label: 'Bloqueados', href: '/users/blocked' },
+          { label: 'Activos', href: '/users/active', sprintEnabled: false },
+          { label: 'Bloqueados', href: '/users/blocked', sprintEnabled: false },
           { label: 'Roles', href: '/users/roles' },
           { label: 'Permisos', href: '/users/permissions' },
-          { label: 'Areas', href: '/users/areas' },
-          { label: 'Grupos', href: '/users/groups' },
+          { label: 'Areas', href: '/users/areas', sprintEnabled: false },
+          { label: 'Grupos', href: '/users/groups', sprintEnabled: false },
         ],
       },
       {
@@ -134,17 +171,18 @@ export const navSections: NavSection[] = [
         children: [
           { label: 'Registro general', href: '/audit' },
           { label: 'Accesos', href: '/audit/access' },
-          { label: 'Creacion de documentos', href: '/audit/document-creation' },
-          { label: 'Modificaciones', href: '/audit/modifications' },
-          { label: 'Descargas', href: '/audit/downloads' },
-          { label: 'Aprobaciones', href: '/audit/approvals' },
-          { label: 'Eliminaciones', href: '/audit/deletions' },
-          { label: 'Cambios de permisos', href: '/audit/permissions' },
+          { label: 'Creacion de documentos', href: '/audit/document-creation', sprintEnabled: false },
+          { label: 'Modificaciones', href: '/audit/modifications', sprintEnabled: false },
+          { label: 'Descargas', href: '/audit/downloads', sprintEnabled: false },
+          { label: 'Aprobaciones', href: '/audit/approvals', sprintEnabled: false },
+          { label: 'Eliminaciones', href: '/audit/deletions', sprintEnabled: false },
+          { label: 'Cambios de permisos', href: '/audit/permissions', sprintEnabled: false },
         ],
       },
       {
         label: 'Reportes',
         icon: 'RP',
+        sprintEnabled: false,
         children: [
           { label: 'Documentos', href: '/reports' },
           { label: 'Usuarios', href: '/reports/users' },
@@ -163,6 +201,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Notificaciones',
         icon: 'NT',
+        sprintEnabled: false,
         children: [
           { label: 'Todas', href: '/notifications' },
           { label: 'No leidas', href: '/notifications/unread' },
@@ -175,6 +214,7 @@ export const navSections: NavSection[] = [
         label: 'Configuracion',
         icon: 'CF',
         roles: ['Administrador de tenant', 'Superadministrador'],
+        sprintEnabled: false,
         children: [
           { label: 'General', href: '/settings' },
           { label: 'Tipos documentales', href: '/settings/document-types' },
@@ -196,6 +236,7 @@ export const navSections: NavSection[] = [
         label: 'Tenants',
         icon: 'TN',
         roles: ['Superadministrador'],
+        sprintEnabled: false,
         children: [
           { label: 'Todos los tenants', href: '/tenants' },
           { label: 'Crear tenant', href: '/tenants/new' },
@@ -254,10 +295,40 @@ export const users: DemoItem[] = [
 ];
 
 export const tenants: DemoItem[] = [
-  { title: 'Acme Consulting', meta: 'acme.nexodocs.app - Empresarial - 42 usuarios', date: '6.8 GB de 10 GB', status: 'Activo' },
+  { title: 'Organización autenticada', meta: 'Tenant activo - usuarios del tenant', date: 'Almacenamiento consultado', status: 'Activo' },
   { title: 'Clinica Central', meta: 'clinica.nexodocs.app - Profesional - 86 usuarios', date: '14.2 GB de 25 GB', status: 'Activo' },
   { title: 'Universidad del Valle', meta: 'univalle.nexodocs.app - Empresarial - 124 usuarios', date: '31.6 GB de 50 GB', status: 'Activo' },
   { title: 'Grupo Norte', meta: 'gruponorte.nexodocs.app - Basico - 8 usuarios', date: '2.1 GB de 5 GB', status: 'Suspendido' },
+];
+
+export const rolesItems: DemoItem[] = [
+  { title: 'Administrador de tenant', meta: 'ROL-ADM · Control total sobre usuarios, documentos, flujos y auditoría del tenant', date: '3 usuarios · Sistema', status: 'Activo' },
+  { title: 'Supervisor de área', meta: 'ROL-SUP · Aprobación de expedientes, supervisión de flujos y validación de tareas', date: '5 usuarios · Operativo', status: 'Activo' },
+  { title: 'Operador documental', meta: 'ROL-DOC · Creación, carga de archivos, edición de metadatos e indexación OCR', date: '14 usuarios · Estándar', status: 'Activo' },
+  { title: 'Auditor de calidad', meta: 'ROL-AUD · Consulta de registros de auditoría, trazabilidad y reportes de seguridad', date: '2 usuarios · Especial', status: 'Activo' },
+  { title: 'Usuario de consulta', meta: 'ROL-CON · Acceso de solo lectura a documentos aprobados y expedientes públicos', date: '8 usuarios · Básico', status: 'Activo' },
+];
+
+export const permissionsItems: DemoItem[] = [
+  { title: 'document:create', meta: 'DOC-01 · Permite crear y clasificar nuevos documentos en el repositorio institucional', date: 'Módulo Documentos · Total', status: 'Activo' },
+  { title: 'document:approve', meta: 'DOC-02 · Autorización y firma para pasar documentos a estado Aprobado o Vigente', date: 'Módulo Flujos · Supervisor', status: 'Activo' },
+  { title: 'document:version_upload', meta: 'DOC-03 · Carga de nuevas versiones físicas (.pdf, .docx, .png, .jpg)', date: 'Módulo Archivos · Estándar', status: 'Activo' },
+  { title: 'expedient:manage', meta: 'EXP-01 · Creación, cierre, foliación y vinculación de expedientes documentales', date: 'Módulo Expedientes · Total', status: 'Activo' },
+  { title: 'audit:view', meta: 'AUD-01 · Lectura inmutable del historial de eventos y accesos del sistema', date: 'Módulo Auditoría · Auditor', status: 'Activo' },
+  { title: 'user:manage', meta: 'USR-01 · Alta, edición de roles y suspensión de usuarios del tenant', date: 'Módulo Gestión · Admin', status: 'Activo' },
+  { title: 'ocr:validate', meta: 'OCR-01 · Revisión y confirmación de extracción de datos OCR en lote', date: 'Módulo Digitalización · Operador', status: 'Activo' },
+];
+
+export const notificationsItems: DemoItem[] = [
+  { title: 'Aprobación de contrato marco #892', meta: 'Contrato marco proveedores · Etapa 2 de 4 · Legal · Asignado por Carlos Méndez', date: 'Hace 15 min', status: 'No leída', type: 'APR' },
+  { title: 'Nueva versión de política de seguridad cargada', meta: 'DOC-2041 v2.1 · Archivo PDF actualizado por María González · Área Dirección', date: 'Hace 1 hora', status: 'No leída', type: 'DOC' },
+  { title: 'Te mencionaron en el expediente EXP-2041', meta: 'Laura, por favor revisa el anexo técnico antes del cierre del expediente · Compras', date: 'Hace 2 horas', status: 'No leída', type: 'MEN' },
+  { title: 'Vencimiento próximo: Revisión de acta de entrega', meta: 'Tarea #104 vence mañana a las 18:00 · Operaciones · Prioridad Alta', date: 'Ayer, 18:40', status: 'No leída', type: 'TSK' },
+  { title: 'Solicitud de firma digital para orden de compra #1204', meta: 'Requiere firma electrónica avanzada antes del procesamiento contable · Finanzas', date: 'Ayer, 14:15', status: 'No leída', type: 'APR' },
+  { title: 'Alerta de procesamiento OCR completado', meta: 'Lote OCR-2026-0098 procesado con 94.2% de confianza · 4 páginas indexadas', date: '24/09/2026, 11:20', status: 'No leída', type: 'SIS' },
+  { title: 'Tarea completada: Alta de proveedor Andes', meta: 'Validación fiscal y técnica aprobada exitosamente por supervisor', date: '23/09/2026, 16:30', status: 'Leída', type: 'TSK' },
+  { title: 'Mención en informe de auditoría Q2', meta: '@laura.martinez se adjuntaron las observaciones del cierre de periodo', date: '22/09/2026, 09:10', status: 'Leída', type: 'MEN' },
+  { title: 'Aprobación final: Manual de incorporación', meta: 'El documento fue aprobado y publicado en el repositorio institucional', date: '20/09/2026, 15:00', status: 'Leída', type: 'APR' },
 ];
 
 export function screenCopy(route: RouteInfo): ScreenCopy {
@@ -265,11 +336,17 @@ export function screenCopy(route: RouteInfo): ScreenCopy {
     ? route.subcategory
     : route.subcategory.includes('Subir')
       ? 'Seleccionar archivo'
-      : route.module === 'Reportes' || route.module === 'Auditoria'
-        ? 'Exportar'
-        : route.module === 'Configuracion'
-          ? 'Guardar cambios'
-          : 'Nueva accion';
+      : route.subcategory === 'Roles'
+        ? 'Nuevo rol'
+        : route.subcategory === 'Permisos'
+          ? 'Crear permiso'
+          : route.module === 'Notificaciones'
+            ? 'Marcar todo leído'
+            : route.module === 'Reportes' || route.module === 'Auditoria'
+              ? 'Exportar'
+              : route.module === 'Configuracion'
+                ? 'Guardar cambios'
+                : 'Nueva accion';
 
   return {
     action,
@@ -278,13 +355,29 @@ export function screenCopy(route: RouteInfo): ScreenCopy {
   };
 }
 
-export function demoList(module: string): DemoItem[] {
+export function demoList(module: string, subcategory?: string): DemoItem[] {
+  if (subcategory === 'Roles' || subcategory?.toLowerCase().includes('roles')) return rolesItems;
+  if (subcategory === 'Permisos' || subcategory?.toLowerCase().includes('permis') || subcategory?.toLowerCase().includes('permission')) return permissionsItems;
+  if (module === 'Notificaciones') {
+    if (subcategory === 'No leidas' || subcategory?.toLowerCase().includes('no leida') || subcategory?.toLowerCase().includes('unread')) {
+      return notificationsItems.filter((n) => n.status === 'No leída');
+    }
+    if (subcategory === 'Tareas' || subcategory?.toLowerCase().includes('tarea') || subcategory?.toLowerCase().includes('task')) {
+      return notificationsItems.filter((n) => n.type === 'TSK');
+    }
+    if (subcategory === 'Aprobaciones' || subcategory?.toLowerCase().includes('aprob') || subcategory?.toLowerCase().includes('approval')) {
+      return notificationsItems.filter((n) => n.type === 'APR');
+    }
+    if (subcategory === 'Menciones' || subcategory?.toLowerCase().includes('mencion') || subcategory?.toLowerCase().includes('mention')) {
+      return notificationsItems.filter((n) => n.type === 'MEN');
+    }
+    return notificationsItems;
+  }
   if (module === 'Documentos' || module === 'Digitalizacion') return documents;
   if (module === 'Expedientes') return expedients;
   if (module === 'Workflows') return workflows;
   if (module === 'Usuarios y equipos') return users;
   if (module === 'Tenants') return tenants;
-  if (module === 'Notificaciones') return workflows.slice(0, 3);
   return documents;
 }
 
@@ -310,9 +403,622 @@ const descriptions: Record<string, string> = {
   'Usuarios y equipos|Permisos': 'Controla que acciones puede realizar cada rol sobre los modulos del sistema.',
   'Auditoria|Registro general': 'Historico inmutable de acciones relevantes realizadas dentro del tenant.',
   'Reportes|Documentos': 'Distribucion documental por estado, tipo, area y periodo.',
-  'Notificaciones|No leidas': 'Notificaciones nuevas que todavia requieren tu atencion.',
-  'Configuracion|General': 'Datos institucionales y preferencias generales de Acme Consulting.',
+  'Notificaciones|Todas': 'Bandeja general de avisos, alertas y eventos en tiempo real del tenant.',
+  'Notificaciones|No leidas': 'Notificaciones nuevas que todavía requieren tu atención o lectura.',
+  'Notificaciones|Tareas': 'Avisos sobre asignaciones de tareas, vencimientos y estados de flujo.',
+  'Notificaciones|Aprobaciones': 'Solicitudes de aprobación de documentos, firmas y autorizaciones pendientes.',
+  'Notificaciones|Menciones': 'Comentarios y referencias directas a tu usuario en documentos y expedientes.',
+  'Configuracion|General': 'Datos institucionales y preferencias generales del tenant autenticado.',
   'Tenants|Todos los tenants': 'Administra las organizaciones aisladas registradas en la plataforma.',
+  'Expedientes|Expediente clínico': 'Visualiza la historia clínica del paciente ordenada cronológicamente por fecha y evento.',
+  'Expedientes|Notas médicas': 'Busca pacientes por documento de identidad o nombre y registra notas de evolución.',
   'Módulo Clínico|Pacientes': 'Gestiona el registro e identificación unívoca de pacientes.',
   'Módulo Clínico|Antecedentes': 'Captura estructurada de diagnósticos base, alergias y antecedentes.',
 };
+
+export const patients: Patient[] = ﻿[
+  {
+    "id": 1,
+    "name": "Silvia Ortiz Gonzales",
+    "documentId": "HC-2026-1001",
+    "birthDate": "1964-03-03",
+    "gender": "Femenino",
+    "bloodType": "A+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Cobija",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-1.pdf",
+    "events": [
+      {
+        "date": "2023-01-15",
+        "type": "CirugÝa",
+        "title": "ColecistectomÝa (2023)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. ColecistectomÝa (2023).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Enalapril 10mg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "╔dgar Condori Rivero",
+    "documentId": "HC-2026-1010",
+    "birthDate": "1983-06-24",
+    "gender": "Masculino",
+    "bloodType": "B-",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Riberalta",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-10.pdf",
+    "events": [
+      {
+        "date": "2017-01-15",
+        "type": "CirugÝa",
+        "title": "ColecistectomÝa (2023)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. ColecistectomÝa (2023).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Levotiroxina 100mcg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Luis Ortiz Gonzales",
+    "documentId": "HC-2026-1011",
+    "birthDate": "1990-02-07",
+    "gender": "Masculino",
+    "bloodType": "A+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Santa Cruz de la Sierra",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-11.pdf",
+    "events": [
+      {
+        "date": "2023-01-15",
+        "type": "CirugÝa",
+        "title": "Apendicitis (2021)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Apendicitis (2021).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Levotiroxina 100mcg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Tito Sußrez Apaza",
+    "documentId": "HC-2026-1012",
+    "birthDate": "1969-11-25",
+    "gender": "Masculino",
+    "bloodType": "A+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "El Alto",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-12.pdf",
+    "events": [
+      {
+        "date": "2016-01-15",
+        "type": "CirugÝa",
+        "title": "Apendicitis (2021)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Apendicitis (2021).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Losartßn 50mg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Hugo Paz Gonzales",
+    "documentId": "HC-2026-1013",
+    "birthDate": "1966-05-02",
+    "gender": "Masculino",
+    "bloodType": "O+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Yacuiba",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-13.pdf",
+    "events": [
+      {
+        "date": "2020-01-15",
+        "type": "CirugÝa",
+        "title": "Apendicitis (2021)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Apendicitis (2021).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Metformina 850mg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "name": "Beatriz Mendoza Rivero",
+    "documentId": "HC-2026-1014",
+    "birthDate": "1993-08-18",
+    "gender": "Masculino",
+    "bloodType": "B-",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Yacuiba",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-14.pdf",
+    "events": [
+      {
+        "date": "2023-01-15",
+        "type": "CirugÝa",
+        "title": "Parto (2020)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Parto (2020).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Metformina 850mg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "name": "Yesenia Aguilar Choque",
+    "documentId": "HC-2026-1015",
+    "birthDate": "1977-11-12",
+    "gender": "Masculino",
+    "bloodType": "AB+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Cobija",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-15.pdf",
+    "events": [
+      {
+        "date": "2015-01-15",
+        "type": "CirugÝa",
+        "title": "Ninguna",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Ninguna.",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Losartßn 50mg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "name": "Ramiro Ortiz Rojas",
+    "documentId": "HC-2026-1016",
+    "birthDate": "1978-06-10",
+    "gender": "Masculino",
+    "bloodType": "AB+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Cochabamba",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-16.pdf",
+    "events": [
+      {
+        "date": "2018-01-15",
+        "type": "CirugÝa",
+        "title": "ColecistectomÝa (2023)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. ColecistectomÝa (2023).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Salbutamol inhalador",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "name": "Norma Quispe Quispe",
+    "documentId": "HC-2026-1017",
+    "birthDate": "1968-03-07",
+    "gender": "Femenino",
+    "bloodType": "B-",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "La Paz",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-17.pdf",
+    "events": [
+      {
+        "date": "2022-01-15",
+        "type": "CirugÝa",
+        "title": "NeumonÝa (2022)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. NeumonÝa (2022).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "name": "Rosa Antelo Salazar",
+    "documentId": "HC-2026-1018",
+    "birthDate": "1983-04-18",
+    "gender": "Masculino",
+    "bloodType": "AB+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "El Alto",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-18.pdf",
+    "events": [
+      {
+        "date": "2021-01-15",
+        "type": "CirugÝa",
+        "title": "Ninguna",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Ninguna.",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Enalapril 10mg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "name": "Cecilia Ortiz Guzmßn",
+    "documentId": "HC-2026-1019",
+    "birthDate": "2000-08-24",
+    "gender": "Masculino",
+    "bloodType": "O+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Riberalta",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-19.pdf",
+    "events": [
+      {
+        "date": "2019-01-15",
+        "type": "CirugÝa",
+        "title": "Apendicitis (2021)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Apendicitis (2021).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Levotiroxina 100mcg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "name": "Patricia Choque Vaca",
+    "documentId": "HC-2026-1002",
+    "birthDate": "2000-07-06",
+    "gender": "Masculino",
+    "bloodType": "A-",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Oruro",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-2.pdf",
+    "events": [
+      {
+        "date": "2017-01-15",
+        "type": "CirugÝa",
+        "title": "Ninguna",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Ninguna.",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Salbutamol inhalador",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "name": "Marisol Peredo Peredo",
+    "documentId": "HC-2026-1020",
+    "birthDate": "1966-08-11",
+    "gender": "Masculino",
+    "bloodType": "A+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Trinidad",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-20.pdf",
+    "events": [
+      {
+        "date": "2018-01-15",
+        "type": "CirugÝa",
+        "title": "NeumonÝa (2022)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. NeumonÝa (2022).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Metformina 850mg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "name": "Oscar Cßrdenas Choque",
+    "documentId": "HC-2026-1003",
+    "birthDate": "1964-02-04",
+    "gender": "Femenino",
+    "bloodType": "O-",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Oruro",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-3.pdf",
+    "events": [
+      {
+        "date": "2016-01-15",
+        "type": "CirugÝa",
+        "title": "Fractura de brazo (2019)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Fractura de brazo (2019).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de ┴cido valproico 500mg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "name": "Wilson Peredo Ibß±ez",
+    "documentId": "HC-2026-1004",
+    "birthDate": "2000-02-26",
+    "gender": "Masculino",
+    "bloodType": "B-",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Villaz¾n",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-4.pdf",
+    "events": [
+      {
+        "date": "2018-01-15",
+        "type": "CirugÝa",
+        "title": "Parto (2020)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Parto (2020).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Enalapril 10mg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 16,
+    "name": "Ricardo Rojas Ibß±ez",
+    "documentId": "HC-2026-1005",
+    "birthDate": "1988-09-22",
+    "gender": "Masculino",
+    "bloodType": "B+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Riberalta",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-5.pdf",
+    "events": [
+      {
+        "date": "2016-01-15",
+        "type": "CirugÝa",
+        "title": "ColecistectomÝa (2023)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. ColecistectomÝa (2023).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de ┴cido valproico 500mg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "name": "Gabriel Flores Ibß±ez",
+    "documentId": "HC-2026-1006",
+    "birthDate": "1983-12-02",
+    "gender": "Femenino",
+    "bloodType": "O-",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Cochabamba",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-6.pdf",
+    "events": [
+      {
+        "date": "2019-01-15",
+        "type": "CirugÝa",
+        "title": "Fractura de brazo (2019)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Fractura de brazo (2019).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Salbutamol inhalador",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "name": "Oscar Condori Gonzales",
+    "documentId": "HC-2026-1007",
+    "birthDate": "1978-11-12",
+    "gender": "Femenino",
+    "bloodType": "B-",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "La Paz",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-7.pdf",
+    "events": [
+      {
+        "date": "2023-01-15",
+        "type": "CirugÝa",
+        "title": "ColecistectomÝa (2023)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. ColecistectomÝa (2023).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "name": "Norma Peredo Apaza",
+    "documentId": "HC-2026-1008",
+    "birthDate": "1971-07-25",
+    "gender": "Masculino",
+    "bloodType": "O+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Cobija",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-8.pdf",
+    "events": [
+      {
+        "date": "2016-01-15",
+        "type": "CirugÝa",
+        "title": "Ninguna",
+        "description": "Hospitalizaci¾n registrada en antecedentes. Ninguna.",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Levotiroxina 100mcg",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "name": "Rosario Cßrdenas Paz",
+    "documentId": "HC-2026-1009",
+    "birthDate": "1985-03-08",
+    "gender": "Masculino",
+    "bloodType": "B+",
+    "phone": "+591 70000000",
+    "email": "correo@ejemplo.com",
+    "address": "Camiri",
+    "insuranceProvider": "SUS",
+    "pdfFile": "Historia_Clinica_20_Pacientes-9.pdf",
+    "events": [
+      {
+        "date": "2025-01-15",
+        "type": "CirugÝa",
+        "title": "NeumonÝa (2022)",
+        "description": "Hospitalizaci¾n registrada en antecedentes. NeumonÝa (2022).",
+        "doctor": "MÚdico Asignado",
+        "status": "Completado"
+      },
+      {
+        "date": "2024-01-10",
+        "type": "Receta",
+        "title": "Tratamiento cr¾nico",
+        "description": "Prescripci¾n de Salbutamol inhalador",
+        "doctor": "MÚdico Tratante",
+        "status": "Vigente"
+      }
+    ]
+  }
+];

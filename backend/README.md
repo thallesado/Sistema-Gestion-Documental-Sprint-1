@@ -66,12 +66,29 @@ identificadores, tenant y permisos RBAC activos. La creación de usuarios
 requiere autenticación y `user:create`. El módulo clínico es opcional y no
 determina la autorización general del token.
 
-Todavía falta implementar el contexto RLS por transacción (`SET LOCAL ROLE`,
-`app.tenant_id` y `app.user_id`), los módulos documentales y la autenticación
-operativa de producción (rotación, recuperación y revocación de tokens). Las
-pruebas de esta fase son unitarias; las pruebas que requieren PostgreSQL
-dependen de una instancia local con credenciales válidas. No se debe conectar
-Angular directamente a la base.
+Los servicios que leen o escriben datos protegidos establecen el contexto RLS
+por transacción (`SET LOCAL ROLE`, `app.tenant_id` y `app.user_id`). La
+revocación de access tokens persiste únicamente su huella SHA-256 en la tabla
+`revoked_access_tokens` (migración `017_revoked_access_tokens.sql`, ya
+aplicada); el refresh token continúa gestionándose en `auth_sessions`. Esa
+tabla deliberadamente no usa RLS porque el filtro de seguridad debe poder
+consultarla antes de establecer el contexto de la petición; el hash nunca
+permite reconstruir el token original.
+
+`GET /api/v1/audit` devuelve eventos persistidos del tenant autenticado con
+actor, recurso, resultado, IP, agente y timestamp. Admite filtros exactos
+`action`, `type`, `result` (`SUCCESS`/`FAILURE`), `from` y `to` mediante
+`Specification` de JPA; el tamaño de página se limita a 100 y el orden se
+restringe a campos auditables. Login, refresh y reset exitosos generan
+auditoría de autenticación estableciendo el contexto RLS directamente desde la
+identidad ya validada (sin depender del `SecurityContext`, que aún no existe
+en `/auth/login`); las demás solicitudes autenticadas se auditan mediante un
+interceptor HTTP que excluye `/api/v1/auth/**` para no duplicar eventos. Una
+falla al persistir auditoría no altera la respuesta de negocio.
+
+Las pruebas de esta fase son unitarias y MockMvc; las pruebas que requieren
+PostgreSQL dependen de una instancia local con credenciales válidas y de las
+migraciones aplicadas. No se debe conectar Angular directamente a la base.
 
 ## Fase 2: CRUDs maestros tenant-scoped
 

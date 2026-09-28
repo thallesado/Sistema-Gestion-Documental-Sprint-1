@@ -3,7 +3,6 @@ import { Component, computed, inject, signal, ViewEncapsulation } from '@angular
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
-import { DemoSessionState } from '../core/state/demo-session';
 import { AuthService } from '../core/auth/auth.service';
 
 @Component({
@@ -15,16 +14,26 @@ import { AuthService } from '../core/auth/auth.service';
 })
 export class App {
   private readonly router = inject(Router);
-  private readonly session = inject(DemoSessionState);
   private readonly auth = inject(AuthService);
   readonly roles = roles;
   readonly sections = navSections;
   readonly currentUrl = signal(this.router.url);
-  readonly expanded = signal<string[]>(['Inicio']);
-  readonly role = this.session.role;
+  readonly expanded = signal<string[]>([]);
+  readonly role = computed<Role>(() => {
+    const user = this.currentUser();
+    if (user?.platformAdmin || user?.roleNames?.includes('SUPER_ADMIN')) return 'Superadministrador';
+    if (user?.roleNames?.some((name) => name.toUpperCase() === 'ADMINISTRADOR DE TENANT' || name.toUpperCase() === 'TENANT_ADMIN')) return 'Administrador de tenant';
+    if (user?.roleNames?.some((name) => name.toUpperCase() === 'SUPERVISOR')) return 'Supervisor';
+    return 'Usuario basico';
+  });
   readonly currentUser = this.auth.user;
+  readonly displayName = computed(() => {
+    const user = this.currentUser();
+    return user ? `${user.firstName} ${user.lastName}`.trim() : 'Usuario';
+  });
+  readonly initials = computed(() => this.displayName().split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || 'U');
+  readonly tenantName = computed(() => this.currentUser()?.tenantName || (this.currentUser()?.platformAdmin ? 'Todos los tenants' : 'Organización autenticada'));
   readonly toast = signal('');
-  readonly chatOpen = signal(false);
   readonly mobileNavOpen = signal(false);
   readonly sidebarUserMenuOpen = signal(false);
   readonly headerUserMenuOpen = signal(false);
@@ -34,7 +43,11 @@ export class App {
     this.sections
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) => !item.roles || item.roles.includes(this.role() as Role)),
+        items: section.items.filter((item) =>
+          item.sprintEnabled !== false
+          && (!item.roles || item.roles.includes(this.role()))
+          && this.visibleChildren(item).length > 0,
+        ),
       }))
       .filter((section) => section.items.length > 0),
   );
@@ -74,8 +87,6 @@ export class App {
   }
 
   unreadCount(label: string): string {
-    if (label === 'Workflows') return '8';
-    if (label === 'Notificaciones') return '3';
     return '';
   }
 
@@ -112,6 +123,6 @@ export class App {
   }
 
   visibleChildren(item: NavItem): NavChild[] {
-    return item.children.filter((child) => child.visible !== false);
+    return item.children.filter((child) => child.visible !== false && child.sprintEnabled !== false);
   }
 }
