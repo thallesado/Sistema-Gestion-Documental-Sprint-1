@@ -23,7 +23,7 @@ const dynamicCatalogRoutes: Routes = navigationRoutes
         return import('../../features/auditoria/pages/auditoria-page').then((m) => m.AuditPage);
       }
       if (route.module === 'Módulo Clínico' && route.subcategory === 'Antecedentes') {
-        return import('../../features/clinical/clinical-history-page').then((m) => m.ClinicalHistoryPage);
+        return import('../../features/clinico/pages/antecedentes-page').then((m) => m.AntecedentesPage);
       }
       return import('../../features/tablero/pages/espacio-trabajo-page').then((m) => m.WorkspacePage);
     },
