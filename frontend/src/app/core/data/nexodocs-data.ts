@@ -86,14 +86,6 @@ export const navSections: NavSection[] = [
         ],
       },
       {
-        label: 'Módulo Clínico',
-        icon: 'MC',
-        children: [
-          { label: 'Pacientes', href: '/clinical/patients' },
-          { label: 'Antecedentes', href: '/clinical/history' },
-        ],
-      },
-      {
         label: 'Documentos',
         icon: 'DO',
         children: [
