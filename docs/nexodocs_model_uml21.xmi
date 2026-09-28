@@ -1,0 +1,516 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.1" xmlns:uml="http://schema.omg.org/spec/UML/2.1" xmlns:xmi="http://schema.omg.org/spec/XMI/2.1">
+  <xmi:Documentation exporter="NexoDocs UML Generator" exporterVersion="2.2"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="Model_NexoDocs" name="NexoDocs_DomainModel">
+
+    <!-- Tipos primitivos estándar UML -->
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="prim_String" name="String"/>
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="prim_Integer" name="Integer"/>
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="prim_Long" name="Long"/>
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="prim_Boolean" name="Boolean"/>
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="prim_UUID" name="UUID"/>
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="prim_DateTime" name="DateTime"/>
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="prim_Date" name="Date"/>
+
+    <!-- ============================================================== -->
+    <!-- PAQUETE 1: PLATAFORMA, TENANCY Y SEGURIDAD (RBAC)             -->
+    <!-- ============================================================== -->
+    <packagedElement xmi:type="uml:Package" xmi:id="pkg_security" name="PlatformAndSecurity">
+
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="enum_UserStatus" name="UserStatus">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_us_1" name="INVITED"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_us_2" name="ACTIVE"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_us_3" name="INACTIVE"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_us_4" name="BLOCKED"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="enum_SubStatus" name="SubscriptionStatus">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_sub_1" name="TRIAL"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_sub_2" name="ACTIVE"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_sub_3" name="PAST_DUE"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_sub_4" name="SUSPENDED"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_sub_5" name="CANCELED"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_Tenant" name="Tenant">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tenant_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tenant_name" name="name" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tenant_code" name="code" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tenant_slug" name="slug" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tenant_email" name="email" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tenant_status" name="subscriptionStatus" visibility="private" type="enum_SubStatus"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tenant_createdAt" name="createdAt" visibility="private" type="prim_DateTime"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_TenantDepartment" name="TenantDepartment">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dept_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dept_tenantId" name="tenantId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dept_name" name="name" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dept_code" name="code" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dept_isActive" name="isActive" visibility="private" type="prim_Boolean"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_User" name="User">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_user_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_user_tenantId" name="tenantId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_user_deptId" name="departmentId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_user_username" name="username" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_user_email" name="email" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_user_firstName" name="firstName" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_user_lastName" name="lastName" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_user_status" name="status" visibility="private" type="enum_UserStatus"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_user_createdAt" name="createdAt" visibility="private" type="prim_DateTime"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_Role" name="Role">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_role_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_role_name" name="name" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_role_code" name="code" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_role_description" name="description" visibility="private" type="prim_String"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_Permission" name="Permission">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_perm_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_perm_code" name="code" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_perm_name" name="name" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_perm_module" name="module" visibility="private" type="prim_String"/>
+      </packagedElement>
+
+      <!-- Relaciones semánticas de Seguridad -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_tenant_departments" name="compuesto_por_areas">
+        <memberEnd xmi:idref="end_td_tenant"/>
+        <memberEnd xmi:idref="end_td_dept"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_td_tenant" name="organizacion" type="cls_Tenant" association="assoc_tenant_departments">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_td_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_td_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_td_dept" name="departamentos" type="cls_TenantDepartment" aggregation="composite" association="assoc_tenant_departments">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_td_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_td_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_tenant_users" name="pertenece_a_organizacion">
+        <memberEnd xmi:idref="end_tu_tenant"/>
+        <memberEnd xmi:idref="end_tu_user"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_tu_tenant" name="organizacion" type="cls_Tenant" association="assoc_tenant_users">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_tu_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_tu_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_tu_user" name="usuarios" type="cls_User" association="assoc_tenant_users">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_tu_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_tu_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_dept_users" name="adscrito_a_departamento">
+        <memberEnd xmi:idref="end_du_dept"/>
+        <memberEnd xmi:idref="end_du_user"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_du_dept" name="departamento" type="cls_TenantDepartment" association="assoc_dept_users">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_du_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_du_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_du_user" name="personal" type="cls_User" association="assoc_dept_users">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_du_users_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_du_users_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_user_roles" name="posee_roles">
+        <memberEnd xmi:idref="end_ur_user"/>
+        <memberEnd xmi:idref="end_ur_role"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_ur_user" name="usuarios" type="cls_User" association="assoc_user_roles">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_ur_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_ur_star" value="*"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_ur_role" name="rolesAsignados" type="cls_Role" association="assoc_user_roles">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_ur_role_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_ur_role_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_role_permissions" name="concede_permisos">
+        <memberEnd xmi:idref="end_rp_role"/>
+        <memberEnd xmi:idref="end_rp_perm"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_rp_role" name="roles" type="cls_Role" association="assoc_role_permissions">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_rp_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_rp_star" value="*"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_rp_perm" name="permisosOtorgados" type="cls_Permission" association="assoc_role_permissions">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_rp_perm_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_rp_perm_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+    </packagedElement>
+
+    <!-- ============================================================== -->
+    <!-- PAQUETE 2: NÚCLEO GESTIÓN DOCUMENTAL                           -->
+    <!-- ============================================================== -->
+    <packagedElement xmi:type="uml:Package" xmi:id="pkg_documents" name="DocumentManagement">
+
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="enum_DocStatus" name="DocumentStatus">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ds_1" name="DRAFT"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ds_2" name="PENDING"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ds_3" name="IN_REVIEW"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ds_4" name="APPROVED"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ds_5" name="REJECTED"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ds_6" name="CURRENT"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ds_7" name="ARCHIVED"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ds_8" name="VOIDED"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="enum_ExpStatus" name="ExpedientStatus">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_es_1" name="ACTIVE"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_es_2" name="CLOSED"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_es_3" name="ARCHIVED"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_DocumentType" name="DocumentType">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dt_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dt_tenantId" name="tenantId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dt_name" name="name" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dt_code" name="code" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dt_isActive" name="isActive" visibility="private" type="prim_Boolean"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_Document" name="Document">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_doc_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_doc_tenantId" name="tenantId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_doc_typeId" name="typeId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_doc_code" name="code" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_doc_title" name="title" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_doc_description" name="description" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_doc_status" name="status" visibility="private" type="enum_DocStatus"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_doc_currentVersion" name="currentVersion" visibility="private" type="prim_Integer"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_doc_isConfidential" name="isConfidential" visibility="private" type="prim_Boolean"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_doc_createdAt" name="createdAt" visibility="private" type="prim_DateTime"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_DocumentVersion" name="DocumentVersion">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dv_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dv_documentId" name="documentId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dv_versionNumber" name="versionNumber" visibility="private" type="prim_Integer"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dv_fileName" name="fileName" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dv_fileSizeBytes" name="fileSizeBytes" visibility="private" type="prim_Long"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dv_mimeType" name="mimeType" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dv_checksum" name="checksumSha256" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_dv_createdAt" name="createdAt" visibility="private" type="prim_DateTime"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_Expedient" name="Expedient">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_exp_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_exp_tenantId" name="tenantId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_exp_code" name="code" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_exp_title" name="title" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_exp_status" name="status" visibility="private" type="enum_ExpStatus"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_exp_createdAt" name="createdAt" visibility="private" type="prim_DateTime"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_Tag" name="Tag">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tag_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tag_tenantId" name="tenantId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tag_name" name="name" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tag_color" name="color" visibility="private" type="prim_String"/>
+      </packagedElement>
+
+      <!-- Relaciones semánticas de Documentos -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_tenant_documents" name="custodia_documentos">
+        <memberEnd xmi:idref="end_tdoc_tenant"/>
+        <memberEnd xmi:idref="end_tdoc_doc"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_tdoc_tenant" name="organizacionCustodia" type="cls_Tenant" association="assoc_tenant_documents">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_tdoc_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_tdoc_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_tdoc_doc" name="documentosPropios" type="cls_Document" association="assoc_tenant_documents">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_tdoc_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_tdoc_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_type_documents" name="clasifica_a">
+        <memberEnd xmi:idref="end_typedoc_type"/>
+        <memberEnd xmi:idref="end_typedoc_doc"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_typedoc_type" name="tipoDocumental" type="cls_DocumentType" association="assoc_type_documents">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_typedoc_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_typedoc_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_typedoc_doc" name="documentosTipificados" type="cls_Document" association="assoc_type_documents">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_typedoc_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_typedoc_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <!-- Composición Documento -> Versiones -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_document_versions" name="contiene_versiones">
+        <memberEnd xmi:idref="end_dv_doc"/>
+        <memberEnd xmi:idref="end_dv_version"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_dv_doc" name="documentoPrincipal" type="cls_Document" association="assoc_document_versions">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_dv_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_dv_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_dv_version" name="versionesHistoricas" type="cls_DocumentVersion" aggregation="composite" association="assoc_document_versions">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_dv_0" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_dv_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <!-- N a M: Expedientes y Documentos -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_expedient_documents" name="agrupa_documentos">
+        <memberEnd xmi:idref="end_ed_exp"/>
+        <memberEnd xmi:idref="end_ed_doc"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_ed_exp" name="expedienteContenedor" type="cls_Expedient" association="assoc_expedient_documents">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_ed_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_ed_star" value="*"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_ed_doc" name="documentosArchivados" type="cls_Document" association="assoc_expedient_documents">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_ed_doc_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_ed_doc_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <!-- N a M: Documentos y Etiquetas -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_document_tags" name="etiquetado_con">
+        <memberEnd xmi:idref="end_dt_doc"/>
+        <memberEnd xmi:idref="end_dt_tag"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_dt_doc" name="documentos" type="cls_Document" association="assoc_document_tags">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_dt_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_dt_star" value="*"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_dt_tag" name="etiquetasAsignadas" type="cls_Tag" association="assoc_document_tags">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_dt_tag_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_dt_tag_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_user_created_documents" name="redactado_por">
+        <memberEnd xmi:idref="end_ucd_user"/>
+        <memberEnd xmi:idref="end_ucd_doc"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_ucd_user" name="autor" type="cls_User" association="assoc_user_created_documents">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_ucd_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_ucd_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_ucd_doc" name="documentosElaborados" type="cls_Document" association="assoc_user_created_documents">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_ucd_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_ucd_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+    </packagedElement>
+
+    <!-- ============================================================== -->
+    <!-- PAQUETE 3: MOTOR DE WORKFLOWS Y TAREAS                         -->
+    <!-- ============================================================== -->
+    <packagedElement xmi:type="uml:Package" xmi:id="pkg_workflows" name="WorkflowEngine">
+
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="enum_WfStatus" name="WorkflowStatus">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_wfs_1" name="DRAFT"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_wfs_2" name="STARTED"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_wfs_3" name="IN_PROGRESS"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_wfs_4" name="COMPLETED"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_wfs_5" name="CANCELED"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="enum_TaskStatus" name="TaskStatus">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ts_1" name="PENDING"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ts_2" name="IN_PROGRESS"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ts_3" name="COMPLETED"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ts_4" name="OVERDUE"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="lit_ts_5" name="CANCELED"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_WorkflowDefinition" name="WorkflowDefinition">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfd_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfd_tenantId" name="tenantId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfd_name" name="name" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfd_code" name="code" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfd_isActive" name="isActive" visibility="private" type="prim_Boolean"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_WorkflowStep" name="WorkflowStep">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfs_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfs_defId" name="definitionId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfs_order" name="stepOrder" visibility="private" type="prim_Integer"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfs_name" name="name" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfs_reqApproval" name="requiresApproval" visibility="private" type="prim_Boolean"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_WorkflowInstance" name="WorkflowInstance">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfi_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfi_defId" name="definitionId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfi_docId" name="documentId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfi_status" name="status" visibility="private" type="enum_WfStatus"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_wfi_startedAt" name="startedAt" visibility="private" type="prim_DateTime"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_Task" name="Task">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tsk_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tsk_instanceId" name="workflowInstanceId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tsk_stepId" name="stepId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tsk_assignedUser" name="assignedUserId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tsk_status" name="status" visibility="private" type="enum_TaskStatus"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_tsk_dueDate" name="dueDate" visibility="private" type="prim_DateTime"/>
+      </packagedElement>
+
+      <!-- Relaciones semánticas de Workflows -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_wf_steps" name="estructurado_en_pasos">
+        <memberEnd xmi:idref="end_wf_step_def"/>
+        <memberEnd xmi:idref="end_wf_step_step"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_wf_step_def" name="definicionFlujo" type="cls_WorkflowDefinition" association="assoc_wf_steps">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_wf_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_wf_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_wf_step_step" name="pasosSecuenciales" type="cls_WorkflowStep" aggregation="composite" association="assoc_wf_steps">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_wf_step_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_wf_step_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_wf_instances" name="ejecuta_instancias">
+        <memberEnd xmi:idref="end_wfi_def"/>
+        <memberEnd xmi:idref="end_wfi_inst"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_wfi_def" name="plantillaOrigen" type="cls_WorkflowDefinition" association="assoc_wf_instances">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_wfi_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_wfi_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_wfi_inst" name="ejecucionesActivas" type="cls_WorkflowInstance" association="assoc_wf_instances">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_wfi_inst_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_wfi_inst_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_document_workflows" name="sometido_a_flujo">
+        <memberEnd xmi:idref="end_dw_doc"/>
+        <memberEnd xmi:idref="end_dw_inst"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_dw_doc" name="documentoEnProceso" type="cls_Document" association="assoc_document_workflows">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_dw_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_dw_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_dw_inst" name="flujoSeguimiento" type="cls_WorkflowInstance" association="assoc_document_workflows">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_dw_inst_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_dw_inst_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_instance_tasks" name="genera_tareas">
+        <memberEnd xmi:idref="end_it_inst"/>
+        <memberEnd xmi:idref="end_it_task"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_it_inst" name="flujoContenedor" type="cls_WorkflowInstance" association="assoc_instance_tasks">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_it_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_it_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_it_task" name="tareasPendientes" type="cls_Task" aggregation="composite" association="assoc_instance_tasks">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_it_task_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_it_task_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_user_tasks" name="asignada_a_responsable">
+        <memberEnd xmi:idref="end_ut_user"/>
+        <memberEnd xmi:idref="end_ut_task"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_ut_user" name="usuarioResponsable" type="cls_User" association="assoc_user_tasks">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_ut_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_ut_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_ut_task" name="tareasAsignadas" type="cls_Task" association="assoc_user_tasks">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_ut_task_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_ut_task_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+    </packagedElement>
+
+    <!-- ============================================================== -->
+    <!-- PAQUETE 4: MÓDULO CLÍNICO (HISTORIA CLÍNICA HU-04)             -->
+    <!-- ============================================================== -->
+    <packagedElement xmi:type="uml:Package" xmi:id="pkg_clinical" name="ClinicalExtension">
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_Patient" name="Patient">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_pat_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_pat_tenantId" name="tenantId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_pat_idNumber" name="identityNumber" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_pat_firstName" name="firstName" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_pat_lastName" name="lastName" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_pat_birthDate" name="birthDate" visibility="private" type="prim_Date"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_pat_gender" name="gender" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_pat_phone" name="phone" visibility="private" type="prim_String"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_ClinicalStaff" name="ClinicalStaff">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_cs_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_cs_userId" name="userId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_cs_license" name="licenseNumber" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_cs_specialty" name="specialty" visibility="private" type="prim_String"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_ClinicalHistory" name="ClinicalHistory">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ch_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ch_tenantId" name="tenantId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ch_patientId" name="patientId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ch_num" name="historyNumber" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ch_status" name="status" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ch_createdAt" name="createdAt" visibility="private" type="prim_DateTime"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="cls_ClinicalEncounter" name="ClinicalEncounter">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ce_id" name="id" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ce_historyId" name="historyId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ce_staffId" name="staffId" visibility="private" type="prim_UUID"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ce_type" name="encounterType" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ce_reason" name="reason" visibility="private" type="prim_String"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="attr_ce_performedAt" name="performedAt" visibility="private" type="prim_DateTime"/>
+      </packagedElement>
+
+      <!-- Relaciones semánticas Clínicas -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_patient_history" name="posee_historial_clinico">
+        <memberEnd xmi:idref="end_ph_patient"/>
+        <memberEnd xmi:idref="end_ph_history"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_ph_patient" name="pacienteTitular" type="cls_Patient" association="assoc_patient_history">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_ph_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_ph_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_ph_history" name="historialClinico" type="cls_ClinicalHistory" aggregation="composite" association="assoc_patient_history">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_ph_hist_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_ph_hist_1" value="1"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_history_encounters" name="registra_atenciones">
+        <memberEnd xmi:idref="end_he_history"/>
+        <memberEnd xmi:idref="end_he_encounter"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_he_history" name="historialOrigen" type="cls_ClinicalHistory" association="assoc_history_encounters">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_he_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_he_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_he_encounter" name="consultasRegistradas" type="cls_ClinicalEncounter" aggregation="composite" association="assoc_history_encounters">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_he_enc_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_he_enc_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_staff_encounters" name="atiende_consulta">
+        <memberEnd xmi:idref="end_se_staff"/>
+        <memberEnd xmi:idref="end_se_encounter"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_se_staff" name="profesionalTratante" type="cls_ClinicalStaff" association="assoc_staff_encounters">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_se_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_se_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_se_encounter" name="atencionesRealizadas" type="cls_ClinicalEncounter" association="assoc_staff_encounters">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_se_enc_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_se_enc_star" value="*"/>
+        </ownedEnd>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_user_staff" name="ejerce_como_profesional_salud">
+        <memberEnd xmi:idref="end_us_user"/>
+        <memberEnd xmi:idref="end_us_staff"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_us_user" name="cuentaUsuario" type="cls_User" association="assoc_user_staff">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_us_1" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_us_1" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="end_us_staff" name="perfilMedico" type="cls_ClinicalStaff" association="assoc_user_staff">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="low_us_staff_0" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="up_us_staff_1" value="1"/>
+        </ownedEnd>
+      </packagedElement>
+    </packagedElement>
+
+  </uml:Model>
+</xmi:XMI>
