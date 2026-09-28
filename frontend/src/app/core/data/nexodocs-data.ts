@@ -78,6 +78,14 @@ export const navSections: NavSection[] = [
         ],
       },
       {
+        label: 'Módulo Clínico',
+        icon: 'MC',
+        children: [
+          { label: 'Pacientes', href: '/clinical/patients' },
+          { label: 'Antecedentes', href: '/clinical/history' },
+        ],
+      },
+      {
         label: 'Documentos',
         icon: 'DO',
         children: [
@@ -396,6 +404,8 @@ const descriptions: Record<string, string> = {
   'Tenants|Todos los tenants': 'Administra las organizaciones aisladas registradas en la plataforma.',
   'Expedientes|Expediente clínico': 'Visualiza la historia clínica del paciente ordenada cronológicamente por fecha y evento.',
   'Expedientes|Notas médicas': 'Busca pacientes por documento de identidad o nombre y registra notas de evolución.',
+  'Módulo Clínico|Pacientes': 'Gestiona el registro e identificación unívoca de pacientes.',
+  'Módulo Clínico|Antecedentes': 'Captura estructurada de diagnósticos base, alergias y antecedentes.',
 };
 
 export const patients: Patient[] = ﻿[
