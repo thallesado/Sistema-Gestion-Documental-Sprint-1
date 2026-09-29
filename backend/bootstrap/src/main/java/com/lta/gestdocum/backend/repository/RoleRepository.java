@@ -31,4 +31,15 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
 
     // Buscar rol global de sistema por nombre
     Optional<Role> findByNameAndIsSystemTrue(String name);
+
+    Optional<Role> findByIdAndTenantId(Long id, UUID tenantId);
+
+    @Query(value="select permission_id from role_permissions where tenant_id=:tenantId and role_id=:roleId", nativeQuery=true)
+    Set<Long> findPermissionIds(@Param("tenantId") UUID tenantId, @Param("roleId") Long roleId);
+
+    @Modifying @Query(value="delete from role_permissions where tenant_id=:tenantId and role_id=:roleId", nativeQuery=true)
+    void clearPermissions(@Param("tenantId") UUID tenantId, @Param("roleId") Long roleId);
+
+    @Modifying @Query(value="insert into role_permissions(tenant_id,role_id,permission_id) values (:tenantId,:roleId,:permissionId)", nativeQuery=true)
+    void grantPermission(@Param("tenantId") UUID tenantId, @Param("roleId") Long roleId, @Param("permissionId") Long permissionId);
 }

@@ -24,4 +24,6 @@ public interface AuthSessionRepository extends JpaRepository<AuthSession, UUID> 
            AND session.revokedAt IS NULL
         """)
     int revokeAllByUserId(@Param("userId") UUID userId, @Param("revokedAt") OffsetDateTime revokedAt);
+
+    boolean existsByUserIdAndRevokedAtIsNullAndExpiresAtAfter(UUID userId, OffsetDateTime now);
 }

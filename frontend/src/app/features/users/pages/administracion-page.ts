@@ -4,10 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AdministrationApiService, ApiRole, ApiTenant, ApiUser } from '../../../core/api/administration-api.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { RolePermissionsModal } from '../components/role-permissions-modal';
 
 @Component({
   selector: 'app-administration-page',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, RolePermissionsModal],
   template: `
     <section class="admin-page">
       @if (isTenantArea) {
@@ -39,19 +40,41 @@ import { AuthService } from '../../../core/auth/auth.service';
           @if (!isCreate) { <a class="admin-primary" routerLink="/users/new">＋ Crear usuario</a> }
         </header>
         @if (isCreate) {
-          <form class="admin-form" (ngSubmit)="createUser()">
+          <form class="admin-form create-user-form" (ngSubmit)="createUser()">
             <h2>Nuevo usuario</h2><p class="form-note">La cuenta se crea en el tenant del token. El cliente no envía tenantId.</p>
             <div class="form-grid">
-              <label>Nombre<input name="firstName" [(ngModel)]="form.firstName" required /></label>
-              <label>Apellido<input name="lastName" [(ngModel)]="form.lastName" required /></label>
-              <label>Usuario<input name="username" [(ngModel)]="form.username" required /></label>
-              <label>Correo<input type="email" name="email" [(ngModel)]="form.email" required /></label>
-              <label>Contraseña<input type="password" name="password" [(ngModel)]="form.password" required minlength="8" /></label>
-              <label>Roles permitidos<select name="roleIds" [(ngModel)]="form.roleIds" multiple required>@for (role of roles(); track role.id) { <option [ngValue]="role.id">{{ role.name }}</option> }</select><small class="field-help">Selecciona uno o más roles activos del tenant.</small></label>
+              <label class="field-first">Nombre<input name="firstName" [(ngModel)]="form.firstName" required /></label>
+              <label class="field-last">Apellido<input name="lastName" [(ngModel)]="form.lastName" required /></label>
+              <label class="field-username">Usuario<input name="username" [(ngModel)]="form.username" required /></label>
+              <label class="field-email">Correo<input type="email" name="email" [(ngModel)]="form.email" required /></label>
+              <label class="field-password">Contraseña<input type="password" name="password" [(ngModel)]="form.password" required minlength="8" /></label>
+              <label class="chip-field field-roles">
+                <span class="chip-field-header"><span>Roles permitidos</span><span class="role-chip-counter">{{ form.roleIds.length }} seleccionado{{ form.roleIds.length === 1 ? '' : 's' }}</span></span>
+                <div class="role-chip-list" role="group" aria-label="Roles permitidos">
+                  @for (role of roles(); track role.id) {
+                    <button type="button" class="role-chip" [class.selected]="form.roleIds.includes(role.id)" (click)="toggleFormRole(role.id)">{{ role.name }}</button>
+                  }
+                </div>
+                <small class="field-help">Selecciona uno o más roles activos del tenant.</small>
+              </label>
             </div>
             <div class="form-actions"><a routerLink="/users" class="admin-secondary">Cancelar</a><button class="admin-primary" type="submit" [disabled]="saving()">Crear usuario</button></div>
           </form>
         } @else {
+          <div class="admin-tabs" role="tablist">
+            <button type="button" role="tab" class="admin-tab" [class.active]="activeTab() === 'users'" (click)="activeTab.set('users')">Usuarios</button>
+            <button type="button" role="tab" class="admin-tab" [class.active]="activeTab() === 'roles'" (click)="activeTab.set('roles')">Roles y permisos</button>
+          </div>
+          @if (activeTab() === 'roles') {
+            <section class="admin-table-wrap">
+              @if (rolesLoading()) { <p class="admin-empty">Cargando roles…</p> }
+              @else if (rolesError()) { <div class="admin-state error" role="alert">{{ rolesError() }}</div> }
+              @else {
+                <table><thead><tr><th>Rol</th><th>Descripción</th><th>Tipo</th><th><span class="sr-only">Acciones</span></th></tr></thead>
+                <tbody>@for (role of roles(); track role.id) { <tr><td><b>{{ role.name }}</b></td><td>{{ role.description || '—' }}</td><td><span class="admin-status" [class.inactive]="role.system">{{ role.system ? 'Sistema' : 'Personalizado' }}</span></td><td><button class="link-button" type="button" (click)="permissionsRoleId.set(role.id)">Permisos</button></td></tr> }</tbody></table>
+              }
+            </section>
+          } @else {
           <div class="admin-toolbar"><label class="admin-search">⌕<input [(ngModel)]="search" (keyup.enter)="loadUsers()" placeholder="Buscar por nombre, usuario o correo" aria-label="Buscar usuarios" /></label><button class="admin-secondary" type="button" (click)="loadUsers()">Buscar</button></div>
           @if (message()) { <div class="admin-state" [class.error]="error()" role="status">{{ message() }}</div> }
           <section class="admin-table-wrap">
@@ -64,7 +87,13 @@ import { AuthService } from '../../../core/auth/auth.service';
             @if (editUser()) {
               <div class="modal-backdrop" role="presentation"><section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
                 <h2 id="edit-user-title">Editar usuario</h2><p class="form-note">Actualiza los datos y roles permitidos para este usuario.</p>@if (editError()) { <div class="admin-state error" role="alert">{{ editError() }}</div> } @if (rolesLoading()) { <p class="admin-empty">Cargando roles…</p> } @else if (rolesError()) { <div class="admin-state error" role="alert">{{ rolesError() }}</div> }
-                <div class="form-grid"><label>Nombre<input [(ngModel)]="editForm.firstName" /></label><label>Apellido<input [(ngModel)]="editForm.lastName" /></label><label>Correo<input type="email" [(ngModel)]="editForm.email" /></label><label>Estado<select [(ngModel)]="editForm.status"><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option></select></label><label>Roles permitidos<select [(ngModel)]="editForm.roleIds" multiple>@for (role of roles(); track role.id) { <option [ngValue]="role.id">{{ role.name }}</option> }</select></label></div>
+                <div class="form-grid"><label>Nombre<input [(ngModel)]="editForm.firstName" /></label><label>Apellido<input [(ngModel)]="editForm.lastName" /></label><label>Correo<input type="email" [(ngModel)]="editForm.email" /></label><label>Estado<select [(ngModel)]="editForm.status"><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option></select></label><label class="chip-field">Roles permitidos
+                <div class="role-chip-list" role="group" aria-label="Roles permitidos">
+                  @for (role of roles(); track role.id) {
+                    <button type="button" class="role-chip" [class.selected]="editForm.roleIds.includes(role.id)" (click)="toggleEditRole(role.id)">{{ role.name }}</button>
+                  }
+                </div>
+              </label></div>
                 <div class="form-actions"><button class="admin-secondary" type="button" (click)="closeEdit()">Cancelar</button><button class="admin-primary" type="button" (click)="saveEdit()" [disabled]="saving()">Guardar cambios</button></div>
               </section></div>
             }
@@ -73,8 +102,10 @@ import { AuthService } from '../../../core/auth/auth.service';
             }
           </section>
           <p class="api-note">Los roles se asignan en creación y edición mediante roleIds. Activar/desactivar utiliza la actualización del usuario.</p>
+          }
         }
       }
+      <app-role-permissions-modal [roleId]="permissionsRoleId()" (closed)="permissionsRoleId.set(null)" (saved)="loadRoles()" />
     </section>
   `,
 })
@@ -95,6 +126,8 @@ export class AdministrationPage {
   search = '';
   form = { username: '', email: '', password: '', firstName: '', lastName: '', roleIds: [] as number[] };
   tenantForm = { name: '', code: '', slug: '', email: '' };
+  readonly activeTab = signal<'users' | 'roles'>('users');
+  readonly permissionsRoleId = signal<number | null>(null);
   readonly editUser = signal<ApiUser | null>(null);
   readonly confirmation = signal<{ title: string; message: string; action: () => void } | null>(null);
   editForm = { firstName: '', lastName: '', email: '', status: 'ACTIVE', roleIds: [] as number[] };
@@ -157,6 +190,16 @@ export class AdministrationPage {
   createTenant(): void {
     this.saving.set(true); this.message.set('');
     this.api.createTenant(this.tenantForm).subscribe({ next: () => { this.saving.set(false); this.message.set('Tenant creado correctamente.'); this.tenantForm = { name: '', code: '', slug: '', email: '' }; }, error: err => { this.saving.set(false); this.showError(this.apiError(err, 'No se pudo crear el tenant.')); } });
+  }
+
+  toggleFormRole(id: number): void {
+    const idx = this.form.roleIds.indexOf(id);
+    if (idx >= 0) this.form.roleIds.splice(idx, 1); else this.form.roleIds.push(id);
+  }
+
+  toggleEditRole(id: number): void {
+    const idx = this.editForm.roleIds.indexOf(id);
+    if (idx >= 0) this.editForm.roleIds.splice(idx, 1); else this.editForm.roleIds.push(id);
   }
 
   edit(user: ApiUser): void {

@@ -38,11 +38,12 @@ public class AuditQueryService implements AuditQueryUseCase {
     @Override
     @Transactional(readOnly = true)
     public Page<AuditEventResponse> list(AuditEventFilter filters, Pageable pageable) {
-        UUID tenantId = context.require().tenantId();
-        if (tenantId == null) {
+        var user = context.require();
+        UUID tenantId = user.tenantId();
+        if (tenantId == null && !user.authorities().contains("audit:read_global")) {
             throw new com.lta.gestdocum.backend.exception.TenantRequiredException();
         }
-        context.establishDatabaseContext();
+        if (tenantId != null) context.establishDatabaseContext();
         return repository.findAll(specification(tenantId, filters), safePageable(pageable))
                 .map(AuditEventResponse::from);
     }
@@ -51,7 +52,7 @@ public class AuditQueryService implements AuditQueryUseCase {
             UUID tenantId, AuditEventFilter filters) {
         return (root, query, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(builder.equal(root.get("tenantId"), tenantId));
+            if (tenantId != null) predicates.add(builder.equal(root.get("tenantId"), tenantId));
             if (filters.action() != null) {
                 predicates.add(builder.equal(root.get("action"), filters.action()));
             }

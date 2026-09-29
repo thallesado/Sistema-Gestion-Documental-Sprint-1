@@ -41,11 +41,11 @@ public class UserController {
     @GetMapping("/responsible")
     @PreAuthorize("hasAuthority('user:read')")
     @Operation(summary = "Listar responsables disponibles",
-            description = "Usuarios activos del tenant autenticado que pueden asignarse a documentos")
+            description = "Usuarios activos del tenant autenticado con rol clínico o permiso para gestionar expedientes")
     public ResponseEntity<Page<UserResponse>> findResponsibleUsers(
             @RequestParam(required = false) String filter,
             Pageable pageable) {
-        return ResponseEntity.ok(userService.findUsers(filter, pageable));
+        return ResponseEntity.ok(userService.findResponsibleUsers(filter, pageable));
     }
 
     @PostMapping
@@ -54,14 +54,6 @@ public class UserController {
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
     }
-/* 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('user:update')")
-    @PreAuthorize("hasAuthority('user:update')")
-    @Operation(summary = "Actualizar Usuario", description = "Actualiza los datos del usuario y su especialidad médica")
-    public ResponseEntity<UserResponse> updateUser(@PathVariable UUID id, @RequestBody UserCreateRequest request) {
-        return ResponseEntity.ok(userService.updateUser(id, request));
-    }*/
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('user:update')")
     @Operation(summary = "Actualizar Usuario", description = "Actualiza los datos del usuario y su especialidad médica")

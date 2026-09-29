@@ -6,11 +6,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;
-
 import java.util.UUID;
-import java.util.Collection;
 import jakarta.persistence.EntityManager;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class AuthenticatedUserContext {
@@ -51,18 +48,10 @@ public class AuthenticatedUserContext {
         return require().authorities().contains(authority);
     }
 
-    /**
-     * El rol de aplicación usa RLS; los parámetros se fijan LOCALMENTE en la
-     * transacción actual y nunca se aceptan desde la petición HTTP.
-     */
     public void establishDatabaseContext() {
         establishDatabaseContext(require());
     }
 
-    /**
-     * Usa únicamente la identidad que el backend ya validó (por ejemplo, tras
-     * un login exitoso), sin aceptar identidad ni tenant del cliente.
-     */
     public void establishDatabaseContext(AuthenticatedUser user) {
         if (user.tenantId() == null) {
             throw new TenantRequiredException();

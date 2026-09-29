@@ -60,6 +60,53 @@ body {
 .admin-modal.confirmation p { color: var(--muted); font-size: 13px; line-height: 1.5; }
 @media (max-width: 680px) { .admin-header { align-items: flex-start; flex-direction: column; }.form-grid { grid-template-columns: 1fr; }.admin-toolbar { align-items: stretch; flex-direction: column; }.admin-toolbar .admin-secondary { width: 100%; } }
 
+.admin-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.admin-tab { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 800; padding: 9px 15px; }
+.admin-tab.active { background: var(--teal); border-color: var(--teal); color: white; }
+
+.chip-field { display: flex; flex-direction: column; gap: 6px; }
+.form-grid .chip-field { grid-column: 1 / -1; }
+.role-chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.role-chip { background: white; border: 1px solid var(--line); border-radius: 99px; color: var(--ink); cursor: pointer; font-size: 11px; font-weight: 700; padding: 7px 14px; transition: background .15s, border-color .15s, color .15s; }
+.role-chip:hover { border-color: var(--teal); }
+.role-chip.selected { background: var(--teal); border-color: var(--teal); box-shadow: 0 0 0 3px rgba(8,127,123,.15); color: white; }
+
+/* Formulario "Crear usuario": dos columnas simétricas por área nombrada. */
+.create-user-form { padding: 28px 32px; }
+.create-user-form .form-grid {
+  column-gap: 28px;
+  grid-template-areas: "first last" "user email" "pass roles";
+  grid-template-columns: 1fr 1fr;
+  row-gap: 20px;
+}
+.create-user-form .field-first { grid-area: first; }
+.create-user-form .field-last { grid-area: last; }
+.create-user-form .field-username { grid-area: user; }
+.create-user-form .field-email { grid-area: email; }
+.create-user-form .field-password { grid-area: pass; }
+.create-user-form .field-roles { grid-area: roles; grid-column: auto; }
+.create-user-form .form-grid input { border-radius: 9px; }
+.create-user-form .chip-field-header { align-items: center; display: flex; justify-content: space-between; }
+.create-user-form .role-chip-counter { background: var(--mint); border-radius: 99px; color: var(--teal-strong); font-size: 10px; font-weight: 800; padding: 3px 9px; white-space: nowrap; }
+.create-user-form .field-roles .role-chip-list { max-height: 128px; overflow-y: auto; padding: 2px 2px 4px; }
+@media (max-width: 680px) {
+  .create-user-form .form-grid { grid-template-areas: "first" "last" "user" "email" "pass" "roles"; grid-template-columns: 1fr; }
+}
+
+.permissions-modal { max-width: 760px; }
+.permission-modules { display: grid; gap: 16px; margin-top: 16px; max-height: 50vh; overflow-y: auto; }
+.permission-group h3 { color: var(--ink); font-size: 12px; margin: 0 0 8px; text-transform: capitalize; }
+.permission-group ul { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.permission-row { align-items: center; background: #f8fbfa; border-radius: 8px; display: flex; gap: 10px; padding: 8px 10px; }
+.permission-row .switch-label { align-items: center; color: var(--ink); display: flex; flex: 1; font-size: 12px; gap: 8px; }
+.criticality-pill { border-radius: 99px; font-size: 10px; font-weight: 800; padding: 3px 8px; text-transform: uppercase; }
+.criticality-pill.low { background: #e3f8eb; color: #218450; }
+.criticality-pill.medium { background: #fff1e4; color: #aa6d1c; }
+.criticality-pill.high { background: #fff4f3; color: #a65050; }
+.permission-detail { display: grid; gap: 4px 14px; grid-template-columns: 120px 1fr; margin-top: 16px; }
+.permission-detail dt { color: var(--muted); font-size: 11px; font-weight: 800; }
+.permission-detail dd { color: var(--ink); font-size: 13px; margin: 0 0 10px; }
+
 button,
 input,
 select,

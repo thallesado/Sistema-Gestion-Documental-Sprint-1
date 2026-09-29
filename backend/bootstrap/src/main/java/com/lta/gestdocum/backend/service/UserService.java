@@ -30,23 +30,26 @@ public class UserService {
     private final AuthenticatedUserContext authenticatedUserContext;
     private final com.lta.gestdocum.backend.repository.RoleRepository roleRepository;
     private final com.lta.gestdocum.backend.repository.TenantRepository tenantRepository;
+    private final AuthSessionService authSessionService;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public UserService(UserRepository userRepository, 
-                       ClinicalStaffRepository clinicalStaffRepository, 
+    public UserService(UserRepository userRepository,
+                       ClinicalStaffRepository clinicalStaffRepository,
                        PasswordEncoder passwordEncoder,
                        AuthenticatedUserContext authenticatedUserContext,
                        com.lta.gestdocum.backend.repository.RoleRepository roleRepository,
-                       com.lta.gestdocum.backend.repository.TenantRepository tenantRepository) {
+                       com.lta.gestdocum.backend.repository.TenantRepository tenantRepository,
+                       AuthSessionService authSessionService) {
         this.userRepository = userRepository;
         this.clinicalStaffRepository = clinicalStaffRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticatedUserContext = authenticatedUserContext;
         this.roleRepository = roleRepository;
         this.tenantRepository = tenantRepository;
+        this.authSessionService = authSessionService;
     }
     public UserService(UserRepository u, ClinicalStaffRepository c, PasswordEncoder p, AuthenticatedUserContext a) {
-        this(u,c,p,a,null,null);
+        this(u,c,p,a,null,null,null);
     }
 
     @Transactional
@@ -96,6 +99,7 @@ public class UserService {
     User user = userRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
             .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
 
+    User.UserStatus previousStatus = user.getStatus();
     user.setFirstName(request.getFirstName());
     user.setLastName(request.getLastName());
     user.setEmail(request.getEmail());
@@ -107,6 +111,7 @@ public class UserService {
     }
 
     User updatedUser = userRepository.save(user);
+    if (updatedUser.getStatus() != previousStatus) authSessionService.revokeAll(id);
     if (request.getRoleIds() != null) {
     requireRoleAssignmentPermission();
     assignRoles(tenantId, id, request.getRoleIds());
@@ -161,6 +166,22 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public Page<UserResponse> findResponsibleUsers(String filter, Pageable pageable) {
+        UUID tenantId = authenticatedUserContext.requireTenantId();
+        authenticatedUserContext.establishDatabaseContext();
+        String normalizedFilter = filter == null || filter.isBlank() ? null : filter.trim();
+        return userRepository.findResponsibleByTenant(tenantId, normalizedFilter, pageable)
+                .map(user -> {
+                    Optional<ClinicalStaff> staff = clinicalStaffRepository
+                            .findByUserIdAndTenantId(user.getId(), tenantId);
+                    return mapToResponse(
+                            user,
+                            staff.map(value -> value.getStaffType().name()).orElse(null),
+                            staff.map(ClinicalStaff::getSpecialty).orElse(null));
+                });
+    }
+
+    @Transactional(readOnly = true)
     public UserResponse getCurrentUser() {
         UUID userId = authenticatedUserContext.requireUserId();
         UUID tenantId = authenticatedUserContext.require().tenantId();
@@ -202,10 +223,12 @@ public class UserService {
     }
     private void assignRoles(UUID tenantId, UUID userId, Set<Long> ids) {
         if (ids == null) return;
+        if (ids.isEmpty()) throw new IllegalArgumentException("La lista de roles no puede estar vacía");
         if (roleRepository == null) throw new IllegalStateException("Repositorio de roles no disponible");
         var roles = roleRepository.findActiveInTenant(tenantId, ids);
         if (roles.size() != ids.size() || roles.stream().anyMatch(r -> "Superadmin".equalsIgnoreCase(r.getName())))
             throw new IllegalArgumentException("Rol inválido para un usuario de tenant");
+        if (!ids.equals(roleRepository.findIds(tenantId, userId))) authSessionService.revokeAll(userId);
         roleRepository.clear(tenantId, userId);
         roles.forEach(r -> roleRepository.assign(tenantId, userId, r.getId()));
     }
