@@ -1,14 +1,31 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { AdministrationApiService, ApiRole, ApiTenant, ApiUser } from '../../../core/api/administration-api.service';
+import { AbstractControl, FormControl, FormGroup, FormsModule, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { merge } from 'rxjs';
+import { AdministrationApiService, ApiRole, ApiTenant, ApiUser, CreateUserPayload } from '../../../core/api/administration-api.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RolePermissionsModal } from '../components/role-permissions-modal';
 
+/** Exige mínimo 8 caracteres, mayúscula, número y carácter especial. */
+function strongPassword(control: AbstractControl): ValidationErrors | null {
+  const v = String(control.value ?? '');
+  const ok = v.length >= 8 && /[A-Z]/.test(v) && /\d/.test(v) && /[^\p{L}\p{N}\s]/u.test(v);
+  return ok ? null : { weakPassword: true };
+}
+
+/** "José María" + "Pérez" -> "joseperez" */
+function suggestUsername(first: string, last: string): string {
+  const clean = (text: string) => (text.trim().split(/\s+/)[0] ?? '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]/g, '');
+  return clean(first) + clean(last);
+}
+
 @Component({
   selector: 'app-administration-page',
-  imports: [CommonModule, FormsModule, RouterLink, RolePermissionsModal],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, RolePermissionsModal],
   template: `
     <section class="admin-page">
       @if (isTenantArea) {
@@ -40,26 +57,39 @@ import { RolePermissionsModal } from '../components/role-permissions-modal';
           @if (!isCreate) { <a class="admin-primary" routerLink="/users/new">＋ Crear usuario</a> }
         </header>
         @if (isCreate) {
-          <form class="admin-form create-user-form" (ngSubmit)="createUser()">
-            <h2>Nuevo usuario</h2><p class="form-note">La cuenta se crea en el tenant del token. El cliente no envía tenantId.</p>
+          <form class="admin-form create-user-form" [formGroup]="userForm" (ngSubmit)="onSubmit()" novalidate>
+            <div class="user-form-header">
+              <span class="user-form-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
+              </span>
+              <div><h2>Nuevo usuario</h2><p class="form-note">La cuenta se crea en el tenant del token. El cliente no envía tenantId.</p></div>
+            </div>
+            @if (message()) { <div class="admin-state" [class.error]="error()" [class.success]="!error()" role="status">{{ message() }}</div> }
             <div class="form-grid">
-              <label class="field-first">Nombre<input name="firstName" [(ngModel)]="form.firstName" required /></label>
-              <label class="field-last">Apellido<input name="lastName" [(ngModel)]="form.lastName" required /></label>
-              <label class="field-username">Usuario<input name="username" [(ngModel)]="form.username" required /></label>
-              <label class="field-email">Correo<input type="email" name="email" [(ngModel)]="form.email" required /></label>
-              <label class="field-password">Contraseña<input type="password" name="password" [(ngModel)]="form.password" required minlength="8" /></label>
-              <label class="field-confirm-password">Confirmar contraseña<input type="password" name="confirmPassword" [(ngModel)]="form.confirmPassword" required minlength="8" /></label>
+              <label class="field-first">Nombre<input formControlName="firstName" autocomplete="given-name" />@if (invalid('firstName')) { <small class="field-error">Ingresa el nombre.</small> }</label>
+              <label class="field-last">Apellido<input formControlName="lastName" autocomplete="family-name" />@if (invalid('lastName')) { <small class="field-error">Ingresa el apellido.</small> }</label>
+              <label class="field-username">Usuario<input formControlName="username" autocomplete="off" />@if (invalid('username')) { <small class="field-error">{{ userForm.controls.username.hasError('pattern') ? 'El usuario no puede contener espacios.' : 'Ingresa un nombre de usuario.' }}</small> }</label>
+              <label class="field-email">Correo<input type="email" formControlName="email" autocomplete="off" />@if (invalid('email')) { <small class="field-error">Ingresa un correo válido.</small> }</label>
+              <label class="field-password">Contraseña<input type="password" formControlName="password" autocomplete="new-password" /><div class="password-popover" role="status" aria-label="Requisitos de la contraseña">
+                  <p class="password-popover-title">Tu contraseña debe tener:</p>
+                  <ul class="password-rules">
+                    @for (rule of passwordRules; track rule.label) {
+                      <li [class.met]="rule.test()"><span class="rule-icon" aria-hidden="true">{{ rule.test() ? '✓' : '✕' }}</span>{{ rule.label }}</li>
+                    }
+                  </ul>
+                </div></label>
+              <label class="field-confirm-password">Confirmar contraseña<input type="password" formControlName="confirmPassword" autocomplete="new-password" />@if (userForm.hasError('passwordMismatch') && userForm.controls.confirmPassword.touched) { <small class="field-error">Las contraseñas no coinciden.</small> }</label>
               <label class="chip-field field-roles">
-                <span class="chip-field-header"><span>Roles permitidos</span><span class="role-chip-counter">{{ form.roleIds.length }} seleccionado{{ form.roleIds.length === 1 ? '' : 's' }}</span></span>
+                <span class="chip-field-header"><span>Roles permitidos</span><span class="role-chip-counter">{{ selectedRoleIds().length }} seleccionado{{ selectedRoleIds().length === 1 ? '' : 's' }}</span></span>
                 <div class="role-chip-list" role="group" aria-label="Roles permitidos">
                   @for (role of roles(); track role.id) {
-                    <button type="button" class="role-chip" [class.selected]="form.roleIds.includes(role.id)" (click)="toggleFormRole(role.id)">{{ role.name }}</button>
+                    <button type="button" class="role-chip" [class.selected]="selectedRoleIds().includes(role.id)" (click)="toggleFormRole(role.id)">{{ role.name }}</button>
                   }
                 </div>
-                <small class="field-help">Selecciona uno o más roles activos del tenant.</small>
+                @if (invalid('roleIds')) { <small class="field-error">Selecciona al menos un rol.</small> } @else { <small class="field-help">Selecciona uno o más roles activos del tenant.</small> }
               </label>
             </div>
-            <div class="form-actions"><a routerLink="/users" class="admin-secondary">Cancelar</a><button class="admin-primary" type="submit" [disabled]="saving()">Crear usuario</button></div>
+            <div class="form-actions"><a routerLink="/users" class="admin-secondary">Cancelar</a><button class="admin-primary" type="submit" [disabled]="saving() || userForm.invalid">{{ saving() ? 'Creando…' : 'Crear usuario' }}</button></div>
           </form>
         } @else {
           <div class="admin-tabs" role="tablist">
@@ -114,6 +144,7 @@ export class AdministrationPage {
   readonly api = inject(AdministrationApiService);
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   readonly users = signal<ApiUser[]>([]);
   readonly tenants = signal<ApiTenant[]>([]);
   readonly roles = signal<ApiRole[]>([]);
@@ -125,7 +156,29 @@ export class AdministrationPage {
   readonly message = signal('');
   readonly error = signal(false);
   search = '';
-  form = { username: '', email: '', password: '', confirmPassword: '', firstName: '', lastName: '', roleIds: [] as number[] };
+  readonly userForm = new FormGroup({
+    firstName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    lastName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    username: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/^\S+$/)] }),
+    email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
+    password: new FormControl('', { nonNullable: true, validators: [Validators.required, strongPassword] }),
+    confirmPassword: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    roleIds: new FormControl<number[]>([], { nonNullable: true, validators: [Validators.required, Validators.minLength(1)] }),
+  }, { validators: (group: AbstractControl): ValidationErrors | null =>
+    group.get('password')?.value === group.get('confirmPassword')?.value ? null : { passwordMismatch: true } });
+  readonly selectedRoleIds = signal<number[]>([]);
+
+  private get passwordValue(): string { return this.userForm.controls.password.value; }
+  get hasMinLength(): boolean { return this.passwordValue.length >= 8; }
+  get hasUpperCase(): boolean { return /[A-Z]/.test(this.passwordValue); }
+  get hasNumber(): boolean { return /\d/.test(this.passwordValue); }
+  get hasSpecialChar(): boolean { return /[^\p{L}\p{N}\s]/u.test(this.passwordValue); }
+  readonly passwordRules = [
+    { label: 'Mínimo 8 caracteres', test: () => this.hasMinLength },
+    { label: 'Al menos 1 letra mayúscula', test: () => this.hasUpperCase },
+    { label: 'Al menos 1 número', test: () => this.hasNumber },
+    { label: 'Al menos 1 carácter especial', test: () => this.hasSpecialChar },
+  ];
   tenantForm = { name: '', code: '', slug: '', email: '' };
   readonly activeTab = signal<'users' | 'roles'>('users');
   readonly permissionsRoleId = signal<number | null>(null);
@@ -151,6 +204,11 @@ export class AdministrationPage {
   readonly tenantName = computed(() => this.currentUser()?.tenantName || 'la organización del usuario autenticado');
 
   constructor() {
+    const { firstName, lastName, username } = this.userForm.controls;
+    merge(firstName.valueChanges, lastName.valueChanges).pipe(takeUntilDestroyed()).subscribe(() => {
+      // Solo autogenera mientras el usuario no haya editado el campo a mano (patchValue no lo marca dirty).
+      if (!username.dirty) username.patchValue(suggestUsername(firstName.value, lastName.value));
+    });
     effect(() => {
       if (this.isTenantArea) {
         if (this.isSuperadmin() && !this.isCreate) this.loadTenants();
@@ -182,11 +240,35 @@ export class AdministrationPage {
     this.confirmation.set({ title: value === 'SUSPENDED' ? 'Suspender organización' : 'Activar organización', message: `${value === 'SUSPENDED' ? '¿Quieres suspender' : '¿Quieres activar'} ${tenant.name}?`, action: () => this.api.changeTenantStatus(tenant.id, value).subscribe({ next: () => this.loadTenants(), error: err => { this.error.set(true); this.message.set(this.apiError(err, 'No se pudo cambiar el estado del tenant.')); } }) });
   }
 
-  createUser(): void {
-    this.saving.set(true); this.message.set('');
-    const payload = { ...this.form };
-    delete (payload as any).confirmPassword;
-    this.api.createUser(payload).subscribe({ next: () => { this.saving.set(false); this.message.set('Usuario creado correctamente.'); this.form = { username: '', email: '', password: '', confirmPassword: '', firstName: '', lastName: '', roleIds: [] }; }, error: err => { this.saving.set(false); this.showError(this.apiError(err, 'No se pudo crear el usuario.')); } });
+  invalid(name: string): boolean {
+    const control = this.userForm.get(name);
+    return !!control && control.invalid && (control.touched || control.dirty);
+  }
+
+  onSubmit(): void {
+    if (this.userForm.invalid) { this.userForm.markAllAsTouched(); return; }
+    const { firstName, lastName, username, email, password, roleIds } = this.userForm.getRawValue();
+    const payload: CreateUserPayload = {
+      username: username.trim(),
+      email: email.trim(),
+      password,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      roleIds: [...roleIds],
+    };
+    this.saving.set(true); this.message.set(''); this.error.set(false);
+    // TEMPORAL (traza): password enmascarada
+    console.log('Payload enviado al backend:', { ...payload, password: '*'.repeat(payload.password.length) });
+    this.api.createUser(payload).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.userForm.reset();
+        this.selectedRoleIds.set([]);
+        this.message.set('Usuario creado correctamente.');
+        setTimeout(() => this.router.navigateByUrl('/users'), 900);
+      },
+      error: err => { console.error('Error creando usuario:', err.status, err.error); this.saving.set(false); this.showError(this.apiError(err, 'No se pudo crear el usuario.')); },
+    });
   }
 
   createTenant(): void {
@@ -195,8 +277,12 @@ export class AdministrationPage {
   }
 
   toggleFormRole(id: number): void {
-    const idx = this.form.roleIds.indexOf(id);
-    if (idx >= 0) this.form.roleIds.splice(idx, 1); else this.form.roleIds.push(id);
+    const next = this.selectedRoleIds().includes(id)
+      ? this.selectedRoleIds().filter(roleId => roleId !== id)
+      : [...this.selectedRoleIds(), id];
+    this.selectedRoleIds.set(next);
+    this.userForm.controls.roleIds.setValue(next);
+    this.userForm.controls.roleIds.markAsTouched();
   }
 
   toggleEditRole(id: number): void {
@@ -223,9 +309,11 @@ export class AdministrationPage {
   private showError(text: string): void { this.loading.set(false); this.error.set(true); this.message.set(text); }
   confirmAction(): void { const action = this.confirmation()?.action; this.closeConfirmation(); action?.(); }
   closeConfirmation(): void { this.confirmation.set(null); }
-  private apiError(error: { status?: number }, fallback: string): string {
-    if (error.status === 401 || error.status === 403) return 'No tienes permisos para realizar esta operación.';
+  private apiError(error: { status?: number; error?: { message?: string } }, fallback: string): string {
     if (error.status === 0) return 'No se pudo conectar con la API. Comprueba que el backend esté ejecutándose.';
+    const serverMessage = error.error?.message;
+    if (serverMessage) return serverMessage;
+    if (error.status === 401 || error.status === 403) return 'No tienes permisos para realizar esta operación.';
     return fallback;
   }
 }

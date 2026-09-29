@@ -33,8 +33,21 @@ export class App {
   });
   readonly initials = computed(() => this.displayName().split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || 'U');
   readonly tenantName = computed(() => this.currentUser()?.tenantName || (this.currentUser()?.platformAdmin ? 'Todos los tenants' : 'Organización autenticada'));
+  /** El módulo «Usuarios y equipos» (/users, /users/...) ya trae su propio buscador: se oculta el global. */
+  readonly hideGlobalSearch = computed(() => this.currentUrl().split(/[?#]/)[0].split('/')[1] === 'users');
   readonly toast = signal('');
   readonly mobileNavOpen = signal(false);
+  /** Sidebar reducido a iconos (solo escritorio). Se recuerda entre sesiones. */
+  readonly isCollapsed = signal(this.readCollapsed());
+
+  toggleSidebar(): void {
+    this.isCollapsed.update((collapsed) => !collapsed);
+    try { localStorage.setItem('sidebarCollapsed', String(this.isCollapsed())); } catch { /* almacenamiento no disponible */ }
+  }
+
+  private readCollapsed(): boolean {
+    try { return localStorage.getItem('sidebarCollapsed') === 'true'; } catch { return false; }
+  }
   readonly sidebarUserMenuOpen = signal(false);
   readonly headerUserMenuOpen = signal(false);
   private toastTimer?: ReturnType<typeof setTimeout>;

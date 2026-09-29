@@ -30,6 +30,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByIdAndDeletedAtIsNull(UUID id);
 
+    boolean existsByTenantIdAndUsernameIgnoreCase(UUID tenantId, String username);
+
+    boolean existsByTenantIdAndEmailIgnoreCase(UUID tenantId, String email);
+
     @Query("""
         SELECT u FROM User u
         WHERE u.tenantId = :tenantId

@@ -1,8 +1,8 @@
 @if (!isWorkspace()) {
   <router-outlet></router-outlet>
 } @else {
-  <main class="shell">
-    <aside class="sidebar">
+  <main class="shell" [class.sidebar-collapsed]="isCollapsed()">
+    <aside class="sidebar" [class.open]="mobileNavOpen()" [class.collapsed]="isCollapsed()" id="sidebar-nav">
       <!-- Brand Logo -->
       <a routerLink="/" class="brand" aria-label="NexoDocs, ir al inicio">
         <span class="brand-logo-icon">
@@ -17,6 +17,12 @@
           <small>Gestión Documental</small>
         </span>
       </a>
+
+      <!-- Colapsar / expandir (solo escritorio) -->
+      <button type="button" class="sidebar-toggle" (click)="toggleSidebar()" [attr.aria-expanded]="!isCollapsed()" aria-controls="sidebar-nav" [attr.aria-label]="isCollapsed() ? 'Expandir menú lateral' : 'Colapsar menú lateral'" [attr.title]="isCollapsed() ? 'Expandir menú' : 'Colapsar menú'">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" [style.transform]="isCollapsed() ? 'rotate(180deg)' : 'none'"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>Colapsar menú</span>
+      </button>
 
       <!-- Organización Activa Card -->
       <div class="tenant-card">
@@ -45,6 +51,7 @@
             <div class="nav-group">
               <a
                 class="nav-item"
+                [attr.title]="isCollapsed() ? item.label : null"
                 [class.active]="isActiveItem(item.label)"
                 [routerLink]="item.children[0].href"
                 (click)="openNav(item.label)"
@@ -175,12 +182,13 @@
         }
       </div>
     </aside>
+@if (mobileNavOpen()) {      <div class="sidebar-overlay" (click)="mobileNavOpen.set(false)" aria-hidden="true"></div>    }
 
     <!-- Área de Trabajo Principal -->
     <section class="workspace">
       <header class="topbar">
         <div class="mobile-brand-wrap">
-          <button type="button" class="menu-toggle-btn" (click)="mobileNavOpen.set(!mobileNavOpen())" aria-label="Abrir menú">
+          <button type="button" class="menu-toggle-btn" (click)="mobileNavOpen.set(!mobileNavOpen())" aria-label="Abrir menú" aria-controls="sidebar-nav" [attr.aria-expanded]="mobileNavOpen()">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
@@ -190,14 +198,16 @@
           </a>
         </div>
 
-        <label class="topbar-search">
-          <span class="search-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-          </span>
-          <input aria-label="Buscar en NexoDocs" placeholder="Buscar documentos, expedientes o usuarios..." />
-        </label>
+        @if (!hideGlobalSearch()) {
+          <label class="topbar-search">
+            <span class="search-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </span>
+            <input aria-label="Buscar en NexoDocs" placeholder="Buscar documentos, expedientes o usuarios..." />
+          </label>
+        }
 
         <div class="topbar-actions">
           <a routerLink="/notifications/unread" class="topbar-btn bell-btn" aria-label="Notificaciones">
@@ -231,21 +241,6 @@
           </div>
         </div>
       </header>
-
-      @if (mobileNavOpen()) {
-        <div class="mobile-nav-drawer">
-          @for (section of availableSections(); track section.title) {
-            <p class="mobile-nav-section-title">{{ section.title | uppercase }}</p>
-            @for (item of section.items; track item.label) {
-              <div class="mobile-nav-group">
-                <a [routerLink]="item.children[0].href" [class.active]="isActiveItem(item.label)" (click)="openNav(item.label)">
-                  {{ item.label }}
-                </a>
-              </div>
-            }
-          }
-        </div>
-      }
 
       <router-outlet></router-outlet>
     </section>

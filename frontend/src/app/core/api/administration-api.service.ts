@@ -42,7 +42,8 @@ export interface UpdateUserPayload {
   roleIds?: number[];
 }
 export interface ApiTenant { id: string; name: string; code: string; slug: string; status: string; }
-export interface ApiRole { id: number; name: string; description: string | null; system: boolean; }
+export interface ApiRole { id: number; name: string; description: string | null; system: boolean; permissionCount: number; userCount: number; active?: boolean; }
+export interface CreateRolePayload { name: string; description: string; permissionIds: number[]; }
 export interface CreateTenantPayload { name: string; code: string; slug: string; email: string; }
 
 export interface ApiPermission {
@@ -89,8 +90,24 @@ export class AdministrationApiService {
     return this.http.get<PageResponse<ApiUser>>(`${API_URL}/users/responsible`, { params });
   }
 
-  roles(): Observable<ApiRole[]> {
-    return this.http.get<ApiRole[]>(`${API_URL}/roles`);
+  roles(includeInactive = false): Observable<ApiRole[]> {
+    return this.http.get<ApiRole[]>(`${API_URL}/roles`, { params: { includeInactive } });
+  }
+
+  createRole(payload: CreateRolePayload): Observable<ApiRole> {
+    return this.http.post<ApiRole>(`${API_URL}/roles`, payload);
+  }
+
+  updateRole(id: number, payload: CreateRolePayload): Observable<ApiRole> {
+    return this.http.put<ApiRole>(`${API_URL}/roles/${id}`, payload);
+  }
+
+  setRoleStatus(id: number, isActive: boolean): Observable<ApiRole> {
+    return this.http.patch<ApiRole>(`${API_URL}/roles/${id}/status`, { isActive });
+  }
+
+  deleteRole(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/roles/${id}`);
   }
 
   rolePermissions(roleId: number): Observable<ApiRolePermissions> {
@@ -99,6 +116,10 @@ export class AdministrationApiService {
 
   updateRolePermissions(roleId: number, permissionIds: number[]): Observable<ApiRolePermissions> {
     return this.http.put<ApiRolePermissions>(`${API_URL}/roles/${roleId}/permissions`, { permissionIds });
+  }
+
+  permissions(): Observable<ApiPermission[]> {
+    return this.http.get<ApiPermission[]>(`${API_URL}/permissions`);
   }
 
   permissionDetail(id: number): Observable<ApiPermission> {

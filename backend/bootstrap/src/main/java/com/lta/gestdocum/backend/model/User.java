@@ -3,18 +3,24 @@ package com.lta.gestdocum.backend.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
 @Table(name = "users")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "tenant_id")
+    @Column(name = "tenant_id", updatable = false)
     private UUID tenantId;
 
     @Column(nullable = false, length = 80)
@@ -33,16 +39,16 @@ public class User {
     private String lastName;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(nullable = false, columnDefinition = "user_status")
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
-    @Column(name = "is_platform_admin")
+    @Column(name = "is_platform_admin", insertable = false, updatable = false)
     @Builder.Default
     private boolean isPlatformAdmin = false;
 
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
-    public enum UserStatus { INVITED, ACTIVE, INACTIVE, BLOCKED, SUSPENDED }
 }

@@ -1,9 +1,11 @@
 package com.lta.gestdocum.backend.service;
 
+import com.lta.gestdocum.backend.dto.CreateRoleRequest;
 import com.lta.gestdocum.backend.dto.RolePermissionsResponse;
 import com.lta.gestdocum.backend.dto.RolePermissionsResponse.Item;
 import com.lta.gestdocum.backend.dto.RolePermissionsResponse.PermissionModuleGroup;
 import com.lta.gestdocum.backend.dto.RoleResponse;
+import com.lta.gestdocum.backend.exception.DuplicateResourceException;
 import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.model.Permission;
 import com.lta.gestdocum.backend.model.Role;
@@ -33,13 +35,90 @@ public class RoleService {
     }
 
     @Transactional(readOnly = true)
-    public List<RoleResponse> activeRoles() {
+    public List<RoleResponse> roles(boolean includeInactive) {
         var tenantId = context.requireTenantId();
         context.establishDatabaseContext();
-        return repository.findByTenantIdAndIsActiveTrueOrderByNameAsc(tenantId).stream()
-                .map(role -> new RoleResponse(role.getId(), role.getName(),
-                        role.getDescription(), role.isSystem()))
+        return (includeInactive ? repository.findByTenantIdOrderByNameAsc(tenantId)
+                : repository.findByTenantIdAndIsActiveTrueOrderByNameAsc(tenantId)).stream()
+                .map(role -> toResponse(tenantId, role))
                 .toList();
+    }
+
+    @Transactional
+    public RoleResponse createRole(CreateRoleRequest request) {
+        UUID tenantId = context.requireTenantId();
+        context.establishDatabaseContext();
+        String name = uniqueName(tenantId, request.name(), null);
+        Role role = repository.save(Role.builder().tenantId(tenantId).name(name)
+                .description(request.description()).build());
+        grantPermissions(tenantId, role.getId(), request.permissionIds());
+        return toResponse(tenantId, role);
+    }
+
+    @Transactional
+    public RoleResponse updateRole(Long id, CreateRoleRequest request) {
+        UUID tenantId = context.requireTenantId();
+        context.establishDatabaseContext();
+        Role role = editableRole(id, tenantId);
+        role.setName(uniqueName(tenantId, request.name(), id));
+        role.setDescription(request.description());
+        repository.save(role);
+        grantPermissions(tenantId, id, request.permissionIds());
+        return toResponse(tenantId, role);
+    }
+
+    @Transactional
+    public RoleResponse setStatus(Long id, boolean active) {
+        UUID tenantId = context.requireTenantId();
+        context.establishDatabaseContext();
+        Role role = editableRole(id, tenantId);
+        role.setActive(active);
+        return toResponse(tenantId, repository.save(role));
+    }
+
+    @Transactional
+    public void deleteRole(Long id) {
+        UUID tenantId = context.requireTenantId();
+        context.establishDatabaseContext();
+        Role role = editableRole(id, tenantId);
+        if (repository.countUsers(tenantId, id) > 0) {
+            throw new DuplicateResourceException("No se puede eliminar el rol porque tiene usuarios asignados. "
+                    + "Reasigna a los usuarios antes de continuar.");
+        }
+        repository.delete(role); // role_permissions se elimina en cascada (FK ON DELETE CASCADE)
+    }
+
+    /** Rol del tenant autenticado; los roles de sistema son inmutables. */
+    private Role editableRole(Long id, UUID tenantId) {
+        Role role = repository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new NotFoundException("Rol no encontrado"));
+        if (role.isSystem()) throw new IllegalArgumentException("Los roles de sistema no se pueden modificar, desactivar ni eliminar");
+        return role;
+    }
+
+    /** Nombre normalizado y sin colisión con otro rol del tenant (excluyendo {@code excludeId}). */
+    private String uniqueName(UUID tenantId, String rawName, Long excludeId) {
+        String name = rawName.trim();
+        if (repository.findByTenantIdAndNameIgnoreCase(tenantId, name).filter(r -> !r.getId().equals(excludeId)).isPresent()) {
+            throw new DuplicateResourceException("Ya existe un rol con el nombre '" + name + "'");
+        }
+        return name;
+    }
+
+    private RoleResponse toResponse(UUID tenantId, Role role) {
+        return new RoleResponse(role.getId(), role.getName(), role.getDescription(), role.isSystem(), role.isActive(),
+                repository.findPermissionIds(tenantId, role.getId()).size(),
+                repository.countUsers(tenantId, role.getId()));
+    }
+
+    private void grantPermissions(UUID tenantId, Long roleId, Set<Long> permissionIds) {
+        var validIds = permissionRepository.findAllById(permissionIds).stream()
+                .filter(Permission::isActive).map(Permission::getId).collect(Collectors.toSet());
+        if (!validIds.equals(permissionIds)) {
+            throw new IllegalArgumentException("Contiene permisos inválidos o inactivos");
+        }
+        repository.clearPermissions(tenantId, roleId);
+        permissionIds.forEach(id -> repository.grantPermission(tenantId, roleId, id));
     }
 
     @Transactional(readOnly = true)
@@ -67,13 +146,7 @@ public class RoleService {
         context.establishDatabaseContext();
         repository.findByIdAndTenantId(roleId, tenantId)
                 .orElseThrow(() -> new NotFoundException("Rol no encontrado"));
-        var validIds = permissionRepository.findAllById(permissionIds).stream()
-                .filter(Permission::isActive).map(Permission::getId).collect(Collectors.toSet());
-        if (!validIds.equals(permissionIds)) {
-            throw new IllegalArgumentException("Contiene permisos inválidos o inactivos");
-        }
-        repository.clearPermissions(tenantId, roleId);
-        permissionIds.forEach(id -> repository.grantPermission(tenantId, roleId, id));
+        grantPermissions(tenantId, roleId, permissionIds);
         return getRolePermissions(roleId);
     }
 }

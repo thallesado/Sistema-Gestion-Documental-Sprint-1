@@ -7,6 +7,7 @@ import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.exception.TenantMismatchException;
 import com.lta.gestdocum.backend.model.ClinicalStaff;
 import com.lta.gestdocum.backend.model.User;
+import com.lta.gestdocum.backend.model.UserStatus;
 import com.lta.gestdocum.backend.repository.ClinicalStaffRepository;
 import com.lta.gestdocum.backend.repository.UserRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
@@ -23,6 +24,8 @@ import java.util.Set;
 
 @Service
 public class UserService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
     private final ClinicalStaffRepository clinicalStaffRepository;
@@ -60,6 +63,14 @@ public class UserService {
         if (request.getTenantId() != null && !tenantId.equals(request.getTenantId())) {
             throw new TenantMismatchException();
         }
+        if (userRepository.existsByTenantIdAndUsernameIgnoreCase(tenantId, request.getUsername())) {
+            throw new com.lta.gestdocum.backend.exception.DuplicateResourceException(
+                    "El nombre de usuario '" + request.getUsername() + "' ya está en uso");
+        }
+        if (userRepository.existsByTenantIdAndEmailIgnoreCase(tenantId, request.getEmail())) {
+            throw new com.lta.gestdocum.backend.exception.DuplicateResourceException(
+                    "El correo '" + request.getEmail() + "' ya está registrado");
+        }
         User user = User.builder()
                 .tenantId(tenantId)
                 .username(request.getUsername())
@@ -67,10 +78,14 @@ public class UserService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
-                .status(User.UserStatus.ACTIVE)
+                .status(UserStatus.ACTIVE)
                 .build();
 
+        log.info("[CREATE-USER] Guardando usuario tenantId={} username={} passwordEncoded={}",
+                tenantId, user.getUsername(), user.getPasswordHash() != null && user.getPasswordHash().startsWith("$2"));
         User savedUser = userRepository.save(user);
+        userRepository.flush(); // fuerza el INSERT aquí para que cualquier error de BD se vea en este punto
+        log.info("[CREATE-USER] Usuario guardado id={}; asignando roleIds={}", savedUser.getId(), request.getRoleIds());
         assignRoles(tenantId, savedUser.getId(), request.getRoleIds());
 
         String staffTypeStr = null;
@@ -99,13 +114,13 @@ public class UserService {
     User user = userRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
             .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
 
-    User.UserStatus previousStatus = user.getStatus();
+    UserStatus previousStatus = user.getStatus();
     user.setFirstName(request.getFirstName());
     user.setLastName(request.getLastName());
     user.setEmail(request.getEmail());
     if (request.getStatus() != null) {
-        User.UserStatus status = User.UserStatus.valueOf(request.getStatus().toUpperCase());
-        if (id.equals(authenticatedUserContext.requireUserId()) && status != User.UserStatus.ACTIVE)
+        UserStatus status = UserStatus.valueOf(request.getStatus().toUpperCase());
+        if (id.equals(authenticatedUserContext.requireUserId()) && status != UserStatus.ACTIVE)
             throw new IllegalArgumentException("No puede desactivarse o bloquearse a sí mismo");
         user.setStatus(status);
     }
@@ -145,7 +160,7 @@ public class UserService {
         User user = userRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
         user.setDeletedAt(OffsetDateTime.now());
-        user.setStatus(User.UserStatus.INACTIVE);
+        user.setStatus(UserStatus.INACTIVE);
         userRepository.save(user);
     }
 

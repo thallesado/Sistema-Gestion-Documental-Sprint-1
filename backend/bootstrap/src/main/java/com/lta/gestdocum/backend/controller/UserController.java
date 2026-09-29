@@ -23,6 +23,8 @@ import java.util.UUID;
 @SecurityRequirement(name = "BearerAuth")
 public class UserController {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UserController.class);
+
     private final UserService userService;
 
     public UserController(UserService userService) {
@@ -52,6 +54,13 @@ public class UserController {
     @PreAuthorize("hasAuthority('user:create')")
     @Operation(summary = "Crear Usuario", description = "Registra un nuevo usuario asignándole un perfil de personal clínico (Doctor, Enfermero, etc.)")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserCreateRequest request) {
+        // TEMPORAL (traza): DTO recibido, sin la contraseña
+        log.info("[CREATE-USER] DTO recibido: tenantId={}, username={}, email={}, firstName={}, lastName={}, "
+                        + "staffType={}, specialty={}, professionalLicense={}, roleIds={}, passwordLength={}",
+                request.getTenantId(), request.getUsername(), request.getEmail(), request.getFirstName(),
+                request.getLastName(), request.getStaffType(), request.getSpecialty(),
+                request.getProfessionalLicense(), request.getRoleIds(),
+                request.getPassword() == null ? null : request.getPassword().length());
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
     }
     @PutMapping("/{id}")
