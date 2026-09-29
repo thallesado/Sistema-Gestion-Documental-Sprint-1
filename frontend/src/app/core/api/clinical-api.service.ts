@@ -75,6 +75,23 @@ export interface CreatePatientPayload {
   email?: string;
 }
 
+export interface MedicalNoteItem {
+  id: string;
+  clinicalHistoryId: string;
+  episodeId: string | null;
+  authorId: string;
+  noteType: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface CreateMedicalNotePayload {
+  clinicalHistoryId: string;
+  episodeId?: string;
+  noteType: string;
+  content: string;
+}
+
 /** Resumen de lectura rápida de HU-10, limitado por el tenant del JWT. */
 export interface PatientQuickSummary {
   patientId: string;
@@ -131,6 +148,15 @@ export class ClinicalApiService {
 
   timeline(historyId: string): Observable<TimelineEvent[]> {
     return this.http.get<TimelineEvent[]>(`${API_URL}/clinical-histories/${historyId}/timeline`);
+  }
+
+  notes(clinicalHistoryId: string, page = 0, size = 50): Observable<ApiPage<MedicalNoteItem>> {
+    const params = new HttpParams().set('clinicalHistoryId', clinicalHistoryId).set('page', page).set('size', size);
+    return this.http.get<ApiPage<MedicalNoteItem>>(`${API_URL}/medical-notes`, { params });
+  }
+
+  createNote(payload: CreateMedicalNotePayload): Observable<MedicalNoteItem> {
+    return this.http.post<MedicalNoteItem>(`${API_URL}/medical-notes`, payload);
   }
 }
 

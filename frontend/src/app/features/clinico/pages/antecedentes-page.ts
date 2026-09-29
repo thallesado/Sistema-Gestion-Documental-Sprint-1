@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalHistoryPayload } from '../../../core/api/clinical-api.service';
 
 @Component({
@@ -14,9 +15,9 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalHistoryPayload
       <header class="dashboard-welcome">
         <div>
           <p class="eyebrow">MÓDULO CLÍNICO · HISTORIA CLÍNICA</p>
-          <h1>Captura de Antecedentes y Anamnesis</h1>
+          <h1>Captura Estructurada de Antecedentes y Diagnósticos Base</h1>
           <p class="welcome-copy">
-            Registro estructurado de diagnósticos base, antecedentes patológicos, alergias y medicación vinculados al expediente único del paciente.
+            Registro estructurado de diagnósticos médicos, patologías de base y alergias del paciente para consulta médica inmediata.
           </p>
         </div>
       </header>
@@ -117,22 +118,22 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalHistoryPayload
               <div class="form-fields" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                 <label>
                   <span>Antecedentes Patológicos</span>
-                  <textarea formControlName="pathologicalAntecedents" rows="3" placeholder="Enfermedades previas, cirugías, traumas, hospitalizaciones..."></textarea>
+                  <textarea formControlName="pathologicalAntecedents" rows="3" (input)="autoResizeTextarea($event)" placeholder="Enfermedades previas, cirugías, traumas, hospitalizaciones..."></textarea>
                 </label>
 
                 <label>
                   <span>Antecedentes No Patológicos</span>
-                  <textarea formControlName="nonPathologicalAntecedents" rows="3" placeholder="Hábitos, inmunizaciones, estilo de vida..."></textarea>
+                  <textarea formControlName="nonPathologicalAntecedents" rows="3" (input)="autoResizeTextarea($event)" placeholder="Hábitos, inmunizaciones, estilo de vida..."></textarea>
                 </label>
 
                 <label>
                   <span>Antecedentes Familiares</span>
-                  <textarea formControlName="familyAntecedents" rows="3" placeholder="Diabetes familiar, hipertensión, cardiopatías, neoplasias..."></textarea>
+                  <textarea formControlName="familyAntecedents" rows="3" (input)="autoResizeTextarea($event)" placeholder="Diabetes familiar, hipertensión, cardiopatías, neoplasias..."></textarea>
                 </label>
 
                 <label>
                   <span>Condiciones Crónicas</span>
-                  <textarea formControlName="chronicConditions" rows="3" placeholder="Diagnósticos crónicos permanentes o en tratamiento..."></textarea>
+                  <textarea formControlName="chronicConditions" rows="3" (input)="autoResizeTextarea($event)" placeholder="Diagnósticos crónicos permanentes o en tratamiento..."></textarea>
                 </label>
               </div>
 
@@ -219,7 +220,7 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalHistoryPayload
               <!-- Observaciones -->
               <label style="margin-top: 16px; margin-bottom: 20px; display: block;">
                 <span style="display: block; font-size: 12px; font-weight: 700; color: #153a39; margin-bottom: 6px;">Observaciones Clínicas Generales</span>
-                <textarea formControlName="observations" rows="2" placeholder="Notas complementarias sobre la entrevista inicial o anamnesis..."></textarea>
+                <textarea formControlName="observations" rows="2" (input)="autoResizeTextarea($event)" placeholder="Notas complementarias sobre la entrevista inicial o anamnesis..."></textarea>
               </label>
 
               <!-- Mensajes de Estado -->
@@ -265,8 +266,8 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalHistoryPayload
               <p><strong>Código:</strong> {{ history.code }}</p>
               <p><strong>Paciente:</strong> {{ history.patientLabel }}</p>
               <p><strong>Grupo Sanguíneo:</strong> {{ history.bloodType || 'No registrado' }}</p>
-              <p><strong>Alergias:</strong> {{ (history.allergies?.length || 0) }} registradas</p>
-              <p><strong>Medicamentos:</strong> {{ (history.currentMedications?.length || 0) }} activos</p>
+              <p><strong>Alergias:</strong> {{ (history.allergies.length || 0) }} registradas</p>
+              <p><strong>Medicamentos:</strong> {{ (history.currentMedications.length || 0) }} activos</p>
             </div>
           }
         </aside>
@@ -319,7 +320,7 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalHistoryPayload
 
               <section class="print-section">
                 <h3>3. ALERGIAS IDENTIFICADAS</h3>
-                @if ((history.allergies?.length || 0) > 0) {
+                @if (history.allergies.length > 0) {
                   <table class="print-table">
                     <thead>
                       <tr>
@@ -347,7 +348,7 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalHistoryPayload
 
               <section class="print-section">
                 <h3>4. MEDICACIÓN ACTUAL</h3>
-                @if ((history.currentMedications?.length || 0) > 0) {
+                @if (history.currentMedications.length > 0) {
                   <table class="print-table">
                     <thead>
                       <tr>
@@ -416,9 +417,10 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalHistoryPayload
     .critical-banner small { display: block; font-size: 11px; }
     .patient-selector-box { background: #f8fbfa; border: 1px solid #dcebe8; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
     .form-fields { display: flex; gap: 16px; margin-bottom: 12px; }
-    .form-fields label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; color: #153a39; }
-    input, select, textarea { border: 1px solid #dcebe8; border-radius: 8px; padding: 9px; font-size: 13px; color: #153a39; background: #fff; outline: none; font-family: inherit; }
+    .form-fields label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; color: #153a39; width: 100%; box-sizing: border-box; }
+    input, select, textarea { border: 1px solid #dcebe8; border-radius: 8px; padding: 9px; font-size: 13px; color: #153a39; background: #fff; outline: none; font-family: inherit; width: 100%; box-sizing: border-box; }
     input:focus, select:focus, textarea:focus { border-color: #087f7b; box-shadow: 0 0 0 2px rgba(8, 127, 123, 0.15); }
+    textarea { resize: none; field-sizing: content; min-height: 64px; line-height: 1.5; overflow-y: hidden; }
     .loading-hint { font-size: 11px; color: #087f7b; margin: 8px 0 0; font-weight: 600; }
     .dynamic-section { background: #f8fbfa; border: 1px solid #dcebe8; border-radius: 12px; padding: 16px; }
     .dynamic-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -476,6 +478,7 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalHistoryPayload
 export class AntecedentesPage implements OnInit {
   private readonly clinicalService = inject(ClinicalApiService);
   private readonly fb = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
 
   readonly patients = signal<ApiPatient[]>([]);
   readonly patientSearch = signal<string>('');
@@ -505,12 +508,30 @@ export class AntecedentesPage implements OnInit {
     this.loadPatients();
   }
 
+  autoResizeTextarea(event: Event): void {
+    const el = event.target as HTMLTextAreaElement;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = `${Math.max(el.scrollHeight, 64)}px`;
+    }
+  }
+
   loadPatients() {
     this.isLoadingPatients.set(true);
     this.clinicalService.patients().subscribe({
       next: (page) => {
         this.patients.set(page.content);
         this.isLoadingPatients.set(false);
+
+        const paramPatientId = this.route.snapshot.queryParamMap.get('patientId');
+        if (paramPatientId) {
+          const matched = page.content.find((p) => p.id === paramPatientId);
+          if (matched) {
+            this.historyForm.patchValue({ patientId: paramPatientId });
+            this.selectedPatient.set(matched);
+            this.loadPatientHistory(paramPatientId);
+          }
+        }
       },
       error: () => {
         this.errorMessage.set('No fue posible cargar la lista de pacientes.');
