@@ -48,6 +48,7 @@ import { RolePermissionsModal } from '../components/role-permissions-modal';
               <label class="field-username">Usuario<input name="username" [(ngModel)]="form.username" required /></label>
               <label class="field-email">Correo<input type="email" name="email" [(ngModel)]="form.email" required /></label>
               <label class="field-password">Contraseña<input type="password" name="password" [(ngModel)]="form.password" required minlength="8" /></label>
+              <label class="field-confirm-password">Confirmar contraseña<input type="password" name="confirmPassword" [(ngModel)]="form.confirmPassword" required minlength="8" /></label>
               <label class="chip-field field-roles">
                 <span class="chip-field-header"><span>Roles permitidos</span><span class="role-chip-counter">{{ form.roleIds.length }} seleccionado{{ form.roleIds.length === 1 ? '' : 's' }}</span></span>
                 <div class="role-chip-list" role="group" aria-label="Roles permitidos">
@@ -124,7 +125,7 @@ export class AdministrationPage {
   readonly message = signal('');
   readonly error = signal(false);
   search = '';
-  form = { username: '', email: '', password: '', firstName: '', lastName: '', roleIds: [] as number[] };
+  form = { username: '', email: '', password: '', confirmPassword: '', firstName: '', lastName: '', roleIds: [] as number[] };
   tenantForm = { name: '', code: '', slug: '', email: '' };
   readonly activeTab = signal<'users' | 'roles'>('users');
   readonly permissionsRoleId = signal<number | null>(null);
@@ -184,7 +185,8 @@ export class AdministrationPage {
   createUser(): void {
     this.saving.set(true); this.message.set('');
     const payload = { ...this.form };
-    this.api.createUser(payload).subscribe({ next: () => { this.saving.set(false); this.message.set('Usuario creado correctamente.'); this.form = { username: '', email: '', password: '', firstName: '', lastName: '', roleIds: [] }; }, error: err => { this.saving.set(false); this.showError(this.apiError(err, 'No se pudo crear el usuario.')); } });
+    delete (payload as any).confirmPassword;
+    this.api.createUser(payload).subscribe({ next: () => { this.saving.set(false); this.message.set('Usuario creado correctamente.'); this.form = { username: '', email: '', password: '', confirmPassword: '', firstName: '', lastName: '', roleIds: [] }; }, error: err => { this.saving.set(false); this.showError(this.apiError(err, 'No se pudo crear el usuario.')); } });
   }
 
   createTenant(): void {

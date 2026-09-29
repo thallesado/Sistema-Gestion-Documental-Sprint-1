@@ -75,22 +75,46 @@ body {
 .create-user-form { padding: 28px 32px; }
 .create-user-form .form-grid {
   column-gap: 28px;
-  grid-template-areas: "first last" "user email" "pass roles";
+  grid-template-areas: "first last" "user email" "pass confirm" "roles roles";
   grid-template-columns: 1fr 1fr;
-  row-gap: 20px;
+  row-gap: 18px;
 }
 .create-user-form .field-first { grid-area: first; }
 .create-user-form .field-last { grid-area: last; }
 .create-user-form .field-username { grid-area: user; }
 .create-user-form .field-email { grid-area: email; }
 .create-user-form .field-password { grid-area: pass; }
-.create-user-form .field-roles { grid-area: roles; grid-column: auto; }
+.create-user-form .field-confirm-password { grid-area: confirm; }
+.create-user-form .field-roles { grid-area: roles; grid-column: auto; margin-top: 2px; }
 .create-user-form .form-grid input { border-radius: 9px; }
+.create-user-form .form-grid input[type="password"]:autofill,
+.create-user-form .form-grid input[type="password"]:autofill:hover,
+.create-user-form .form-grid input[type="password"]:autofill:focus { box-shadow: inset 0 0 0 50px white !important; -webkit-text-fill-color: var(--ink) !important; }
 .create-user-form .chip-field-header { align-items: center; display: flex; justify-content: space-between; }
 .create-user-form .role-chip-counter { background: var(--mint); border-radius: 99px; color: var(--teal-strong); font-size: 10px; font-weight: 800; padding: 3px 9px; white-space: nowrap; }
-.create-user-form .field-roles .role-chip-list { max-height: 128px; overflow-y: auto; padding: 2px 2px 4px; }
+.create-user-form .field-roles .role-chip-list {
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: rgba(8, 127, 123, 0.02);
+  border: 1px solid rgba(8, 127, 123, 0.08);
+  border-radius: 8px;
+}
+.create-user-form .field-roles .role-chip-list::-webkit-scrollbar {
+  width: 6px;
+}
+.create-user-form .field-roles .role-chip-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.create-user-form .field-roles .role-chip-list::-webkit-scrollbar-thumb {
+  background: rgba(8, 127, 123, 0.2);
+  border-radius: 3px;
+}
+.create-user-form .field-roles .role-chip-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(8, 127, 123, 0.35);
+}
 @media (max-width: 680px) {
-  .create-user-form .form-grid { grid-template-areas: "first" "last" "user" "email" "pass" "roles"; grid-template-columns: 1fr; }
+  .create-user-form .form-grid { grid-template-areas: "first" "last" "user" "email" "pass" "confirm" "roles"; grid-template-columns: 1fr; }
 }
 
 .permissions-modal { max-width: 760px; }
