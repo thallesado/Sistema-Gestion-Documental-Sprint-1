@@ -9,7 +9,7 @@ export type ReportFilter = {
   placeholder?: string;
 };
 
-export type ReportColumn = { key: string; label: string };
+export type ReportColumn = { key: string; label?: string; header?: string };
 export type ReportRow = Record<string, string | number>;
 export type ChartPoint = { label: string; value: number; color?: string };
 

@@ -8,7 +8,7 @@ import ts from 'typescript';
 
 const frontend = fileURLToPath(new URL('../', import.meta.url));
 const require = createRequire(import.meta.url);
-const source = await readFile(path.join(frontend, 'src/app/core/data/nexodocs-data.ts'), 'utf8');
+const source = await readFile(path.join(frontend, 'src/app/core/data/navigation.data.ts'), 'utf8');
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
@@ -19,7 +19,7 @@ const { navigationRoutes, routeFor } = exports;
 test('cada opcion del menu tiene una URL unica en Angular', () => {
   const hrefs = navigationRoutes.map((route) => route.href);
   assert.equal(new Set(hrefs).size, hrefs.length, 'Hay URLs duplicadas en el menu');
-  assert.equal(hrefs.length, 80, 'Debe conservarse el mapa funcional de 80 pantallas');
+  assert.equal(hrefs.length, 82, 'Debe conservarse el mapa funcional de 82 pantallas');
   assert.equal(routeFor('Documentos', 'Nuevo documento'), '/documents/new');
   assert.equal(routeFor('Tenants', 'Branding'), '/tenants/branding');
   assert.throws(() => routeFor('Modulo inexistente'), /Ruta no definida/);

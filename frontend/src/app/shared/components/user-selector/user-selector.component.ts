@@ -33,7 +33,7 @@ export class UserSelectorComponent implements OnInit {
   private readonly api = inject(AdministrationApiService);
   @Input() label = 'Responsable';
   @Input() placeholder = 'Buscar usuario del tenant…';
-  @Input() value = '';
+  @Input() value: string | undefined = '';
   @Output() valueChange = new EventEmitter<string>();
   users: ApiUser[] = [];
   query = '';

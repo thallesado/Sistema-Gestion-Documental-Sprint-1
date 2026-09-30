@@ -27,6 +27,10 @@ export class ReportTable {
   @Input() subtitle = '';
   @Input() columns: ReportColumn[] = [];
   @Input() rows: ReportRow[] = [];
+  @Input() totalRows = 0;
+  @Input() page = 1;
+  @Input() pageSize = 10;
+  @Output() pageChange = new EventEmitter<number>();
   @Input() actionLabel = '';
   @Output() action = new EventEmitter<ReportRow>();
 

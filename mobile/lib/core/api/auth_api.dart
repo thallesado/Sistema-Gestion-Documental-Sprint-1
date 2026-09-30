@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../constants/api_constants.dart';
+import '../data/mock_dashboard_data.dart';
 import '../errors/auth_exception.dart';
 
 class AuthApi {
@@ -88,172 +89,18 @@ class AuthApi {
       return jsonDecode(response.body) as Map<String, dynamic>;
     } catch (_) {
       final email = await getUserEmail() ?? 'laura@acme.com';
-      return {
-        'currentUser': {
-          'firstName': 'Laura',
-          'lastName': 'Martínez',
-          'email': email,
-          'role': 'Administrador de tenant',
-        },
-        'tasks': [
-          {
-            'id': '1',
-            'title': 'Revisión técnica de contrato marco',
-            'status': 'PENDING',
-            'priority': 1,
-            'dueAt': '2026-09-30T18:00:00Z',
-          },
-          {
-            'id': '2',
-            'title': 'Aprobación de orden de compra #892',
-            'status': 'IN_REVIEW',
-            'priority': 2,
-            'dueAt': '2026-10-02T12:00:00Z',
-          },
-          {
-            'id': '3',
-            'title': 'Firma digital de acta de entrega',
-            'status': 'COMPLETED',
-            'priority': 3,
-            'dueAt': '2026-09-24T17:00:00Z',
-          },
-        ],
-        'recentDocuments': [
-          {
-            'id': '101',
-            'code': 'DOC-2041',
-            'name': 'Política de seguridad de la información',
-            'status': 'Aprobado',
-            'updatedAt': '2026-09-26T09:42:00Z',
-          },
-          {
-            'id': '102',
-            'code': 'DOC-2042',
-            'name': 'Contrato marco proveedores 2025',
-            'status': 'En revisión',
-            'updatedAt': '2026-09-25T16:18:00Z',
-          },
-          {
-            'id': '103',
-            'code': 'DOC-2043',
-            'name': 'Informe auditoría interna Q2',
-            'status': 'Pendiente',
-            'updatedAt': '2026-09-10T11:00:00Z',
-          },
-        ],
-        'recentActivity': [
-          {
-            'id': 1,
-            'actorName': 'Laura Martínez',
-            'action': 'CREATE',
-            'entityType': 'DOCUMENT',
-            'occurredAt': DateTime.now().toIso8601String(),
-            'result': 'SUCCESS',
-          },
-          {
-            'id': 2,
-            'actorName': 'Carlos Méndez',
-            'action': 'UPDATE_STATUS',
-            'entityType': 'TASK',
-            'occurredAt': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
-            'result': 'SUCCESS',
-          },
-        ],
-      };
+      return getMockDashboardData(email);
     }
-  }
-
-  Future<List<Map<String, dynamic>>> documents({String? search, String? status}) async {
-    try {
-      final queryParams = <String, String>{'page': '0', 'size': '25'};
-      if (search != null && search.isNotEmpty) queryParams['search'] = search;
-      if (status != null && status.isNotEmpty) queryParams['status'] = status;
-      final query = queryParams.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
-      final response = await _get('/documents?$query');
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      return (body['content'] as List<dynamic>).cast<Map<String, dynamic>>();
-    } catch (_) {
-      final docs = <Map<String, dynamic>>[
-        {
-          'id': '101',
-          'code': 'DOC-2041',
-          'name': 'Política de seguridad de la información',
-          'status': 'Aprobado',
-          'author': 'María González',
-          'type': 'PDF',
-          'updatedAt': '2026-09-26T09:42:00Z',
-        },
-        {
-          'id': '102',
-          'code': 'DOC-2042',
-          'name': 'Contrato marco proveedores 2025',
-          'status': 'En revisión',
-          'author': 'Carlos Méndez',
-          'type': 'DOCX',
-          'updatedAt': '2026-09-25T16:18:00Z',
-        },
-        {
-          'id': '103',
-          'code': 'DOC-2043',
-          'name': 'Informe auditoría interna Q2',
-          'status': 'Pendiente',
-          'author': 'Javier Ruiz',
-          'type': 'XLSX',
-          'updatedAt': '2026-09-10T11:00:00Z',
-        },
-        {
-          'id': '104',
-          'code': 'DOC-2044',
-          'name': 'Manual de incorporación de personal',
-          'status': 'Archivado',
-          'author': 'Ana López',
-          'type': 'PDF',
-          'updatedAt': '2026-09-08T15:30:00Z',
-        },
-        {
-          'id': '105',
-          'code': 'DOC-2045',
-          'name': 'Borrador solicitud de compra equipos',
-          'status': 'Pendiente',
-          'author': 'Ana López',
-          'type': 'DOCX',
-          'updatedAt': '2026-09-03T10:15:00Z',
-        },
-      ];
-      if (search != null && search.isNotEmpty) {
-        final q = search.toLowerCase();
-        return docs.where((d) => (d['name'] as String).toLowerCase().contains(q) || (d['code'] as String).toLowerCase().contains(q)).toList();
-      }
-      if (status != null && status.isNotEmpty && status != 'Todos') {
-        return docs.where((d) => d['status'] == status).toList();
-      }
-      return docs;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> patients(String filter) async {
-    final response = await _get(
-      '/patients?size=20&filter=${Uri.encodeQueryComponent(filter)}',
-    );
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    return (body['content'] as List<dynamic>).cast<Map<String, dynamic>>();
-  }
-
-  Future<Map<String, dynamic>> quickSummary(String patientId) async {
-    final response = await _get('/patients/$patientId/quick-summary');
-    return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   Future<http.Response> _get(String path) async {
-    final token = await _storage.read(key: 'access_token');
-    if (token == null) throw const AuthException('La sesión móvil expiró.');
-    final response = await _client.get(
-      Uri.parse('$apiBaseUrl$path'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-    if (response.statusCode != 200) {
-      throw AuthException('La consulta falló (${response.statusCode}).');
-    }
-    return response;
+    final token = await getAccessToken();
+    final tenantId = await getTenantId();
+    final headers = {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+      if (tenantId != null && tenantId.isNotEmpty) 'X-Tenant-ID': tenantId,
+    };
+    return _client.get(Uri.parse('$apiBaseUrl$path'), headers: headers).timeout(const Duration(seconds: 8));
   }
 }

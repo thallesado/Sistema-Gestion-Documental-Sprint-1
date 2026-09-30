@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/api/auth_api.dart';
+import '../../features/tasks/presentation/widgets/task_item_card.dart';
 
 class TasksTab extends StatefulWidget {
   const TasksTab({super.key, required this.api});
@@ -30,7 +31,6 @@ class _TasksTabState extends State<TasksTab> {
       final tasks = (data['tasks'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
       if (mounted) setState(() => allTasks = tasks);
     } catch (_) {
-      // Default sample tasks if offline
       if (mounted) {
         setState(() {
           allTasks = [
@@ -100,32 +100,29 @@ class _TasksTabState extends State<TasksTab> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Filter chips bar
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: filters.map((f) {
-                final selected = selectedFilter == f;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(f),
-                    selected: selected,
-                    onSelected: (_) => setState(() => selectedFilter = f),
-                    selectedColor: const Color(0xffd4ece7),
-                    checkmarkColor: const Color(0xff087f7b),
-                    labelStyle: TextStyle(
-                      fontSize: 12,
-                      fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                      color: selected ? const Color(0xff087f7b) : const Color(0xff374151),
-                    ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: filters.map((f) {
+              final selected = f == selectedFilter;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text(f),
+                  selected: selected,
+                  selectedColor: const Color(0xff087f7b).withOpacity(0.15),
+                  checkmarkColor: const Color(0xff087f7b),
+                  labelStyle: TextStyle(
+                    color: selected ? const Color(0xff087f7b) : const Color(0xff4b5563),
+                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                   ),
-                );
-              }).toList(),
-            ),
+                  onSelected: (val) {
+                    setState(() => selectedFilter = f);
+                  },
+                ),
+              );
+            }).toList(),
           ),
         ),
 
@@ -148,108 +145,9 @@ class _TasksTabState extends State<TasksTab> {
                     itemBuilder: (context, index) {
                       final task = filteredTasks[index];
                       final id = task['id'] as String? ?? '$index';
-                      final title = task['title'] as String? ?? 'Tarea';
-                      final status = task['status'] as String? ?? 'PENDING';
-                      final isDone = status == 'COMPLETED';
-                      final isReview = status == 'IN_REVIEW';
-                      final priority = task['priority'] as int? ?? 2;
-                      final priorityLabel = priority == 1 ? 'Alta' : priority == 2 ? 'Media' : 'Baja';
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey.shade200),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    icon: Icon(
-                                      isDone ? Icons.check_circle : Icons.radio_button_unchecked,
-                                      color: isDone ? const Color(0xff10b981) : const Color(0xffd97706),
-                                      size: 24,
-                                    ),
-                                    onPressed: () => toggleTask(id),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          title,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            decoration: isDone ? TextDecoration.lineThrough : null,
-                                            color: isDone ? Colors.grey : const Color(0xff1f2937),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: priority == 1
-                                                    ? const Color(0xfffee2e2)
-                                                    : const Color(0xfffef3c7),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                'Prioridad $priorityLabel',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: priority == 1
-                                                      ? const Color(0xff991b1b)
-                                                      : const Color(0xff92400e),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: isDone
-                                                    ? const Color(0xffd1fae5)
-                                                    : isReview
-                                                        ? const Color(0xffe0f2fe)
-                                                        : const Color(0xfff3f4f6),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                isDone ? 'Completada' : isReview ? 'En revisión' : 'Pendiente',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: isDone
-                                                      ? const Color(0xff065f46)
-                                                      : isReview
-                                                          ? const Color(0xff0369a1)
-                                                          : const Color(0xff4b5563),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                      return TaskItemCard(
+                        task: task,
+                        onToggle: () => toggleTask(id),
                       );
                     },
                   ),

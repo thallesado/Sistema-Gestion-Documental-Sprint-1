@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/auth_api.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/errors/auth_exception.dart';
+import '../../features/auth/presentation/widgets/server_config_dialog.dart';
 import '../shell/main_shell_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -29,64 +30,15 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void showServerDialog() {
-    final serverController = TextEditingController(text: apiBaseUrl);
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Servidor Backend'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Selecciona o ingresa la URL de la API de Spring Boot:',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: serverController,
-              decoration: const InputDecoration(
-                labelText: 'URL del servidor',
-                hintText: 'http://127.0.0.1:8080/api/v1',
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                ActionChip(
-                  avatar: const Icon(Icons.usb, size: 16),
-                  label: const Text('USB (127.0.0.1)'),
-                  onPressed: () => serverController.text = 'http://127.0.0.1:8080/api/v1',
-                ),
-                ActionChip(
-                  avatar: const Icon(Icons.wifi, size: 16),
-                  label: const Text('Wi-Fi (192.168.100.37)'),
-                  onPressed: () => serverController.text = 'http://192.168.100.37:8080/api/v1',
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              setState(() {
-                apiBaseUrl = serverController.text.trim();
-              });
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Servidor actualizado a $apiBaseUrl')),
-              );
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
+      builder: (ctx) => ServerConfigDialog(
+        onSaved: (url) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Servidor actualizado a $url')),
+          );
+        },
       ),
     );
   }

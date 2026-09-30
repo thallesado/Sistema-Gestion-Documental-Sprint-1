@@ -17,15 +17,15 @@ const dynamicCatalogRoutes: Routes = navigationRoutes
     path: route.href === '/' ? '' : route.href.slice(1),
     loadComponent: () => {
       if (route.module === 'Reportes') {
-        return import('../../features/reportes/pages/reportes-page').then((m) => m.ReportsPage);
+        return import('../../features/reportes/pages/reportes-page').then((m) => m.ReportesPage);
       }
       if (route.module === 'Auditoria') {
-        return import('../../features/auditoria/pages/auditoria-page').then((m) => m.AuditPage);
+        return import('../../features/auditoria/pages/auditoria-page').then((m) => m.AuditoriaPage);
       }
       if (route.module === 'Módulo Clínico' && route.subcategory === 'Antecedentes') {
         return import('../../features/clinico/pages/antecedentes-page').then((m) => m.AntecedentesPage);
       }
-      return import('../../features/tablero/pages/espacio-trabajo-page').then((m) => m.WorkspacePage);
+      return import('../../features/tablero/pages/espacio-trabajo-page').then((m) => m.EspacioTrabajoPage);
     },
     title: `${route.subcategory} - NexoDocs`,
     data: { routeInfo: route },

@@ -22,8 +22,8 @@ export class App {
   readonly role = computed<Role>(() => {
     const user = this.currentUser();
     if (user?.platformAdmin || user?.roleNames?.includes('SUPER_ADMIN')) return 'Superadministrador';
-    if (user?.roleNames?.some((name) => name.toUpperCase() === 'ADMINISTRADOR DE TENANT' || name.toUpperCase() === 'TENANT_ADMIN')) return 'Administrador de tenant';
-    if (user?.roleNames?.some((name) => name.toUpperCase() === 'SUPERVISOR')) return 'Supervisor';
+    if (user?.roleNames?.some((name: string) => name.toUpperCase() === 'ADMINISTRADOR DE TENANT' || name.toUpperCase() === 'TENANT_ADMIN')) return 'Administrador de tenant';
+    if (user?.roleNames?.some((name: string) => name.toUpperCase() === 'SUPERVISOR')) return 'Supervisor';
     return 'Usuario basico';
   });
   readonly currentUser = this.auth.user;

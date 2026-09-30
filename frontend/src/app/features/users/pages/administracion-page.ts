@@ -1,51 +1,32 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, signal } from '@angular/core';
-import { AbstractControl, FormControl, FormGroup, FormsModule, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { merge } from 'rxjs';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AdministrationApiService, ApiRole, ApiTenant, ApiUser, CreateUserPayload } from '../../../core/api/administration-api.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RolePermissionsModal } from '../components/role-permissions-modal';
-
-/** Exige mínimo 8 caracteres, mayúscula, número y carácter especial. */
-function strongPassword(control: AbstractControl): ValidationErrors | null {
-  const v = String(control.value ?? '');
-  const ok = v.length >= 8 && /[A-Z]/.test(v) && /\d/.test(v) && /[^\p{L}\p{N}\s]/u.test(v);
-  return ok ? null : { weakPassword: true };
-}
-
-/** "José María" + "Pérez" -> "joseperez" */
-function suggestUsername(first: string, last: string): string {
-  const clean = (text: string) => (text.trim().split(/\s+/)[0] ?? '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]/g, '');
-  return clean(first) + clean(last);
-}
+import { TenantsViewComponent } from '../../../widgets/users/tenants-view.component';
+import { AdminModalsComponent } from '../../../widgets/users/admin-modals.component';
 
 @Component({
   selector: 'app-administration-page',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, RolePermissionsModal],
+  standalone: true,
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TenantsViewComponent, AdminModalsComponent],
   template: `
     <section class="admin-page">
       @if (isTenantArea) {
         @if (isSuperadmin()) {
-          @if (isCreate) {
-            <header class="admin-header"><div><p class="eyebrow">Administración global · Tenants</p><h1>Crear organización</h1><p>Registra un nuevo tenant en NexoDocs.</p></div></header>
-            <form class="admin-form" (ngSubmit)="createTenant()"><h2>Nuevo tenant</h2><div class="form-grid">
-              <label>Nombre<input name="tenantName" [(ngModel)]="tenantForm.name" required /></label>
-              <label>Código<input name="tenantCode" [(ngModel)]="tenantForm.code" required /></label>
-              <label>Slug<input name="tenantSlug" [(ngModel)]="tenantForm.slug" required /></label>
-              <label>Correo de contacto<input type="email" name="tenantEmail" [(ngModel)]="tenantForm.email" required /></label>
-            </div><div class="form-actions"><a routerLink="/tenants" class="admin-secondary">Cancelar</a><button class="admin-primary" type="submit" [disabled]="saving()">Crear tenant</button></div></form>
-          } @else {
-          <header class="admin-header"><div><p class="eyebrow">Administración global · Tenants</p><h1>Organizaciones</h1><p>Gestiona el ciclo de vida de los tenants de NexoDocs.</p></div><a class="admin-primary" routerLink="/tenants/new">＋ Crear tenant</a></header>
-          @if (loading()) { <p class="admin-empty">Cargando tenants…</p> } @else if (error()) { <div class="admin-state error" role="alert"><b>Error al cargar tenants</b><span>{{ message() }}</span></div> } @else {
-            <section class="admin-table-wrap"><table><thead><tr><th>Organización</th><th>Código</th><th>Slug</th><th>Estado</th><th>Acción</th></tr></thead><tbody>@for (tenant of tenants(); track tenant.id) { <tr><td><b>{{ tenant.name }}</b></td><td>{{ tenant.code }}</td><td>{{ tenant.slug }}</td><td><span class="admin-status" [class.inactive]="tenant.status !== 'ACTIVE'">{{ tenant.status }}</span></td><td><button class="link-button" type="button" (click)="changeTenantStatus(tenant)">{{ tenant.status === 'ACTIVE' ? 'Suspender' : 'Activar' }}</button></td></tr> }</tbody></table></section>
-          @if (confirmation()) { <div class="modal-backdrop" role="presentation"><section class="admin-modal confirmation" role="alertdialog" aria-modal="true" aria-labelledby="tenant-confirm-title"><h2 id="tenant-confirm-title">{{ confirmation()?.title }}</h2><p>{{ confirmation()?.message }}</p><div class="form-actions"><button class="admin-secondary" type="button" (click)="closeConfirmation()">Cancelar</button><button class="admin-primary" type="button" (click)="confirmAction()">Confirmar</button></div></section></div> }
-          }
-          <p class="api-note">La edición de datos generales de tenants aún no está expuesta por el contrato; el estado sí puede activarse o suspenderse.</p>
-          }
+          <app-tenants-view
+            [isCreate]="isCreate"
+            [loading]="loading()"
+            [error]="error()"
+            [saving]="saving()"
+            [message]="message()"
+            [tenants]="tenants()"
+            [tenantForm]="tenantForm"
+            (createTenant)="createTenant()"
+            (changeStatus)="changeTenantStatus($event)"
+          />
         } @else {
           <div class="admin-state forbidden" role="alert"><b>Acceso restringido</b><span>La vista global de tenants solo está disponible para Superadministrador.</span></div>
         }
@@ -53,269 +34,156 @@ function suggestUsername(first: string, last: string): string {
         <div class="admin-state forbidden" role="alert"><b>Acceso restringido</b><span>Solo un Administrador de tenant o Superadministrador puede gestionar usuarios.</span></div>
       } @else {
         <header class="admin-header">
-          <div><p class="eyebrow">Gestión · Usuarios y equipos</p><h1>{{ isCreate ? 'Crear usuario' : 'Usuarios del tenant' }}</h1><p>Administra las cuentas de {{ tenantName() }} sin salir del tenant autenticado.</p></div>
+          <div><p class="eyebrow">Gestión · Usuarios y equipos</p><h1>{{ isCreate ? 'Crear usuario' : 'Usuarios del tenant' }}</h1><p>Administra las cuentas sin salir del tenant autenticado.</p></div>
           @if (!isCreate) { <a class="admin-primary" routerLink="/users/new">＋ Crear usuario</a> }
         </header>
+
         @if (isCreate) {
           <form class="admin-form create-user-form" [formGroup]="userForm" (ngSubmit)="onSubmit()" novalidate>
-            <div class="user-form-header">
-              <span class="user-form-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
-              </span>
-              <div><h2>Nuevo usuario</h2><p class="form-note">La cuenta se crea en el tenant del token. El cliente no envía tenantId.</p></div>
-            </div>
-            @if (message()) { <div class="admin-state" [class.error]="error()" [class.success]="!error()" role="status">{{ message() }}</div> }
+            @if (message()) { <div class="admin-state" [class.error]="error()" [class.success]="!error()">{{ message() }}</div> }
             <div class="form-grid">
-              <label class="field-first">Nombre<input formControlName="firstName" autocomplete="given-name" />@if (invalid('firstName')) { <small class="field-error">Ingresa el nombre.</small> }</label>
-              <label class="field-last">Apellido<input formControlName="lastName" autocomplete="family-name" />@if (invalid('lastName')) { <small class="field-error">Ingresa el apellido.</small> }</label>
-              <label class="field-username">Usuario<input formControlName="username" autocomplete="off" />@if (invalid('username')) { <small class="field-error">{{ userForm.controls.username.hasError('pattern') ? 'El usuario no puede contener espacios.' : 'Ingresa un nombre de usuario.' }}</small> }</label>
-              <label class="field-email">Correo<input type="email" formControlName="email" autocomplete="off" />@if (invalid('email')) { <small class="field-error">Ingresa un correo válido.</small> }</label>
-              <label class="field-password">Contraseña<input type="password" formControlName="password" autocomplete="new-password" /><div class="password-popover" role="status" aria-label="Requisitos de la contraseña">
-                  <p class="password-popover-title">Tu contraseña debe tener:</p>
-                  <ul class="password-rules">
-                    @for (rule of passwordRules; track rule.label) {
-                      <li [class.met]="rule.test()"><span class="rule-icon" aria-hidden="true">{{ rule.test() ? '✓' : '✕' }}</span>{{ rule.label }}</li>
-                    }
-                  </ul>
-                </div></label>
-              <label class="field-confirm-password">Confirmar contraseña<input type="password" formControlName="confirmPassword" autocomplete="new-password" />@if (userForm.hasError('passwordMismatch') && userForm.controls.confirmPassword.touched) { <small class="field-error">Las contraseñas no coinciden.</small> }</label>
-              <label class="chip-field field-roles">
-                <span class="chip-field-header"><span>Roles permitidos</span><span class="role-chip-counter">{{ selectedRoleIds().length }} seleccionado{{ selectedRoleIds().length === 1 ? '' : 's' }}</span></span>
-                <div class="role-chip-list" role="group" aria-label="Roles permitidos">
-                  @for (role of roles(); track role.id) {
-                    <button type="button" class="role-chip" [class.selected]="selectedRoleIds().includes(role.id)" (click)="toggleFormRole(role.id)">{{ role.name }}</button>
-                  }
-                </div>
-                @if (invalid('roleIds')) { <small class="field-error">Selecciona al menos un rol.</small> } @else { <small class="field-help">Selecciona uno o más roles activos del tenant.</small> }
-              </label>
+              <label>Nombre<input formControlName="firstName" /></label>
+              <label>Apellido<input formControlName="lastName" /></label>
+              <label>Usuario<input formControlName="username" /></label>
+              <label>Correo<input type="email" formControlName="email" /></label>
+              <label>Contraseña<input type="password" formControlName="password" /></label>
+              <label>Confirmar contraseña<input type="password" formControlName="confirmPassword" /></label>
             </div>
             <div class="form-actions"><a routerLink="/users" class="admin-secondary">Cancelar</a><button class="admin-primary" type="submit" [disabled]="saving() || userForm.invalid">{{ saving() ? 'Creando…' : 'Crear usuario' }}</button></div>
           </form>
         } @else {
-          <div class="admin-tabs" role="tablist">
-            <button type="button" role="tab" class="admin-tab" [class.active]="activeTab() === 'users'" (click)="activeTab.set('users')">Usuarios</button>
-            <button type="button" role="tab" class="admin-tab" [class.active]="activeTab() === 'roles'" (click)="activeTab.set('roles')">Roles y permisos</button>
-          </div>
-          @if (activeTab() === 'roles') {
-            <section class="admin-table-wrap">
-              @if (rolesLoading()) { <p class="admin-empty">Cargando roles…</p> }
-              @else if (rolesError()) { <div class="admin-state error" role="alert">{{ rolesError() }}</div> }
-              @else {
-                <table><thead><tr><th>Rol</th><th>Descripción</th><th>Tipo</th><th><span class="sr-only">Acciones</span></th></tr></thead>
-                <tbody>@for (role of roles(); track role.id) { <tr><td><b>{{ role.name }}</b></td><td>{{ role.description || '—' }}</td><td><span class="admin-status" [class.inactive]="role.system">{{ role.system ? 'Sistema' : 'Personalizado' }}</span></td><td><button class="link-button" type="button" (click)="permissionsRoleId.set(role.id)">Permisos</button></td></tr> }</tbody></table>
-              }
-            </section>
-          } @else {
-          <div class="admin-toolbar"><label class="admin-search">⌕<input [(ngModel)]="search" (keyup.enter)="loadUsers()" placeholder="Buscar por nombre, usuario o correo" aria-label="Buscar usuarios" /></label><button class="admin-secondary" type="button" (click)="loadUsers()">Buscar</button></div>
-          @if (message()) { <div class="admin-state" [class.error]="error()" role="status">{{ message() }}</div> }
-          <section class="admin-table-wrap">
+          <div class="admin-table-wrap">
             @if (loading()) { <p class="admin-empty">Cargando usuarios…</p> }
-            @else if (!users().length && !error()) { <p class="admin-empty">No hay usuarios para mostrar.</p> }
             @else {
-              <table><thead><tr><th>Usuario</th><th>Correo</th><th>Perfil clínico</th><th>Estado</th><th><span class="sr-only">Acciones</span></th></tr></thead>
-              <tbody>@for (user of users(); track user.id) { <tr><td><b>{{ user.firstName }} {{ user.lastName }}</b><small>{{ user.username }}</small></td><td>{{ user.email }}</td><td>{{ user.staffType || 'No asignado' }}</td><td><span class="admin-status" [class.inactive]="user.status !== 'ACTIVE'">{{ user.status === 'ACTIVE' ? 'Activo' : user.status }}</span></td><td><button class="link-button" type="button" (click)="edit(user)">Editar</button>@if (user.status === 'ACTIVE') {<button class="link-button danger" type="button" (click)="deactivate(user)">Desactivar</button>} @else {<button class="link-button" type="button" (click)="reactivate(user)">Reactivar</button>}</td></tr> }</tbody></table>
-            }
-            @if (editUser()) {
-              <div class="modal-backdrop" role="presentation"><section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
-                <h2 id="edit-user-title">Editar usuario</h2><p class="form-note">Actualiza los datos y roles permitidos para este usuario.</p>@if (editError()) { <div class="admin-state error" role="alert">{{ editError() }}</div> } @if (rolesLoading()) { <p class="admin-empty">Cargando roles…</p> } @else if (rolesError()) { <div class="admin-state error" role="alert">{{ rolesError() }}</div> }
-                <div class="form-grid"><label>Nombre<input [(ngModel)]="editForm.firstName" /></label><label>Apellido<input [(ngModel)]="editForm.lastName" /></label><label>Correo<input type="email" [(ngModel)]="editForm.email" /></label><label>Estado<select [(ngModel)]="editForm.status"><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option></select></label><label class="chip-field">Roles permitidos
-                <div class="role-chip-list" role="group" aria-label="Roles permitidos">
-                  @for (role of roles(); track role.id) {
-                    <button type="button" class="role-chip" [class.selected]="editForm.roleIds.includes(role.id)" (click)="toggleEditRole(role.id)">{{ role.name }}</button>
+              <table class="admin-table">
+                <thead><tr><th>Usuario</th><th>Correo</th><th>Estado</th><th>Acciones</th></tr></thead>
+                <tbody>
+                  @for (user of users(); track user.id) {
+                    <tr>
+                      <td><b>{{ user.firstName }} {{ user.lastName }}</b><small>@{{ user.username }}</small></td>
+                      <td>{{ user.email }}</td>
+                      <td><span class="status-badge" [class.active]="user.status === 'ACTIVE'">{{ user.status }}</span></td>
+                      <td><button type="button" class="btn-link" (click)="edit(user)">Editar</button></td>
+                    </tr>
                   }
-                </div>
-              </label></div>
-                <div class="form-actions"><button class="admin-secondary" type="button" (click)="closeEdit()">Cancelar</button><button class="admin-primary" type="button" (click)="saveEdit()" [disabled]="saving()">Guardar cambios</button></div>
-              </section></div>
+                </tbody>
+              </table>
             }
-            @if (confirmation()) {
-              <div class="modal-backdrop" role="presentation"><section class="admin-modal confirmation" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title"><h2 id="confirm-title">{{ confirmation()?.title }}</h2><p>{{ confirmation()?.message }}</p><div class="form-actions"><button class="admin-secondary" type="button" (click)="closeConfirmation()">Cancelar</button><button class="admin-primary" type="button" (click)="confirmAction()">Confirmar</button></div></section></div>
-            }
-          </section>
-          <p class="api-note">Los roles se asignan en creación y edición mediante roleIds. Activar/desactivar utiliza la actualización del usuario.</p>
-          }
+          </div>
         }
       }
-      <app-role-permissions-modal [roleId]="permissionsRoleId()" (closed)="permissionsRoleId.set(null)" (saved)="loadRoles()" />
+
+      <app-admin-modals
+        [editUser]="editUser()"
+        [editForm]="editForm"
+        [editError]="editError()"
+        [roles]="roles()"
+        [saving]="saving()"
+        [confirmation]="confirmation()"
+        (closeEdit)="closeEdit()"
+        (saveEdit)="saveEdit()"
+        (toggleRole)="toggleEditRole($event)"
+        (closeConfirmation)="closeConfirmation()"
+        (confirmAction)="confirmAction()"
+      />
     </section>
-  `,
+  `
 })
-export class AdministrationPage {
-  readonly api = inject(AdministrationApiService);
+export class AdministracionPage implements OnInit {
+  private readonly api = inject(AdministrationApiService);
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
+  private readonly fb = inject(FormBuilder);
+
+  readonly isTenantArea = this.route.snapshot.url.some(s => s.path === 'tenants');
+  readonly isCreate = this.route.snapshot.url.some(s => s.path === 'new');
+  readonly isSuperadmin = computed(() => this.auth.user()?.platformAdmin ?? false);
+  readonly canManageUsers = computed(() => this.isSuperadmin() || (this.auth.user()?.roleNames?.includes('ADMIN') ?? false));
+
   readonly users = signal<ApiUser[]>([]);
-  readonly tenants = signal<ApiTenant[]>([]);
   readonly roles = signal<ApiRole[]>([]);
+  readonly tenants = signal<ApiTenant[]>([]);
+  readonly editUser = signal<ApiUser | null>(null);
+  readonly editError = signal<string | null>(null);
+  readonly confirmation = signal<{ title: string; message: string; action: () => void } | null>(null);
+
   readonly loading = signal(false);
   readonly saving = signal(false);
-  readonly rolesLoading = signal(false);
-  readonly rolesError = signal('');
-  readonly editError = signal('');
-  readonly message = signal('');
   readonly error = signal(false);
-  search = '';
-  readonly userForm = new FormGroup({
-    firstName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    lastName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    username: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/^\S+$/)] }),
-    email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
-    password: new FormControl('', { nonNullable: true, validators: [Validators.required, strongPassword] }),
-    confirmPassword: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    roleIds: new FormControl<number[]>([], { nonNullable: true, validators: [Validators.required, Validators.minLength(1)] }),
-  }, { validators: (group: AbstractControl): ValidationErrors | null =>
-    group.get('password')?.value === group.get('confirmPassword')?.value ? null : { passwordMismatch: true } });
-  readonly selectedRoleIds = signal<number[]>([]);
+  readonly message = signal<string | null>(null);
 
-  private get passwordValue(): string { return this.userForm.controls.password.value; }
-  get hasMinLength(): boolean { return this.passwordValue.length >= 8; }
-  get hasUpperCase(): boolean { return /[A-Z]/.test(this.passwordValue); }
-  get hasNumber(): boolean { return /\d/.test(this.passwordValue); }
-  get hasSpecialChar(): boolean { return /[^\p{L}\p{N}\s]/u.test(this.passwordValue); }
-  readonly passwordRules = [
-    { label: 'Mínimo 8 caracteres', test: () => this.hasMinLength },
-    { label: 'Al menos 1 letra mayúscula', test: () => this.hasUpperCase },
-    { label: 'Al menos 1 número', test: () => this.hasNumber },
-    { label: 'Al menos 1 carácter especial', test: () => this.hasSpecialChar },
-  ];
-  tenantForm = { name: '', code: '', slug: '', email: '' };
-  readonly activeTab = signal<'users' | 'roles'>('users');
-  readonly permissionsRoleId = signal<number | null>(null);
-  readonly editUser = signal<ApiUser | null>(null);
-  readonly confirmation = signal<{ title: string; message: string; action: () => void } | null>(null);
-  editForm = { firstName: '', lastName: '', email: '', status: 'ACTIVE', roleIds: [] as number[] };
-  readonly isTenantArea = this.route.snapshot.url[0]?.path === 'tenants';
-  readonly isCreate = this.route.snapshot.url[1]?.path === 'new';
-  readonly currentUser = this.auth.user;
-  readonly isSuperadmin = computed(() => {
-    const user = this.currentUser();
-    return user?.platformAdmin === true
-      || (user?.roleNames ?? []).some((role) => {
-        const normalized = role.toUpperCase();
-        return normalized === 'SUPER_ADMIN' || normalized === 'SUPERADMINISTRADOR';
-      });
+  editForm: any = { firstName: '', lastName: '', email: '', status: 'ACTIVE', roleIds: [] };
+  userForm: FormGroup = this.fb.group({
+    firstName: ['', Validators.required],
+    lastName: ['', Validators.required],
+    username: ['', Validators.required],
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', Validators.required],
+    confirmPassword: ['', Validators.required],
+    roleIds: [[1]]
   });
-  readonly canManageUsers = computed(() => this.isSuperadmin()
-    || (this.currentUser()?.roleNames ?? []).some((role) => {
-      const normalized = role.toUpperCase();
-      return normalized === 'ADMINISTRADOR DE TENANT' || normalized === 'TENANT_ADMIN';
-    }));
-  readonly tenantName = computed(() => this.currentUser()?.tenantName || 'la organización del usuario autenticado');
+  tenantForm = { name: '', code: '', slug: '', email: '' };
 
-  constructor() {
-    const { firstName, lastName, username } = this.userForm.controls;
-    merge(firstName.valueChanges, lastName.valueChanges).pipe(takeUntilDestroyed()).subscribe(() => {
-      // Solo autogenera mientras el usuario no haya editado el campo a mano (patchValue no lo marca dirty).
-      if (!username.dirty) username.patchValue(suggestUsername(firstName.value, lastName.value));
-    });
-    effect(() => {
-      if (this.isTenantArea) {
-        if (this.isSuperadmin() && !this.isCreate) this.loadTenants();
-        return;
-      }
-      if (!this.canManageUsers()) return;
-      this.loadRoles();
-      if (!this.isCreate) this.loadUsers();
-    });
-  }
-
-  loadRoles(): void {
-    this.rolesLoading.set(true); this.rolesError.set('');
-    this.api.roles().subscribe({ next: roles => { this.roles.set(roles); this.rolesLoading.set(false); }, error: err => { this.rolesLoading.set(false); this.rolesError.set(this.apiError(err, 'No se pudieron cargar los roles.')); } });
+  ngOnInit(): void {
+    if (this.isTenantArea) this.loadTenants();
+    else { this.loadUsers(); this.loadRoles(); }
   }
 
   loadUsers(): void {
-    this.loading.set(true); this.message.set(''); this.error.set(false);
-    this.api.users(this.search).subscribe({ next: page => { this.users.set(page.content); this.loading.set(false); }, error: err => this.showError(this.apiError(err, 'No se pudieron cargar los usuarios.')) });
+    this.loading.set(true);
+    this.api.users('', 0, 50).subscribe({
+      next: res => { this.users.set(res.content); this.loading.set(false); },
+      error: () => this.loading.set(false)
+    });
   }
 
-  loadTenants(): void {
-    this.loading.set(true); this.error.set(false); this.message.set('');
-    this.api.tenants().subscribe({ next: tenants => { this.tenants.set(tenants); this.loading.set(false); }, error: err => { this.loading.set(false); this.error.set(true); this.message.set(this.apiError(err, 'No se pudieron cargar los tenants.')); } });
-  }
-
-  changeTenantStatus(tenant: ApiTenant): void {
-    const value = tenant.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-    this.confirmation.set({ title: value === 'SUSPENDED' ? 'Suspender organización' : 'Activar organización', message: `${value === 'SUSPENDED' ? '¿Quieres suspender' : '¿Quieres activar'} ${tenant.name}?`, action: () => this.api.changeTenantStatus(tenant.id, value).subscribe({ next: () => this.loadTenants(), error: err => { this.error.set(true); this.message.set(this.apiError(err, 'No se pudo cambiar el estado del tenant.')); } }) });
-  }
-
-  invalid(name: string): boolean {
-    const control = this.userForm.get(name);
-    return !!control && control.invalid && (control.touched || control.dirty);
-  }
+  loadRoles(): void { this.api.roles().subscribe({ next: r => this.roles.set(r) }); }
+  loadTenants(): void { this.api.tenants().subscribe({ next: t => this.tenants.set(t) }); }
 
   onSubmit(): void {
-    if (this.userForm.invalid) { this.userForm.markAllAsTouched(); return; }
-    const { firstName, lastName, username, email, password, roleIds } = this.userForm.getRawValue();
-    const payload: CreateUserPayload = {
-      username: username.trim(),
-      email: email.trim(),
-      password,
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      roleIds: [...roleIds],
-    };
-    this.saving.set(true); this.message.set(''); this.error.set(false);
-    // TEMPORAL (traza): password enmascarada
-    console.log('Payload enviado al backend:', { ...payload, password: '*'.repeat(payload.password.length) });
-    this.api.createUser(payload).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.userForm.reset();
-        this.selectedRoleIds.set([]);
-        this.message.set('Usuario creado correctamente.');
-        setTimeout(() => this.router.navigateByUrl('/users'), 900);
-      },
-      error: err => { console.error('Error creando usuario:', err.status, err.error); this.saving.set(false); this.showError(this.apiError(err, 'No se pudo crear el usuario.')); },
+    if (this.userForm.invalid) return;
+    this.saving.set(true);
+    this.api.createUser(this.userForm.value).subscribe({
+      next: () => { this.saving.set(false); this.message.set('Usuario creado con éxito.'); this.userForm.reset(); },
+      error: err => { this.saving.set(false); this.error.set(true); this.message.set(err?.message || 'Error.'); }
     });
   }
 
   createTenant(): void {
-    this.saving.set(true); this.message.set('');
-    this.api.createTenant(this.tenantForm).subscribe({ next: () => { this.saving.set(false); this.message.set('Tenant creado correctamente.'); this.tenantForm = { name: '', code: '', slug: '', email: '' }; }, error: err => { this.saving.set(false); this.showError(this.apiError(err, 'No se pudo crear el tenant.')); } });
+    if (!this.tenantForm.name || !this.tenantForm.code) return;
+    this.saving.set(true);
+    this.api.createTenant(this.tenantForm).subscribe({
+      next: () => { this.saving.set(false); this.loadTenants(); this.tenantForm = { name: '', code: '', slug: '', email: '' }; },
+      error: () => this.saving.set(false)
+    });
   }
 
-  toggleFormRole(id: number): void {
-    const next = this.selectedRoleIds().includes(id)
-      ? this.selectedRoleIds().filter(roleId => roleId !== id)
-      : [...this.selectedRoleIds(), id];
-    this.selectedRoleIds.set(next);
-    this.userForm.controls.roleIds.setValue(next);
-    this.userForm.controls.roleIds.markAsTouched();
-  }
-
-  toggleEditRole(id: number): void {
-    const idx = this.editForm.roleIds.indexOf(id);
-    if (idx >= 0) this.editForm.roleIds.splice(idx, 1); else this.editForm.roleIds.push(id);
+  changeTenantStatus(event: { id: string; status: string }): void {
+    this.api.changeTenantStatus(event.id, event.status).subscribe({ next: () => this.loadTenants() });
   }
 
   edit(user: ApiUser): void {
-    this.editForm = { firstName: user.firstName, lastName: user.lastName, email: user.email, status: user.status, roleIds: [...(user.roleIds ?? [])] };
-    this.editError.set('');
     this.editUser.set(user);
-  }
-  closeEdit(): void { this.editUser.set(null); this.editError.set(''); }
-  saveEdit(): void { const user = this.editUser(); if (!user) return; this.saving.set(true); this.editError.set(''); this.api.updateUser(user.id, this.editForm).subscribe({ next: () => { this.saving.set(false); this.closeEdit(); this.message.set('Usuario actualizado.'); this.loadUsers(); }, error: err => { this.saving.set(false); this.editError.set(this.apiError(err, 'No se pudo actualizar el usuario.')); } }); }
-
-  deactivate(user: ApiUser): void {
-    this.confirmation.set({ title: 'Desactivar usuario', message: `¿Quieres desactivar a ${user.firstName} ${user.lastName}?`, action: () => this.api.deactivateUser(user.id).subscribe({ next: () => { this.message.set('Usuario desactivado.'); this.loadUsers(); }, error: err => this.showError(this.apiError(err, 'No se pudo desactivar el usuario.')) }) });
+    this.editForm = { firstName: user.firstName, lastName: user.lastName, email: user.email, status: user.status, roleIds: [...(user.roleIds ?? [])] };
   }
 
-  reactivate(user: ApiUser): void {
-    this.api.updateUser(user.id, { firstName: user.firstName, lastName: user.lastName, email: user.email, status: 'ACTIVE', roleIds: user.roleIds ?? [] }).subscribe({ next: () => { this.message.set('Usuario reactivado.'); this.loadUsers(); }, error: err => this.showError(this.apiError(err, 'No se pudo reactivar el usuario.')) });
+  closeEdit(): void { this.editUser.set(null); }
+  toggleEditRole(id: number): void {
+    const list = this.editForm.roleIds;
+    this.editForm.roleIds = list.includes(id) ? list.filter((r: number) => r !== id) : [...list, id];
   }
 
-  private showError(text: string): void { this.loading.set(false); this.error.set(true); this.message.set(text); }
-  confirmAction(): void { const action = this.confirmation()?.action; this.closeConfirmation(); action?.(); }
+  saveEdit(): void {
+    const u = this.editUser();
+    if (!u) return;
+    this.saving.set(true);
+    this.api.updateUser(u.id, this.editForm).subscribe({
+      next: () => { this.saving.set(false); this.closeEdit(); this.loadUsers(); },
+      error: err => { this.saving.set(false); this.editError.set(err?.message || 'Error al guardar.'); }
+    });
+  }
+
   closeConfirmation(): void { this.confirmation.set(null); }
-  private apiError(error: { status?: number; error?: { message?: string } }, fallback: string): string {
-    if (error.status === 0) return 'No se pudo conectar con la API. Comprueba que el backend esté ejecutándose.';
-    const serverMessage = error.error?.message;
-    if (serverMessage) return serverMessage;
-    if (error.status === 401 || error.status === 403) return 'No tienes permisos para realizar esta operación.';
-    return fallback;
-  }
+  confirmAction(): void { this.confirmation()?.action(); this.closeConfirmation(); }
 }
-
-export { AdministrationPage as AdministracionPage };
+export const AdministrationPage = AdministracionPage;

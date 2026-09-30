@@ -2,11 +2,10 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 RUN npm install -g pnpm
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/ ./packages/
-COPY frontend/ ./frontend/
-RUN pnpm install --frozen-lockfile
-RUN cd frontend && pnpm run build
+COPY frontend/package.json ./
+RUN pnpm install
+COPY frontend/ ./
+RUN pnpm run build
 
 # Run stage
 FROM nginx:alpine
