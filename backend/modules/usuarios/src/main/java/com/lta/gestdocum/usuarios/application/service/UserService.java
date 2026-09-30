@@ -4,7 +4,6 @@ import com.lta.gestdocum.shared.exception.DuplicateResourceException;
 import com.lta.gestdocum.shared.exception.NotFoundException;
 import com.lta.gestdocum.shared.exception.TenantMismatchException;
 import com.lta.gestdocum.shared.security.AuthenticatedUserContext;
-import com.lta.gestdocum.shared.support.CrudTextSupport;
 import com.lta.gestdocum.usuarios.application.dto.UserCreateRequest;
 import com.lta.gestdocum.usuarios.application.dto.UserResponse;
 import com.lta.gestdocum.usuarios.application.dto.UserUpdateRequest;
