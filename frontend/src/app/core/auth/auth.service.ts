@@ -1,8 +1,8 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, finalize, shareReplay, tap, throwError } from 'rxjs';
-import { AuthResponse, AuthUser, LoginRequest } from './auth.types';
+import { Observable, catchError, finalize, shareReplay, tap, throwError } from 'rxjs';
+import { AuthResponse, AuthUser, LoginRequest, PublicTenant } from './auth.types';
 
 const API_URL = '/api/v1';
 const TOKEN_KEY = 'nexodocs.access_token';
@@ -28,10 +28,21 @@ export class AuthService {
     }
   }
 
+  /** Organizaciones que pueden iniciar sesión; endpoint público (no requiere token). */
+  publicTenants(): Observable<PublicTenant[]> {
+    return this.http.get<PublicTenant[]>(`${API_URL}/tenants/public`);
+  }
+
   login(request: LoginRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${API_URL}/auth/login`, request).pipe(
+    const urlExacta = `${API_URL}/auth/login`;
+    console.log('URL de login:', urlExacta);
+    return this.http.post<AuthResponse>(urlExacta, request).pipe(
       tap((response) => this.storeTokens(response)),
       tap(() => this.loadCurrentUser()),
+      catchError((error: HttpErrorResponse) => {
+        console.error('Error real del servidor:', error);
+        return throwError(() => error);
+      }),
     );
   }
 

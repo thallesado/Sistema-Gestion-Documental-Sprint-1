@@ -7,6 +7,7 @@ import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.exception.TenantMismatchException;
 import com.lta.gestdocum.backend.model.ClinicalStaff;
 import com.lta.gestdocum.backend.model.User;
+import com.lta.gestdocum.backend.model.UserStatus;
 import com.lta.gestdocum.backend.repository.ClinicalStaffRepository;
 import com.lta.gestdocum.backend.repository.UserRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
@@ -24,29 +25,34 @@ import java.util.Set;
 @Service
 public class UserService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UserService.class);
+
     private final UserRepository userRepository;
     private final ClinicalStaffRepository clinicalStaffRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticatedUserContext authenticatedUserContext;
     private final com.lta.gestdocum.backend.repository.RoleRepository roleRepository;
     private final com.lta.gestdocum.backend.repository.TenantRepository tenantRepository;
+    private final AuthSessionService authSessionService;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public UserService(UserRepository userRepository, 
-                       ClinicalStaffRepository clinicalStaffRepository, 
+    public UserService(UserRepository userRepository,
+                       ClinicalStaffRepository clinicalStaffRepository,
                        PasswordEncoder passwordEncoder,
                        AuthenticatedUserContext authenticatedUserContext,
                        com.lta.gestdocum.backend.repository.RoleRepository roleRepository,
-                       com.lta.gestdocum.backend.repository.TenantRepository tenantRepository) {
+                       com.lta.gestdocum.backend.repository.TenantRepository tenantRepository,
+                       AuthSessionService authSessionService) {
         this.userRepository = userRepository;
         this.clinicalStaffRepository = clinicalStaffRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticatedUserContext = authenticatedUserContext;
         this.roleRepository = roleRepository;
         this.tenantRepository = tenantRepository;
+        this.authSessionService = authSessionService;
     }
     public UserService(UserRepository u, ClinicalStaffRepository c, PasswordEncoder p, AuthenticatedUserContext a) {
-        this(u,c,p,a,null,null);
+        this(u,c,p,a,null,null,null);
     }
 
     @Transactional
@@ -57,6 +63,14 @@ public class UserService {
         if (request.getTenantId() != null && !tenantId.equals(request.getTenantId())) {
             throw new TenantMismatchException();
         }
+        if (userRepository.existsByTenantIdAndUsernameIgnoreCase(tenantId, request.getUsername())) {
+            throw new com.lta.gestdocum.backend.exception.DuplicateResourceException(
+                    "El nombre de usuario '" + request.getUsername() + "' ya está en uso");
+        }
+        if (userRepository.existsByTenantIdAndEmailIgnoreCase(tenantId, request.getEmail())) {
+            throw new com.lta.gestdocum.backend.exception.DuplicateResourceException(
+                    "El correo '" + request.getEmail() + "' ya está registrado");
+        }
         User user = User.builder()
                 .tenantId(tenantId)
                 .username(request.getUsername())
@@ -64,10 +78,14 @@ public class UserService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
-                .status(User.UserStatus.ACTIVE)
+                .status(UserStatus.ACTIVE)
                 .build();
 
+        log.info("[CREATE-USER] Guardando usuario tenantId={} username={} passwordEncoded={}",
+                tenantId, user.getUsername(), user.getPasswordHash() != null && user.getPasswordHash().startsWith("$2"));
         User savedUser = userRepository.save(user);
+        userRepository.flush(); // fuerza el INSERT aquí para que cualquier error de BD se vea en este punto
+        log.info("[CREATE-USER] Usuario guardado id={}; asignando roleIds={}", savedUser.getId(), request.getRoleIds());
         assignRoles(tenantId, savedUser.getId(), request.getRoleIds());
 
         String staffTypeStr = null;
@@ -96,17 +114,19 @@ public class UserService {
     User user = userRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
             .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
 
+    UserStatus previousStatus = user.getStatus();
     user.setFirstName(request.getFirstName());
     user.setLastName(request.getLastName());
     user.setEmail(request.getEmail());
     if (request.getStatus() != null) {
-        User.UserStatus status = User.UserStatus.valueOf(request.getStatus().toUpperCase());
-        if (id.equals(authenticatedUserContext.requireUserId()) && status != User.UserStatus.ACTIVE)
+        UserStatus status = UserStatus.valueOf(request.getStatus().toUpperCase());
+        if (id.equals(authenticatedUserContext.requireUserId()) && status != UserStatus.ACTIVE)
             throw new IllegalArgumentException("No puede desactivarse o bloquearse a sí mismo");
         user.setStatus(status);
     }
 
     User updatedUser = userRepository.save(user);
+    if (updatedUser.getStatus() != previousStatus) authSessionService.revokeAll(id);
     if (request.getRoleIds() != null) {
     requireRoleAssignmentPermission();
     assignRoles(tenantId, id, request.getRoleIds());
@@ -140,7 +160,7 @@ public class UserService {
         User user = userRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
         user.setDeletedAt(OffsetDateTime.now());
-        user.setStatus(User.UserStatus.INACTIVE);
+        user.setStatus(UserStatus.INACTIVE);
         userRepository.save(user);
     }
 
@@ -150,6 +170,22 @@ public class UserService {
         authenticatedUserContext.establishDatabaseContext();
         String normalizedFilter = filter == null || filter.isBlank() ? null : filter.trim();
         return userRepository.findActiveByTenant(tenantId, normalizedFilter, pageable)
+                .map(user -> {
+                    Optional<ClinicalStaff> staff = clinicalStaffRepository
+                            .findByUserIdAndTenantId(user.getId(), tenantId);
+                    return mapToResponse(
+                            user,
+                            staff.map(value -> value.getStaffType().name()).orElse(null),
+                            staff.map(ClinicalStaff::getSpecialty).orElse(null));
+                });
+    }
+
+    @Transactional(readOnly = true)
+    public Page<UserResponse> findResponsibleUsers(String filter, Pageable pageable) {
+        UUID tenantId = authenticatedUserContext.requireTenantId();
+        authenticatedUserContext.establishDatabaseContext();
+        String normalizedFilter = filter == null || filter.isBlank() ? null : filter.trim();
+        return userRepository.findResponsibleByTenant(tenantId, normalizedFilter, pageable)
                 .map(user -> {
                     Optional<ClinicalStaff> staff = clinicalStaffRepository
                             .findByUserIdAndTenantId(user.getId(), tenantId);
@@ -202,10 +238,12 @@ public class UserService {
     }
     private void assignRoles(UUID tenantId, UUID userId, Set<Long> ids) {
         if (ids == null) return;
+        if (ids.isEmpty()) throw new IllegalArgumentException("La lista de roles no puede estar vacía");
         if (roleRepository == null) throw new IllegalStateException("Repositorio de roles no disponible");
         var roles = roleRepository.findActiveInTenant(tenantId, ids);
         if (roles.size() != ids.size() || roles.stream().anyMatch(r -> "Superadmin".equalsIgnoreCase(r.getName())))
             throw new IllegalArgumentException("Rol inválido para un usuario de tenant");
+        if (!ids.equals(roleRepository.findIds(tenantId, userId))) authSessionService.revokeAll(userId);
         roleRepository.clear(tenantId, userId);
         roles.forEach(r -> roleRepository.assign(tenantId, userId, r.getId()));
     }

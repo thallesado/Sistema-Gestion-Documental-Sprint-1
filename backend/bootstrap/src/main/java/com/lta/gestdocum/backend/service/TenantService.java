@@ -1,5 +1,6 @@
 package com.lta.gestdocum.backend.service;
 
+import com.lta.gestdocum.backend.dto.TenantPublicResponse;
 import com.lta.gestdocum.backend.dto.TenantResponse;
 import com.lta.gestdocum.backend.dto.TenantCreateRequest;
 import com.lta.gestdocum.backend.model.Tenant;
@@ -15,6 +16,11 @@ public class TenantService {
     public TenantService(TenantRepository repository) { this.repository = repository; }
     @Transactional(readOnly=true) public List<TenantResponse> list() {
         return repository.findAll().stream().map(this::map).toList();
+    }
+    /** Organizaciones que pueden iniciar sesión (ACTIVE y TRIAL), solo id y nombre; la RLS se evita en la función SQL. */
+    @Transactional(readOnly=true) public List<TenantPublicResponse> listPublic() {
+        return repository.findLoginTenants().stream()
+                .map(t -> new TenantPublicResponse(t.getId(), t.getName())).toList();
     }
     @Transactional public TenantResponse create(TenantCreateRequest r) {
         Tenant t = new Tenant(UUID.randomUUID(), r.name(), r.code(), r.slug(), r.email(), Tenant.Status.TRIAL);

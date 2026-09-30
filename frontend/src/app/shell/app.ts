@@ -1,13 +1,17 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal, ViewEncapsulation } from '@angular/core';
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { Component, computed, DestroyRef, effect, inject, signal, ViewEncapsulation } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
 import { AuthService } from '../core/auth/auth.service';
+import { ChatbotService } from '../core/chatbot/chatbot.service';
+
+/** Pantallas públicas: siempre a pantalla completa, sin sidebar ni topbar, aunque haya sesión. */
+const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, RouterLink, RouterOutlet],
+  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './app.html',
   styleUrl: './app.css',
   encapsulation: ViewEncapsulation.None,
@@ -15,6 +19,7 @@ import { AuthService } from '../core/auth/auth.service';
 export class App {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+  private readonly chatbot = inject(ChatbotService);
   readonly roles = roles;
   readonly sections = navSections;
   readonly currentUrl = signal(this.router.url);
@@ -33,8 +38,21 @@ export class App {
   });
   readonly initials = computed(() => this.displayName().split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || 'U');
   readonly tenantName = computed(() => this.currentUser()?.tenantName || (this.currentUser()?.platformAdmin ? 'Todos los tenants' : 'Organización autenticada'));
+  /** El módulo «Usuarios y equipos» (/users, /users/...) ya trae su propio buscador: se oculta el global. */
+  readonly hideGlobalSearch = computed(() => this.currentUrl().split(/[?#]/)[0].split('/')[1] === 'users');
   readonly toast = signal('');
   readonly mobileNavOpen = signal(false);
+  /** Sidebar reducido a iconos (solo escritorio). Se recuerda entre sesiones. */
+  readonly isCollapsed = signal(this.readCollapsed());
+
+  toggleSidebar(): void {
+    this.isCollapsed.update((collapsed) => !collapsed);
+    try { localStorage.setItem('sidebarCollapsed', String(this.isCollapsed())); } catch { /* almacenamiento no disponible */ }
+  }
+
+  private readCollapsed(): boolean {
+    try { return localStorage.getItem('sidebarCollapsed') === 'true'; } catch { return false; }
+  }
   readonly sidebarUserMenuOpen = signal(false);
   readonly headerUserMenuOpen = signal(false);
   private toastTimer?: ReturnType<typeof setTimeout>;
@@ -53,13 +71,23 @@ export class App {
   );
 
   constructor() {
+    // El chatbot solo existe dentro del layout autenticado: se carga al entrar y se retira al salir
+    // (logout, sesión expirada o pantallas públicas como /login).
+    effect(() => (this.isWorkspace() ? this.chatbot.load() : this.chatbot.unload()));
+    inject(DestroyRef).onDestroy(() => this.chatbot.unload());
     this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
-      .subscribe((event) => this.currentUrl.set(event.urlAfterRedirects));
+      .subscribe((event) => {
+        this.currentUrl.set(event.urlAfterRedirects);
+        // También cubre la recarga en una subruta: el grupo que contiene la URL nace abierto.
+        this.expandForUrl(event.urlAfterRedirects);
+      });
   }
 
   isWorkspace(): boolean {
-    return this.currentUrl() !== '/login' && this.auth.isAuthenticated();
+    const path = this.currentUrl().split(/[?#]/)[0];
+    const isPublic = PUBLIC_PATHS.some((base) => path === base || path.startsWith(base + '/'));
+    return !isPublic && this.auth.isAuthenticated();
   }
 
   isExpanded(label: string): boolean {
@@ -77,13 +105,31 @@ export class App {
     this.mobileNavOpen.set(false);
   }
 
+  /** Un ítem está activo si alguna de sus rutas hijas coincide con la URL actual (o cuelga de ella). */
   isActiveItem(label: string): boolean {
-    const route = navigationRoutes.find((item) => item.href === this.currentUrl());
-    return (route?.module ?? 'Inicio') === label;
+    const item = this.findItem(label);
+    return !!item && this.itemContainsUrl(item, this.currentUrl());
   }
 
-  isActiveChild(href: string): boolean {
-    return this.currentUrl() === href;
+  navId(label: string): string {
+    return 'nav-sub-' + label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-');
+  }
+
+  private findItem(label: string): NavItem | undefined {
+    return this.sections.flatMap((section) => section.items).find((item) => item.label === label);
+  }
+
+  private itemContainsUrl(item: NavItem, url: string): boolean {
+    const path = url.split(/[?#]/)[0];
+    return item.children.some((child) => path === child.href || (child.href !== '/' && path.startsWith(child.href + '/')));
+  }
+
+  private expandForUrl(url: string): void {
+    const groups = this.sections
+      .flatMap((section) => section.items)
+      .filter((item) => item.children.length > 1 && this.itemContainsUrl(item, url))
+      .map((item) => item.label);
+    if (groups.length) this.expanded.update((current) => [...new Set([...current, ...groups])]);
   }
 
   unreadCount(label: string): string {

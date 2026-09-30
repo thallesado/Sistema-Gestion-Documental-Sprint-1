@@ -19,3 +19,22 @@ export const platformAdminGuard: CanActivateFn = (_route, state) => {
   }
   return router.createUrlTree(['/access-denied'], { queryParams: { returnUrl: state.url } });
 };
+
+/** Administración de usuarios/roles: superadministrador de plataforma o administrador de tenant. */
+export const userAdminGuard: CanActivateFn = (_route, state) => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  const user = auth.user();
+  const allowed = !!user && (user.platformAdmin === true || (user.roleNames ?? []).some((name) => {
+    const role = name.toUpperCase();
+    return role === 'SUPER_ADMIN' || role === 'TENANT_ADMIN' || role === 'ADMINISTRADOR DE TENANT';
+  }));
+  return allowed || router.createUrlTree(['/access-denied'], { queryParams: { returnUrl: state.url } });
+};
+
+/** Rutas públicas (login, recuperar contraseña): un usuario ya autenticado va directo al dashboard. */
+export const publicGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  return auth.isAuthenticated() ? router.createUrlTree(['/']) : true;
+};

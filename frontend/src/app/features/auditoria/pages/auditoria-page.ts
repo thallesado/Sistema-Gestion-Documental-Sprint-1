@@ -62,7 +62,7 @@ const generalFilters: AuditFilterField[] = [
       { value: 'HTTP_PATCH', label: 'Modificación parcial (PATCH)' },
     ],
   },
-  { key: 'type', label: 'Tipo de recurso', placeholder: 'DOCUMENT' },
+  { key: 'type', label: 'Tipo de recurso', placeholder: 'DOCUMENTS' },
   {
     key: 'result',
     label: 'Resultado',

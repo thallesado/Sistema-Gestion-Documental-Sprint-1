@@ -5,6 +5,7 @@ import com.lta.gestdocum.backend.dto.ResetPasswordRequest;
 import com.lta.gestdocum.backend.exception.InvalidCredentialsException;
 import com.lta.gestdocum.backend.model.PasswordRecoveryRequest;
 import com.lta.gestdocum.backend.model.User;
+import com.lta.gestdocum.backend.model.UserStatus;
 import com.lta.gestdocum.backend.repository.PasswordRecoveryRequestRepository;
 import com.lta.gestdocum.backend.repository.UserRepository;
 import com.lta.gestdocum.backend.dto.AuthResponse;
@@ -66,7 +67,7 @@ public class PasswordRecoveryService {
         (request.tenantId() == null
                 ? userRepository.findByPlatformIdentifier(request.email())
                 : userRepository.findByTenantAndIdentifier(request.tenantId(), request.email()))
-                .filter(user -> user.getDeletedAt() == null && user.getStatus() == User.UserStatus.ACTIVE)
+                .filter(user -> user.getDeletedAt() == null && user.getStatus() == UserStatus.ACTIVE)
                 .ifPresent(user -> createAndSend(user));
         return GENERIC_RESPONSE;
     }
@@ -79,7 +80,7 @@ public class PasswordRecoveryService {
                 .orElseThrow(InvalidCredentialsException::new);
 
         User user = userRepository.findByIdAndTenantIdAndDeletedAtIsNull(recovery.getUserId(), recovery.getTenantId())
-                .filter(candidate -> candidate.getStatus() == User.UserStatus.ACTIVE)
+                .filter(candidate -> candidate.getStatus() == UserStatus.ACTIVE)
                 .orElseThrow(InvalidCredentialsException::new);
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));

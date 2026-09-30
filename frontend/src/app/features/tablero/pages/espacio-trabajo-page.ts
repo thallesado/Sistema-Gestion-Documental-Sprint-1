@@ -9,6 +9,10 @@ import {
   demoList,
 } from '../../../core/data/nexodocs-data';
 import { Pagination } from '../../../shared';
+import { AdministrationApiService, ApiPermission, ApiRole } from '../../../core/api/administration-api.service';
+import { PermissionsCatalog } from '../../users/components/permissions-catalog';
+import { RoleFormModal } from '../../users/components/role-form-modal';
+import { RolePermissionsModal } from '../../users/components/role-permissions-modal';
 import { AuthService } from '../../../core/auth/auth.service';
 import { DocumentApiService, ApiDocument } from '../../../core/api/document-api.service';
 import { WorkspaceApiService, ApiActivity, ApiTask } from '../../../core/api/workspace-api.service';
@@ -20,7 +24,7 @@ type TabLink = { label: string; href: string };
 
 @Component({
   selector: 'app-workspace-page',
-  imports: [CommonModule, RouterLink, Pagination],
+  imports: [CommonModule, RouterLink, Pagination, PermissionsCatalog, RoleFormModal, RolePermissionsModal],
   template: `
     <section class="page">
       @if (isHome) {
@@ -263,6 +267,7 @@ type TabLink = { label: string; href: string };
               <path d="M35 58 C35 54 38 51 42 51 L115 51 C119 51 122 54 122 58 L122 84 C122 88 119 92 115 92 L42 92 C38 92 35 88 35 84 Z" fill="#138072"/>
             </svg>
 
+            @if (!isPermissionsView) {
             <button type="button" class="btn-primary-action" (click)="handleHeaderAction()">
               @if (isNotificationsView) {
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -282,6 +287,7 @@ type TabLink = { label: string; href: string };
                 <span>Nueva acción</span>
               }
             </button>
+            }
           </div>
         </section>
 
@@ -353,13 +359,10 @@ type TabLink = { label: string; href: string };
                 </span>
                 <div class="kpi-stat-info">
                   <small>Roles activos</small>
-                  <strong>5</strong>
-                  <p>100% operativos</p>
+                  <strong>{{ activeRolesCount() }}</strong>
+                  <p>{{ roles().length - systemRoles() }} personalizados</p>
                 </div>
               </div>
-              <button type="button" class="kpi-card-arrow" aria-label="Ver roles">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
             </article>
 
             <article class="kpi-stat-card">
@@ -370,14 +373,11 @@ type TabLink = { label: string; href: string };
                   </svg>
                 </span>
                 <div class="kpi-stat-info">
-                  <small>Usuarios con rol</small>
-                  <strong>32</strong>
-                  <p>84% asignados</p>
+                  <small>Asignaciones de rol</small>
+                  <strong>{{ userAssignments() }}</strong>
+                  <p>Usuarios por rol</p>
                 </div>
               </div>
-              <button type="button" class="kpi-card-arrow" aria-label="Ver usuarios">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
             </article>
 
             <article class="kpi-stat-card">
@@ -388,14 +388,11 @@ type TabLink = { label: string; href: string };
                   </svg>
                 </span>
                 <div class="kpi-stat-info">
-                  <small>Seguridad RBAC</small>
-                  <strong>100%</strong>
-                  <p>Aislamiento estricto</p>
+                  <small>Roles de sistema</small>
+                  <strong>{{ systemRoles() }}</strong>
+                  <p>Predefinidos</p>
                 </div>
               </div>
-              <button type="button" class="kpi-card-arrow" aria-label="Ver seguridad">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
             </article>
           } @else if (isPermissionsView) {
             <article class="kpi-stat-card">
@@ -408,13 +405,10 @@ type TabLink = { label: string; href: string };
                 </span>
                 <div class="kpi-stat-info">
                   <small>Permisos del sistema</small>
-                  <strong>28</strong>
+                  <strong>{{ permissions().length }}</strong>
                   <p>Operaciones mapeadas</p>
                 </div>
               </div>
-              <button type="button" class="kpi-card-arrow" aria-label="Ver permisos">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
             </article>
 
             <article class="kpi-stat-card">
@@ -427,31 +421,25 @@ type TabLink = { label: string; href: string };
                 </span>
                 <div class="kpi-stat-info">
                   <small>Permisos críticos</small>
-                  <strong>6</strong>
+                  <strong>{{ criticalCount() }}</strong>
                   <p>Acceso restringido</p>
                 </div>
               </div>
-              <button type="button" class="kpi-card-arrow" aria-label="Ver permisos críticos">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
             </article>
 
             <article class="kpi-stat-card">
               <div class="kpi-stat-main">
                 <span class="kpi-icon-wrap green">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="20 6 9 17 4 12"/>
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                   </svg>
                 </span>
                 <div class="kpi-stat-info">
-                  <small>Cobertura activa</small>
-                  <strong>99.4%</strong>
-                  <p>Módulos protegidos</p>
+                  <small>Módulos del sistema</small>
+                  <strong>{{ totalModulos() }}</strong>
+                  <p>Áreas funcionales</p>
                 </div>
               </div>
-              <button type="button" class="kpi-card-arrow" aria-label="Ver cobertura">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
             </article>
           } @else {
             <article class="kpi-stat-card">
@@ -524,6 +512,9 @@ type TabLink = { label: string; href: string };
         </div>
 
         <!-- MAIN CARD PANEL -->
+        @if (isPermissionsView) {
+          <app-permissions-catalog [permissions]="permissions()" />
+        } @else {
         <section class="module-main-card">
           @if (isNotificationsView) {
             <nav class="internal-tabs" aria-label="Vistas de notificaciones" style="padding-top: 14px; padding-bottom: 6px;">
@@ -571,6 +562,14 @@ type TabLink = { label: string; href: string };
                   </div>
                 }
               </div>
+              @if (isRolesView) {
+                <select class="filter-btn-pill" aria-label="Filtrar por estado" [value]="filtroEstado()" (change)="setFiltroEstado($event)">
+                  <option value="">Todos los estados</option><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option>
+                </select>
+                <select class="filter-btn-pill" aria-label="Filtrar por tipo" [value]="filtroTipo()" (change)="setFiltroTipo($event)">
+                  <option value="">Todos los tipos</option><option value="SYSTEM">Sistema</option><option value="CUSTOM">Personalizado</option>
+                </select>
+              } @else {
               <button type="button" class="filter-btn-pill active" (click)="toggleActiveFilter('estado')">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                 <span>Estado</span>
@@ -583,6 +582,7 @@ type TabLink = { label: string; href: string };
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 <span>{{ isPermissionsView ? 'Criticidad' : isRolesView ? 'Nivel' : isNotificationsView ? 'Prioridad' : 'Fecha' }}</span>
               </button>
+              }
             </div>
           </div>
 
@@ -650,16 +650,11 @@ type TabLink = { label: string; href: string };
                   </div>
                   <div class="doc-item-right">
                     <time>{{ item.date }}</time>
-                    <span class="status status-pill ok">{{ item.status }}</span>
-                    <div class="row-actions">
-                      <button class="more-button" type="button" (click)="toggleRowMenu(item.title)" [attr.aria-expanded]="openRowMenu === item.title" aria-label="Abrir opciones">•••</button>
-                      @if (openRowMenu === item.title) {
-                        <div class="row-menu">
-                          <button type="button" (click)="rowAction(isRolesView ? 'Ver permisos' : 'Ver detalle', item.title)">{{ isRolesView ? 'Ver permisos' : 'Ver detalle' }}</button>
-                          <button type="button" (click)="rowAction('Editar', item.title)">Editar</button>
-                          <button type="button" class="danger-action" (click)="rowAction('Eliminar', item.title)">Eliminar</button>
-                        </div>
-                      }
+                    <span class="status status-pill" [class.ok]="item.status === 'Activo'" [class.muted]="item.status !== 'Activo'">{{ item.status }}</span>
+                    <div class="row-actions row-action-buttons">
+                      <button type="button" class="row-action-btn" (click)="editRole(item.title)">Editar</button>
+                      <button type="button" class="row-action-btn" [class.warn]="item.status === 'Activo'" [class.ok]="item.status !== 'Activo'" (click)="toggleRoleStatus(roleByName(item.title))">{{ item.status === 'Activo' ? '⏸ Desactivar' : '▶ Activar' }}</button>
+                      <button type="button" class="row-action-btn danger" (click)="deleteRole(item.title)" aria-label="Eliminar rol" title="Eliminar rol">Eliminar</button>
                     </div>
                   </div>
                 </article>
@@ -684,10 +679,11 @@ type TabLink = { label: string; href: string };
             <div class="module-table-footer-left">
               <span>{{ paginationSummary() }} resultados</span>
               <label>Por página
-                <select class="page-size-select" [value]="pageSize()" (change)="changePageSize(5)">
+                <select class="page-size-select" [value]="pageSize()" (change)="onPageSizeChange($event)">
                   <option [value]="5">5</option>
                   <option [value]="10">10</option>
                   <option [value]="25">25</option>
+                  <option [value]="50">50</option>
                 </select>
               </label>
             </div>
@@ -703,6 +699,7 @@ type TabLink = { label: string; href: string };
             </div>
           </div>
         </section>
+        }
 
         <footer class="module-bottom-info">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -894,6 +891,8 @@ type TabLink = { label: string; href: string };
       @if (!isTasksView && !isActivityView && !isRolesView && !isPermissionsView && !isNotificationsView) {
         <footer class="demo-note"><span>ⓘ</span> Las operaciones disponibles dependen de la API y los permisos de la sesión autenticada.</footer>
       }
+      @if (roleFormOpen()) { <app-role-form-modal [role]="editingRole()" (closed)="closeRoleForm()" (saved)="loadRoles(); actionMessage = editingRole() ? 'Rol actualizado correctamente' : 'Rol creado correctamente'" /> }
+      <app-role-permissions-modal [roleId]="rolePermissionsId()" (closed)="rolePermissionsId.set(null)" (saved)="loadRoles()" />
     </section>
   `,
 })
@@ -903,6 +902,7 @@ export class WorkspacePage {
   private readonly auth = inject(AuthService);
   private readonly documentApi = inject(DocumentApiService);
   private readonly workspaceApi = inject(WorkspaceApiService);
+  private readonly adminApi = inject(AdministrationApiService);
   @ViewChild('fileInput') private fileInput?: ElementRef<HTMLInputElement>;
   private readonly routeData = toSignal(this.route.data, {
     initialValue: this.route.snapshot.data,
@@ -916,8 +916,85 @@ export class WorkspacePage {
     return screenCopy(this.routeInfo);
   }
 
+  readonly roles = signal<ApiRole[]>([]);
+  readonly roleFormOpen = signal(false);
+  readonly editingRole = signal<ApiRole | null>(null);
+  readonly rolePermissionsId = signal<number | null>(null);
+  readonly filtroEstado = signal<'' | 'ACTIVE' | 'INACTIVE'>('');
+  readonly filtroTipo = signal<'' | 'SYSTEM' | 'CUSTOM'>('');
+  readonly rolesFiltrados = computed(() => {
+    const query = this.searchTerm().trim().toLowerCase();
+    return this.roles().filter((r) =>
+      (!this.filtroEstado() || (r.active !== false) === (this.filtroEstado() === 'ACTIVE'))
+      && (!this.filtroTipo() || r.system === (this.filtroTipo() === 'SYSTEM'))
+      && (!query || `${r.name} ${r.description ?? ''}`.toLowerCase().includes(query)));
+  });
+  readonly userAssignments = computed(() => this.roles().reduce((sum, r) => sum + (r.userCount || 0), 0));
+  readonly activeRolesCount = computed(() => this.roles().filter((r) => r.active !== false).length);
+  readonly systemRoles = computed(() => this.roles().filter((r) => r.system).length);
+
+  loadRoles(): void {
+    this.adminApi.roles(true).subscribe({
+      next: (list) => this.roles.set(list),
+      error: () => (this.actionMessage = 'No se pudieron cargar los roles'),
+    });
+  }
+
+  openRolePermissions(name: string): void {
+    this.openRowMenu = '';
+    this.rolePermissionsId.set(this.roles().find((r) => r.name === name)?.id ?? null);
+  }
+
+  roleByName(name: string): ApiRole | undefined {
+    return this.roles().find((r) => r.name === name);
+  }
+
+  editRole(name: string): void {
+    this.editingRole.set(this.roleByName(name) ?? null);
+    this.roleFormOpen.set(true);
+  }
+
+  closeRoleForm(): void {
+    this.roleFormOpen.set(false);
+    this.editingRole.set(null);
+  }
+
+  toggleRoleStatus(role: ApiRole | undefined): void {
+    if (!role) return;
+    const activate = role.active === false;
+    this.adminApi.setRoleStatus(role.id, activate).subscribe({
+      next: (updated) => {
+        this.roles.update((list) => list.map((r) => (r.id === updated.id ? updated : r)));
+        this.actionMessage = activate ? 'Rol activado' : 'Rol desactivado';
+      },
+      error: (err) => (this.actionMessage = err?.error?.message ?? 'No se pudo cambiar el estado del rol'),
+    });
+  }
+
+  deleteRole(name: string): void {
+    const role = this.roleByName(name);
+    if (!role || !confirm(`¿Estás seguro de eliminar el rol "${role.name}"? Esta acción no se puede deshacer.`)) return;
+    this.adminApi.deleteRole(role.id).subscribe({
+      next: () => { this.actionMessage = 'Rol eliminado correctamente'; this.loadRoles(); },
+      error: (err) => (this.actionMessage = err?.error?.message ?? 'No se pudo eliminar el rol'),
+    });
+  }
+
+  readonly permissions = signal<ApiPermission[]>([]);
+  readonly criticalCount = computed(() => this.permissions().filter((p) => p.criticality === 'HIGH').length);
+  readonly totalModulos = computed(() => new Set(this.permissions().map((p) => p.module)).size);
+
   readonly items = computed<DemoItem[]>(() => {
     const info = this.routeInfo;
+    if (this.isRolesView) {
+      return this.rolesFiltrados().map((r) => ({
+        title: r.name,
+        meta: r.description ?? '',
+        date: `${r.userCount ?? 0} usuarios · ${r.permissionCount ?? 0} permisos · ${r.system ? 'Sistema' : 'Personalizado'}`,
+        status: r.active !== false ? 'Activo' : 'Inactivo',
+        type: r.system ? 'SYSTEM' : 'CUSTOM',
+      }));
+    }
     return demoList(info?.module || '', info?.subcategory || '');
   });
 
@@ -968,7 +1045,19 @@ export class WorkspacePage {
   readonly dateTo = signal('');
   selectedFileName = 'Ningún archivo seleccionado';
   selectedSource = 'Sin seleccionar';
-  actionMessage = '';
+  private readonly actionMessageState = signal('');
+  private actionMessageTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Todo mensaje asignado (roles creados/editados/eliminados, exportaciones, etc.)
+  // se limpia solo a los 3 segundos.
+  get actionMessage(): string { return this.actionMessageState(); }
+  set actionMessage(value: string) {
+    if (this.actionMessageTimer) clearTimeout(this.actionMessageTimer);
+    this.actionMessageState.set(value);
+    this.actionMessageTimer = value
+      ? setTimeout(() => { this.actionMessageState.set(''); this.actionMessageTimer = null; }, 3000)
+      : null;
+  }
   actionMenuOpen = false;
   openRowMenu = '';
   readonly exportMenuOpen = signal(false);
@@ -991,6 +1080,8 @@ export class WorkspacePage {
       this.searchTerm.set('');
       this.openRowMenu = '';
       this.exportMenuOpen.set(false);
+      if (this.isRolesView) this.loadRoles();
+      if (this.isPermissionsView) this.adminApi.permissions().subscribe({ next: (list) => this.permissions.set(list), error: () => (this.actionMessage = 'No se pudo cargar el catálogo de permisos') });
       if (this.isHome || this.isTasksView || this.isActivityView) {
         this.loadDashboard();
       }
@@ -1019,7 +1110,8 @@ export class WorkspacePage {
     if (this.isNotificationsView) {
       this.markAllNotificationsRead();
     } else if (this.isRolesView) {
-      this.rowAction('Nuevo rol', 'Formulario de rol');
+      this.editingRole.set(null);
+      this.roleFormOpen.set(true);
     } else if (this.isPermissionsView) {
       this.rowAction('Crear permiso', 'Formulario de permiso');
     } else {
@@ -1232,12 +1324,15 @@ export class WorkspacePage {
   }
 
   setSearchTerm(event: Event): void { this.searchTerm.set((event.target as HTMLInputElement).value); this.resetPage(); }
+  setFiltroEstado(event: Event): void { this.filtroEstado.set((event.target as HTMLSelectElement).value as '' | 'ACTIVE' | 'INACTIVE'); this.resetPage(); }
+  setFiltroTipo(event: Event): void { this.filtroTipo.set((event.target as HTMLSelectElement).value as '' | 'SYSTEM' | 'CUSTOM'); this.resetPage(); }
   setExpedientStatus(event: Event): void { this.expedientStatus.set((event.target as HTMLSelectElement).value); this.resetPage(); }
   setExpedientArea(event: Event): void { this.expedientArea.set((event.target as HTMLSelectElement).value); this.resetPage(); }
   setDateFrom(event: Event): void { this.dateFrom.set((event.target as HTMLInputElement).value); this.resetPage(); }
   setDateTo(event: Event): void { this.dateTo.set((event.target as HTMLInputElement).value); this.resetPage(); }
   resetPage(): void { this.page.set(1); }
   changePageSize(size: number): void { this.pageSize.set(size); this.page.set(1); }
+  onPageSizeChange(event: Event): void { this.changePageSize(Number((event.target as HTMLSelectElement).value)); }
   changeDashboardPageSize(size: number): void { this.dashboardPageSize.set(size); this.dashboardPage.set(1); }
 
   toggleRowMenu(title: string): void {

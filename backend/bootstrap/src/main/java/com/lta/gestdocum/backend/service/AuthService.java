@@ -4,43 +4,63 @@ import com.lta.gestdocum.backend.dto.AuthRequest;
 import com.lta.gestdocum.backend.dto.AuthResponse;
 import com.lta.gestdocum.backend.dto.RefreshTokenRequest;
 import com.lta.gestdocum.backend.exception.InvalidCredentialsException;
+import com.lta.gestdocum.backend.exception.NotFoundException;
+import com.lta.gestdocum.backend.model.Tenant;
+import com.lta.gestdocum.backend.repository.TenantRepository;
 import com.lta.gestdocum.backend.model.User;
+import com.lta.gestdocum.backend.model.UserStatus;
 import com.lta.gestdocum.backend.repository.UserRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUser;
 import com.lta.gestdocum.backend.security.JwtService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.util.List;
-import java.util.Set;
+import java.util.UUID;
+
 
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final TenantRepository tenantRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthSessionService authSessionService;
     private final AccessTokenRevocationService accessTokenRevocationService;
 
     public AuthService(UserRepository userRepository,
+                       TenantRepository tenantRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        AuthSessionService authSessionService,
                        AccessTokenRevocationService accessTokenRevocationService) {
         this.userRepository = userRepository;
+        this.tenantRepository = tenantRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authSessionService = authSessionService;
         this.accessTokenRevocationService = accessTokenRevocationService;
     }
 
+    /** Resuelve la organización por alias (slug), código o nombre, sin distinguir mayúsculas. */
+    private UUID resolveTenantId(String tenantName) {
+        if (tenantName == null || tenantName.isBlank()) return null;
+        String value = tenantName.trim();
+        return tenantRepository.findFirstBySlugIgnoreCase(value)
+                .or(() -> tenantRepository.findFirstByCodeIgnoreCase(value))
+                .or(() -> tenantRepository.findFirstByNameIgnoreCase(value))
+                .map(Tenant::getId)
+                .orElseThrow(() -> new NotFoundException("Organización no encontrada"));
+    }
+
     public AuthResponse login(AuthRequest request) {
         User user;
-        if (request.getTenantId() == null) {
+        UUID tenantId = request.getTenantId() != null ? request.getTenantId() : resolveTenantId(request.getTenantName());
+        if (tenantId == null) {
             user = userRepository.findByPlatformIdentifier(request.getUsernameOrEmail())
                     .orElseThrow(InvalidCredentialsException::new);
         } else {
-            user = userRepository.findByTenantAndIdentifier(request.getTenantId(), request.getUsernameOrEmail())
+            user = userRepository.findByTenantAndIdentifier(tenantId, request.getUsernameOrEmail())
                     .orElseThrow(InvalidCredentialsException::new);
         }
 
@@ -48,7 +68,7 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
 
-        if (user.getDeletedAt() != null || user.getStatus() != User.UserStatus.ACTIVE) {
+        if (user.getDeletedAt() != null || user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException();
         }
 
@@ -75,7 +95,7 @@ public class AuthService {
                 .orElseThrow(InvalidCredentialsException::new);
         if (!user.getId().equals(refresh.userId())
                 || user.getDeletedAt() != null
-                || user.getStatus() != User.UserStatus.ACTIVE) {
+                || user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException();
         }
         List<String> authorities = user.isPlatformAdmin()

@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { navigationRoutes } from '../data/nexodocs-data';
-import { authGuard } from '../auth/auth.guard';
+import { authGuard, userAdminGuard } from '../auth/auth.guard';
 import { autenticacionRoutes } from '../../features/auth/auth.routes';
 import { clinicoRoutes } from '../../features/clinico/clinico.routes';
 import { administracionRoutes } from '../../features/users/users.routes';
@@ -33,7 +33,7 @@ const dynamicCatalogRoutes: Routes = navigationRoutes
     },
     title: `${route.subcategory} - NexoDocs`,
     data: { routeInfo: route },
-    canActivate: [authGuard],
+    canActivate: route.href.startsWith('/users') ? [authGuard, userAdminGuard] : [authGuard],
   }));
 
 export const routes: Routes = [

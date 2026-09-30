@@ -75,7 +75,7 @@ export class ResetPasswordPage {
       next: (response) => {
         this.auth.establishSession(response);
         this.isSubmitting.set(false);
-        void this.router.navigateByUrl('/');
+        void this.router.navigateByUrl('/', { replaceUrl: true });
       },
       error: (error: { status?: number }) => {
         this.errorMessage.set(error.status === 400
