@@ -20,6 +20,8 @@ import java.util.stream.Collectors;
 @RestControllerAdvice(basePackages = "com.lta.gestdocum.backend.controller")
 public class GlobalExceptionHandler {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(
             MethodArgumentNotValidException exception, HttpServletRequest request) {
@@ -64,8 +66,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleConflict(
             DataIntegrityViolationException exception, HttpServletRequest request) {
+        log.error("Violación de integridad en {} {}", request.getMethod(), request.getRequestURI(), exception);
         return error(HttpStatus.CONFLICT, "Conflict",
                 "La operación entra en conflicto con datos existentes", request);
+    }
+
+    // Errores de BD no contemplados (p. ej. "permission denied", RLS): se registran y se devuelven con su causa
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<Map<String, Object>> handleDataAccess(
+            org.springframework.dao.DataAccessException exception, HttpServletRequest request) {
+        log.error("Error de acceso a datos en {} {}", request.getMethod(), request.getRequestURI(), exception);
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "Database Error",
+                exception.getMostSpecificCause().getMessage(), request);
     }
 
     @ExceptionHandler(DuplicateResourceException.class)

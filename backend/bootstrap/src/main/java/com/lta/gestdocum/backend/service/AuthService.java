@@ -5,13 +5,14 @@ import com.lta.gestdocum.backend.dto.AuthResponse;
 import com.lta.gestdocum.backend.dto.RefreshTokenRequest;
 import com.lta.gestdocum.backend.exception.InvalidCredentialsException;
 import com.lta.gestdocum.backend.model.User;
+import com.lta.gestdocum.backend.model.UserStatus;
 import com.lta.gestdocum.backend.repository.UserRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUser;
 import com.lta.gestdocum.backend.security.JwtService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.util.List;
-import java.util.Set;
+
 
 @Service
 public class AuthService {
@@ -48,7 +49,7 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
 
-        if (user.getDeletedAt() != null || user.getStatus() != User.UserStatus.ACTIVE) {
+        if (user.getDeletedAt() != null || user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException();
         }
 
@@ -75,7 +76,7 @@ public class AuthService {
                 .orElseThrow(InvalidCredentialsException::new);
         if (!user.getId().equals(refresh.userId())
                 || user.getDeletedAt() != null
-                || user.getStatus() != User.UserStatus.ACTIVE) {
+                || user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException();
         }
         List<String> authorities = user.isPlatformAdmin()

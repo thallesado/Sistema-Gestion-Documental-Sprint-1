@@ -21,10 +21,13 @@ import java.util.Objects;
 public class AccessTokenRevocationService implements AccessTokenRevocationChecker {
     private final JwtService jwtService;
     private final RevokedAccessTokenStore store;
+    private final AuthSessionService authSessionService;
 
-    public AccessTokenRevocationService(JwtService jwtService, RevokedAccessTokenStore store) {
+    public AccessTokenRevocationService(JwtService jwtService, RevokedAccessTokenStore store,
+                                         AuthSessionService authSessionService) {
         this.jwtService = jwtService;
         this.store = store;
+        this.authSessionService = authSessionService;
     }
 
     @Transactional
@@ -45,7 +48,8 @@ public class AccessTokenRevocationService implements AccessTokenRevocationChecke
     public boolean isRevoked(AuthenticatedUser identity, String token) {
         JwtService.AccessTokenDetails tokenDetails = jwtService.extractAccessTokenDetails(token);
         verifyIdentity(identity, tokenDetails.identity());
-        return store.hasActiveRevocation(identity, fingerprint(token), OffsetDateTime.now(ZoneOffset.UTC));
+        return store.hasActiveRevocation(identity, fingerprint(token), OffsetDateTime.now(ZoneOffset.UTC))
+                || !authSessionService.hasActiveSession(identity.userId());
     }
 
     private void verifyIdentity(AuthenticatedUser authenticatedUser, AuthenticatedUser tokenIdentity) {

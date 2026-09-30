@@ -18,7 +18,6 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import com.lta.gestdocum.backend.model.BaseDiagnosisEntry;
 
 @Entity
 @Table(name = "clinical_histories")

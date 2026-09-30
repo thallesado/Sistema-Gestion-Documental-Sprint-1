@@ -79,6 +79,11 @@ public class AuthSessionService {
         repository.revokeAllByUserId(userId, OffsetDateTime.now(ZoneOffset.UTC));
     }
 
+    @Transactional(readOnly = true)
+    public boolean hasActiveSession(UUID userId) {
+        return repository.existsByUserIdAndRevokedAtIsNullAndExpiresAtAfter(userId, OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
     static String hash(String value) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")

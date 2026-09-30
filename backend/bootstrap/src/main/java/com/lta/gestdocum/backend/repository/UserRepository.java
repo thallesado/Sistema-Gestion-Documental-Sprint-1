@@ -30,6 +30,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByIdAndDeletedAtIsNull(UUID id);
 
+    boolean existsByTenantIdAndUsernameIgnoreCase(UUID tenantId, String username);
+
+    boolean existsByTenantIdAndEmailIgnoreCase(UUID tenantId, String email);
+
     @Query("""
         SELECT u FROM User u
         WHERE u.tenantId = :tenantId
@@ -43,6 +47,44 @@ public interface UserRepository extends JpaRepository<User, UUID> {
           )
         """)
     Page<User> findActiveByTenant(
+            @Param("tenantId") UUID tenantId,
+            @Param("filter") String filter,
+            Pageable pageable);
+
+    @Query(value = """
+        SELECT u.* FROM users u
+        WHERE u.tenant_id = :tenantId AND u.deleted_at IS NULL
+          AND (:filter IS NULL OR :filter = ''
+            OR u.username ILIKE CONCAT('%', :filter, '%')
+            OR u.email ILIKE CONCAT('%', :filter, '%')
+            OR u.first_name ILIKE CONCAT('%', :filter, '%')
+            OR u.last_name ILIKE CONCAT('%', :filter, '%'))
+          AND (
+            EXISTS (SELECT 1 FROM clinical_staff cs WHERE cs.user_id = u.id AND cs.tenant_id = u.tenant_id)
+            OR EXISTS (SELECT 1 FROM user_roles ur
+                       JOIN role_permissions rp ON rp.role_id = ur.role_id AND rp.tenant_id = ur.tenant_id
+                       JOIN permissions p ON p.id = rp.permission_id
+                       WHERE ur.user_id = u.id AND ur.tenant_id = u.tenant_id AND p.code = 'expedient:update')
+          )
+        """,
+        countQuery = """
+        SELECT count(*) FROM users u
+        WHERE u.tenant_id = :tenantId AND u.deleted_at IS NULL
+          AND (:filter IS NULL OR :filter = ''
+            OR u.username ILIKE CONCAT('%', :filter, '%')
+            OR u.email ILIKE CONCAT('%', :filter, '%')
+            OR u.first_name ILIKE CONCAT('%', :filter, '%')
+            OR u.last_name ILIKE CONCAT('%', :filter, '%'))
+          AND (
+            EXISTS (SELECT 1 FROM clinical_staff cs WHERE cs.user_id = u.id AND cs.tenant_id = u.tenant_id)
+            OR EXISTS (SELECT 1 FROM user_roles ur
+                       JOIN role_permissions rp ON rp.role_id = ur.role_id AND rp.tenant_id = ur.tenant_id
+                       JOIN permissions p ON p.id = rp.permission_id
+                       WHERE ur.user_id = u.id AND ur.tenant_id = u.tenant_id AND p.code = 'expedient:update')
+          )
+        """,
+        nativeQuery = true)
+    Page<User> findResponsibleByTenant(
             @Param("tenantId") UUID tenantId,
             @Param("filter") String filter,
             Pageable pageable);
