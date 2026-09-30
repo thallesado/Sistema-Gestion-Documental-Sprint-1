@@ -1,18 +1,18 @@
 import { Routes } from '@angular/router';
-import { authGuard, platformAdminGuard } from '../../core/auth/auth.guard';
+import { authGuard, platformAdminGuard, userAdminGuard } from '../../core/auth/auth.guard';
 
 export const administracionRoutes: Routes = [
   {
     path: 'users',
     loadComponent: () => import('./pages/administracion-page').then((m) => m.AdministrationPage),
     title: 'Usuarios del tenant - NexoDocs',
-    canActivate: [authGuard],
+    canActivate: [authGuard, userAdminGuard],
   },
   {
     path: 'users/new',
     loadComponent: () => import('./pages/administracion-page').then((m) => m.AdministrationPage),
     title: 'Crear usuario - NexoDocs',
-    canActivate: [authGuard],
+    canActivate: [authGuard, userAdminGuard],
   },
   {
     path: 'access-denied',

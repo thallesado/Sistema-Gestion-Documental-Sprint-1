@@ -652,13 +652,9 @@ type TabLink = { label: string; href: string };
                     <time>{{ item.date }}</time>
                     <span class="status status-pill" [class.ok]="item.status === 'Activo'" [class.muted]="item.status !== 'Activo'">{{ item.status }}</span>
                     <div class="row-actions row-action-buttons">
-                      @if (item.type === 'CUSTOM') {
-                        <button type="button" class="row-action-btn" (click)="editRole(item.title)">Editar</button>
-                        <button type="button" class="row-action-btn" [class.warn]="item.status === 'Activo'" [class.ok]="item.status !== 'Activo'" (click)="toggleRoleStatus(roleByName(item.title))">{{ item.status === 'Activo' ? '⏸ Desactivar' : '▶ Activar' }}</button>
-                        <button type="button" class="row-action-btn danger" (click)="deleteRole(item.title)" aria-label="Eliminar rol" title="Eliminar rol">Eliminar</button>
-                      } @else {
-                        <button type="button" class="row-action-btn" (click)="openRolePermissions(item.title)">Ver permisos</button>
-                      }
+                      <button type="button" class="row-action-btn" (click)="editRole(item.title)">Editar</button>
+                      <button type="button" class="row-action-btn" [class.warn]="item.status === 'Activo'" [class.ok]="item.status !== 'Activo'" (click)="toggleRoleStatus(roleByName(item.title))">{{ item.status === 'Activo' ? '⏸ Desactivar' : '▶ Activar' }}</button>
+                      <button type="button" class="row-action-btn danger" (click)="deleteRole(item.title)" aria-label="Eliminar rol" title="Eliminar rol">Eliminar</button>
                     </div>
                   </div>
                 </article>
@@ -683,10 +679,11 @@ type TabLink = { label: string; href: string };
             <div class="module-table-footer-left">
               <span>{{ paginationSummary() }} resultados</span>
               <label>Por página
-                <select class="page-size-select" [value]="pageSize()" (change)="changePageSize(5)">
+                <select class="page-size-select" [value]="pageSize()" (change)="onPageSizeChange($event)">
                   <option [value]="5">5</option>
                   <option [value]="10">10</option>
                   <option [value]="25">25</option>
+                  <option [value]="50">50</option>
                 </select>
               </label>
             </div>
@@ -1048,7 +1045,19 @@ export class WorkspacePage {
   readonly dateTo = signal('');
   selectedFileName = 'Ningún archivo seleccionado';
   selectedSource = 'Sin seleccionar';
-  actionMessage = '';
+  private readonly actionMessageState = signal('');
+  private actionMessageTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Todo mensaje asignado (roles creados/editados/eliminados, exportaciones, etc.)
+  // se limpia solo a los 3 segundos.
+  get actionMessage(): string { return this.actionMessageState(); }
+  set actionMessage(value: string) {
+    if (this.actionMessageTimer) clearTimeout(this.actionMessageTimer);
+    this.actionMessageState.set(value);
+    this.actionMessageTimer = value
+      ? setTimeout(() => { this.actionMessageState.set(''); this.actionMessageTimer = null; }, 3000)
+      : null;
+  }
   actionMenuOpen = false;
   openRowMenu = '';
   readonly exportMenuOpen = signal(false);
@@ -1323,6 +1332,7 @@ export class WorkspacePage {
   setDateTo(event: Event): void { this.dateTo.set((event.target as HTMLInputElement).value); this.resetPage(); }
   resetPage(): void { this.page.set(1); }
   changePageSize(size: number): void { this.pageSize.set(size); this.page.set(1); }
+  onPageSizeChange(event: Event): void { this.changePageSize(Number((event.target as HTMLSelectElement).value)); }
   changeDashboardPageSize(size: number): void { this.dashboardPageSize.set(size); this.dashboardPage.set(1); }
 
   toggleRowMenu(title: string): void {

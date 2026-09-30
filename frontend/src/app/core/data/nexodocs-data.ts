@@ -147,7 +147,6 @@ export const navSections: NavSection[] = [
         roles: ['Administrador de tenant', 'Superadministrador'],
         children: [
           { label: 'Todos los usuarios', href: '/users' },
-          { label: 'Crear usuario', href: '/users/new' },
           { label: 'Activos', href: '/users/active', sprintEnabled: false },
           { label: 'Bloqueados', href: '/users/blocked', sprintEnabled: false },
           { label: 'Roles', href: '/users/roles' },

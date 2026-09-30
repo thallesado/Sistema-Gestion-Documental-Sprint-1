@@ -1,7 +1,8 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
+import { PublicTenant } from '../../../core/auth/auth.types';
 
 @Component({
   selector: 'app-login-page',
@@ -94,13 +95,14 @@ import { AuthService } from '../../../core/auth/auth.service';
                     <rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><path d="M9 18h6v4H9z"/>
                   </svg>
                 </span>
-                <input
-                  id="tenant-input"
-                  name="tenantId"
-                  [(ngModel)]="tenantId"
-                  placeholder="ID de organización o déjalo vacío"
-                />
+                <select id="tenant-input" name="tenantId" [(ngModel)]="tenantId" [disabled]="tenantsLoading()">
+                  <option [ngValue]="null">[ Plataforma / Administración Global ]</option>
+                  @for (tenant of tenants(); track tenant.id) {
+                    <option [value]="tenant.id">{{ tenant.name }}</option>
+                  }
+                </select>
               </div>
+              @if (tenantsError()) { <small class="login-error-text" role="alert">{{ tenantsError() }}</small> }
             </div>
 
             <div class="field-group">
@@ -422,6 +424,29 @@ import { AuthService } from '../../../core/auth/auth.service';
       transition: border-color 0.2s, box-shadow 0.2s;
     }
 
+    .input-wrap select {
+      width: 100%;
+      height: 46px;
+      background: #ffffff;
+      border: 1.5px solid #dbe6e4;
+      border-radius: 12px;
+      padding: 0 14px 0 42px;
+      font-size: 13px;
+      color: #143634;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input-wrap select:focus {
+      border-color: #087f7b;
+      box-shadow: 0 0 0 3px rgba(8, 127, 123, 0.12);
+    }
+
+    .login-error-text {
+      color: #b45356;
+      font-size: 12px;
+    }
+
     .input-wrap input::placeholder {
       color: #9cb5b3;
     }
@@ -513,7 +538,7 @@ import { AuthService } from '../../../core/auth/auth.service';
     }
   `]
 })
-export class LoginPage {
+export class LoginPage implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -522,16 +547,32 @@ export class LoginPage {
   readonly isSubmitting = signal(false);
   readonly showPassword = signal(false);
 
-  tenantId = '';
+  readonly tenants = signal<PublicTenant[]>([]);
+  readonly tenantsLoading = signal(true);
+  readonly tenantsError = signal('');
+
+  tenantId: string | null = null; // null = Plataforma / Administración Global
   usernameOrEmail = '';
   password = '';
+
+  ngOnInit(): void {
+    this.auth.publicTenants().subscribe({
+      next: (list) => { this.tenants.set(list); this.tenantsLoading.set(false); },
+      error: (error: { status?: number }) => {
+        this.tenantsError.set(error.status === 429
+          ? 'Demasiadas solicitudes. Espera un minuto e inténtalo de nuevo.'
+          : 'No se pudo cargar la lista de organizaciones.');
+        this.tenantsLoading.set(false);
+      },
+    });
+  }
 
   submit(): void {
     this.errorMessage.set('');
     this.isSubmitting.set(true);
 
     this.auth.login({
-      tenantId: this.tenantId.trim() || null,
+      tenantId: this.tenantId,
       usernameOrEmail: this.usernameOrEmail,
       password: this.password,
     }).subscribe({

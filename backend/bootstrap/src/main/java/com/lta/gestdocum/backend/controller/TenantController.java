@@ -1,5 +1,6 @@
 package com.lta.gestdocum.backend.controller;
 
+import com.lta.gestdocum.backend.dto.TenantPublicResponse;
 import com.lta.gestdocum.backend.dto.TenantResponse;
 import com.lta.gestdocum.backend.dto.TenantCreateRequest;
 import com.lta.gestdocum.backend.service.TenantService;
@@ -14,6 +15,9 @@ import org.springframework.http.HttpStatus;
 public class TenantController {
     private final TenantService service;
     public TenantController(TenantService service) { this.service = service; }
+    /** Público (sin autenticación): alimenta el selector de organización del login. */
+    @GetMapping("/public")
+    public List<TenantPublicResponse> listPublic() { return service.listPublic(); }
     @GetMapping @PreAuthorize("hasAuthority('platform:tenant:manage')")
     public List<TenantResponse> list() { return service.list(); }
     @PostMapping @PreAuthorize("hasAuthority('platform:tenant:manage')")

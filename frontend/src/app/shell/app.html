@@ -48,9 +48,10 @@
         @for (section of availableSections(); track section.title) {
           <p class="nav-section-title">{{ section.title | uppercase }}</p>
           @for (item of section.items; track item.label) {
-            <div class="nav-group">
+            <div class="nav-group" [class.active]="isActiveItem(item.label)">
               <a
                 class="nav-item"
+                [class.has-toggle]="item.children.length > 1"
                 [attr.title]="isCollapsed() ? item.label : null"
                 [class.active]="isActiveItem(item.label)"
                 [routerLink]="item.children[0].href"
@@ -101,28 +102,30 @@
                   }
                 </span>
                 <b>{{ item.label }}</b>
-                @if (item.children.length > 1) {
-                  <button
-                    type="button"
-                    class="nav-arrow"
-                    [attr.aria-label]="(isExpanded(item.label) ? 'Contraer ' : 'Expandir ') + item.label"
-                    [attr.aria-expanded]="isExpanded(item.label)"
-                    (click)="$event.preventDefault(); $event.stopPropagation(); toggleNav(item.label)"
-                  >
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" [style.transform]="isExpanded(item.label) ? 'rotate(180deg)' : 'none'">
-                      <polyline points="6 9 12 15 18 9"/>
-                    </svg>
-                  </button>
-                }
               </a>
+              @if (item.children.length > 1) {
+                <button
+                  type="button"
+                  class="nav-arrow"
+                  [attr.aria-label]="'Submenú de ' + item.label"
+                  [attr.aria-expanded]="isExpanded(item.label)"
+                  [attr.aria-controls]="navId(item.label)"
+                  (click)="toggleNav(item.label)"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" [style.transform]="isExpanded(item.label) ? 'rotate(180deg)' : 'none'">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </button>
+              }
             </div>
-            @if (isExpanded(item.label) && item.children.length > 1) {
-              <div class="nav-children-list">
+            @if (item.children.length > 1) {
+              <div class="nav-children-list" [id]="navId(item.label)" [hidden]="!isExpanded(item.label)">
                 @for (child of visibleChildren(item); track child.href) {
                   <a
                     [routerLink]="child.href"
-                    [class.active]="isActiveChild(child.href)"
-                    [attr.aria-current]="isActiveChild(child.href) ? 'page' : null"
+                    routerLinkActive="active"
+                    ariaCurrentWhenActive="page"
+                    [routerLinkActiveOptions]="{ exact: true }"
                     (click)="openNav(item.label)"
                   >
                     @if (child.label === 'Resumen') {

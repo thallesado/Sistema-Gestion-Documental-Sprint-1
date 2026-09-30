@@ -1,13 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal, ViewEncapsulation } from '@angular/core';
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
 import { AuthService } from '../core/auth/auth.service';
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, RouterLink, RouterOutlet],
+  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './app.html',
   styleUrl: './app.css',
   encapsulation: ViewEncapsulation.None,
@@ -68,7 +68,11 @@ export class App {
   constructor() {
     this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
-      .subscribe((event) => this.currentUrl.set(event.urlAfterRedirects));
+      .subscribe((event) => {
+        this.currentUrl.set(event.urlAfterRedirects);
+        // También cubre la recarga en una subruta: el grupo que contiene la URL nace abierto.
+        this.expandForUrl(event.urlAfterRedirects);
+      });
   }
 
   isWorkspace(): boolean {
@@ -90,13 +94,31 @@ export class App {
     this.mobileNavOpen.set(false);
   }
 
+  /** Un ítem está activo si alguna de sus rutas hijas coincide con la URL actual (o cuelga de ella). */
   isActiveItem(label: string): boolean {
-    const route = navigationRoutes.find((item) => item.href === this.currentUrl());
-    return (route?.module ?? 'Inicio') === label;
+    const item = this.findItem(label);
+    return !!item && this.itemContainsUrl(item, this.currentUrl());
   }
 
-  isActiveChild(href: string): boolean {
-    return this.currentUrl() === href;
+  navId(label: string): string {
+    return 'nav-sub-' + label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-');
+  }
+
+  private findItem(label: string): NavItem | undefined {
+    return this.sections.flatMap((section) => section.items).find((item) => item.label === label);
+  }
+
+  private itemContainsUrl(item: NavItem, url: string): boolean {
+    const path = url.split(/[?#]/)[0];
+    return item.children.some((child) => path === child.href || (child.href !== '/' && path.startsWith(child.href + '/')));
+  }
+
+  private expandForUrl(url: string): void {
+    const groups = this.sections
+      .flatMap((section) => section.items)
+      .filter((item) => item.children.length > 1 && this.itemContainsUrl(item, url))
+      .map((item) => item.label);
+    if (groups.length) this.expanded.update((current) => [...new Set([...current, ...groups])]);
   }
 
   unreadCount(label: string): string {

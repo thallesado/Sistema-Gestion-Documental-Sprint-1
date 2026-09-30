@@ -3,10 +3,12 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup, FormsModule, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { merge } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, merge } from 'rxjs';
 import { AdministrationApiService, ApiRole, ApiTenant, ApiUser, CreateUserPayload } from '../../../core/api/administration-api.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RolePermissionsModal } from '../components/role-permissions-modal';
+import { ExportColumn, exportToCsv, exportToJson, exportToPrintView } from '../../../core/utils/export-utils';
+import { Pagination } from '../../../shared/components/pagination/pagination.component';
 
 /** Exige mínimo 8 caracteres, mayúscula, número y carácter especial. */
 function strongPassword(control: AbstractControl): ValidationErrors | null {
@@ -25,7 +27,7 @@ function suggestUsername(first: string, last: string): string {
 
 @Component({
   selector: 'app-administration-page',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, RolePermissionsModal],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, RolePermissionsModal, Pagination],
   template: `
     <section class="admin-page">
       @if (isTenantArea) {
@@ -106,14 +108,38 @@ function suggestUsername(first: string, last: string): string {
               }
             </section>
           } @else {
-          <div class="admin-toolbar"><label class="admin-search">⌕<input [(ngModel)]="search" (keyup.enter)="loadUsers()" placeholder="Buscar por nombre, usuario o correo" aria-label="Buscar usuarios" /></label><button class="admin-secondary" type="button" (click)="loadUsers()">Buscar</button></div>
+          <div class="admin-toolbar users-toolbar">
+            <label class="admin-search">⌕<input [value]="search" (input)="onSearchInput($event)" placeholder="Buscar por nombre, usuario o correo" aria-label="Buscar usuarios" /></label>
+            <div class="users-toolbar-filters">
+              <select class="filter-btn-pill" aria-label="Filtrar por estado" [value]="filtroEstado()" (change)="setFiltroEstado($event)">
+                <option value="">Todos los estados</option><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option>
+              </select>
+              <select class="filter-btn-pill" aria-label="Filtrar por perfil" [value]="filtroPerfil()" (change)="setFiltroPerfil($event)">
+                <option value="">Todos los perfiles</option><option value="WITH">Con perfil</option><option value="WITHOUT">Sin asignar</option>
+              </select>
+              <div class="export-dropdown-wrapper">
+                <button type="button" class="filter-btn-pill" (click)="exportMenuOpen.set(!exportMenuOpen())" [attr.aria-expanded]="exportMenuOpen()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Exportar</span>
+                </button>
+                @if (exportMenuOpen()) {
+                  <div class="export-dropdown-backdrop" (click)="exportMenuOpen.set(false)"></div>
+                  <div class="export-dropdown-popover">
+                    <button type="button" (click)="exportUsers('Excel')"><div><strong>Exportar a Excel</strong><small>Descargar tabla en formato .csv</small></div></button>
+                    <button type="button" (click)="exportUsers('PDF')"><div><strong>Exportar a PDF</strong><small>Vista de impresión y guardado PDF</small></div></button>
+                    <button type="button" (click)="exportUsers('JSON')"><div><strong>Exportar a JSON</strong><small>Descargar archivo de datos .json</small></div></button>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
           @if (message()) { <div class="admin-state" [class.error]="error()" role="status">{{ message() }}</div> }
           <section class="admin-table-wrap">
             @if (loading()) { <p class="admin-empty">Cargando usuarios…</p> }
-            @else if (!users().length && !error()) { <p class="admin-empty">No hay usuarios para mostrar.</p> }
+            @else if (!visibleUsers().length && !error()) { <p class="admin-empty">No hay usuarios para mostrar.</p> }
             @else {
               <table><thead><tr><th>Usuario</th><th>Correo</th><th>Perfil clínico</th><th>Estado</th><th><span class="sr-only">Acciones</span></th></tr></thead>
-              <tbody>@for (user of users(); track user.id) { <tr><td><b>{{ user.firstName }} {{ user.lastName }}</b><small>{{ user.username }}</small></td><td>{{ user.email }}</td><td>{{ user.staffType || 'No asignado' }}</td><td><span class="admin-status" [class.inactive]="user.status !== 'ACTIVE'">{{ user.status === 'ACTIVE' ? 'Activo' : user.status }}</span></td><td><button class="link-button" type="button" (click)="edit(user)">Editar</button>@if (user.status === 'ACTIVE') {<button class="link-button danger" type="button" (click)="deactivate(user)">Desactivar</button>} @else {<button class="link-button" type="button" (click)="reactivate(user)">Reactivar</button>}</td></tr> }</tbody></table>
+              <tbody>@for (user of visibleUsers(); track user.id) { <tr><td><b>{{ user.firstName }} {{ user.lastName }}</b><small>{{ user.username }}</small></td><td>{{ user.email }}</td><td>{{ user.staffType || 'No asignado' }}</td><td><span class="admin-status" [class.status-inactive]="user.status === 'INACTIVE'" [class.inactive]="user.status !== 'ACTIVE' && user.status !== 'INACTIVE'">{{ statusLabel(user.status) }}</span></td><td><button class="link-button" type="button" (click)="edit(user)">Editar</button>@if (user.status === 'ACTIVE') {<button class="link-button danger" type="button" (click)="deactivate(user)">Desactivar</button>} @else {<button class="link-button" type="button" (click)="reactivate(user)">Reactivar</button>}</td></tr> }</tbody></table>
             }
             @if (editUser()) {
               <div class="modal-backdrop" role="presentation"><section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
@@ -130,6 +156,9 @@ function suggestUsername(first: string, last: string): string {
             }
             @if (confirmation()) {
               <div class="modal-backdrop" role="presentation"><section class="admin-modal confirmation" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title"><h2 id="confirm-title">{{ confirmation()?.title }}</h2><p>{{ confirmation()?.message }}</p><div class="form-actions"><button class="admin-secondary" type="button" (click)="closeConfirmation()">Cancelar</button><button class="admin-primary" type="button" (click)="confirmAction()">Confirmar</button></div></section></div>
+            }
+            @if (!loading() && visibleTotal() > 0) {
+              <app-pagination [total]="visibleTotal()" [page]="userPage() + 1" [pageSize]="userPageSize()" label="Paginación de usuarios" (pageChange)="changeUserPage($event)" (pageSizeChange)="changeUserPageSize($event)" />
             }
           </section>
           <p class="api-note">Los roles se asignan en creación y edición mediante roleIds. Activar/desactivar utiliza la actualización del usuario.</p>
@@ -156,6 +185,22 @@ export class AdministrationPage {
   readonly message = signal('');
   readonly error = signal(false);
   search = '';
+  readonly totalUsers = signal(0);
+  readonly filtroEstado = signal<'' | 'ACTIVE' | 'INACTIVE'>('');
+  readonly filtroPerfil = signal<'' | 'WITH' | 'WITHOUT'>('');
+  readonly exportMenuOpen = signal(false);
+  // Con filtros de estado/perfil (que el backend no soporta) se trae el conjunto completo
+  // que coincide con la búsqueda y se filtra y pagina en el cliente.
+  private readonly filtersActive = computed(() => !!this.filtroEstado() || !!this.filtroPerfil());
+  private readonly filteredUsers = computed(() => this.applyFilters(this.users()));
+  readonly visibleUsers = computed(() => {
+    if (!this.filtersActive()) return this.users();
+    const start = this.userPage() * this.userPageSize();
+    return this.filteredUsers().slice(start, start + this.userPageSize());
+  });
+  readonly visibleTotal = computed(() => this.filtersActive() ? this.filteredUsers().length : this.totalUsers());
+  readonly userPage = signal(0); // base 0, como el backend
+  readonly userPageSize = signal(10);
   readonly userForm = new FormGroup({
     firstName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     lastName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -203,7 +248,13 @@ export class AdministrationPage {
     }));
   readonly tenantName = computed(() => this.currentUser()?.tenantName || 'la organización del usuario autenticado');
 
+  private readonly searchInput$ = new Subject<string>();
+
   constructor() {
+    this.searchInput$.pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed()).subscribe(value => {
+      this.search = value;
+      this.searchUsers();
+    });
     const { firstName, lastName, username } = this.userForm.controls;
     merge(firstName.valueChanges, lastName.valueChanges).pipe(takeUntilDestroyed()).subscribe(() => {
       // Solo autogenera mientras el usuario no haya editado el campo a mano (patchValue no lo marca dirty).
@@ -225,9 +276,51 @@ export class AdministrationPage {
     this.api.roles().subscribe({ next: roles => { this.roles.set(roles); this.rolesLoading.set(false); }, error: err => { this.rolesLoading.set(false); this.rolesError.set(this.apiError(err, 'No se pudieron cargar los roles.')); } });
   }
 
+  private applyFilters(list: ApiUser[]): ApiUser[] {
+    const estado = this.filtroEstado(); const perfil = this.filtroPerfil();
+    return list.filter(u =>
+      (!estado || (estado === 'ACTIVE') === (u.status === 'ACTIVE')) &&
+      (!perfil || (perfil === 'WITH') === !!u.staffType));
+  }
+  setFiltroEstado(event: Event): void { this.filtroEstado.set((event.target as HTMLSelectElement).value as '' | 'ACTIVE' | 'INACTIVE'); this.searchUsers(); }
+  setFiltroPerfil(event: Event): void { this.filtroPerfil.set((event.target as HTMLSelectElement).value as '' | 'WITH' | 'WITHOUT'); this.searchUsers(); }
+
+  exportUsers(format: 'Excel' | 'PDF' | 'JSON'): void {
+    this.exportMenuOpen.set(false);
+    this.api.users(this.search, 0, 2000).subscribe({
+      next: page => {
+        const rows = this.applyFilters(page.content).map(u => ({
+          nombre: `${u.firstName} ${u.lastName}`, usuario: u.username, correo: u.email,
+          perfil: u.staffType || 'No asignado', estado: u.status === 'ACTIVE' ? 'Activo' : 'Inactivo',
+        }));
+        const cols: ExportColumn[] = [
+          { key: 'nombre', label: 'Nombre' }, { key: 'usuario', label: 'Usuario' }, { key: 'correo', label: 'Correo' },
+          { key: 'perfil', label: 'Perfil clínico' }, { key: 'estado', label: 'Estado' },
+        ];
+        const filename = `usuarios-${new Date().toISOString().split('T')[0]}`;
+        if (format === 'JSON') exportToJson(rows, filename);
+        else if (format === 'PDF') exportToPrintView('Usuarios', 'Módulo Usuarios y equipos · NexoDocs', rows, cols);
+        else exportToCsv(rows, filename, cols);
+      },
+      error: err => this.showError(this.apiError(err, 'No se pudo exportar la lista de usuarios.')),
+    });
+  }
+
+  statusLabel(status: string): string {
+    const labels: Record<string, string> = { ACTIVE: 'Activo', INACTIVE: 'Inactivo', INVITED: 'Invitado', BLOCKED: 'Bloqueado', SUSPENDED: 'Suspendido' };
+    return labels[status] ?? status;
+  }
+
+  onSearchInput(event: Event): void { this.searchInput$.next((event.target as HTMLInputElement).value); }
+
+  searchUsers(): void { this.userPage.set(0); this.loadUsers(); }
+  changeUserPage(page: number): void { this.userPage.set(page - 1); this.loadUsers(); }
+  changeUserPageSize(size: number): void { this.userPageSize.set(size); this.userPage.set(0); this.loadUsers(); }
+
   loadUsers(): void {
     this.loading.set(true); this.message.set(''); this.error.set(false);
-    this.api.users(this.search).subscribe({ next: page => { this.users.set(page.content); this.loading.set(false); }, error: err => this.showError(this.apiError(err, 'No se pudieron cargar los usuarios.')) });
+    const all = this.filtersActive();
+    this.api.users(this.search, all ? 0 : this.userPage(), all ? 2000 : this.userPageSize()).subscribe({ next: page => { this.users.set(page.content); this.totalUsers.set(page.totalElements); this.loading.set(false); }, error: err => this.showError(this.apiError(err, 'No se pudieron cargar los usuarios.')) });
   }
 
   loadTenants(): void {
@@ -299,11 +392,23 @@ export class AdministrationPage {
   saveEdit(): void { const user = this.editUser(); if (!user) return; this.saving.set(true); this.editError.set(''); this.api.updateUser(user.id, this.editForm).subscribe({ next: () => { this.saving.set(false); this.closeEdit(); this.message.set('Usuario actualizado.'); this.loadUsers(); }, error: err => { this.saving.set(false); this.editError.set(this.apiError(err, 'No se pudo actualizar el usuario.')); } }); }
 
   deactivate(user: ApiUser): void {
-    this.confirmation.set({ title: 'Desactivar usuario', message: `¿Quieres desactivar a ${user.firstName} ${user.lastName}?`, action: () => this.api.deactivateUser(user.id).subscribe({ next: () => { this.message.set('Usuario desactivado.'); this.loadUsers(); }, error: err => this.showError(this.apiError(err, 'No se pudo desactivar el usuario.')) }) });
+    this.confirmation.set({ title: 'Desactivar usuario', message: `¿Quieres desactivar a ${user.firstName} ${user.lastName}?`, action: () => this.changeUserStatus(user, 'INACTIVE', 'Usuario desactivado.', 'No se pudo desactivar el usuario.') });
   }
 
   reactivate(user: ApiUser): void {
-    this.api.updateUser(user.id, { firstName: user.firstName, lastName: user.lastName, email: user.email, status: 'ACTIVE', roleIds: user.roleIds ?? [] }).subscribe({ next: () => { this.message.set('Usuario reactivado.'); this.loadUsers(); }, error: err => this.showError(this.apiError(err, 'No se pudo reactivar el usuario.')) });
+    this.changeUserStatus(user, 'ACTIVE', 'Usuario reactivado.', 'No se pudo reactivar el usuario.');
+  }
+
+  // Cambia solo el estado (PUT, no DELETE: DELETE es un borrado lógico que saca al usuario del listado)
+  // y actualiza el usuario en su sitio; los filtros vigentes se reaplican solos vía visibleUsers().
+  private changeUserStatus(user: ApiUser, status: 'ACTIVE' | 'INACTIVE', okMessage: string, errorMessage: string): void {
+    this.api.updateUser(user.id, { firstName: user.firstName, lastName: user.lastName, email: user.email, status, roleIds: user.roleIds ?? [] }).subscribe({
+      next: updated => {
+        this.users.update(list => list.map(u => u.id === user.id ? { ...u, status: updated?.status ?? status } : u));
+        this.message.set(okMessage);
+      },
+      error: err => this.showError(this.apiError(err, errorMessage)),
+    });
   }
 
   private showError(text: string): void { this.loading.set(false); this.error.set(true); this.message.set(text); }

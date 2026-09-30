@@ -1591,3 +1591,33 @@ a {
 .row-action-btn.warn:hover { background: #fff4e4; border-color: #f0c98f; }
 .row-action-btn.ok { color: #218450; }
 .row-action-btn.ok:hover { background: #eaf8f1; border-color: #b9e3cc; }
+
+/* Legibilidad del formulario "Nuevo usuario" */
+.create-user-form .form-grid label,
+.create-user-form .chip-field-header > span:first-child { font-size: 14px; font-weight: 600; }
+.create-user-form .form-note,
+.create-user-form .field-help { font-size: 14px; line-height: 1.4; }
+.create-user-form .field-error { font-size: 13px; }
+.create-user-form .role-chip { font-size: 14px; }
+.create-user-form .role-chip-counter { font-size: 12px; }
+.create-user-form .password-popover-title { font-size: 13px; }
+.create-user-form .password-rules li { font-size: 13px; }
+
+/* Tabla de usuarios: scroll horizontal, paginador integrado y aire inferior */
+.admin-table-wrap { overflow-x: auto; }
+.admin-table-wrap > .pagination { border-top: 1px solid var(--line); min-width: 720px; }
+.admin-page { padding-bottom: 32px; }
+
+/* Toolbar de usuarios: buscador flexible y filtros/exportar a la derecha */
+.users-toolbar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+.users-toolbar .admin-search { flex: 1; min-width: 220px; }
+.users-toolbar-filters { display: flex; gap: 1rem; align-items: center; margin-left: auto; flex-wrap: wrap; }
+
+/* Tabla de usuarios: más legible */
+.admin-table-wrap th { font-size: 14px; padding: 1rem 1.5rem; }
+.admin-table-wrap td { font-size: 14px; padding: 1rem 1.5rem; }
+.admin-table-wrap td:first-child small { font-size: 12px; }
+.admin-table-wrap .link-button { font-size: 13px; }
+
+/* Usuario inactivo: gris-rojizo suave, distinto del verde de "Activo" */
+.admin-status.status-inactive { background: #f1e9ea; color: #9b4a52; }
