@@ -578,7 +578,7 @@ export class LoginPage implements OnInit {
     }).subscribe({
       next: () => {
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/';
-        void this.router.navigateByUrl(returnUrl);
+        void this.router.navigateByUrl(returnUrl, { replaceUrl: true });
         this.isSubmitting.set(false);
       },
       error: (error: { status?: number }) => {

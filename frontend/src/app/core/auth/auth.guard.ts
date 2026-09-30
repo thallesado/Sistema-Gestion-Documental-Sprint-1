@@ -31,3 +31,10 @@ export const userAdminGuard: CanActivateFn = (_route, state) => {
   }));
   return allowed || router.createUrlTree(['/access-denied'], { queryParams: { returnUrl: state.url } });
 };
+
+/** Rutas públicas (login, recuperar contraseña): un usuario ya autenticado va directo al dashboard. */
+export const publicGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  return auth.isAuthenticated() ? router.createUrlTree(['/']) : true;
+};

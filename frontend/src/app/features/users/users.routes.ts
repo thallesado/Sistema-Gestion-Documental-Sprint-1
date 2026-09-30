@@ -9,12 +9,6 @@ export const administracionRoutes: Routes = [
     canActivate: [authGuard, userAdminGuard],
   },
   {
-    path: 'users/new',
-    loadComponent: () => import('./pages/administracion-page').then((m) => m.AdministrationPage),
-    title: 'Crear usuario - NexoDocs',
-    canActivate: [authGuard, userAdminGuard],
-  },
-  {
     path: 'access-denied',
     loadComponent: () => import('../no-encontrado/pages/access-denied-page').then((m) => m.AccessDeniedPage),
     title: 'Acceso restringido - NexoDocs',

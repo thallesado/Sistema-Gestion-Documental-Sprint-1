@@ -1,9 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal, ViewEncapsulation } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal, ViewEncapsulation } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
 import { AuthService } from '../core/auth/auth.service';
+import { ChatbotService } from '../core/chatbot/chatbot.service';
+
+/** Pantallas públicas: siempre a pantalla completa, sin sidebar ni topbar, aunque haya sesión. */
+const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
 
 @Component({
   selector: 'app-root',
@@ -15,6 +19,7 @@ import { AuthService } from '../core/auth/auth.service';
 export class App {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+  private readonly chatbot = inject(ChatbotService);
   readonly roles = roles;
   readonly sections = navSections;
   readonly currentUrl = signal(this.router.url);
@@ -66,6 +71,10 @@ export class App {
   );
 
   constructor() {
+    // El chatbot solo existe dentro del layout autenticado: se carga al entrar y se retira al salir
+    // (logout, sesión expirada o pantallas públicas como /login).
+    effect(() => (this.isWorkspace() ? this.chatbot.load() : this.chatbot.unload()));
+    inject(DestroyRef).onDestroy(() => this.chatbot.unload());
     this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe((event) => {
@@ -76,7 +85,9 @@ export class App {
   }
 
   isWorkspace(): boolean {
-    return this.currentUrl() !== '/login' && this.auth.isAuthenticated();
+    const path = this.currentUrl().split(/[?#]/)[0];
+    const isPublic = PUBLIC_PATHS.some((base) => path === base || path.startsWith(base + '/'));
+    return !isPublic && this.auth.isAuthenticated();
   }
 
   isExpanded(label: string): boolean {
