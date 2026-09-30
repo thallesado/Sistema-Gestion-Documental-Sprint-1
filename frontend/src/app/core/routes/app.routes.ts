@@ -9,6 +9,7 @@ import { expedientesRoutes } from '../../features/expedientes/expedientes.routes
 
 const clinicalPaths = new Set([
   'expedients/clinical',
+  'expedients/clinical/history',
   'expedients/clinical/notes',
   'clinical/patients',
   'clinical/history',

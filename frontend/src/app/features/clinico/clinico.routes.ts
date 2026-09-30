@@ -31,6 +31,15 @@ export const clinicoRoutes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'expedients/clinical/history',
+    loadComponent: () => import('./pages/historia-clinica-page').then((m) => m.HistoriaClinicaPage),
+    title: 'Historia clínica - NexoDocs',
+    data: {
+      routeInfo: { module: 'Expedientes', subcategory: 'Historia clínica', href: '/expedients/clinical/history' },
+    },
+    canActivate: [authGuard],
+  },
+  {
     path: 'expedients/clinical/notes',
     loadComponent: () => import('./pages/clinico-page').then((m) => m.ClinicalPage),
     title: 'Notas médicas - NexoDocs',
