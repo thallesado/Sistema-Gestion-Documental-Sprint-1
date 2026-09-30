@@ -44,6 +44,10 @@ public class AuthenticatedUserContext {
         return tenantId;
     }
 
+    public java.util.Optional<UUID> getTenantId() {
+        return java.util.Optional.ofNullable(require().tenantId());
+    }
+
     public boolean hasAuthority(String authority) {
         return require().authorities().contains(authority);
     }
