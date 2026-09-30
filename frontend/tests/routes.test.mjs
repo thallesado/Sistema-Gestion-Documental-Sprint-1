@@ -19,8 +19,9 @@ const { navigationRoutes, routeFor } = exports;
 test('cada opcion del menu tiene una URL unica en Angular', () => {
   const hrefs = navigationRoutes.map((route) => route.href);
   assert.equal(new Set(hrefs).size, hrefs.length, 'Hay URLs duplicadas en el menu');
-  assert.equal(hrefs.length, 80, 'Debe conservarse el mapa funcional de 80 pantallas');
+  assert.equal(hrefs.length, 83, 'Debe conservarse el mapa funcional de pantallas');
   assert.equal(routeFor('Documentos', 'Nuevo documento'), '/documents/new');
+  assert.equal(routeFor('Expedientes', 'Historia clínica'), '/expedients/clinical/history');
   assert.equal(routeFor('Tenants', 'Branding'), '/tenants/branding');
   assert.throws(() => routeFor('Modulo inexistente'), /Ruta no definida/);
 });

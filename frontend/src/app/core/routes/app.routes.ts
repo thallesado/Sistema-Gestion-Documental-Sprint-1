@@ -7,7 +7,7 @@ import { administracionRoutes } from '../../features/users/users.routes';
 import { documentosRoutes } from '../../features/documentos/documentos.routes';
 import { expedientesRoutes } from '../../features/expedientes/expedientes.routes';
 
-const clinicalPaths = new Set(['expedients/clinical', 'expedients/clinical/notes']);
+const clinicalPaths = new Set(['expedients/clinical', 'expedients/clinical/history', 'expedients/clinical/notes']);
 const documentPaths = new Set(['documents', 'documents/mine', 'documents/shared', 'documents/new', 'documents/upload', 'settings/statuses']);
 const expedientPaths = new Set(['expedientes', 'expedients', 'expedientes/new', 'expedientes/active', 'expedients/closed', 'expedients/archived']);
 
