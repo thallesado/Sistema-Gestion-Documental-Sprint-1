@@ -150,7 +150,7 @@ public class UserService {
             if (staff == null) {
                 staff = ClinicalStaff.builder().tenantId(tenantId).user(user).build();
             }
-            staff.setStaffType(StaffType.valueOf(request.getStaffType()));
+            staff.setStaffType(request.getStaffType());
             if (request.getSpecialty() != null) staff.setSpecialty(request.getSpecialty());
             staff = clinicalStaffRepository.save(staff);
         }
