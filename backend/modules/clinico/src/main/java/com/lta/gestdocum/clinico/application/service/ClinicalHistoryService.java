@@ -5,6 +5,7 @@ import com.lta.gestdocum.clinico.application.dto.ClinicalHistoryResponse;
 import com.lta.gestdocum.clinico.application.dto.TimelineEventResponse;
 import com.lta.gestdocum.clinico.domain.model.ClinicalEpisode;
 import com.lta.gestdocum.clinico.domain.model.ClinicalHistory;
+import com.lta.gestdocum.clinico.domain.model.MedicalNote;
 import com.lta.gestdocum.clinico.domain.model.Patient;
 import com.lta.gestdocum.clinico.domain.repository.ClinicalEpisodeRepository;
 import com.lta.gestdocum.clinico.domain.repository.ClinicalHistoryRepository;
@@ -124,49 +125,39 @@ public class ClinicalHistoryService {
     }
 
     @Transactional(readOnly = true)
-    public List<TimelineEventResponse> getTimeline(UUID historyId) {
+    public List<TimelineEventResponse> timeline(UUID historyId) {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
         ClinicalHistory history = getForTenant(historyId);
         List<TimelineEventResponse> timeline = new ArrayList<>();
 
-        List<ClinicalEpisode> episodes = episodeRepository.findByTenantIdAndClinicalHistoryId(tenantId, history.getId());
+        List<ClinicalEpisode> episodes = episodeRepository
+                .findByTenantIdAndClinicalHistoryIdOrderByStartedAtDesc(tenantId, history.getId());
         for (ClinicalEpisode ep : episodes) {
             timeline.add(TimelineEventResponse.builder()
-                    .id(ep.getId())
+                    .referenceId(ep.getId())
                     .eventType("EPISODIO")
-                    .title("Episodio: " + ep.getCode())
-                    .description(ep.getReasonForConsultation())
-                    .eventDate(ep.getStartDate() != null ? ep.getStartDate().atStartOfDay().atOffset(OffsetDateTime.now().getOffset()) : ep.getCreatedAt())
-                    .status(ep.getStatus() != null ? ep.getStatus().name() : null)
+                    .code(ep.getCode())
+                    .description("Tipo: " + ep.getEpisodeType())
+                    .occurredAt(ep.getStartedAt())
+                    .status(ep.getStatus())
                     .build());
-
-            medicalNoteRepository.findByTenantIdAndEpisodeId(tenantId, ep.getId()).forEach(note -> {
-                timeline.add(TimelineEventResponse.builder()
-                        .id(note.getId())
-                        .eventType("NOTA_MEDICA")
-                        .title("Nota: " + (note.getNoteType() != null ? note.getNoteType().name() : "Evolución"))
-                        .description(note.getSubjective() != null ? note.getSubjective() : note.getPlan())
-                        .eventDate(note.getCreatedAt())
-                        .status("REGISTRADO")
-                        .build());
-            });
         }
 
-        if (history.getPatientId() != null) {
-            documentRepository.findByTenantIdAndAuthorId(tenantId, history.getPatientId()).forEach(doc -> {
-                timeline.add(TimelineEventResponse.builder()
-                        .id(doc.getId())
-                        .eventType("DOCUMENTO")
-                        .title("Documento: " + doc.getName())
-                        .description("Código: " + doc.getCode())
-                        .eventDate(doc.getCreatedAt())
-                        .status(doc.getStatus() != null ? doc.getStatus().name() : null)
-                        .build());
-            });
+        List<MedicalNote> notes = medicalNoteRepository
+                .findByTenantIdAndClinicalHistoryIdOrderByCreatedAtDesc(tenantId, history.getId());
+        for (MedicalNote note : notes) {
+            timeline.add(TimelineEventResponse.builder()
+                    .referenceId(note.getId())
+                    .eventType("NOTA_MEDICA")
+                    .code(note.getNoteType() != null ? note.getNoteType() : "Evolución")
+                    .description(note.getContent())
+                    .occurredAt(note.getCreatedAt())
+                    .status("REGISTRADO")
+                    .build());
         }
 
-        timeline.sort(Comparator.comparing(TimelineEventResponse::getEventDate, Comparator.nullsLast(Comparator.reverseOrder())));
+        timeline.sort(Comparator.comparing(TimelineEventResponse::getOccurredAt, Comparator.nullsLast(Comparator.reverseOrder())));
         return timeline;
     }
 

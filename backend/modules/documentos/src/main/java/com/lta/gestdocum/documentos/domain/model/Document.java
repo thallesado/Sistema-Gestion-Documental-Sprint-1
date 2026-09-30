@@ -90,4 +90,8 @@ public class Document {
         this.name = name;
         this.status = DocumentStatus.DRAFT;
     }
+
+    public enum DocumentStatus {
+        DRAFT, PENDING, IN_REVIEW, APPROVED, REJECTED, CURRENT, ARCHIVED, VOIDED, TRASHED
+    }
 }

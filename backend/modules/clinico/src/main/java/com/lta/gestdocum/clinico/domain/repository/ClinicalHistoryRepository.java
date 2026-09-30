@@ -29,4 +29,6 @@ public interface ClinicalHistoryRepository extends JpaRepository<ClinicalHistory
     Optional<ClinicalHistory> findByTenantIdAndPatientId(UUID tenantId, UUID patientId);
 
     boolean existsByTenantIdAndCode(UUID tenantId, String code);
+
+    long countByTenantId(UUID tenantId);
 }

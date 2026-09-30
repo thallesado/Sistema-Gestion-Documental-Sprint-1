@@ -17,11 +17,10 @@ public class ClinicalHistoryMapper {
         if (dtos == null) return Collections.emptyList();
         return dtos.stream()
                 .filter(dto -> dto != null && dto.allergen() != null && !dto.allergen().isBlank())
-                .map(dto -> AllergyEntry.builder()
-                        .allergen(dto.allergen().trim())
-                        .reaction(dto.reaction() != null ? dto.reaction().trim() : null)
-                        .severity(dto.severity() != null ? dto.severity().trim() : null)
-                        .build())
+                .map(dto -> new AllergyEntry(
+                        dto.allergen().trim(),
+                        dto.severity() != null ? dto.severity().trim() : null,
+                        dto.reaction() != null ? dto.reaction().trim() : null))
                 .toList();
     }
 
@@ -29,11 +28,10 @@ public class ClinicalHistoryMapper {
         if (dtos == null) return Collections.emptyList();
         return dtos.stream()
                 .filter(dto -> dto != null && dto.name() != null && !dto.name().isBlank())
-                .map(dto -> MedicationEntry.builder()
-                        .name(dto.name().trim())
-                        .dose(dto.dose() != null ? dto.dose().trim() : null)
-                        .frequency(dto.frequency() != null ? dto.frequency().trim() : null)
-                        .build())
+                .map(dto -> new MedicationEntry(
+                        dto.name().trim(),
+                        dto.dose() != null ? dto.dose().trim() : null,
+                        dto.frequency() != null ? dto.frequency().trim() : null))
                 .toList();
     }
 
@@ -41,11 +39,10 @@ public class ClinicalHistoryMapper {
         if (dtos == null) return Collections.emptyList();
         return dtos.stream()
                 .filter(dto -> dto != null && dto.description() != null && !dto.description().isBlank())
-                .map(dto -> BaseDiagnosisEntry.builder()
-                        .code(dto.code() != null ? dto.code().trim() : null)
-                        .description(dto.description().trim())
-                        .diagnosedAt(dto.diagnosedAt() != null ? dto.diagnosedAt().trim() : null)
-                        .build())
+                .map(dto -> new BaseDiagnosisEntry(
+                        dto.code() != null ? dto.code().trim() : null,
+                        dto.description().trim(),
+                        dto.diagnosedAt() != null ? dto.diagnosedAt().trim() : null))
                 .toList();
     }
 

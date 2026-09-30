@@ -19,6 +19,10 @@ public final class CrudTextSupport {
         return value.trim();
     }
 
+    public static String normalize(String value) {
+        return value == null ? null : value.trim().toLowerCase();
+    }
+
     public static String likePattern(String value) {
         if (value == null || value.isBlank()) {
             return null;
