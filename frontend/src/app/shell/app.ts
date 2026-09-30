@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, DestroyRef, effect, inject, signal, ViewEncapsulation } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
@@ -9,9 +10,11 @@ import { ChatbotService } from '../core/chatbot/chatbot.service';
 /** Pantallas públicas: siempre a pantalla completa, sin sidebar ni topbar, aunque haya sesión. */
 const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
 
+type ProfileTab = 'profile' | 'security' | 'notifications' | 'access';
+
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './app.html',
   styleUrl: './app.css',
   encapsulation: ViewEncapsulation.None,
@@ -32,6 +35,7 @@ export class App {
     return 'Usuario basico';
   });
   readonly currentUser = this.auth.user;
+  readonly avatarUrl = this.auth.avatarUrl;
   readonly displayName = computed(() => {
     const user = this.currentUser();
     return user ? `${user.firstName} ${user.lastName}`.trim() : 'Usuario';
@@ -55,6 +59,23 @@ export class App {
   }
   readonly sidebarUserMenuOpen = signal(false);
   readonly headerUserMenuOpen = signal(false);
+  readonly profileOpen = signal(false);
+  readonly profileSaving = signal(false);
+  readonly profileError = signal('');
+  readonly avatarUploading = signal(false);
+  readonly profileTab = signal<ProfileTab>('profile');
+  readonly passwordSaving = signal(false);
+  readonly notificationSaving = signal(false);
+  profileFirstName = '';
+  profileLastName = '';
+  profileEmail = '';
+  profilePhone = '';
+  profileBiography = '';
+  profileEmailNotifications = true;
+  profilePushNotifications = true;
+  currentPassword = '';
+  newPassword = '';
+  confirmPassword = '';
   private toastTimer?: ReturnType<typeof setTimeout>;
 
   readonly availableSections = computed(() =>
@@ -156,6 +177,124 @@ export class App {
     this.sidebarUserMenuOpen.set(false);
     this.headerUserMenuOpen.set(false);
     this.notify(`${action}: operación preparada para la API`);
+  }
+
+  openProfile(): void {
+    const user = this.currentUser();
+    if (!user) return;
+    this.sidebarUserMenuOpen.set(false);
+    this.headerUserMenuOpen.set(false);
+    this.profileFirstName = user.firstName;
+    this.profileLastName = user.lastName;
+    this.profileEmail = user.email;
+    this.profilePhone = user.phone ?? '';
+    this.profileBiography = user.biography ?? '';
+    this.profileEmailNotifications = user.emailNotifications;
+    this.profilePushNotifications = user.pushNotifications;
+    this.currentPassword = '';
+    this.newPassword = '';
+    this.confirmPassword = '';
+    this.profileTab.set('profile');
+    this.profileError.set('');
+    this.profileOpen.set(true);
+  }
+
+  closeProfile(): void {
+    if (!this.profileSaving() && !this.avatarUploading()) this.profileOpen.set(false);
+  }
+
+  saveProfile(): void {
+    this.profileError.set('');
+    this.profileSaving.set(true);
+    this.auth.updateProfile({
+      firstName: this.profileFirstName.trim(),
+      lastName: this.profileLastName.trim(),
+      email: this.profileEmail.trim(),
+      phone: this.profilePhone.trim(),
+      biography: this.profileBiography.trim(),
+    }).subscribe({
+      next: () => {
+        this.profileSaving.set(false);
+        this.profileOpen.set(false);
+        this.notify('Perfil actualizado correctamente');
+      },
+      error: (error) => {
+        this.profileSaving.set(false);
+        this.profileError.set(error?.error?.message || 'No se pudieron guardar los cambios.');
+      },
+    });
+  }
+
+  uploadAvatar(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      this.profileError.set('Selecciona una imagen JPG, PNG o WEBP de hasta 2 MB.');
+      return;
+    }
+    this.profileError.set('');
+    this.avatarUploading.set(true);
+    this.auth.uploadAvatar(file).subscribe({
+      next: () => {
+        this.avatarUploading.set(false);
+        this.notify('Foto de perfil actualizada');
+      },
+      error: (error) => {
+        this.avatarUploading.set(false);
+        this.profileError.set(error?.error?.message || 'No se pudo subir la foto.');
+      },
+    });
+  }
+
+  setProfileTab(tab: ProfileTab): void {
+    this.profileError.set('');
+    this.profileTab.set(tab);
+  }
+
+  saveNotifications(): void {
+    this.profileError.set('');
+    this.notificationSaving.set(true);
+    this.auth.updateNotificationPreferences({
+      emailNotifications: this.profileEmailNotifications,
+      pushNotifications: this.profilePushNotifications,
+    }).subscribe({
+      next: () => {
+        this.notificationSaving.set(false);
+        this.notify('Preferencias de notificación actualizadas');
+      },
+      error: (error) => {
+        this.notificationSaving.set(false);
+        this.profileError.set(error?.error?.message || 'No se pudieron guardar las preferencias.');
+      },
+    });
+  }
+
+  savePassword(): void {
+    this.profileError.set('');
+    if (this.newPassword.length < 8) {
+      this.profileError.set('La nueva contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+    if (this.newPassword !== this.confirmPassword) {
+      this.profileError.set('La confirmación no coincide con la nueva contraseña.');
+      return;
+    }
+    this.passwordSaving.set(true);
+    this.auth.changePassword(this.currentPassword, this.newPassword).subscribe({
+      next: () => {
+        this.passwordSaving.set(false);
+        this.currentPassword = '';
+        this.newPassword = '';
+        this.confirmPassword = '';
+        this.notify('Contraseña actualizada correctamente');
+      },
+      error: (error) => {
+        this.passwordSaving.set(false);
+        this.profileError.set(error?.error?.message || 'No se pudo actualizar la contraseña.');
+      },
+    });
   }
 
   logout(): void {

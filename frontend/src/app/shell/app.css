@@ -384,6 +384,11 @@
   flex-shrink: 0;
 }
 
+.avatar-button { background: transparent; border: 0; cursor: pointer; display: flex; padding: 0; }
+.avatar-image { object-fit: cover; }
+.avatar-button .avatar-image { border-radius: 50%; height: 32px; width: 32px; }
+.profile-open-trigger { background: transparent; border: 0; cursor: pointer; font-family: inherit; padding: 0; text-align: left; }
+
 .user-details {
   display: flex;
   flex-direction: column;
@@ -592,6 +597,65 @@
   width: 28px;
 }
 
+.pill-avatar.avatar-image { object-fit: cover; }
+
+.profile-modal-backdrop { align-items: center; background: rgba(7, 30, 29, .56); display: flex; inset: 0; justify-content: center; padding: 24px; position: fixed; z-index: 120; }
+.profile-modal { background: #fff; border-radius: 20px; box-shadow: 0 28px 80px rgba(0, 30, 28, .3); max-height: min(820px, calc(100vh - 48px)); max-width: 960px; overflow: auto; width: 100%; }
+.profile-modal-header { align-items: flex-start; border-bottom: 1px solid #e2ece9; display: flex; justify-content: space-between; padding: 26px 32px 20px; }
+.profile-modal-header p { color: #0e817a; font-size: 11px; font-weight: 800; letter-spacing: .1em; margin: 0 0 6px; }
+.profile-modal-header h1 { color: #102d2a; font-size: 28px; letter-spacing: -.03em; margin: 0; }
+.profile-modal-header span { color: #648280; display: block; font-size: 14px; margin-top: 5px; }
+.profile-close { background: transparent; border: 0; color: #40615e; cursor: pointer; font-size: 30px; line-height: 1; padding: 0 4px; }
+.profile-modal-body { display: grid; gap: 30px; grid-template-columns: 230px minmax(0, 1fr); padding: 26px 32px 30px; }
+.profile-summary { align-items: center; background: linear-gradient(145deg, #effaf8, #f8fcfb); border-radius: 16px; display: flex; flex-direction: column; padding: 24px 18px; text-align: center; }
+.profile-photo-wrap { position: relative; }
+.profile-photo { align-items: center; background: #ccefe9; border-radius: 50%; color: #087f7b; display: flex; font-size: 32px; font-weight: 800; height: 124px; justify-content: center; object-fit: cover; width: 124px; }
+.profile-photo-action { align-items: center; background: #0b605b; border: 3px solid #fff; border-radius: 50%; bottom: 0; color: #fff; cursor: pointer; display: flex; font-size: 19px; height: 38px; justify-content: center; position: absolute; right: 0; width: 38px; }
+.profile-photo-action input { height: 1px; opacity: 0; overflow: hidden; position: absolute; width: 1px; }
+.profile-summary h2 { color: #102d2a; font-size: 17px; margin: 17px 0 7px; }
+.profile-role { background: #d8f4ef; border-radius: 99px; color: #087f7b; font-size: 11px; font-weight: 800; padding: 7px 12px; }
+.profile-summary dl { border-top: 1px solid #d8e9e6; margin: 25px 0 14px; text-align: left; width: 100%; }
+.profile-summary dl div { border-bottom: 1px solid #d8e9e6; padding: 13px 2px; }
+.profile-summary dt { color: #66837f; font-size: 11px; }
+.profile-summary dd { color: #173a37; font-size: 13px; font-weight: 700; margin: 4px 0 0; overflow-wrap: anywhere; }
+.profile-summary > small { color: #66837f; font-size: 10px; }
+.profile-form { display: flex; flex-direction: column; min-width: 0; }
+.profile-tabs { border-bottom: 1px solid #dce9e7; display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: 22px; }
+.profile-tabs button { align-items: center; background: transparent; border: 0; border-bottom: 3px solid transparent; color: #66837f; cursor: pointer; display: flex; font: inherit; font-size: 13px; font-weight: 700; gap: 8px; justify-content: center; padding: 0 5px 12px; }
+.profile-tabs button svg { fill: none; height: 20px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 20px; }
+.profile-tabs button.active { border-bottom-color: #0e8a82; color: #087f7b; }
+.profile-tabs button:hover { background: #f1faf8; color: #087f7b; }
+.profile-fields { display: grid; gap: 17px 20px; grid-template-columns: 1fr 1fr; }
+.profile-fields label { color: #3e5b58; display: grid; font-size: 12px; font-weight: 800; gap: 7px; }
+.profile-fields input, .profile-fields textarea { background: #fff; border: 1px solid #ccdfdc; border-radius: 9px; color: #173a37; font: inherit; font-size: 14px; padding: 11px 12px; width: 100%; }
+.profile-fields input:focus, .profile-fields textarea:focus { border-color: #0e8a82; box-shadow: 0 0 0 3px rgba(14, 138, 130, .12); outline: none; }
+.profile-fields textarea { min-height: 105px; resize: vertical; }
+.profile-wide { grid-column: 1 / -1; }
+.profile-fields input[readonly] { background: #f1f5f4; color: #6b8583; }
+.profile-wide small { color: #7a9692; font-size: 10px; font-weight: 600; justify-self: end; margin-top: -3px; }
+.profile-error { background: #fff3f2; border: 1px solid #f4c7c2; border-radius: 9px; color: #b33c35; font-size: 12px; margin: 0 0 16px; padding: 10px 12px; }
+.profile-form-footer { border-top: 1px solid #e2ece9; display: flex; gap: 10px; justify-content: flex-end; margin-top: 26px; padding-top: 20px; }
+.profile-cancel, .profile-save { border-radius: 9px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 11px 17px; }
+.profile-cancel { background: #fff; border: 1px solid #8bcac4; color: #087f7b; }
+.profile-save { background: #0b827c; border: 1px solid #0b827c; box-shadow: 0 5px 12px rgba(8, 127, 123, .2); color: #fff; }
+.profile-save:disabled { cursor: wait; opacity: .65; }
+.profile-section-form { color: #3e5b58; min-height: 345px; }
+.profile-section-form h2 { color: #173a37; font-size: 18px; margin: 0 0 6px; }
+.profile-section-form > p { color: #66837f; font-size: 13px; line-height: 1.5; margin: 0 0 22px; }
+.one-column { grid-template-columns: minmax(0, 1fr); max-width: 470px; }
+.preference-row { align-items: flex-start; border: 1px solid #dce9e7; border-radius: 10px; cursor: pointer; display: flex; gap: 12px; margin: 12px 0; padding: 15px; }
+.preference-row:hover { background: #f6fbfa; border-color: #9fd7d1; }
+.preference-row input { accent-color: #087f7b; height: 17px; margin: 2px 0 0; width: 17px; }
+.preference-row span { display: grid; gap: 4px; }
+.preference-row b { color: #173a37; font-size: 13px; }
+.preference-row small { color: #66837f; font-size: 11px; line-height: 1.4; }
+.access-section dl { border: 1px solid #dce9e7; border-radius: 10px; margin: 0; }
+.access-section dl div { border-bottom: 1px solid #dce9e7; display: grid; gap: 6px; padding: 13px 15px; }
+.access-section dl div:last-child { border-bottom: 0; }
+.access-section dt { color: #66837f; font-size: 11px; }
+.access-section dd { color: #173a37; font-size: 13px; font-weight: 700; margin: 0; }
+.access-role { background: #d8f4ef; border-radius: 99px; color: #087f7b; display: inline-block; font-size: 11px; margin: 0 5px 4px 0; padding: 5px 8px; }
+
 .pill-name {
   max-width: 130px;
   overflow: hidden;
@@ -683,6 +747,14 @@
   .pill-name {
     display: none;
   }
+  .profile-modal-backdrop { padding: 10px; }
+  .profile-modal-header { padding: 20px; }
+  .profile-modal-body { grid-template-columns: 1fr; padding: 20px; }
+  .profile-summary { padding: 18px; }
+  .profile-photo { height: 86px; width: 86px; }
+  .profile-fields { grid-template-columns: 1fr; }
+  .profile-tabs button { font-size: 10px; gap: 3px; }
+  .profile-wide { grid-column: auto; }
 }
 
 /* Sidebar colapsable (escritorio) */

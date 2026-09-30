@@ -4,6 +4,9 @@ import com.lta.gestdocum.backend.dto.AuthRequest;
 import com.lta.gestdocum.backend.dto.AuthResponse;
 import com.lta.gestdocum.backend.dto.UserResponse;
 import com.lta.gestdocum.backend.dto.RefreshTokenRequest;
+import com.lta.gestdocum.backend.dto.ProfileUpdateRequest;
+import com.lta.gestdocum.backend.dto.NotificationPreferencesRequest;
+import com.lta.gestdocum.backend.dto.PasswordChangeRequest;
 import com.lta.gestdocum.backend.security.AuthenticatedUser;
 import com.lta.gestdocum.backend.service.AuthenticationAuditService;
 import com.lta.gestdocum.backend.service.AuthService;
@@ -13,9 +16,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -69,6 +74,45 @@ public class AuthController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserResponse> me() {
         return ResponseEntity.ok(userService.getCurrentUser());
+    }
+
+    @PutMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Actualizar mi perfil")
+    public ResponseEntity<UserResponse> updateMyProfile(@Valid @RequestBody ProfileUpdateRequest request) {
+        return ResponseEntity.ok(userService.updateCurrentProfile(request));
+    }
+
+    @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Actualizar mi foto de perfil")
+    public ResponseEntity<UserResponse> updateMyAvatar(@RequestPart("file") MultipartFile file) {
+        return ResponseEntity.ok(userService.updateCurrentAvatar(file));
+    }
+
+    @GetMapping("/me/avatar")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Obtener mi foto de perfil")
+    public ResponseEntity<byte[]> myAvatar() {
+        var avatar = userService.currentAvatar();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(avatar.contentType()))
+                .body(avatar.data());
+    }
+
+    @PutMapping("/me/notifications")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Actualizar preferencias de notificación")
+    public ResponseEntity<UserResponse> updateMyNotifications(@RequestBody NotificationPreferencesRequest request) {
+        return ResponseEntity.ok(userService.updateNotificationPreferences(request));
+    }
+
+    @PutMapping("/me/password")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Cambiar mi contraseña")
+    public ResponseEntity<Void> changeMyPassword(@Valid @RequestBody PasswordChangeRequest request) {
+        userService.changeCurrentPassword(request);
+        return ResponseEntity.noContent().build();
     }
 
 }

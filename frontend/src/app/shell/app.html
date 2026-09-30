@@ -171,11 +171,13 @@
 
       <!-- Footer Perfil Usuario -->
       <div class="user-profile-footer">
-        <span class="user-avatar">{{ initials() }}</span>
-        <div class="user-details">
+        <button type="button" class="avatar-button" aria-label="Abrir mi perfil" (click)="openProfile()">
+          @if (avatarUrl()) { <img class="avatar-image" [src]="avatarUrl()" alt="Foto de perfil" /> } @else { <span class="user-avatar">{{ initials() }}</span> }
+        </button>
+        <button type="button" class="user-details profile-open-trigger" (click)="openProfile()">
           <b>{{ displayName() }}</b>
           <small>{{ currentUser()?.username ?? 'laura.martinez' }}</small>
-        </div>
+        </button>
         <button type="button" class="user-menu-btn" aria-label="Opciones de usuario" [attr.aria-expanded]="sidebarUserMenuOpen()" (click)="toggleSidebarUserMenu()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="6 9 12 15 18 9"/>
@@ -183,7 +185,7 @@
         </button>
         @if (sidebarUserMenuOpen()) {
           <div class="account-dropdown sidebar-account-dropdown">
-            <button type="button" (click)="accountAction('Perfil')">Mi Perfil</button>
+            <button type="button" (click)="openProfile()">Mi Perfil</button>
             <button type="button" (click)="accountAction('Configuración')">Configuración</button>
             <button type="button" class="danger-btn" (click)="logout()">Cerrar sesión</button>
           </div>
@@ -232,8 +234,8 @@
           </button>
 
           <div class="topbar-user-pill">
-            <button type="button" class="user-pill-btn" [attr.aria-expanded]="headerUserMenuOpen()" (click)="toggleHeaderUserMenu()">
-              <span class="pill-avatar">{{ initials() }}</span>
+            <button type="button" class="user-pill-btn" aria-label="Abrir mi perfil" (click)="openProfile()">
+              @if (avatarUrl()) { <img class="pill-avatar avatar-image" [src]="avatarUrl()" alt="Foto de perfil" /> } @else { <span class="pill-avatar">{{ initials() }}</span> }
               <span class="pill-name">{{ displayName() }}</span>
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="6 9 12 15 18 9"/>
@@ -252,6 +254,71 @@
 
       <router-outlet></router-outlet>
     </section>
+
+    @if (profileOpen()) {
+      <div class="profile-modal-backdrop" role="presentation" (click)="closeProfile()">
+        <section class="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title" (click)="$event.stopPropagation()">
+          <header class="profile-modal-header">
+            <div><p>MI CUENTA</p><h1 id="profile-title">Mi perfil</h1><span>Gestiona tu información personal.</span></div>
+            <button type="button" class="profile-close" aria-label="Cerrar" (click)="closeProfile()">×</button>
+          </header>
+          <div class="profile-modal-body">
+            <aside class="profile-summary">
+              <div class="profile-photo-wrap">
+                @if (avatarUrl()) { <img class="profile-photo" [src]="avatarUrl()" alt="Foto de perfil" /> } @else { <span class="profile-photo profile-initials">{{ initials() }}</span> }
+                <label class="profile-photo-action" title="Cambiar foto"><input type="file" accept="image/jpeg,image/png,image/webp" (change)="uploadAvatar($event)" [disabled]="avatarUploading()" />{{ avatarUploading() ? '…' : '⌑' }}</label>
+              </div>
+              <h2>{{ displayName() }}</h2>
+              <span class="profile-role">{{ role() }}</span>
+              <dl><div><dt>Organización</dt><dd>{{ tenantName() }}</dd></div><div><dt>Usuario</dt><dd>{{ currentUser()?.username }}</dd></div></dl>
+              <small>JPG, PNG o WEBP · máximo 2 MB</small>
+            </aside>
+            <div class="profile-form">
+              <nav class="profile-tabs" aria-label="Secciones del perfil">
+                <button type="button" [class.active]="profileTab() === 'profile'" (click)="setProfileTab('profile')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><span>Perfil</span></button>
+                <button type="button" [class.active]="profileTab() === 'security'" (click)="setProfileTab('security')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Seguridad</span></button>
+                <button type="button" [class.active]="profileTab() === 'notifications'" (click)="setProfileTab('notifications')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 21h4"/></svg><span>Notificaciones</span></button>
+                <button type="button" [class.active]="profileTab() === 'access'" (click)="setProfileTab('access')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 21c0-4 2.8-7 6-7s6 3 6 7M14 20c.4-2.7 2-4.5 4.5-4.5 2 0 3.5 1.5 3.5 4.5"/></svg><span>Accesos</span></button>
+              </nav>
+              @if (profileError()) { <p class="profile-error" role="alert">{{ profileError() }}</p> }
+              @if (profileTab() === 'profile') {
+                <form (ngSubmit)="saveProfile()">
+                  <div class="profile-fields">
+                    <label>Nombre(s) *<input name="profileFirstName" [(ngModel)]="profileFirstName" required maxlength="100" /></label>
+                    <label>Apellidos *<input name="profileLastName" [(ngModel)]="profileLastName" required maxlength="100" /></label>
+                    <label>Correo electrónico *<input type="email" name="profileEmail" [(ngModel)]="profileEmail" required maxlength="150" /></label>
+                    <label>Teléfono<input type="tel" name="profilePhone" [(ngModel)]="profilePhone" maxlength="30" /></label>
+                    <label>Cargo / rol<input [value]="role()" readonly /></label>
+                    <label>Organización<input [value]="tenantName()" readonly /></label>
+                    <label class="profile-wide">Biografía / descripción<textarea name="profileBiography" [(ngModel)]="profileBiography" maxlength="500" placeholder="Cuéntanos brevemente sobre tu función."></textarea><small>{{ profileBiography.length }}/500</small></label>
+                  </div>
+                  <div class="profile-form-footer"><button type="button" class="profile-cancel" (click)="closeProfile()">Cancelar</button><button type="submit" class="profile-save" [disabled]="profileSaving() || avatarUploading()">{{ profileSaving() ? 'Guardando…' : 'Guardar cambios' }}</button></div>
+                </form>
+              } @else if (profileTab() === 'security') {
+                <form (ngSubmit)="savePassword()" class="profile-section-form">
+                  <h2>Seguridad de la cuenta</h2><p>Actualiza tu contraseña. La sesión actual se mantiene protegida.</p>
+                  <div class="profile-fields one-column">
+                    <label>Contraseña actual *<input type="password" name="currentPassword" [(ngModel)]="currentPassword" required autocomplete="current-password" /></label>
+                    <label>Nueva contraseña *<input type="password" name="newPassword" [(ngModel)]="newPassword" required minlength="8" autocomplete="new-password" /><small>Al menos 8 caracteres.</small></label>
+                    <label>Confirmar nueva contraseña *<input type="password" name="confirmPassword" [(ngModel)]="confirmPassword" required autocomplete="new-password" /></label>
+                  </div>
+                  <div class="profile-form-footer"><button type="button" class="profile-cancel" (click)="closeProfile()">Cancelar</button><button type="submit" class="profile-save" [disabled]="passwordSaving()">{{ passwordSaving() ? 'Actualizando…' : 'Actualizar contraseña' }}</button></div>
+                </form>
+              } @else if (profileTab() === 'notifications') {
+                <form (ngSubmit)="saveNotifications()" class="profile-section-form">
+                  <h2>Preferencias de notificación</h2><p>Elige cómo deseas recibir las novedades de tu organización.</p>
+                  <label class="preference-row"><input type="checkbox" name="emailNotifications" [(ngModel)]="profileEmailNotifications" /><span><b>Notificaciones por correo</b><small>Recibe avisos de documentos, expedientes y tareas en tu correo.</small></span></label>
+                  <label class="preference-row"><input type="checkbox" name="pushNotifications" [(ngModel)]="profilePushNotifications" /><span><b>Notificaciones en la aplicación</b><small>Muestra alertas dentro de NexoDocs mientras tengas la sesión activa.</small></span></label>
+                  <div class="profile-form-footer"><button type="button" class="profile-cancel" (click)="closeProfile()">Cancelar</button><button type="submit" class="profile-save" [disabled]="notificationSaving()">{{ notificationSaving() ? 'Guardando…' : 'Guardar preferencias' }}</button></div>
+                </form>
+              } @else {
+                <section class="profile-section-form access-section"><h2>Accesos asignados</h2><p>Estos datos provienen de tu cuenta autenticada y no pueden modificarse desde el perfil.</p><dl><div><dt>Usuario</dt><dd>{{ currentUser()?.username }}</dd></div><div><dt>Organización</dt><dd>{{ tenantName() }}</dd></div><div><dt>Roles</dt><dd>@for (roleName of currentUser()?.roleNames ?? []; track roleName) { <span class="access-role">{{ roleName }}</span> }</dd></div><div><dt>Estado</dt><dd>{{ currentUser()?.status }}</dd></div></dl><div class="profile-form-footer"><button type="button" class="profile-save" (click)="closeProfile()">Listo</button></div></section>
+              }
+            </div>
+          </div>
+        </section>
+      </div>
+    }
 
     @if (toast()) {
       <div class="toast-notification" role="status">{{ toast() }}</div>

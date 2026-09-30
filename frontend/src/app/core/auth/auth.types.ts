@@ -16,6 +16,24 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   status: string;
+  phone: string | null;
+  biography: string | null;
+  hasAvatar: boolean;
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+}
+
+export interface ProfileUpdateRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  biography: string;
+}
+
+export interface NotificationPreferencesRequest {
+  emailNotifications: boolean;
+  pushNotifications: boolean;
 }
 
 export interface LoginRequest {

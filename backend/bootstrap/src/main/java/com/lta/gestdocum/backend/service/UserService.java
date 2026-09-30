@@ -3,6 +3,9 @@ package com.lta.gestdocum.backend.service;
 import com.lta.gestdocum.backend.dto.UserCreateRequest;
 import com.lta.gestdocum.backend.dto.UserResponse;
 import com.lta.gestdocum.backend.dto.UserUpdateRequest;
+import com.lta.gestdocum.backend.dto.ProfileUpdateRequest;
+import com.lta.gestdocum.backend.dto.NotificationPreferencesRequest;
+import com.lta.gestdocum.backend.dto.PasswordChangeRequest;
 import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.exception.TenantMismatchException;
 import com.lta.gestdocum.backend.model.ClinicalStaff;
@@ -21,6 +24,7 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.Set;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class UserService {
@@ -215,6 +219,89 @@ public class UserService {
                 staff.map(ClinicalStaff::getSpecialty).orElse(null));
     }
 
+    @Transactional
+    public UserResponse updateCurrentProfile(ProfileUpdateRequest request) {
+        User user = currentUserEntity();
+        user.setFirstName(request.getFirstName().trim());
+        user.setLastName(request.getLastName().trim());
+        user.setEmail(request.getEmail().trim());
+        user.setPhone(blankToNull(request.getPhone()));
+        user.setBiography(blankToNull(request.getBiography()));
+        return mapToResponse(userRepository.save(user), currentStaffType(user), currentSpecialty(user));
+    }
+
+    @Transactional
+    public UserResponse updateCurrentAvatar(MultipartFile file) {
+        if (file == null || file.isEmpty()) throw new IllegalArgumentException("La imagen es obligatoria");
+        if (file.getSize() > 2L * 1024 * 1024) throw new IllegalArgumentException("La imagen no puede superar 2 MB");
+        String contentType = file.getContentType();
+        if (contentType == null || !Set.of("image/jpeg", "image/png", "image/webp").contains(contentType)) {
+            throw new IllegalArgumentException("Formato de imagen no permitido");
+        }
+        try {
+            User user = currentUserEntity();
+            user.setAvatarData(file.getBytes());
+            user.setAvatarContentType(contentType);
+            return mapToResponse(userRepository.save(user), currentStaffType(user), currentSpecialty(user));
+        } catch (java.io.IOException exception) {
+            throw new IllegalArgumentException("No se pudo leer la imagen", exception);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public AvatarFile currentAvatar() {
+        User user = currentUserEntity();
+        if (user.getAvatarData() == null || user.getAvatarData().length == 0) {
+            throw new NotFoundException("El usuario no tiene una foto de perfil");
+        }
+        return new AvatarFile(user.getAvatarData(), user.getAvatarContentType());
+    }
+
+    @Transactional
+    public UserResponse updateNotificationPreferences(NotificationPreferencesRequest request) {
+        User user = currentUserEntity();
+        user.setEmailNotifications(request.isEmailNotifications());
+        user.setPushNotifications(request.isPushNotifications());
+        return mapToResponse(userRepository.save(user), currentStaffType(user), currentSpecialty(user));
+    }
+
+    @Transactional
+    public void changeCurrentPassword(PasswordChangeRequest request) {
+        User user = currentUserEntity();
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new IllegalArgumentException("La contraseña actual no es correcta");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+    }
+
+    private User currentUserEntity() {
+        UUID userId = authenticatedUserContext.requireUserId();
+        UUID tenantId = authenticatedUserContext.require().tenantId();
+        if (tenantId != null) authenticatedUserContext.establishDatabaseContext();
+        return tenantId == null
+                ? userRepository.findByIdAndDeletedAtIsNull(userId)
+                    .orElseThrow(() -> new NotFoundException("Usuario no encontrado"))
+                : userRepository.findByIdAndTenantIdAndDeletedAtIsNull(userId, tenantId)
+                    .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
+    }
+
+    private String currentStaffType(User user) {
+        if (user.getTenantId() == null) return null;
+        return clinicalStaffRepository.findByUserIdAndTenantId(user.getId(), user.getTenantId())
+                .map(staff -> staff.getStaffType().name()).orElse(null);
+    }
+
+    private String currentSpecialty(User user) {
+        if (user.getTenantId() == null) return null;
+        return clinicalStaffRepository.findByUserIdAndTenantId(user.getId(), user.getTenantId())
+                .map(ClinicalStaff::getSpecialty).orElse(null);
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     private UserResponse mapToResponse(User user, String staffType, String specialty) {
         return UserResponse.builder()
                 .id(user.getId())
@@ -229,6 +316,11 @@ public class UserService {
                 .platformAdmin(user.isPlatformAdmin())
                 .staffType(staffType)
                 .specialty(specialty)
+                .phone(user.getPhone())
+                .biography(user.getBiography())
+                .hasAvatar(user.getAvatarData() != null && user.getAvatarData().length > 0)
+                .emailNotifications(user.isEmailNotifications())
+                .pushNotifications(user.isPushNotifications())
                 .roleIds(roleRepository == null || user.getTenantId() == null ? Set.of()
                         : roleRepository.findIds(user.getTenantId(), user.getId()))
                 .roleNames(roleRepository == null || user.getTenantId() == null
@@ -255,4 +347,6 @@ public class UserService {
                     "Se requiere permiso para asignar roles");
         }
     }
+
+    public record AvatarFile(byte[] data, String contentType) { }
 }

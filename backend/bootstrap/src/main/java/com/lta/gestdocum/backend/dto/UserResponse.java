@@ -18,6 +18,11 @@ public class UserResponse {
     private boolean platformAdmin;
     private String staffType;
     private String specialty;
+    private String phone;
+    private String biography;
+    private boolean hasAvatar;
+    private boolean emailNotifications;
+    private boolean pushNotifications;
     private java.util.Set<Long> roleIds;
     private java.util.Set<String> roleNames;
 }

@@ -4,12 +4,14 @@ package com.lta.gestdocum.backend.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.type.SqlTypes;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
 @Table(name = "users")
+@DynamicUpdate
 @Getter
 @Setter
 @NoArgsConstructor
@@ -37,6 +39,27 @@ public class User {
 
     @Column(name = "last_name", nullable = false)
     private String lastName;
+
+    @Column(length = 30)
+    private String phone;
+
+    @Column(length = 500)
+    private String biography;
+
+    @JdbcTypeCode(SqlTypes.VARBINARY)
+    @Column(name = "avatar_data", columnDefinition = "bytea")
+    private byte[] avatarData;
+
+    @Column(name = "avatar_content_type", length = 100)
+    private String avatarContentType;
+
+    @Column(name = "email_notifications", nullable = false)
+    @Builder.Default
+    private boolean emailNotifications = true;
+
+    @Column(name = "push_notifications", nullable = false)
+    @Builder.Default
+    private boolean pushNotifications = true;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
