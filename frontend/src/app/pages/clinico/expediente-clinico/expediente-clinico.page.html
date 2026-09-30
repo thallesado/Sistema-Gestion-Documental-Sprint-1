@@ -1,0 +1,87 @@
+<section class="clinical-page">
+  <header class="clinical-header">
+    <div class="clinical-icon" aria-hidden="true">⚕</div>
+    <div>
+      <p class="eyebrow">Expedientes · {{ isNotes() ? 'Notas médicas' : 'Expediente clínico' }}</p>
+      <h1>{{ isNotes() ? 'Notas médicas' : 'Expediente clínico' }}</h1>
+      <p>HU-03, HU-04, HU-07, HU-08 y HU-10 · información del tenant autenticado.</p>
+    </div>
+  </header>
+
+  @if (apiError()) {
+    <div class="state error" role="alert">
+      <b>No fue posible consultar los pacientes.</b>
+      <span>{{ apiError() }}</span>
+      <button type="button" (click)="loadPatients()">Reintentar consulta</button>
+    </div>
+  }
+
+  <app-patient-search-panel
+    [searchTerm]="searchTerm()"
+    [loading]="loading()"
+    [patients]="patients()"
+    [selected]="selected()"
+    [showNewPatient]="showNewPatient()"
+    [apiError]="apiError()"
+    (search)="onSearchTerm($event)"
+    (select)="select($event)"
+    (togglePatientForm)="togglePatientForm()"
+  />
+
+  @if (showNewPatient()) {
+    <app-clinico-new-patient-modal
+      [newDocumentType]="patientForm.documentType"
+      [newDocument]="patientForm.documentNumber"
+      [newFirstName]="patientForm.firstName"
+      [newLastName]="patientForm.lastName"
+      [newBirthDate]="patientForm.birthDate"
+      [newGender]="patientForm.gender"
+      [newPhone]="patientForm.phone"
+      [newEmail]="patientForm.email"
+      [savingPatient]="savingPatient()"
+      [canCreatePatient]="canCreatePatient()"
+      [patientFormError]="patientFormError()"
+      [patientFormMessage]="patientFormMessage()"
+      (documentTypeChange)="patientForm.documentType = $event"
+      (documentChange)="patientForm.documentNumber = $event"
+      (firstNameChange)="patientForm.firstName = $event"
+      (lastNameChange)="patientForm.lastName = $event"
+      (birthDateChange)="patientForm.birthDate = $event"
+      (genderChange)="patientForm.gender = $event"
+      (phoneChange)="patientForm.phone = $event"
+      (emailChange)="patientForm.email = $event"
+      (createPatient)="createPatient($event)"
+    />
+  }
+
+  @if (isNotes()) {
+    <app-clinico-notes-panel
+      [selected]="selected()"
+      [history]="history()"
+      [noteType]="noteType()"
+      [noteTitle]="noteTitle()"
+      [noteBody]="noteBody()"
+      [savingNote]="savingNote()"
+      [noteError]="noteError()"
+      [noteMessage]="noteMessage()"
+      [notesLoading]="notesLoading()"
+      [notesError]="notesError()"
+      [medicalNotes]="medicalNotes()"
+      (noteTypeChange)="noteType.set($event)"
+      (noteTitleChange)="noteTitle.set($event)"
+      (noteBodyChange)="noteBody.set($event)"
+      (saveNote)="saveNote($event)"
+      (retryNotes)="reloadSelectedPatient()"
+    />
+  }
+
+  @if (selected(); as patient) {
+    <app-clinico-patient-detail
+      [patient]="patient"
+      [quickSummary]="quickSummary()"
+      [quickSummaryLoading]="quickSummaryLoading()"
+      [quickSummaryError]="quickSummaryError()"
+      (reload)="reloadSelectedPatient()"
+    />
+  }
+</section>

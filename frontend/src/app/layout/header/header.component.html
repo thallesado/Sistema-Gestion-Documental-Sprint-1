@@ -1,0 +1,57 @@
+<header class="topbar">
+  <!-- Botón hamburguesa (solo móvil/tablet) -->
+  <div class="mobile-brand-wrap">
+    <button type="button" class="menu-toggle-btn" (click)="toggleMobileNav.emit()" aria-label="Abrir menú" aria-controls="sidebar-nav" [attr.aria-expanded]="mobileNavOpen()">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+    <a routerLink="/" class="brand-mobile">
+      <strong>NexoDocs</strong>
+    </a>
+  </div>
+
+  <!-- Buscador Superior -->
+  @if (!hideGlobalSearch()) {
+    <div class="topbar-search">
+      <span class="search-icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </span>
+      <input type="text" placeholder="Buscar documentos, expedientes o pacientes…" aria-label="Buscar en la plataforma" />
+    </div>
+  }
+
+  <!-- Acciones Topbar -->
+  <div class="topbar-actions">
+    <a routerLink="/documents" class="topbar-btn" title="Notificaciones" aria-label="Notificaciones">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      <span class="unread-dot"></span>
+    </a>
+
+    <a routerLink="/support" class="topbar-btn" title="Ayuda" aria-label="Centro de ayuda">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </a>
+
+    <div class="topbar-user-pill">
+      <button type="button" class="user-pill-btn" (click)="menuOpen.set(!menuOpen())" aria-label="Perfil de usuario" [attr.aria-expanded]="menuOpen()">
+        <span class="pill-avatar">{{ initials() }}</span>
+        <span class="pill-name">{{ displayName() }}</span>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      @if (menuOpen()) {
+        <div class="account-dropdown header-account-dropdown">
+          <button type="button" (click)="menuOpen.set(false); logout.emit()" class="danger-btn">Cerrar sesión</button>
+        </div>
+      }
+    </div>
+  </div>
+</header>

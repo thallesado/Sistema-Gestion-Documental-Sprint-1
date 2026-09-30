@@ -1,0 +1,66 @@
+<main class="shell" [class.sidebar-collapsed]="isCollapsed()">
+  <!-- Sidebar -->
+  <app-sidebar
+    [collapsed]="isCollapsed()"
+    [mobileOpen]="mobileNavOpen()"
+    [tenantName]="tenantName()"
+    [role]="role()"
+    [displayName]="displayName()"
+    [initials]="initials()"
+    [availableSections]="availableSections()"
+    [currentUrl]="currentUrl()"
+    [expanded]="expanded()"
+    (toggleCollapse)="toggleSidebar()"
+    (toggleNav)="toggleNav($event)"
+    (openNav)="openNav($event)"
+    (logout)="logout()"
+  />
+
+  <!-- Overlay para cerrar el sidebar en móvil/tablet -->
+  @if (mobileNavOpen()) {
+    <div class="sidebar-overlay" (click)="mobileNavOpen.set(false)" aria-hidden="true"></div>
+  }
+
+  <!-- Área de Trabajo Principal -->
+  <div class="workspace">
+    <!-- Header / Topbar -->
+    <app-header
+      [mobileNavOpen]="mobileNavOpen()"
+      [hideGlobalSearch]="hideGlobalSearch()"
+      [displayName]="displayName()"
+      [initials]="initials()"
+      (toggleMobileNav)="toggleMobileNav()"
+      (logout)="logout()"
+    />
+
+    <!-- Contenido de las páginas -->
+    <router-outlet></router-outlet>
+  </div>
+
+  <!-- Toast Notificaciones -->
+  @if (toast()) {
+    <div class="toast-notification" role="status">{{ toast() }}</div>
+  }
+
+  <!-- Asistente Flotante -->
+  <aside class="assistant" aria-label="Asistente de IA">
+    @if (assistantOpen()) {
+      <div class="assistant-panel">
+        <div class="assistant-heading">
+          <div>
+            <span class="assistant-spark" aria-hidden="true">✦</span>
+            <h2>Asistente de documentos</h2>
+          </div>
+          <button type="button" (click)="assistantOpen.set(false)" aria-label="Cerrar asistente">×</button>
+        </div>
+        <p>Puedo ayudarte a clasificar tipos documentales, sugerir metadatos y redactar resúmenes.</p>
+        <div class="assistant-prompt">¿En qué puedo apoyarte hoy?</div>
+        <button type="button" (click)="notifyAssistant()">Iniciar consulta</button>
+      </div>
+    }
+    <button type="button" class="assistant-button" (click)="assistantOpen.set(!assistantOpen())" aria-label="Abrir asistente NexoDocs">
+      <span aria-hidden="true">✦</span>
+      <b>Asistente IA</b>
+    </button>
+  </aside>
+</main>

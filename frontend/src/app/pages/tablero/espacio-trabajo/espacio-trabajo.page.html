@@ -1,0 +1,25 @@
+<section class="page">
+  @if (isHome) {
+    <app-workspace-home-dashboard
+      [displayName]="displayName()"
+      [tasks]="tasks()"
+      [documents]="documents()"
+      [activities]="activities()"
+      (toggleTask)="toggleTask($event)"
+    />
+  } @else {
+    <app-workspace-subview-panel
+      [activeRoute]="currentRoute()"
+      [description]="viewCopy().description"
+      [actionText]="viewCopy().action"
+      [items]="pagedDemoItems()"
+      [totalItems]="filteredDemoItems().length"
+      [page]="page()"
+      [pageSize]="pageSize"
+      [searchTerm]="searchTerm()"
+      (searchChange)="searchTerm.set($event); page.set(1)"
+      (pageChange)="page.set($event)"
+      (exportCsv)="exportCsv()"
+    />
+  }
+</section>

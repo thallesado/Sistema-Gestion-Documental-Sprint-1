@@ -1,0 +1,167 @@
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px 32px 48px;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.eyebrow {
+  color: #087f7b;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 4px;
+}
+
+.admin-header h1 {
+  margin: 0;
+  color: #153a39;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.admin-header p {
+  margin: 4px 0 0;
+  color: #6b8583;
+  font-size: 13px;
+}
+
+.admin-header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.admin-primary {
+  background: #087f7b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.admin-secondary {
+  background: #fff;
+  border: 1px solid #dcebe8;
+  color: #153a39;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.admin-state {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.admin-state.forbidden {
+  background: #fff4f3;
+  border: 1px solid #f3d2d0;
+  color: #a65050;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-state.error {
+  background: #fff4f3;
+  border: 1px solid #f3d2d0;
+  color: #a65050;
+}
+
+.admin-state.success {
+  background: #e9f8f1;
+  border: 1px solid #a8dec3;
+  color: #17663f;
+}
+
+.admin-table-wrap {
+  background: #fff;
+  border: 1px solid #dcebe8;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.admin-table th {
+  background: #f8fbfa;
+  color: #527572;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 12px 18px;
+  border-bottom: 1px solid #dcebe8;
+}
+
+.admin-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #edf4f3;
+  color: #153a39;
+}
+
+.admin-table td b {
+  display: block;
+}
+
+.admin-table td small {
+  color: #7b9997;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #edf4f3;
+  color: #527572;
+}
+
+.status-badge.active {
+  background: #e1f7ee;
+  color: #178252;
+}
+
+.btn-link {
+  background: transparent;
+  border: none;
+  color: #087f7b;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+.btn-link.warn {
+  color: #dc2626;
+}
+
+.btn-link.ok {
+  color: #16a34a;
+}
+
+.admin-empty {
+  padding: 32px;
+  text-align: center;
+  color: #7b9997;
+}

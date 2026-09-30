@@ -4,7 +4,7 @@ import { authGuard } from '../../core/auth/auth.guard';
 export const clinicoRoutes: Routes = [
   {
     path: 'expedients/clinical',
-    loadComponent: () => import('./pages/clinico-page').then((m) => m.ClinicalPage),
+    loadComponent: () => import('../../pages/clinico/expediente-clinico/expediente-clinico.page').then((m) => m.ExpedienteClinicoPage),
     title: 'Expediente clínico - NexoDocs',
     data: {
       routeInfo: { module: 'Expedientes', subcategory: 'Expediente clínico', href: '/expedients/clinical' },
@@ -14,7 +14,7 @@ export const clinicoRoutes: Routes = [
   },
   {
     path: 'expedients/clinical/notes',
-    loadComponent: () => import('./pages/clinico-page').then((m) => m.ClinicalPage),
+    loadComponent: () => import('../../pages/clinico/expediente-clinico/expediente-clinico.page').then((m) => m.ExpedienteClinicoPage),
     title: 'Notas médicas - NexoDocs',
     data: {
       routeInfo: { module: 'Expedientes', subcategory: 'Notas médicas', href: '/expedients/clinical/notes' },
