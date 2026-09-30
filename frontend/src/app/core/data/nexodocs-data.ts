@@ -83,6 +83,7 @@ export const navSections: NavSection[] = [
         children: [
           { label: 'Pacientes', href: '/clinical/patients' },
           { label: 'Antecedentes', href: '/clinical/history' },
+          { label: 'Notas Médicas', href: '/clinical/notes' },
         ],
       },
       {
@@ -406,6 +407,7 @@ const descriptions: Record<string, string> = {
   'Expedientes|Notas médicas': 'Busca pacientes por documento de identidad o nombre y registra notas de evolución.',
   'Módulo Clínico|Pacientes': 'Gestiona el registro e identificación unívoca de pacientes.',
   'Módulo Clínico|Antecedentes': 'Captura estructurada de diagnósticos base, alergias y antecedentes.',
+  'Módulo Clínico|Notas Médicas': 'Formulario estructurado de notas de evolución médica y recetas con buscador en tiempo real.',
 };
 
 export const patients: Patient[] = ﻿[

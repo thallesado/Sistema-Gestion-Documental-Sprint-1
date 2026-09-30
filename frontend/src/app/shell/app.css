@@ -168,6 +168,12 @@
   text-decoration: none;
   transition: all 0.15s ease;
   position: relative;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .nav-item:hover {

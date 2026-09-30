@@ -7,9 +7,15 @@ import { administracionRoutes } from '../../features/users/users.routes';
 import { documentosRoutes } from '../../features/documentos/documentos.routes';
 import { expedientesRoutes } from '../../features/expedientes/expedientes.routes';
 
-const clinicalPaths = new Set(['expedients/clinical', 'expedients/clinical/notes']);
+const clinicalPaths = new Set([
+  'expedients/clinical',
+  'expedients/clinical/notes',
+  'clinical/patients',
+  'clinical/history',
+  'clinical/notes',
+]);
 const documentPaths = new Set(['documents', 'documents/mine', 'documents/shared', 'documents/new', 'documents/upload', 'settings/statuses']);
-const expedientPaths = new Set(['expedientes', 'expedients', 'expedientes/new', 'expedientes/active', 'expedients/closed', 'expedients/archived']);
+const expedientPaths = new Set(['expedientes', 'expedients', 'expedientes/new', 'expedientes/active', 'expedientes/closed', 'expedientes/archived']);
 
 const dynamicCatalogRoutes: Routes = navigationRoutes
   .filter((route) => !clinicalPaths.has(route.href.slice(1)) && !documentPaths.has(route.href.slice(1)) && !expedientPaths.has(route.href.slice(1)))
@@ -21,9 +27,6 @@ const dynamicCatalogRoutes: Routes = navigationRoutes
       }
       if (route.module === 'Auditoria') {
         return import('../../features/auditoria/pages/auditoria-page').then((m) => m.AuditPage);
-      }
-      if (route.module === 'Módulo Clínico' && route.subcategory === 'Antecedentes') {
-        return import('../../features/clinico/pages/antecedentes-page').then((m) => m.AntecedentesPage);
       }
       return import('../../features/tablero/pages/espacio-trabajo-page').then((m) => m.WorkspacePage);
     },
