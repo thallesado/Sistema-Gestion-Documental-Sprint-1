@@ -115,6 +115,23 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public UserResponse getCurrentUser() {
+        UUID userId = authenticatedUserContext.requireUserId();
+        UUID tenantId = authenticatedUserContext.getTenantId().orElse(null);
+        if (tenantId != null) {
+            authenticatedUserContext.establishDatabaseContext();
+            User user = userRepository.findByIdAndTenantIdAndDeletedAtIsNull(userId, tenantId)
+                    .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
+            Tenant tenant = tenantRepository != null ? tenantRepository.findById(tenantId).orElse(null) : null;
+            return toResponse(user, tenantId, tenant);
+        } else {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
+            return toResponse(user, null, null);
+        }
+    }
+
+    @Transactional(readOnly = true)
     public UserResponse findUserById(UUID id) {
         UUID tenantId = authenticatedUserContext.requireTenantId();
         authenticatedUserContext.establishDatabaseContext();

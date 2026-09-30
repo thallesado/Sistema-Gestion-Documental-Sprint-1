@@ -88,12 +88,10 @@ public class RoleService {
         repository.delete(role); // role_permissions se elimina en cascada (FK ON DELETE CASCADE)
     }
 
-    /** Rol del tenant autenticado; los roles de sistema son inmutables. */
+    /** Rol del tenant autenticado. */
     private Role editableRole(Long id, UUID tenantId) {
-        Role role = repository.findByIdAndTenantId(id, tenantId)
+        return repository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new NotFoundException("Rol no encontrado"));
-        if (role.isSystem()) throw new IllegalArgumentException("Los roles de sistema no se pueden modificar, desactivar ni eliminar");
-        return role;
     }
 
     /** Nombre normalizado y sin colisión con otro rol del tenant (excluyendo {@code excludeId}). */

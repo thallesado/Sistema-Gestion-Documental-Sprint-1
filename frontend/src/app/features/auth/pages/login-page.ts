@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
+import { PublicTenant } from '../../../core/auth/auth.types';
 import { ForgotPasswordModalComponent } from '../../../widgets/auth/forgot-password-modal.component';
 import { ResetPasswordModalComponent } from '../../../widgets/auth/reset-password-modal.component';
 
@@ -25,6 +26,24 @@ import { ResetPasswordModalComponent } from '../../../widgets/auth/reset-passwor
         </header>
 
         <form class="login-form" (ngSubmit)="submitLogin()">
+          <div class="field">
+            <label for="tenant-select">Organización</label>
+            <select
+              id="tenant-select"
+              name="tenantId"
+              [(ngModel)]="tenantId"
+              [disabled]="tenantsLoading()"
+            >
+              <option [ngValue]="null">[ Plataforma / Administración Global ]</option>
+              @for (tenant of tenants(); track tenant.id) {
+                <option [value]="tenant.id">{{ tenant.name }}</option>
+              }
+            </select>
+            @if (tenantsError()) {
+              <small class="error-text" role="alert">{{ tenantsError() }}</small>
+            }
+          </div>
+
           <div class="field">
             <label for="username">Usuario o Correo</label>
             <input
@@ -96,10 +115,15 @@ import { ResetPasswordModalComponent } from '../../../widgets/auth/reset-passwor
     </main>
   `
 })
-export class LoginPage {
+export class LoginPage implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+
+  readonly tenants = signal<PublicTenant[]>([]);
+  readonly tenantsLoading = signal(true);
+  readonly tenantsError = signal('');
+  tenantId: string | null = null;
 
   username = '';
   password = '';
@@ -116,6 +140,23 @@ export class LoginPage {
   resetToken = '';
   resetNewPassword = '';
 
+  ngOnInit(): void {
+    this.auth.publicTenants().subscribe({
+      next: (list) => {
+        this.tenants.set(list);
+        this.tenantsLoading.set(false);
+      },
+      error: (error: { status?: number }) => {
+        this.tenantsError.set(
+          error?.status === 429
+            ? 'Demasiadas solicitudes. Espera un minuto e inténtalo de nuevo.'
+            : 'No se pudo cargar la lista de organizaciones.'
+        );
+        this.tenantsLoading.set(false);
+      },
+    });
+  }
+
   submitLogin(): void {
     if (!this.username || !this.password) {
       this.errorMessage.set('Por favor completa todos los campos.');
@@ -124,7 +165,7 @@ export class LoginPage {
     this.loading.set(true);
     this.errorMessage.set(null);
 
-    this.auth.login({ usernameOrEmail: this.username, password: this.password, tenantId: null }).subscribe({
+    this.auth.login({ usernameOrEmail: this.username, password: this.password, tenantId: this.tenantId }).subscribe({
       next: () => {
         this.loading.set(false);
         this.router.navigate(['/']);

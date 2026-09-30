@@ -1591,3 +1591,47 @@ a {
 .row-action-btn.warn:hover { background: #fff4e4; border-color: #f0c98f; }
 .row-action-btn.ok { color: #218450; }
 .row-action-btn.ok:hover { background: #eaf8f1; border-color: #b9e3cc; }
+
+/* Legibilidad del formulario "Nuevo usuario" */
+.create-user-form .form-grid label,
+.create-user-form .chip-field-header > span:first-child { font-size: 14px; font-weight: 600; }
+.create-user-form .form-note,
+.create-user-form .field-help { font-size: 14px; line-height: 1.4; }
+.create-user-form .field-error { font-size: 13px; }
+.create-user-form .role-chip { font-size: 14px; }
+.create-user-form .role-chip-counter { font-size: 12px; }
+.create-user-form .password-popover-title { font-size: 13px; }
+.create-user-form .password-rules li { font-size: 13px; }
+
+/* Tabla de usuarios: scroll horizontal, paginador integrado y aire inferior */
+.admin-table-wrap { overflow-x: auto; }
+.admin-table-wrap > .pagination { border-top: 1px solid var(--line); min-width: 720px; }
+.admin-page { padding-bottom: 32px; }
+
+/* Toolbar de usuarios: buscador flexible y filtros/exportar a la derecha */
+.users-toolbar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+.users-toolbar .admin-search { flex: 1; min-width: 220px; }
+.users-toolbar-filters { display: flex; gap: 1rem; align-items: center; margin-left: auto; flex-wrap: wrap; }
+
+/* Tabla de usuarios: más legible */
+.admin-table-wrap th { font-size: 14px; padding: 1rem 1.5rem; }
+.admin-table-wrap td { font-size: 14px; padding: 1rem 1.5rem; }
+.admin-table-wrap td:first-child small { font-size: 12px; }
+.admin-table-wrap .link-button { font-size: 13px; }
+
+/* Usuario inactivo: gris-rojizo suave, distinto del verde de "Activo" */
+.admin-status.status-inactive { background: #f1e9ea; color: #9b4a52; }
+
+/* Modal "Nuevo usuario": cabecera y pie fijos, cuerpo con scroll */
+.admin-modal.create-user-modal { display: flex; flex-direction: column; max-height: calc(100vh - 40px); max-width: 720px; overflow: hidden; padding: 0; }
+.create-user-modal .create-user-modal-header { border-radius: 14px 14px 0 0; flex: none; margin: 0; padding: 20px 28px; }
+.create-user-modal .create-user-modal-title { flex: 1; min-width: 0; }
+.create-user-modal .create-user-modal-title h2 { margin: 0 0 2px; }
+.create-user-modal .create-user-modal-title .form-note { margin: 0; }
+.create-user-modal .modal-close { align-self: flex-start; background: transparent; border: 0; border-radius: 8px; color: var(--muted); cursor: pointer; font-size: 24px; height: 32px; line-height: 1; width: 32px; }
+.create-user-modal .modal-close:hover:not(:disabled) { background: var(--mint); color: var(--ink); }
+.create-user-modal .modal-close:disabled { cursor: not-allowed; opacity: .5; }
+.create-user-modal .create-user-modal-body { flex: 1; min-height: 0; overflow-y: auto; padding: 24px 28px 32px; }
+.create-user-modal .create-user-modal-body .form-grid { margin-top: 0; }
+.create-user-modal .create-user-modal-footer { background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 14px 14px; display: flex; flex: none; gap: 9px; justify-content: flex-end; padding: 16px 28px; }
+.create-user-modal .field-roles .chip-field-header { display: flex; justify-content: space-between; }

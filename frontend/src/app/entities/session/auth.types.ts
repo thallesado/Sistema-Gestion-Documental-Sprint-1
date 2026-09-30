@@ -24,3 +24,8 @@ export interface LoginRequest {
   usernameOrEmail: string;
   password: string;
 }
+
+export interface PublicTenant {
+  id: string;
+  name: string;
+}

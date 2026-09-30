@@ -1,23 +1,24 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { AdministrationApiService, ApiRole, ApiTenant, ApiUser, CreateUserPayload } from '../../../core/api/administration-api.service';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { AdministrationApiService, ApiRole, ApiTenant, ApiUser } from '../../../core/api/administration-api.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { RolePermissionsModal } from '../components/role-permissions-modal';
 import { TenantsViewComponent } from '../../../widgets/users/tenants-view.component';
 import { AdminModalsComponent } from '../../../widgets/users/admin-modals.component';
+import { CreateUserModal } from '../components/create-user-modal';
+import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
 
 @Component({
   selector: 'app-administration-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, TenantsViewComponent, AdminModalsComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, TenantsViewComponent, AdminModalsComponent, CreateUserModal],
   template: `
     <section class="admin-page">
       @if (isTenantArea) {
         @if (isSuperadmin()) {
           <app-tenants-view
-            [isCreate]="isCreate"
+            [isCreate]="false"
             [loading]="loading()"
             [error]="error()"
             [saving]="saving()"
@@ -34,43 +35,48 @@ import { AdminModalsComponent } from '../../../widgets/users/admin-modals.compon
         <div class="admin-state forbidden" role="alert"><b>Acceso restringido</b><span>Solo un Administrador de tenant o Superadministrador puede gestionar usuarios.</span></div>
       } @else {
         <header class="admin-header">
-          <div><p class="eyebrow">Gestión · Usuarios y equipos</p><h1>{{ isCreate ? 'Crear usuario' : 'Usuarios del tenant' }}</h1><p>Administra las cuentas sin salir del tenant autenticado.</p></div>
-          @if (!isCreate) { <a class="admin-primary" routerLink="/users/new">＋ Crear usuario</a> }
+          <div><p class="eyebrow">Gestión · Usuarios y equipos</p><h1>Usuarios del tenant</h1><p>Administra las cuentas sin salir del tenant autenticado.</p></div>
+          <div class="admin-header-actions">
+            <button type="button" class="admin-secondary" (click)="exportUsers('Excel')">Exportar</button>
+            <button type="button" class="admin-primary" (click)="showCreateModal.set(true)">＋ Crear usuario</button>
+          </div>
         </header>
 
-        @if (isCreate) {
-          <form class="admin-form create-user-form" [formGroup]="userForm" (ngSubmit)="onSubmit()" novalidate>
-            @if (message()) { <div class="admin-state" [class.error]="error()" [class.success]="!error()">{{ message() }}</div> }
-            <div class="form-grid">
-              <label>Nombre<input formControlName="firstName" /></label>
-              <label>Apellido<input formControlName="lastName" /></label>
-              <label>Usuario<input formControlName="username" /></label>
-              <label>Correo<input type="email" formControlName="email" /></label>
-              <label>Contraseña<input type="password" formControlName="password" /></label>
-              <label>Confirmar contraseña<input type="password" formControlName="confirmPassword" /></label>
-            </div>
-            <div class="form-actions"><a routerLink="/users" class="admin-secondary">Cancelar</a><button class="admin-primary" type="submit" [disabled]="saving() || userForm.invalid">{{ saving() ? 'Creando…' : 'Crear usuario' }}</button></div>
-          </form>
-        } @else {
-          <div class="admin-table-wrap">
-            @if (loading()) { <p class="admin-empty">Cargando usuarios…</p> }
-            @else {
-              <table class="admin-table">
-                <thead><tr><th>Usuario</th><th>Correo</th><th>Estado</th><th>Acciones</th></tr></thead>
-                <tbody>
-                  @for (user of users(); track user.id) {
-                    <tr>
-                      <td><b>{{ user.firstName }} {{ user.lastName }}</b><small>@{{ user.username }}</small></td>
-                      <td>{{ user.email }}</td>
-                      <td><span class="status-badge" [class.active]="user.status === 'ACTIVE'">{{ user.status }}</span></td>
-                      <td><button type="button" class="btn-link" (click)="edit(user)">Editar</button></td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            }
-          </div>
-        }
+        @if (message()) { <div class="admin-state" [class.error]="error()" [class.success]="!error()">{{ message() }}</div> }
+
+        <div class="admin-table-wrap">
+          @if (loading()) { <p class="admin-empty">Cargando usuarios…</p> }
+          @else {
+            <table class="admin-table">
+              <thead><tr><th>Usuario</th><th>Correo</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                @for (user of users(); track user.id) {
+                  <tr>
+                    <td><b>{{ user.firstName }} {{ user.lastName }}</b><small>@{{ user.username }}</small></td>
+                    <td>{{ user.email }}</td>
+                    <td><span class="status-badge" [class.active]="user.status === 'ACTIVE'">{{ user.status }}</span></td>
+                    <td>
+                      <button type="button" class="btn-link" (click)="edit(user)">Editar</button>
+                      @if (user.status === 'ACTIVE') {
+                        <button type="button" class="btn-link warn" (click)="deactivate(user)">Desactivar</button>
+                      } @else {
+                        <button type="button" class="btn-link ok" (click)="reactivate(user)">Activar</button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      }
+
+      @if (showCreateModal()) {
+        <app-create-user-modal
+          [roles]="roles()"
+          (closed)="showCreateModal.set(false)"
+          (saved)="onUserCreated()"
+        />
       }
 
       <app-admin-modals
@@ -93,12 +99,10 @@ export class AdministracionPage implements OnInit {
   private readonly api = inject(AdministrationApiService);
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
-  private readonly fb = inject(FormBuilder);
 
   readonly isTenantArea = this.route.snapshot.url.some(s => s.path === 'tenants');
-  readonly isCreate = this.route.snapshot.url.some(s => s.path === 'new');
   readonly isSuperadmin = computed(() => this.auth.user()?.platformAdmin ?? false);
-  readonly canManageUsers = computed(() => this.isSuperadmin() || (this.auth.user()?.roleNames?.includes('ADMIN') ?? false));
+  readonly canManageUsers = computed(() => this.isSuperadmin() || (this.auth.user()?.roleNames?.some(r => r.toUpperCase().includes('ADMIN')) ?? false));
 
   readonly users = signal<ApiUser[]>([]);
   readonly roles = signal<ApiRole[]>([]);
@@ -106,6 +110,7 @@ export class AdministracionPage implements OnInit {
   readonly editUser = signal<ApiUser | null>(null);
   readonly editError = signal<string | null>(null);
   readonly confirmation = signal<{ title: string; message: string; action: () => void } | null>(null);
+  readonly showCreateModal = signal(false);
 
   readonly loading = signal(false);
   readonly saving = signal(false);
@@ -113,15 +118,6 @@ export class AdministracionPage implements OnInit {
   readonly message = signal<string | null>(null);
 
   editForm: any = { firstName: '', lastName: '', email: '', status: 'ACTIVE', roleIds: [] };
-  userForm: FormGroup = this.fb.group({
-    firstName: ['', Validators.required],
-    lastName: ['', Validators.required],
-    username: ['', Validators.required],
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', Validators.required],
-    confirmPassword: ['', Validators.required],
-    roleIds: [[1]]
-  });
   tenantForm = { name: '', code: '', slug: '', email: '' };
 
   ngOnInit(): void {
@@ -140,13 +136,10 @@ export class AdministracionPage implements OnInit {
   loadRoles(): void { this.api.roles().subscribe({ next: r => this.roles.set(r) }); }
   loadTenants(): void { this.api.tenants().subscribe({ next: t => this.tenants.set(t) }); }
 
-  onSubmit(): void {
-    if (this.userForm.invalid) return;
-    this.saving.set(true);
-    this.api.createUser(this.userForm.value).subscribe({
-      next: () => { this.saving.set(false); this.message.set('Usuario creado con éxito.'); this.userForm.reset(); },
-      error: err => { this.saving.set(false); this.error.set(true); this.message.set(err?.message || 'Error.'); }
-    });
+  onUserCreated(): void {
+    this.showCreateModal.set(false);
+    this.loadUsers();
+    this.message.set('Usuario creado correctamente.');
   }
 
   createTenant(): void {
@@ -162,9 +155,46 @@ export class AdministracionPage implements OnInit {
     this.api.changeTenantStatus(event.id, event.status).subscribe({ next: () => this.loadTenants() });
   }
 
+  exportUsers(format: 'Excel' | 'PDF' | 'JSON'): void {
+    const rows = this.users().map(u => ({
+      nombre: `${u.firstName} ${u.lastName}`, usuario: u.username, correo: u.email,
+      perfil: u.staffType || 'No asignado', estado: u.status === 'ACTIVE' ? 'Activo' : 'Inactivo',
+    }));
+    const cols: ExportColumn[] = [
+      { key: 'nombre', label: 'Nombre' }, { key: 'usuario', label: 'Usuario' }, { key: 'correo', label: 'Correo' },
+      { key: 'perfil', label: 'Perfil clínico' }, { key: 'estado', label: 'Estado' },
+    ];
+    const filename = `usuarios-${new Date().toISOString().split('T')[0]}`;
+    if (format === 'JSON') exportToJson(rows, filename);
+    else if (format === 'PDF') exportToPrintView('Usuarios', 'Módulo Usuarios y equipos · NexoDocs', rows, cols);
+    else exportToCsv(rows, filename, cols);
+  }
+
   edit(user: ApiUser): void {
     this.editUser.set(user);
     this.editForm = { firstName: user.firstName, lastName: user.lastName, email: user.email, status: user.status, roleIds: [...(user.roleIds ?? [])] };
+  }
+
+  deactivate(user: ApiUser): void {
+    this.confirmation.set({
+      title: 'Desactivar usuario',
+      message: `¿Quieres desactivar a ${user.firstName} ${user.lastName}?`,
+      action: () => this.changeUserStatus(user, 'INACTIVE', 'Usuario desactivado.')
+    });
+  }
+
+  reactivate(user: ApiUser): void {
+    this.changeUserStatus(user, 'ACTIVE', 'Usuario reactivado.');
+  }
+
+  private changeUserStatus(user: ApiUser, status: 'ACTIVE' | 'INACTIVE', okMessage: string): void {
+    this.api.updateUser(user.id, { firstName: user.firstName, lastName: user.lastName, email: user.email, status, roleIds: user.roleIds ?? [] }).subscribe({
+      next: updated => {
+        this.users.update(list => list.map(u => u.id === user.id ? { ...u, status: updated?.status ?? status } : u));
+        this.message.set(okMessage);
+      },
+      error: () => { this.error.set(true); this.message.set('No se pudo actualizar el estado del usuario.'); }
+    });
   }
 
   closeEdit(): void { this.editUser.set(null); }

@@ -205,20 +205,30 @@
   color: inherit;
 }
 
+.nav-item.has-toggle { padding-right: 36px; }
+
 .nav-arrow {
+  align-items: center;
   background: transparent;
   border: 0;
+  border-radius: 6px;
   color: #5c837f;
   cursor: pointer;
   display: flex;
-  align-items: center;
-  padding: 2px;
-  margin-left: auto;
+  padding: 4px;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
-.nav-item.active .nav-arrow {
+.nav-arrow:focus-visible { outline: 2px solid #2dd4bf; outline-offset: 1px; }
+
+.nav-group.active .nav-arrow {
   color: rgba(255, 255, 255, 0.8);
 }
+
+.nav-children-list[hidden] { display: none; }
 
 .nav-children-list {
   display: flex;

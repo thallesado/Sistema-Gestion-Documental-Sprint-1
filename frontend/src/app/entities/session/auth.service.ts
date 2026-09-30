@@ -1,8 +1,8 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, finalize, shareReplay, tap, throwError } from 'rxjs';
-import { AuthResponse, AuthUser, LoginRequest } from './auth.types';
+import { Observable, catchError, finalize, shareReplay, tap, throwError } from 'rxjs';
+import { AuthResponse, AuthUser, LoginRequest, PublicTenant } from './auth.types';
 
 const API_URL = '/api/v1';
 const TOKEN_KEY = 'nexodocs.access_token';
@@ -19,19 +19,25 @@ export class AuthService {
 
   constructor() {
     if (this.accessToken()) {
-      // Conserva la sesión existente mientras se vuelve a validar la identidad
-      // y los roles con el servidor. Las mismas claves de sessionStorage se
-      // mantienen para no invalidar sesiones creadas por versiones anteriores.
       this.loadCurrentUser();
     } else if (this.user()) {
       this.clearSession();
     }
   }
 
+  publicTenants(): Observable<PublicTenant[]> {
+    return this.http.get<PublicTenant[]>(`${API_URL}/tenants/public`);
+  }
+
   login(request: LoginRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${API_URL}/auth/login`, request).pipe(
+    const urlExacta = `${API_URL}/auth/login`;
+    return this.http.post<AuthResponse>(urlExacta, request).pipe(
       tap((response) => this.storeTokens(response)),
       tap(() => this.loadCurrentUser()),
+      catchError((error: HttpErrorResponse) => {
+        console.error('Error del servidor en login:', error);
+        return throwError(() => error);
+      }),
     );
   }
 
