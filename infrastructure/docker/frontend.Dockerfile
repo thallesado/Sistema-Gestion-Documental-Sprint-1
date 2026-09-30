@@ -10,7 +10,7 @@ RUN cd frontend && pnpm run build
 
 # Run stage
 FROM nginx:alpine
-COPY --from=build /app/frontend/dist/frontend/browser /usr/share/nginx/html
+COPY --from=build /app/frontend/dist/nexodocs-frontend/browser /usr/share/nginx/html
 COPY infrastructure/docker/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

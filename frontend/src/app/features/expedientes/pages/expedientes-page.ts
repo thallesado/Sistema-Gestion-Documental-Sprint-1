@@ -2,10 +2,18 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ApiExpedient, ExpedientApiService } from '../../../core/api/expedient-api.service';
+import { forkJoin } from 'rxjs';
+import { ApiDepartment, ApiExpedient, ApiExpedientType, ApiResponsible, ExpedientApiService } from '../../../core/api/expedient-api.service';
 
 type ExpedientView = 'all' | 'active' | 'closed' | 'archived' | 'new';
-type ExpedientForm = { name: string; type: string; area: string; responsible: string; description: string };
+type ExpedientForm = {
+  code: string;
+  name: string;
+  expedientTypeId: string;
+  departmentId: string;
+  responsibleId: string;
+  description: string;
+};
 type ExpedientItem = {
   id: string;
   title: string;
@@ -36,11 +44,14 @@ export class ExpedientsPage {
   readonly loading = signal(false);
   readonly apiError = signal('');
   readonly totalCount = signal(0);
-  readonly form = signal<ExpedientForm>({ name: '', type: 'Administrativo', area: 'Compras', responsible: '', description: '' });
+  readonly form = signal<ExpedientForm>({ code: '', name: '', expedientTypeId: '', departmentId: '', responsibleId: '', description: '' });
   readonly expedients = signal<ExpedientItem[]>([]);
+  readonly expedientTypes = signal<ApiExpedientType[]>([]);
+  readonly departments = signal<ApiDepartment[]>([]);
+  readonly responsibleUsers = signal<ApiResponsible[]>([]);
+  readonly loadingFormOptions = signal(false);
   readonly activeCount = computed(() => this.expedients().filter((item) => item.status === 'Activo').length);
   readonly areas = ['General'];
-  readonly types = ['Administrativo', 'Contractual', 'Calidad', 'Auditoría', 'Proyecto'];
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly items = computed(() => {
@@ -63,7 +74,8 @@ export class ExpedientsPage {
   get countLabel(): string { return `${this.items().length} de ${this.totalCount()} expedientes`; }
 
   constructor() {
-    if (!this.isForm) this.loadExpedients();
+    if (this.isForm) this.loadFormOptions();
+    else this.loadExpedients();
   }
 
   updateField(field: keyof ExpedientForm, event: Event): void {
@@ -83,18 +95,20 @@ export class ExpedientsPage {
   previousStep(): void { if (this.step() > 1) this.step.update((value) => value - 1); }
   saveExpedient(): void {
     const form = this.form();
-    if (!form.name.trim()) {
-      this.apiError.set('El nombre del expediente es obligatorio.');
+    if (!form.code.trim() || !form.name.trim() || !form.expedientTypeId) {
+      this.apiError.set('El código, el nombre y el tipo de expediente son obligatorios.');
       return;
     }
     this.saving.set(true);
     this.apiError.set('');
     this.api.create({
+      expedientTypeId: form.expedientTypeId,
+      responsibleId: form.responsibleId || undefined,
+      departmentId: form.departmentId || undefined,
+      code: form.code.trim(),
       name: form.name.trim(),
-      type: form.type,
-      area: form.area,
-      responsible: form.responsible.trim() || undefined,
       description: form.description.trim() || undefined,
+      metadata: {},
     }).subscribe({
       next: () => {
         this.saving.set(false);
@@ -102,7 +116,7 @@ export class ExpedientsPage {
       },
       error: (error: unknown) => {
         this.saving.set(false);
-        this.apiError.set(this.apiErrorMessage(error));
+        this.apiError.set(this.createErrorMessage(error));
       },
     });
   }
@@ -137,6 +151,40 @@ export class ExpedientsPage {
 
   retry(): void { this.loadExpedients(); }
 
+  selectedTypeName(): string {
+    return this.expedientTypes().find((type) => type.id === this.form().expedientTypeId)?.name || 'Sin tipo indicado';
+  }
+
+  selectedDepartmentName(): string {
+    return this.departments().find((department) => department.id === this.form().departmentId)?.name || 'Sin área indicada';
+  }
+
+  selectedResponsibleName(): string {
+    const user = this.responsibleUsers().find((responsible) => responsible.id === this.form().responsibleId);
+    return user ? `${user.firstName} ${user.lastName}`.trim() : 'Sin responsable indicado';
+  }
+
+  private loadFormOptions(): void {
+    this.loadingFormOptions.set(true);
+    this.apiError.set('');
+    forkJoin({
+      types: this.api.expedientTypes(),
+      departments: this.api.departments(),
+      responsibleUsers: this.api.responsibleUsers(),
+    }).subscribe({
+      next: ({ types, departments, responsibleUsers }) => {
+        this.expedientTypes.set(types);
+        this.departments.set(departments);
+        this.responsibleUsers.set(responsibleUsers);
+        this.loadingFormOptions.set(false);
+      },
+      error: (error: unknown) => {
+        this.loadingFormOptions.set(false);
+        this.apiError.set(this.formOptionsErrorMessage(error));
+      },
+    });
+  }
+
   private toExpedient(expedient: ApiExpedient): ExpedientItem {
     return {
       id: expedient.id,
@@ -168,6 +216,25 @@ export class ExpedientsPage {
       if (error.status > 0) return `La API no pudo cargar los expedientes (HTTP ${error.status}).`;
     }
     return error instanceof Error ? error.message : 'La API no pudo cargar los expedientes.';
+  }
+
+  private createErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 400) return 'No se pudo crear el expediente. Revisa los datos ingresados y que el código no esté repetido.';
+      if (error.status === 403) return 'No tienes permiso para crear expedientes en el tenant activo.';
+      if (error.status === 401) return 'Tu sesión expiró. Inicia sesión nuevamente.';
+      if (error.status > 0) return `No se pudo crear el expediente (HTTP ${error.status}).`;
+    }
+    return 'No se pudo crear el expediente.';
+  }
+
+  private formOptionsErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 403) return 'No tienes permiso para cargar los catálogos necesarios para crear un expediente.';
+      if (error.status === 401) return 'Tu sesión expiró. Inicia sesión nuevamente.';
+      if (error.status > 0) return `No se pudo preparar el formulario (HTTP ${error.status}).`;
+    }
+    return 'No se pudo preparar el formulario para crear el expediente.';
   }
 }
 

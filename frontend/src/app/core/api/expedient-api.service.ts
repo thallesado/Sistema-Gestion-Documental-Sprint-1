@@ -26,11 +26,30 @@ export interface ExpedientPage {
 }
 
 export interface CreateExpedientPayload {
+  expedientTypeId: string;
+  responsibleId?: string;
+  departmentId?: string;
+  code: string;
   name: string;
   description?: string;
-  type?: string;
-  area?: string;
-  responsible?: string;
+  metadata: Record<string, never>;
+}
+
+export interface ApiExpedientType {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface ApiDepartment {
+  id: string;
+  name: string;
+}
+
+export interface ApiResponsible {
+  id: string;
+  firstName: string;
+  lastName: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -47,6 +66,24 @@ export class ExpedientApiService {
 
   create(payload: CreateExpedientPayload): Observable<ApiExpedient> {
     return this.http.post<ApiExpedient>(`${API_URL}/expedients`, payload);
+  }
+
+  expedientTypes(): Observable<ApiExpedientType[]> {
+    return this.http.get<unknown>(`${API_URL}/expedient-types`, { params: new HttpParams().set('size', 100) }).pipe(
+      map((response) => catalogContent(response, isApiExpedientType)),
+    );
+  }
+
+  departments(): Observable<ApiDepartment[]> {
+    return this.http.get<unknown>(`${API_URL}/departments`, { params: new HttpParams().set('active', true).set('size', 100) }).pipe(
+      map((response) => catalogContent(response, isApiDepartment)),
+    );
+  }
+
+  responsibleUsers(): Observable<ApiResponsible[]> {
+    return this.http.get<unknown>(`${API_URL}/users/responsible`, { params: new HttpParams().set('size', 100) }).pipe(
+      map((response) => catalogContent(response, isApiResponsible)),
+    );
   }
 }
 
@@ -101,6 +138,28 @@ function normalizeDate(value: unknown): string {
     return new Date(ms).toISOString();
   }
   return new Date().toISOString();
+}
+
+function catalogContent<T>(response: unknown, isItem: (value: unknown) => value is T): T[] {
+  if (!isRecord(response) || !Array.isArray(response['content']) || !response['content'].every(isItem)) {
+    throw new Error('La API devolvió un catálogo no válido.');
+  }
+  return response['content'];
+}
+
+function isApiExpedientType(value: unknown): value is ApiExpedientType {
+  return isRecord(value) && typeof value['id'] === 'string' && typeof value['name'] === 'string' && typeof value['code'] === 'string';
+}
+
+function isApiDepartment(value: unknown): value is ApiDepartment {
+  return isRecord(value) && typeof value['id'] === 'string' && typeof value['name'] === 'string';
+}
+
+function isApiResponsible(value: unknown): value is ApiResponsible {
+  return isRecord(value)
+    && typeof value['id'] === 'string'
+    && typeof value['firstName'] === 'string'
+    && typeof value['lastName'] === 'string';
 }
 
 function optionalNumber(value: unknown): number | undefined {

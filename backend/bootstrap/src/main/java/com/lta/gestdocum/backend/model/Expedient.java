@@ -52,6 +52,7 @@ public class Expedient {
     private String description;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false)
     private ExpedientStatus status;
 

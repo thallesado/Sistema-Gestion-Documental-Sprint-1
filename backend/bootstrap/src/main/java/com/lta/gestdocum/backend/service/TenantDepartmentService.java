@@ -33,7 +33,8 @@ public class TenantDepartmentService {
     public Page<TenantDepartmentResponse> find(String filter, Boolean active, Pageable pageable) {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
-        return repository.findByTenant(tenantId, CrudTextSupport.optionalFilter(filter), active, pageable)
+        String normalizedFilter = filter == null ? "" : filter.trim();
+        return repository.findByTenant(tenantId, normalizedFilter, active, pageable)
                 .map(this::toResponse);
     }
 

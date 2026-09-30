@@ -39,7 +39,7 @@ public class UserController {
     }
 
     @GetMapping("/responsible")
-    @PreAuthorize("hasAuthority('user:read')")
+    @PreAuthorize("hasAuthority('user:read') or hasAuthority('expedient:create')")
     @Operation(summary = "Listar responsables disponibles",
             description = "Usuarios activos del tenant autenticado que pueden asignarse a documentos")
     public ResponseEntity<Page<UserResponse>> findResponsibleUsers(
