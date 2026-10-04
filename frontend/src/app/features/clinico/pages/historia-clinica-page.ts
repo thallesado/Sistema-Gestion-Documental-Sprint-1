@@ -2,8 +2,8 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ApiPatient, ClinicalApiService, ClinicalHistory } from '../../../core/api/clinical-api.service';
-import { DocumentApiService, MedicalNote } from '../../../core/api/document-api.service';
+import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalLinkedDocument } from '../../../core/api/clinical-api.service';
+import { DocumentApiService, MedicalNote, ApiDocument } from '../../../core/api/document-api.service';
 
 export interface SignosVitales {
   peso?: number | null;
@@ -270,7 +270,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
               <!-- EN LA ESQUINA SUPERIOR DERECHA: LOS DOS BOTONES (HISTORIAL O CONSULTAS) -->
               <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 
-                <!-- Toggle Switch: Historial vs Consultas -->
+                <!-- Toggle Switch: Historial vs Consultas vs Documentos -->
                 <div style="display: inline-flex; background: #f1f5f9; padding: 4px; border-radius: 10px; border: 1px solid #cbd5e1;">
                   <button
                     type="button"
@@ -292,6 +292,16 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                   >
                     Consultas ({{ patientConsultations().length }})
                   </button>
+                  <button
+                    type="button"
+                    (click)="activeTab.set('documentos'); loadLinkedDocuments()"
+                    [style.background]="activeTab() === 'documentos' ? '#087f7b' : 'transparent'"
+                    [style.color]="activeTab() === 'documentos' ? '#ffffff' : '#334155'"
+                    [style.boxShadow]="activeTab() === 'documentos' ? '0 2px 6px rgba(8, 127, 123, 0.25)' : 'none'"
+                    style="border: 0; border-radius: 7px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s;"
+                  >
+                    Documentos ({{ linkedDocuments().length }})
+                  </button>
                 </div>
 
                 <!-- Botón de acción adicional según la opción activa -->
@@ -304,13 +314,31 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                   >
                     Ver Hoja Oficial
                   </button>
-                } @else {
+                  @if (currentHistory()?.id) {
+                    <button
+                      type="button"
+                      (click)="openDeleteModal()"
+                      style="background: #ffffff; color: #dc2626; border: 1px solid #fca5a5; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer;"
+                      title="Dar de baja historia clínica con justificación y auditoría"
+                    >
+                      Dar de Baja
+                    </button>
+                  }
+                } @else if (activeTab() === 'consultas') {
                   <button
                     type="button"
                     (click)="openNewConsultationModal()"
                     style="background: #087f7b; color: #ffffff; border: 0; border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(8, 127, 123, 0.2);"
                   >
                     + Nueva Consulta
+                  </button>
+                } @else if (activeTab() === 'documentos' && currentHistory()?.id) {
+                  <button
+                    type="button"
+                    (click)="openLinkDocModal()"
+                    style="background: #087f7b; color: #ffffff; border: 0; border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(8, 127, 123, 0.2);"
+                  >
+                    + Vincular Documento
                   </button>
                 }
 
@@ -671,6 +699,68 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
 
                 </div>
 
+              </div>
+            }
+
+            <!-- CONTENIDO DE LA OPCIÓN 3: DOCUMENTOS ANEXOS AL EXPEDIENTE -->
+            @if (activeTab() === 'documentos') {
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                  <div>
+                    <h3 style="font-size: 13px; font-weight: 800; text-transform: uppercase; color: #087f7b; margin: 0; letter-spacing: 0.05em;">
+                      Documentos Anexos al Expediente ({{ linkedDocuments().length }})
+                    </h3>
+                    <small style="color: #64748b; font-size: 11px;">
+                      Trazabilidad de informes de laboratorio, consentimientos informados y estudios clínicos asociados.
+                    </small>
+                  </div>
+                  @if (currentHistory()?.id) {
+                    <button
+                      type="button"
+                      (click)="openLinkDocModal()"
+                      style="background: #087f7b; color: #ffffff; border: 0; border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(8, 127, 123, 0.2);"
+                    >
+                      + Vincular Documento
+                    </button>
+                  }
+                </div>
+
+                @if (linkedDocsLoading()) {
+                  <div style="text-align: center; padding: 40px; color: #64748b; font-size: 13px;">
+                    Cargando documentos vinculados...
+                  </div>
+                } @else if (linkedDocuments().length === 0) {
+                  <div style="text-align: center; padding: 48px 16px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; color: #64748b;">
+                    <strong style="font-size: 14px; display: block; margin-bottom: 4px; color: #334155;">Sin documentos vinculados</strong>
+                    <span style="font-size: 12px;">No hay documentos clínicos asociados a esta historia clínica. Usa el botón "+ Vincular Documento" para adjuntar estudios o informes.</span>
+                  </div>
+                } @else {
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+                    @for (doc of linkedDocuments(); track doc.id) {
+                      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                          <div style="background: #e0f2fe; color: #0284c7; font-weight: 800; font-size: 11px; padding: 4px 8px; border-radius: 6px;">
+                            {{ doc.code }}
+                          </div>
+                          <div>
+                            <strong style="color: #1e293b; font-size: 13px; display: block;">{{ doc.name }}</strong>
+                            <small style="color: #64748b; font-size: 11px;">
+                              Estado: <strong>{{ doc.status }}</strong> · Creado: {{ formatMedicalDate(doc.createdAt) }}
+                            </small>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          (click)="unlinkDoc(doc.id)"
+                          style="background: #fef2f2; color: #dc2626; border: 1px solid #fecdd3; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: 700; cursor: pointer;"
+                          title="Desvincular este documento de la historia clínica"
+                        >
+                          Desvincular
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
               </div>
             }
 
@@ -1171,6 +1261,146 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
         </div>
       }
 
+      <!-- MODAL: BAJA JUSTIFICADA DE HISTORIA CLÍNICA (HU-11) -->
+      @if (showDeleteModal()) {
+        <div class="modal-backdrop" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
+          <div class="modal-card" style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 540px; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); overflow: hidden;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid #fee2e2; background: #fef2f2; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #dc2626; letter-spacing: .06em;">
+                  SEGURIDAD Y AUDITORÍA CLÍNICA
+                </span>
+                <h2 style="margin: 2px 0 0; font-size: 17px; font-weight: 800; color: #991b1b;">
+                  Dar de Baja Historia Clínica
+                </h2>
+              </div>
+              <button
+                type="button"
+                (click)="closeDeleteModal()"
+                style="background: transparent; border: 0; font-size: 20px; color: #991b1b; cursor: pointer; padding: 4px;"
+              >✕</button>
+            </div>
+            
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+              <p style="margin: 0; font-size: 13px; color: #475569; line-height: 1.5;">
+                Estás a punto de dar de baja la historia clínica <strong>{{ currentHistory()?.code }}</strong> del paciente <strong>{{ selectedPatient()?.firstName }} {{ selectedPatient()?.lastName }}</strong>.
+              </p>
+              <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #92400e;">
+                <strong>Requisito reglamentario:</strong> Es obligatorio justificar formalmente el motivo de la baja clínica. Esta acción queda registrada de forma inmutable en la bitácora de auditoría.
+              </div>
+
+              @if (deleteError()) {
+                <div style="background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; padding: 8px 12px; border-radius: 6px; font-size: 12px;">
+                  {{ deleteError() }}
+                </div>
+              }
+
+              <div>
+                <label style="display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1e293b; margin-bottom: 6px;">
+                  Motivo justificado de la baja (mínimo 10 caracteres) *
+                </label>
+                <textarea
+                  [ngModel]="deleteReason()"
+                  (ngModelChange)="deleteReason.set($event)"
+                  rows="4"
+                  placeholder="Ej. Duplicidad detectada en admisión con el expediente HC-2025-0012, verificado por dirección médica."
+                  style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 13px; box-sizing: border-box; resize: vertical;"
+                ></textarea>
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-top: 4px;">
+                  <span>Mínimo 10 caracteres</span>
+                  <span [style.color]="deleteReason().trim().length >= 10 ? '#16a34a' : '#dc2626'">
+                    {{ deleteReason().trim().length }} / 500
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div style="padding: 14px 20px; border-top: 1px solid #f1f5f9; background: #f8fafc; display: flex; justify-content: flex-end; gap: 10px;">
+              <button
+                type="button"
+                (click)="closeDeleteModal()"
+                style="background: #ffffff; border: 1px solid #cbd5e1; color: #334155; border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer;"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                [disabled]="isDeleting() || deleteReason().trim().length < 10"
+                (click)="confirmDelete()"
+                style="background: #dc2626; border: 0; color: #ffffff; border-radius: 8px; padding: 8px 18px; font-size: 12px; font-weight: 700; cursor: pointer;"
+                [style.opacity]="deleteReason().trim().length < 10 || isDeleting() ? '0.5' : '1'"
+              >
+                {{ isDeleting() ? 'Dando de baja...' : 'Confirmar Baja Clínica' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- MODAL: VINCULAR DOCUMENTO A LA HISTORIA CLÍNICA (HU-11) -->
+      @if (showLinkDocModal()) {
+        <div class="modal-backdrop" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
+          <div class="modal-card" style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 600px; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); overflow: hidden;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #087f7b; letter-spacing: .06em;">
+                  TRAZABILIDAD DOCUMENTAL
+                </span>
+                <h2 style="margin: 2px 0 0; font-size: 17px; font-weight: 800; color: #1e293b;">
+                  Vincular Documento Clínico
+                </h2>
+              </div>
+              <button
+                type="button"
+                (click)="showLinkDocModal.set(false)"
+                style="background: transparent; border: 0; font-size: 20px; color: #64748b; cursor: pointer; padding: 4px;"
+              >✕</button>
+            </div>
+
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 14px; max-height: 60vh; overflow-y: auto;">
+              <p style="margin: 0; font-size: 13px; color: #475569;">
+                Selecciona un documento del repositorio para asociarlo al expediente del paciente:
+              </p>
+
+              @if (availableDocuments().length === 0) {
+                <div style="text-align: center; padding: 24px; color: #64748b; font-size: 13px;">
+                  No hay documentos disponibles para vincular o ya están asociados.
+                </div>
+              } @else {
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  @for (doc of availableDocuments(); track doc.id) {
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fafafa;">
+                      <div>
+                        <strong style="font-size: 13px; color: #1e293b; display: block;">{{ doc.code }} - {{ doc.name }}</strong>
+                        <small style="color: #64748b; font-size: 11px;">Estado: {{ doc.status }}</small>
+                      </div>
+                      <button
+                        type="button"
+                        [disabled]="isLinkingDoc()"
+                        (click)="confirmLinkDoc(doc.id)"
+                        style="background: #087f7b; color: #ffffff; border: 0; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: 700; cursor: pointer;"
+                      >
+                        Vincular
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            <div style="padding: 14px 20px; border-top: 1px solid #f1f5f9; background: #f8fafc; display: flex; justify-content: flex-end;">
+              <button
+                type="button"
+                (click)="showLinkDocModal.set(false)"
+                style="background: #ffffff; border: 1px solid #cbd5e1; color: #334155; border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer;"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
     </div>
   `,
   styles: [`
@@ -1234,8 +1464,21 @@ export class HistoriaClinicaPage implements OnInit {
   readonly selectedPatientId = signal<string>('');
   readonly selectedPatient = signal<ApiPatient | null>(null);
 
-  // Tab activo en la esquina superior derecha: 'historial' | 'consultas'
-  readonly activeTab = signal<'historial' | 'consultas'>('historial');
+  // Tab activo en la esquina superior derecha: 'historial' | 'consultas' | 'documentos'
+  readonly activeTab = signal<'historial' | 'consultas' | 'documentos'>('historial');
+
+  // Baja justificada (HU-11)
+  readonly showDeleteModal = signal<boolean>(false);
+  readonly deleteReason = signal<string>('');
+  readonly isDeleting = signal<boolean>(false);
+  readonly deleteError = signal<string>('');
+
+  // Documentos vinculados (HU-11)
+  readonly linkedDocuments = signal<ClinicalLinkedDocument[]>([]);
+  readonly linkedDocsLoading = signal<boolean>(false);
+  readonly availableDocuments = signal<ApiDocument[]>([]);
+  readonly showLinkDocModal = signal<boolean>(false);
+  readonly isLinkingDoc = signal<boolean>(false);
 
   readonly historyLoading = signal<boolean>(false);
   readonly currentHistory = signal<ClinicalHistory | null>(null);
@@ -1368,16 +1611,19 @@ export class HistoriaClinicaPage implements OnInit {
           this.currentHistory.set(hist);
           this.populateForm(hist);
           this.loadPatientConsultations(hist.id);
+          this.loadLinkedDocuments(hist.id);
         } else {
           this.currentHistory.set(null);
           this.resetFormFieldsKeepPatient(patientId);
           this.patientConsultations.set([]);
+          this.linkedDocuments.set([]);
         }
       },
       error: () => {
         this.historyLoading.set(false);
         this.currentHistory.set(null);
         this.patientConsultations.set([]);
+        this.linkedDocuments.set([]);
       }
     });
   }
@@ -1665,5 +1911,112 @@ export class HistoriaClinicaPage implements OnInit {
 
   printDocument() {
     window.print();
+  }
+
+  // --- MÉTODOS HU-11: BAJA JUSTIFICADA Y TRAZABILIDAD DOCUMENTAL ---
+
+  openDeleteModal() {
+    this.deleteReason.set('');
+    this.deleteError.set('');
+    this.showDeleteModal.set(true);
+  }
+
+  closeDeleteModal() {
+    this.showDeleteModal.set(false);
+    this.deleteReason.set('');
+    this.deleteError.set('');
+  }
+
+  confirmDelete() {
+    const reason = this.deleteReason().trim();
+    if (reason.length < 10) {
+      this.deleteError.set('El motivo justificado debe tener al menos 10 caracteres.');
+      return;
+    }
+    const hist = this.currentHistory();
+    if (!hist) return;
+
+    this.isDeleting.set(true);
+    this.deleteError.set('');
+    this.clinicalService.deleteHistory(hist.id, reason).subscribe({
+      next: () => {
+        this.isDeleting.set(false);
+        this.closeDeleteModal();
+        this.successMessage.set('Historia clínica dada de baja exitosamente con registro inmutable en auditoría.');
+        this.currentHistory.set(null);
+        this.resetForm();
+        this.linkedDocuments.set([]);
+        this.patientConsultations.set([]);
+        if (this.selectedPatientId()) {
+          this.fetchClinicalHistory(this.selectedPatientId());
+        }
+      },
+      error: (err: HttpErrorResponse) => {
+        this.isDeleting.set(false);
+        this.deleteError.set(err.error?.message || 'Error al dar de baja la historia clínica.');
+      }
+    });
+  }
+
+  loadLinkedDocuments(historyId?: string) {
+    const id = historyId || this.currentHistory()?.id;
+    if (!id) {
+      this.linkedDocuments.set([]);
+      return;
+    }
+    this.linkedDocsLoading.set(true);
+    this.clinicalService.getLinkedDocuments(id).subscribe({
+      next: (docs) => {
+        this.linkedDocsLoading.set(false);
+        this.linkedDocuments.set(docs || []);
+      },
+      error: () => {
+        this.linkedDocsLoading.set(false);
+      }
+    });
+  }
+
+  openLinkDocModal() {
+    this.showLinkDocModal.set(true);
+    this.documentApi.documents('', undefined, 0, 50).subscribe({
+      next: (res) => {
+        const linkedIds = new Set(this.linkedDocuments().map(d => d.id));
+        this.availableDocuments.set((res.content || []).filter(d => !linkedIds.has(d.id)));
+      }
+    });
+  }
+
+  confirmLinkDoc(docId: string) {
+    const hist = this.currentHistory();
+    if (!hist) return;
+
+    this.isLinkingDoc.set(true);
+    this.clinicalService.linkDocument(hist.id, docId).subscribe({
+      next: () => {
+        this.isLinkingDoc.set(false);
+        this.showLinkDocModal.set(false);
+        this.loadLinkedDocuments(hist.id);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.isLinkingDoc.set(false);
+        alert(err.error?.message || 'No fue posible vincular el documento.');
+      }
+    });
+  }
+
+  unlinkDoc(docId: string) {
+    const hist = this.currentHistory();
+    if (!hist) return;
+
+    if (!confirm('¿Desea desvincular este documento de la historia clínica?')) return;
+
+    this.clinicalService.unlinkDocument(hist.id, docId).subscribe({
+      next: () => {
+        this.loadLinkedDocuments(hist.id);
+      },
+      error: (err: HttpErrorResponse) => {
+        alert(err.error?.message || 'Error al desvincular el documento.');
+      }
+    });
   }
 }

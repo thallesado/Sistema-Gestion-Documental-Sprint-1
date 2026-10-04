@@ -24,6 +24,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 import java.util.List;
 import com.lta.gestdocum.backend.dto.TimelineEventResponse;
+import com.lta.gestdocum.backend.dto.DeleteClinicalHistoryRequest;
+import com.lta.gestdocum.backend.dto.DocumentResponse;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 @RestController
 @RequestMapping("/api/v1/clinical-histories")
@@ -70,7 +73,6 @@ public class ClinicalHistoryController {
     public ResponseEntity<ClinicalHistoryResponse> create(@Valid @RequestBody ClinicalHistoryRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
     }
-
     @RequestMapping(path = "/{id}", method = {RequestMethod.PUT, RequestMethod.PATCH})
     @PreAuthorize("hasAuthority('patient:update')")
     @Operation(summary = "Actualizar historia clínica",
@@ -79,5 +81,42 @@ public class ClinicalHistoryController {
             @PathVariable UUID id,
             @Valid @RequestBody ClinicalHistoryRequest request) {
         return ResponseEntity.ok(service.update(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('clinical_history:delete', 'patient:delete')")
+    @Operation(summary = "Dar de baja historia clínica de forma justificada",
+            description = "Aplica baja lógica (soft delete) con motivo obligatorio y genera traza inmutable en auditoría")
+    public ResponseEntity<Void> delete(
+            @PathVariable UUID id,
+            @Valid @RequestBody DeleteClinicalHistoryRequest request) {
+        service.delete(id, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/documents")
+    @PreAuthorize("hasAnyAuthority('clinical_document:link', 'patient:read')")
+    @Operation(summary = "Listar documentos asociados a la historia clínica")
+    public ResponseEntity<List<DocumentResponse>> getLinkedDocuments(@PathVariable UUID id) {
+        return ResponseEntity.ok(service.getLinkedDocuments(id));
+    }
+
+    @PostMapping("/{id}/documents/{documentId}")
+    @PreAuthorize("hasAnyAuthority('clinical_document:link', 'patient:update')")
+    @Operation(summary = "Vincular documento a la historia clínica")
+    public ResponseEntity<DocumentResponse> linkDocument(
+            @PathVariable UUID id,
+            @PathVariable UUID documentId) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.linkDocument(id, documentId));
+    }
+
+    @DeleteMapping("/{id}/documents/{documentId}")
+    @PreAuthorize("hasAnyAuthority('clinical_document:link', 'patient:update')")
+    @Operation(summary = "Desvincular documento de la historia clínica")
+    public ResponseEntity<Void> unlinkDocument(
+            @PathVariable UUID id,
+            @PathVariable UUID documentId) {
+        service.unlinkDocument(id, documentId);
+        return ResponseEntity.noContent().build();
     }
 }

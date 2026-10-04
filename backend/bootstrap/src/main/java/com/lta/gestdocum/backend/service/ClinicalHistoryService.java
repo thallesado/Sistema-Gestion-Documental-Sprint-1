@@ -12,10 +12,12 @@ import com.lta.gestdocum.backend.dto.TimelineEventResponse;
 import com.lta.gestdocum.backend.repository.ClinicalEpisodeRepository;
 import com.lta.gestdocum.backend.repository.MedicalNoteRepository;
 import com.lta.gestdocum.backend.repository.DocumentRepository;
+import com.lta.gestdocum.backend.dto.DeleteClinicalHistoryRequest;
+import com.lta.gestdocum.backend.dto.DocumentResponse;
+import com.lta.gestdocum.backend.model.*;
+import com.lta.gestdocum.backend.repository.*;
 import java.util.Comparator;
 import java.util.ArrayList;
-import com.lta.gestdocum.backend.model.Patient;
-import com.lta.gestdocum.backend.repository.ClinicalHistoryRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
 import com.lta.gestdocum.backend.support.CrudTextSupport;
 import org.springframework.data.domain.Page;
@@ -38,6 +40,8 @@ public class ClinicalHistoryService {
     private final ClinicalEpisodeRepository episodeRepository;
     private final MedicalNoteRepository medicalNoteRepository;
     private final DocumentRepository documentRepository;
+    private final AuditEventRepository auditEventRepository;
+    private final ClinicalDocumentLinkRepository clinicalDocumentLinkRepository;
 
     public ClinicalHistoryService(
             ClinicalHistoryRepository repository,
@@ -45,13 +49,17 @@ public class ClinicalHistoryService {
             AuthenticatedUserContext userContext,
             ClinicalEpisodeRepository episodeRepository,
             MedicalNoteRepository medicalNoteRepository,
-            DocumentRepository documentRepository) {
+            DocumentRepository documentRepository,
+            AuditEventRepository auditEventRepository,
+            ClinicalDocumentLinkRepository clinicalDocumentLinkRepository) {
         this.repository = repository;
         this.patientService = patientService;
         this.userContext = userContext;
         this.episodeRepository = episodeRepository;
         this.medicalNoteRepository = medicalNoteRepository;
         this.documentRepository = documentRepository;
+        this.auditEventRepository = auditEventRepository;
+        this.clinicalDocumentLinkRepository = clinicalDocumentLinkRepository;
     }
 
     @Transactional(readOnly = true)
@@ -173,8 +181,100 @@ public class ClinicalHistoryService {
                 .reversed().thenComparing(TimelineEventResponse::getEventType)).toList();
     }
 
+    @Transactional
+    public void delete(UUID id, DeleteClinicalHistoryRequest request) {
+        UUID tenantId = userContext.requireTenantId();
+        UUID userId = userContext.requireUserId();
+        userContext.establishDatabaseContext();
+
+        if (request == null || request.reason() == null || request.reason().trim().length() < 10) {
+            throw new IllegalArgumentException("El motivo de baja clínica debe tener al menos 10 caracteres");
+        }
+
+        ClinicalHistory entity = repository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
+                .orElseThrow(() -> new NotFoundException("Historia clínica no encontrada"));
+
+        OffsetDateTime now = OffsetDateTime.now();
+        entity.setDeletedAt(now);
+        entity.setDeletionReason(request.reason().trim());
+        entity.setDeletedBy(userId);
+        repository.save(entity);
+
+        AuditEvent auditEvent = AuditEvent.builder()
+                .tenantId(tenantId)
+                .userId(userId)
+                .action("CLINICAL_HISTORY_DELETED")
+                .entityType("clinical_history")
+                .entityId(entity.getId())
+                .occurredAt(now)
+                .result("SUCCESS")
+                .details("{\"reason\":\"" + request.reason().trim().replace("\"", "\\\"") + "\"}")
+                .build();
+        auditEventRepository.save(auditEvent);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentResponse> getLinkedDocuments(UUID historyId) {
+        UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
+        getForTenant(historyId);
+        return documentRepository.findLinkedToClinicalHistory(tenantId, historyId).stream()
+                .map(this::toDocumentResponse)
+                .toList();
+    }
+
+    @Transactional
+    public DocumentResponse linkDocument(UUID historyId, UUID documentId) {
+        UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
+        ClinicalHistory history = getForTenant(historyId);
+        Document document = documentRepository.findByIdAndTenantIdAndDeletedAtIsNull(documentId, tenantId)
+                .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
+
+        if (!clinicalDocumentLinkRepository.existsByTenantIdAndClinicalHistoryIdAndIdDocumentId(tenantId, historyId, documentId)) {
+            ClinicalDocumentLink link = ClinicalDocumentLink.builder()
+                    .id(new ClinicalDocumentLinkId(documentId, history.getPatientId()))
+                    .tenantId(tenantId)
+                    .clinicalHistoryId(history.getId())
+                    .linkedAt(OffsetDateTime.now())
+                    .build();
+            clinicalDocumentLinkRepository.save(link);
+        }
+        return toDocumentResponse(document);
+    }
+
+    @Transactional
+    public void unlinkDocument(UUID historyId, UUID documentId) {
+        UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
+        getForTenant(historyId);
+        clinicalDocumentLinkRepository.deleteByTenantIdAndClinicalHistoryIdAndIdDocumentId(tenantId, historyId, documentId);
+    }
+
+    private DocumentResponse toDocumentResponse(Document document) {
+        return new DocumentResponse(
+                document.getId(),
+                document.getDocumentTypeId(),
+                document.getExpedientId(),
+                document.getAuthorId(),
+                document.getResponsibleId(),
+                document.getDepartmentId(),
+                document.getCode(),
+                document.getName(),
+                document.getDescription(),
+                document.getStatus(),
+                document.getCurrentVersion(),
+                document.getIssueDate(),
+                document.getExpiryDate(),
+                document.getIsExternalSource(),
+                document.getSource(),
+                document.getCreatedAt(),
+                document.getUpdatedAt()
+        );
+    }
+
     private ClinicalHistory getForTenant(UUID id) {
-        return repository.findByIdAndTenantId(id, userContext.requireTenantId())
+        return repository.findByIdAndTenantIdAndDeletedAtIsNull(id, userContext.requireTenantId())
                 .orElseThrow(() -> new NotFoundException("Historia clínica no encontrada"));
     }
 

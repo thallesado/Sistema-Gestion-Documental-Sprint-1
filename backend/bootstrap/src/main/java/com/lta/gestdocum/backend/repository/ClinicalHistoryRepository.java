@@ -15,6 +15,7 @@ public interface ClinicalHistoryRepository extends JpaRepository<ClinicalHistory
     @Query("""
         SELECT ch FROM ClinicalHistory ch
         WHERE ch.tenantId = :tenantId
+          AND ch.deletedAt IS NULL
           AND (:patientId IS NULL OR ch.patientId = :patientId)
           AND (:filter IS NULL OR LOWER(ch.code) LIKE :filter)
         ORDER BY ch.createdAt DESC
@@ -26,7 +27,11 @@ public interface ClinicalHistoryRepository extends JpaRepository<ClinicalHistory
 
     Optional<ClinicalHistory> findByIdAndTenantId(UUID id, UUID tenantId);
 
+    Optional<ClinicalHistory> findByIdAndTenantIdAndDeletedAtIsNull(UUID id, UUID tenantId);
+
     Optional<ClinicalHistory> findByTenantIdAndPatientId(UUID tenantId, UUID patientId);
+
+    Optional<ClinicalHistory> findByTenantIdAndPatientIdAndDeletedAtIsNull(UUID tenantId, UUID patientId);
 
     boolean existsByTenantIdAndCode(UUID tenantId, String code);
 }

@@ -167,6 +167,32 @@ export class ClinicalApiService {
   updateNoteStatus(id: string, status: MedicalNoteStatus): Observable<MedicalNoteItem> {
     return this.http.patch<MedicalNoteItem>(`${API_URL}/medical-notes/${id}/status`, { status });
   }
+
+  deleteHistory(id: string, reason: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/clinical-histories/${id}`, { body: { reason } });
+  }
+
+  getLinkedDocuments(historyId: string): Observable<ClinicalLinkedDocument[]> {
+    return this.http.get<ClinicalLinkedDocument[]>(`${API_URL}/clinical-histories/${historyId}/documents`);
+  }
+
+  linkDocument(historyId: string, documentId: string): Observable<ClinicalLinkedDocument> {
+    return this.http.post<ClinicalLinkedDocument>(`${API_URL}/clinical-histories/${historyId}/documents/${documentId}`, {});
+  }
+
+  unlinkDocument(historyId: string, documentId: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/clinical-histories/${historyId}/documents/${documentId}`);
+  }
+}
+
+export interface ClinicalLinkedDocument {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  status: string;
+  currentVersion?: number;
+  createdAt: string;
 }
 
 function normalizePatientPage(response: unknown): ApiPage<ApiPatient> {

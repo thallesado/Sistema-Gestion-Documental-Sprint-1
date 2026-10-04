@@ -79,4 +79,13 @@ public class ClinicalHistory {
 
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
+    @Column(name = "deletion_reason", columnDefinition = "text")
+    private String deletionReason;
+
+    @Column(name = "deleted_by")
+    private UUID deletedBy;
 }
