@@ -28,3 +28,8 @@ database/backups/
 # IDEs
 .vscode/
 .idea/
+
+# Local-only AI workflow artifacts (ODD tasks/specs, skill registry).
+# Machine-local by team decision: never pushed to any branch.
+odd/
+.atl/
