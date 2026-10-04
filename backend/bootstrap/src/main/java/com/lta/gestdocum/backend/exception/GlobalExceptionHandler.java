@@ -92,6 +92,18 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, "Conflict", exception.getMessage(), request);
     }
 
+    @ExceptionHandler({
+            org.springframework.orm.ObjectOptimisticLockingFailureException.class,
+            jakarta.persistence.OptimisticLockException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleOptimisticLock(
+            Exception exception, HttpServletRequest request) {
+        log.warn("Conflicto de concurrencia optimista en {} {}", request.getMethod(), request.getRequestURI());
+        return error(HttpStatus.CONFLICT, "Conflict",
+                "El registro clínico fue modificado concurrentemente por otro usuario. Recargue los datos para ver los cambios más recientes.",
+                request);
+    }
+
     private ResponseEntity<Map<String, Object>> error(
             HttpStatus status, String error, String message, HttpServletRequest request) {
         Map<String, Object> body = new LinkedHashMap<>();

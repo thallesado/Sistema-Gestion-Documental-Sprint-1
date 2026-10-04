@@ -28,4 +28,5 @@ public class ClinicalHistoryResponse {
     String observations;
     OffsetDateTime createdAt;
     OffsetDateTime updatedAt;
+    Long version;
 }

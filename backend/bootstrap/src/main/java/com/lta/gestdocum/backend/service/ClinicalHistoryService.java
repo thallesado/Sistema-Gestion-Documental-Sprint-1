@@ -355,6 +355,7 @@ public class ClinicalHistoryService {
                 .observations(entity.getObservations())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .version(entity.getVersion())
                 .build();
     }
 }

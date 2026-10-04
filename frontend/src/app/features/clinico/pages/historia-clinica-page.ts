@@ -1730,7 +1730,14 @@ export class HistoriaClinicaPage implements OnInit {
         },
         error: (err: HttpErrorResponse) => {
           this.isSaving.set(false);
-          this.errorMessage.set(err.error?.message || 'Error al actualizar la historia clínica.');
+          if (err.status === 409) {
+            this.errorMessage.set('Conflicto de concurrencia: Otro usuario modificó este expediente simultáneamente. Se recargarán los datos más recientes para prevenir pérdida de información.');
+            if (this.selectedPatientId()) {
+              this.fetchClinicalHistory(this.selectedPatientId());
+            }
+          } else {
+            this.errorMessage.set(err.error?.message || 'Error al actualizar la historia clínica.');
+          }
         }
       });
     } else {

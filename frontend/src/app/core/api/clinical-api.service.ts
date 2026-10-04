@@ -41,6 +41,7 @@ export interface ClinicalHistory {
   observations: string | null;
   createdAt: string;
   updatedAt: string;
+  version?: number;
 }
 export interface TimelineEvent {
   occurredAt: string;
