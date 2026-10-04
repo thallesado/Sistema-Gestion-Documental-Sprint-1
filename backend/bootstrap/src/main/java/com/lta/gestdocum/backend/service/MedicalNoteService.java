@@ -4,6 +4,7 @@ import com.lta.gestdocum.backend.dto.MedicalNoteRequest;
 import com.lta.gestdocum.backend.dto.MedicalNoteResponse;
 import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.model.ClinicalHistory;
+import com.lta.gestdocum.backend.model.Document.DocumentStatus;
 import com.lta.gestdocum.backend.model.MedicalNote;
 import com.lta.gestdocum.backend.repository.ClinicalHistoryRepository;
 import com.lta.gestdocum.backend.repository.MedicalNoteRepository;
@@ -31,9 +32,18 @@ public class MedicalNoteService {
 
     @Transactional(readOnly = true)
     public Page<MedicalNoteResponse> find(UUID clinicalHistoryId, Pageable pageable) {
+        return find(clinicalHistoryId, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<MedicalNoteResponse> find(UUID clinicalHistoryId, DocumentStatus status, Pageable pageable) {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
         requireHistory(clinicalHistoryId, tenantId);
+        if (status != null) {
+            return repository.findByTenantIdAndClinicalHistoryIdAndStatusOrderByCreatedAtDesc(tenantId, clinicalHistoryId, status, pageable)
+                    .map(this::toResponse);
+        }
         return repository.findByTenantIdAndClinicalHistoryIdOrderByCreatedAtDesc(tenantId, clinicalHistoryId, pageable)
                 .map(this::toResponse);
     }
@@ -43,6 +53,7 @@ public class MedicalNoteService {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
         requireHistory(request.clinicalHistoryId(), tenantId);
+        DocumentStatus initialStatus = request.status() != null ? request.status() : DocumentStatus.DRAFT;
         MedicalNote note = MedicalNote.builder()
                 .tenantId(tenantId)
                 .clinicalHistoryId(request.clinicalHistoryId())
@@ -50,8 +61,33 @@ public class MedicalNoteService {
                 .authorId(userContext.requireUserId())
                 .noteType(request.noteType().trim())
                 .content(request.content().trim())
+                .status(initialStatus)
                 .createdAt(OffsetDateTime.now())
                 .build();
+        return toResponse(repository.save(note));
+    }
+
+    @Transactional
+    public MedicalNoteResponse transition(UUID id, DocumentStatus targetStatus) {
+        if (targetStatus == null) {
+            throw new IllegalArgumentException("El estado destino no puede ser nulo");
+        }
+        UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
+        MedicalNote note = repository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new NotFoundException("Nota médica no encontrada"));
+
+        DocumentStatus currentStatus = note.getStatus() != null ? note.getStatus() : DocumentStatus.DRAFT;
+
+        // Regla HU-09: Solo transiciones desde DRAFT a APPROVED o VOIDED
+        if (currentStatus != DocumentStatus.DRAFT ||
+                (targetStatus != DocumentStatus.APPROVED && targetStatus != DocumentStatus.VOIDED)) {
+            throw new IllegalStateException(
+                    String.format("Transición de estado inválida: no se permite pasar de %s a %s", currentStatus, targetStatus)
+            );
+        }
+
+        note.setStatus(targetStatus);
         return toResponse(repository.save(note));
     }
 
@@ -61,7 +97,8 @@ public class MedicalNoteService {
     }
 
     private MedicalNoteResponse toResponse(MedicalNote note) {
+        DocumentStatus status = note.getStatus() != null ? note.getStatus() : DocumentStatus.DRAFT;
         return new MedicalNoteResponse(note.getId(), note.getClinicalHistoryId(), note.getEpisodeId(),
-                note.getAuthorId(), note.getNoteType(), note.getContent(), note.getCreatedAt());
+                note.getAuthorId(), note.getNoteType(), note.getContent(), status, note.getCreatedAt());
     }
 }

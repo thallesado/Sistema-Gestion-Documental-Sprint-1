@@ -86,6 +86,12 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, "Conflict", exception.getMessage(), request);
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalState(
+            IllegalStateException exception, HttpServletRequest request) {
+        return error(HttpStatus.CONFLICT, "Conflict", exception.getMessage(), request);
+    }
+
     private ResponseEntity<Map<String, Object>> error(
             HttpStatus status, String error, String message, HttpServletRequest request) {
         Map<String, Object> body = new LinkedHashMap<>();

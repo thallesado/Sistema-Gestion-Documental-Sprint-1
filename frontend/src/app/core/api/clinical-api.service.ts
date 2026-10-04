@@ -75,6 +75,8 @@ export interface CreatePatientPayload {
   email?: string;
 }
 
+export type MedicalNoteStatus = 'DRAFT' | 'APPROVED' | 'VOIDED';
+
 export interface MedicalNoteItem {
   id: string;
   clinicalHistoryId: string;
@@ -82,6 +84,7 @@ export interface MedicalNoteItem {
   authorId: string;
   noteType: string;
   content: string;
+  status: MedicalNoteStatus;
   createdAt: string;
 }
 
@@ -90,6 +93,7 @@ export interface CreateMedicalNotePayload {
   episodeId?: string;
   noteType: string;
   content: string;
+  status?: MedicalNoteStatus;
 }
 
 /** Resumen de lectura rápida de HU-10, limitado por el tenant del JWT. */
@@ -150,13 +154,18 @@ export class ClinicalApiService {
     return this.http.get<TimelineEvent[]>(`${API_URL}/clinical-histories/${historyId}/timeline`);
   }
 
-  notes(clinicalHistoryId: string, page = 0, size = 50): Observable<ApiPage<MedicalNoteItem>> {
-    const params = new HttpParams().set('clinicalHistoryId', clinicalHistoryId).set('page', page).set('size', size);
+  notes(clinicalHistoryId: string, status?: MedicalNoteStatus, page = 0, size = 50): Observable<ApiPage<MedicalNoteItem>> {
+    let params = new HttpParams().set('clinicalHistoryId', clinicalHistoryId).set('page', page).set('size', size);
+    if (status) params = params.set('status', status);
     return this.http.get<ApiPage<MedicalNoteItem>>(`${API_URL}/medical-notes`, { params });
   }
 
   createNote(payload: CreateMedicalNotePayload): Observable<MedicalNoteItem> {
     return this.http.post<MedicalNoteItem>(`${API_URL}/medical-notes`, payload);
+  }
+
+  updateNoteStatus(id: string, status: MedicalNoteStatus): Observable<MedicalNoteItem> {
+    return this.http.patch<MedicalNoteItem>(`${API_URL}/medical-notes/${id}/status`, { status });
   }
 }
 

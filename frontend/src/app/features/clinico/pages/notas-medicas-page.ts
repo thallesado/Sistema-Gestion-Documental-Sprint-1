@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem } from '../../../core/api/clinical-api.service';
+import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem, MedicalNoteStatus } from '../../../core/api/clinical-api.service';
 
 @Component({
   selector: 'app-notas-medicas-page',
@@ -287,13 +287,13 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem } from
             } @else {
               <div class="timeline-list">
                 @for (note of notesList(); track note.id) {
-                  <div class="timeline-card" [class.draft-card]="isDraftNote(note.content)">
+                  <div class="timeline-card" [class.draft-card]="note.status === 'DRAFT'" [class.voided-card]="note.status === 'VOIDED'">
                     <div class="timeline-card-header">
                       <div class="note-type-badge" [class.prescription]="note.noteType === 'PRESCRIPTION'">
                         {{ getNoteTypeLabel(note.noteType) }}
                       </div>
-                      <span class="note-status-badge" [class.draft]="isDraftNote(note.content)">
-                        {{ isDraftNote(note.content) ? '🟡 BORRADOR' : '🟢 VIGENTE' }}
+                      <span class="note-status-badge" [class.draft]="note.status === 'DRAFT'" [class.voided]="note.status === 'VOIDED'">
+                        {{ getStatusLabel(note.status) }}
                       </span>
                       <small class="note-time">{{ note.createdAt | date:'dd/MM/yyyy HH:mm' }}</small>
                     </div>
@@ -304,9 +304,19 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem } from
 
                     <div class="note-card-footer">
                       <small>✍️ Médico Tratante: <strong>Laura Martínez</strong></small>
-                      <button type="button" class="print-note-btn" (click)="openPrintNote(note)">
-                        🖨️ Imprimir
-                      </button>
+                      <div class="note-actions">
+                        @if (note.status === 'DRAFT') {
+                          <button type="button" class="action-btn approve-btn" [disabled]="isUpdatingStatus()" (click)="changeStatus(note, 'APPROVED')">
+                            ✓ Emitir
+                          </button>
+                          <button type="button" class="action-btn void-btn" [disabled]="isUpdatingStatus()" (click)="changeStatus(note, 'VOIDED')">
+                            ✕ Anular
+                          </button>
+                        }
+                        <button type="button" class="print-note-btn" (click)="openPrintNote(note)">
+                          🖨️ Imprimir
+                        </button>
+                      </div>
                     </div>
                   </div>
                 }
@@ -349,7 +359,7 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem } from
                 <p><strong>Paciente:</strong> {{ selectedPatient()?.firstName }} {{ selectedPatient()?.lastName }}</p>
                 <p><strong>Documento:</strong> {{ selectedPatient()?.documentType }} {{ selectedPatient()?.documentNumber }}</p>
                 <p><strong>Expediente:</strong> {{ patientHistory()?.code || 'N/A' }}</p>
-                <p><strong>Estado Nota:</strong> {{ isDraftNote(note.content) ? 'BORRADOR' : 'VIGENTE / CERTIFICADA' }}</p>
+                <p><strong>Estado Nota:</strong> {{ getStatusLabel(note.status) }}</p>
               </div>
 
               <div class="doc-body">
@@ -480,16 +490,25 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem } from
     .timeline-card { background: #fbfdfc; border: 1px solid #dcebe8; border-radius: 12px; padding: 16px; transition: all 0.15s ease; }
     .timeline-card:hover { border-color: #9dd8d1; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
     .timeline-card.draft-card { border-left: 4px solid #f59e0b; background: #fffbeb; }
+    .timeline-card.voided-card { border-left: 4px solid #ef4444; background: #fef2f2; opacity: 0.85; }
 
     .timeline-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
     .note-type-badge { background: #e0f2fe; color: #0369a1; font-size: 10px; font-weight: 800; border-radius: 4px; padding: 2px 6px; text-transform: uppercase; }
     .note-type-badge.prescription { background: #fef3c7; color: #92400e; }
     .note-status-badge { font-size: 10px; font-weight: 800; border-radius: 4px; padding: 2px 6px; background: #ecfdf5; color: #065f46; }
     .note-status-badge.draft { background: #fef3c7; color: #b45309; }
+    .note-status-badge.voided { background: #fee2e2; color: #991b1b; }
     .note-time { margin-left: auto; color: #8fa8a5; font-size: 11px; }
 
     .note-body-content pre { margin: 0; white-space: pre-wrap; font-family: inherit; font-size: 12px; color: #1e293b; line-height: 1.5; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; }
-    .note-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 11px; color: #64748b; }
+    .note-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 11px; color: #64748b; flex-wrap: wrap; gap: 8px; }
+    .note-actions { display: flex; align-items: center; gap: 6px; }
+    .action-btn { border: none; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s ease; }
+    .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .approve-btn { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .approve-btn:hover:not(:disabled) { background: #bbf7d0; }
+    .void-btn { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .void-btn:hover:not(:disabled) { background: #fecaca; }
     .print-note-btn { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 700; color: #334155; cursor: pointer; }
     .print-note-btn:hover { background: #e2e8f0; }
 
@@ -537,7 +556,8 @@ export class NotasMedicasPage implements OnInit {
   readonly isSaving = signal<boolean>(false);
 
   readonly noteType = signal<'EVOLUTION' | 'PRESCRIPTION' | 'CONSULTATION'>('EVOLUTION');
-  readonly noteStatus = signal<'DRAFT' | 'APPROVED'>('APPROVED');
+  readonly noteStatus = signal<MedicalNoteStatus>('APPROVED');
+  readonly isUpdatingStatus = signal<boolean>(false);
   readonly errorMessage = signal<string>('');
   readonly successMessage = signal<string>('');
   readonly selectedNoteForPrint = signal<MedicalNoteItem | null>(null);
@@ -679,10 +699,9 @@ export class NotasMedicasPage implements OnInit {
     this.successMessage.set('');
 
     const formVal = this.noteForm.value;
-    const statusPrefix = this.noteStatus() === 'DRAFT' ? '[BORRADOR]' : '[VIGENTE]';
 
-    // Ensamblaje estructurado del contenido médico según SOAP
-    let formattedContent = `${statusPrefix} ${formVal.title.trim()}\n\n`;
+    // Ensamblaje estructurado del contenido médico según SOAP (sin prefijos fake)
+    let formattedContent = `${formVal.title.trim()}\n\n`;
     if (formVal.subjective?.trim()) {
       formattedContent += `[SUBJETIVO]\n${formVal.subjective.trim()}\n\n`;
     }
@@ -698,6 +717,7 @@ export class NotasMedicasPage implements OnInit {
       clinicalHistoryId: history.id,
       noteType: this.noteType(),
       content: formattedContent,
+      status: this.noteStatus(),
     }).subscribe({
       next: (savedNote) => {
         this.isSaving.set(false);
@@ -716,8 +736,34 @@ export class NotasMedicasPage implements OnInit {
     });
   }
 
-  isDraftNote(content: string): boolean {
-    return content.startsWith('[BORRADOR]');
+  changeStatus(note: MedicalNoteItem, targetStatus: MedicalNoteStatus) {
+    const history = this.patientHistory();
+    if (!history) return;
+    this.isUpdatingStatus.set(true);
+    this.clinicalService.updateNoteStatus(note.id, targetStatus).subscribe({
+      next: () => {
+        this.isUpdatingStatus.set(false);
+        this.successMessage.set(
+          targetStatus === 'APPROVED'
+            ? 'Nota médica emitida como VIGENTE con éxito.'
+            : 'Nota médica marcada como ANULADA.'
+        );
+        this.loadNotes(history.id);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.isUpdatingStatus.set(false);
+        this.errorMessage.set(err?.error?.message || 'Error al cambiar el estado de la nota.');
+      }
+    });
+  }
+
+  getStatusLabel(status: MedicalNoteStatus | string): string {
+    switch (status) {
+      case 'DRAFT': return '🟡 BORRADOR';
+      case 'APPROVED': return '🟢 VIGENTE';
+      case 'VOIDED': return '🔴 ANULADA';
+      default: return status || '🟢 VIGENTE';
+    }
   }
 
   getNoteTypeLabel(type: string): string {

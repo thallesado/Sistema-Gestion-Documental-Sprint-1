@@ -36,6 +36,12 @@ public class MedicalNote {
     @Column(nullable = false, columnDefinition = "text")
     private String content;
 
+    @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "document_status")
+    @Builder.Default
+    private Document.DocumentStatus status = Document.DocumentStatus.DRAFT;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 }

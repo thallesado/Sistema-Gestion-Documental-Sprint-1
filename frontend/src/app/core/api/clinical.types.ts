@@ -65,3 +65,25 @@ export interface ClinicalHistoryResponse {
   createdAt: string;
   updatedAt: string;
 }
+
+export type MedicalNoteStatus = 'DRAFT' | 'APPROVED' | 'VOIDED';
+
+export interface MedicalNoteResponse {
+  id: string;
+  clinicalHistoryId: string;
+  episodeId?: string;
+  authorId: string;
+  noteType: string;
+  content: string;
+  status: MedicalNoteStatus;
+  createdAt: string;
+}
+
+export interface MedicalNoteRequest {
+  clinicalHistoryId: string;
+  episodeId?: string;
+  noteType: string;
+  content: string;
+  status?: MedicalNoteStatus;
+}
+
