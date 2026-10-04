@@ -9,6 +9,7 @@ import com.lta.gestdocum.backend.model.MedicalNote;
 import com.lta.gestdocum.backend.repository.ClinicalHistoryRepository;
 import com.lta.gestdocum.backend.repository.MedicalNoteRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
+import com.lta.gestdocum.backend.security.HtmlSanitizerService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,12 +23,14 @@ public class MedicalNoteService {
     private final MedicalNoteRepository repository;
     private final ClinicalHistoryRepository historyRepository;
     private final AuthenticatedUserContext userContext;
+    private final HtmlSanitizerService sanitizer;
 
     public MedicalNoteService(MedicalNoteRepository repository, ClinicalHistoryRepository historyRepository,
-                              AuthenticatedUserContext userContext) {
+                              AuthenticatedUserContext userContext, HtmlSanitizerService sanitizer) {
         this.repository = repository;
         this.historyRepository = historyRepository;
         this.userContext = userContext;
+        this.sanitizer = sanitizer;
     }
 
     @Transactional(readOnly = true)
@@ -54,13 +57,18 @@ public class MedicalNoteService {
         userContext.establishDatabaseContext();
         requireHistory(request.clinicalHistoryId(), tenantId);
         DocumentStatus initialStatus = request.status() != null ? request.status() : DocumentStatus.DRAFT;
+        String rawContent = request.content() != null ? request.content().trim() : "";
+        String cleanContent = sanitizer.sanitize(rawContent);
+        if (cleanContent.isBlank()) {
+            throw new IllegalArgumentException("El contenido de la nota médica no puede quedar vacío tras la sanitización");
+        }
         MedicalNote note = MedicalNote.builder()
                 .tenantId(tenantId)
                 .clinicalHistoryId(request.clinicalHistoryId())
                 .episodeId(request.episodeId())
                 .authorId(userContext.requireUserId())
                 .noteType(request.noteType().trim())
-                .content(request.content().trim())
+                .content(cleanContent)
                 .status(initialStatus)
                 .createdAt(OffsetDateTime.now())
                 .build();

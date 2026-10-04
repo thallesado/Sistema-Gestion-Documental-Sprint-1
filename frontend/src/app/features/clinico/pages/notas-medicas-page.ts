@@ -1,14 +1,16 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, SecurityContext } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem, MedicalNoteStatus } from '../../../core/api/clinical-api.service';
+import { RichTextEditorComponent } from '../../../shared';
 
 @Component({
   selector: 'app-notas-medicas-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, RichTextEditorComponent],
   template: `
     <div class="page">
       <!-- Encabezado Corporativo NexoDocs -->
@@ -197,46 +199,38 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem, Medic
                 </label>
               </div>
 
-              <!-- Estructura Clínica SOAP -->
+              <!-- Estructura Clínica SOAP con Editor Enriquecido TipTap (HU-10) -->
               <div class="soap-fields">
                 <label>
                   <span class="soap-label">S - SUBJETIVO (Síntomas y relato del paciente)</span>
-                  <textarea
+                  <app-rich-text-editor
                     formControlName="subjective"
-                    rows="2"
-                    (input)="autoResizeTextarea($event)"
                     placeholder="Paciente refiere que los síntomas han disminuido tras 48 horas..."
-                  ></textarea>
+                  ></app-rich-text-editor>
                 </label>
 
                 <label>
                   <span class="soap-label">O - OBJETIVO (Signos vitales y examen físico)</span>
-                  <textarea
+                  <app-rich-text-editor
                     formControlName="objective"
-                    rows="2"
-                    (input)="autoResizeTextarea($event)"
                     placeholder="PA: 120/80 mmHg, FC: 72 lpm, T: 36.5°C. Murmullo vesicular conservado..."
-                  ></textarea>
+                  ></app-rich-text-editor>
                 </label>
 
                 <label>
                   <span class="soap-label">A - ANÁLISIS / DIAGNÓSTICO DE EVOLUCIÓN</span>
-                  <textarea
+                  <app-rich-text-editor
                     formControlName="assessment"
-                    rows="2"
-                    (input)="autoResizeTextarea($event)"
                     placeholder="Evolución clínica favorable con buena tolerancia al esquema terapéutico..."
-                  ></textarea>
+                  ></app-rich-text-editor>
                 </label>
 
                 <label>
                   <span class="soap-label">P - PLAN TERAPÉUTICO Y PRESCRIPCIÓN DE MEDICAMENTOS *</span>
-                  <textarea
+                  <app-rich-text-editor
                     formControlName="plan"
-                    rows="3"
-                    (input)="autoResizeTextarea($event)"
-                    placeholder="1. Continuar medicación habitual. 2. Paracetamol 500mg cada 8 horas si hay dolor. 3. Reevaluación en 7 días..."
-                  ></textarea>
+                    placeholder="1. Continuar medicación habitual. 2. Paracetamol 500mg cada 8 horas si hay dolor..."
+                  ></app-rich-text-editor>
                 </label>
               </div>
 
@@ -299,7 +293,7 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem, Medic
                     </div>
 
                     <div class="note-body-content">
-                      <pre>{{ note.content }}</pre>
+                      <div class="rich-rendered-content" [innerHTML]="renderContent(note.content)"></div>
                     </div>
 
                     <div class="note-card-footer">
@@ -364,7 +358,7 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem, Medic
 
               <div class="doc-body">
                 <h3>Contenido del Registro Médico</h3>
-                <pre style="white-space: pre-wrap; font-family: inherit; font-size: 13px; line-height: 1.6;">{{ note.content }}</pre>
+                <div class="rich-rendered-content" [innerHTML]="renderContent(note.content)"></div>
               </div>
 
               <div class="doc-signature">
@@ -500,7 +494,13 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem, Medic
     .note-status-badge.voided { background: #fee2e2; color: #991b1b; }
     .note-time { margin-left: auto; color: #8fa8a5; font-size: 11px; }
 
-    .note-body-content pre { margin: 0; white-space: pre-wrap; font-family: inherit; font-size: 12px; color: #1e293b; line-height: 1.5; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; }
+    .rich-rendered-content { font-size: 13px; line-height: 1.6; color: #1e293b; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+    .rich-rendered-content h2 { font-size: 15px; font-weight: 700; color: #0f766e; margin: 4px 0 6px 0; }
+    .rich-rendered-content h3 { font-size: 14px; font-weight: 700; color: #0f766e; margin: 4px 0 6px 0; }
+    .rich-rendered-content p { margin: 0 0 6px 0; }
+    .rich-rendered-content p:last-child { margin-bottom: 0; }
+    .rich-rendered-content ul, .rich-rendered-content ol { padding-left: 20px; margin: 6px 0; }
+    .rich-rendered-content blockquote { border-left: 3px solid #0d9488; padding-left: 10px; margin: 6px 0; color: #64748b; font-style: italic; }
     .note-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 11px; color: #64748b; flex-wrap: wrap; gap: 8px; }
     .note-actions { display: flex; align-items: center; gap: 6px; }
     .action-btn { border: none; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s ease; }
@@ -543,6 +543,7 @@ export class NotasMedicasPage implements OnInit {
   private readonly clinicalService = inject(ClinicalApiService);
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
+  private readonly sanitizer = inject(DomSanitizer);
 
   readonly patients = signal<ApiPatient[]>([]);
   readonly searchQuery = signal<string>('');
@@ -700,18 +701,18 @@ export class NotasMedicasPage implements OnInit {
 
     const formVal = this.noteForm.value;
 
-    // Ensamblaje estructurado del contenido médico según SOAP (sin prefijos fake)
-    let formattedContent = `${formVal.title.trim()}\n\n`;
+    // Ensamblaje estructurado del contenido médico según SOAP en formato HTML
+    let formattedContent = `<h3>${escapeHtml(formVal.title.trim())}</h3>`;
     if (formVal.subjective?.trim()) {
-      formattedContent += `[SUBJETIVO]\n${formVal.subjective.trim()}\n\n`;
+      formattedContent += `<p><strong>[SUBJETIVO]</strong></p>${formVal.subjective.trim()}`;
     }
     if (formVal.objective?.trim()) {
-      formattedContent += `[OBJETIVO]\n${formVal.objective.trim()}\n\n`;
+      formattedContent += `<p><strong>[OBJETIVO]</strong></p>${formVal.objective.trim()}`;
     }
     if (formVal.assessment?.trim()) {
-      formattedContent += `[DIAGNÓSTICO / EVOLUCIÓN]\n${formVal.assessment.trim()}\n\n`;
+      formattedContent += `<p><strong>[DIAGNÓSTICO / EVOLUCIÓN]</strong></p>${formVal.assessment.trim()}`;
     }
-    formattedContent += `[PLAN / PRESCRIPCIÓN]\n${formVal.plan.trim()}`;
+    formattedContent += `<p><strong>[PLAN / PRESCRIPCIÓN]</strong></p>${formVal.plan.trim()}`;
 
     this.clinicalService.createNote({
       clinicalHistoryId: history.id,
@@ -766,6 +767,15 @@ export class NotasMedicasPage implements OnInit {
     }
   }
 
+  renderContent(content: string): SafeHtml {
+    if (!content) return '';
+    if (!content.includes('<p') && !content.includes('<div') && !content.includes('<h')) {
+      const escaped = escapeHtml(content).replace(/\n/g, '<br/>');
+      return this.sanitizer.sanitize(SecurityContext.HTML, escaped) || '';
+    }
+    return this.sanitizer.sanitize(SecurityContext.HTML, content) || '';
+  }
+
   getNoteTypeLabel(type: string): string {
     switch (type) {
       case 'EVOLUTION': return 'Nota de Evolución';
@@ -789,3 +799,11 @@ export class NotasMedicasPage implements OnInit {
     window.print();
   }
 }
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+

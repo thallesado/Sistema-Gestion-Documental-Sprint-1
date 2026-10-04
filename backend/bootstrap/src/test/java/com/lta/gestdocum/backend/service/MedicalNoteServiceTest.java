@@ -22,6 +22,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import com.lta.gestdocum.backend.security.HtmlSanitizerService;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,6 +37,9 @@ class MedicalNoteServiceTest {
     @Mock
     private AuthenticatedUserContext userContext;
 
+    @Mock
+    private HtmlSanitizerService sanitizer;
+
     @InjectMocks
     private MedicalNoteService service;
 
@@ -48,6 +52,7 @@ class MedicalNoteServiceTest {
     void setUp() {
         lenient().when(userContext.requireTenantId()).thenReturn(tenantId);
         lenient().when(userContext.requireUserId()).thenReturn(userId);
+        lenient().when(sanitizer.sanitize(anyString())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test
