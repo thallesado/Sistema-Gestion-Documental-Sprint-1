@@ -37,7 +37,7 @@ public class TenantDepartmentController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('configuration:read') or hasAuthority('expedient:create')")
+    @PreAuthorize("hasAuthority('configuration:read') or hasAuthority('expedient:create') or hasAuthority('document:read') or hasAuthority('document:create')")
     @Operation(summary = "Listar departamentos")
     public ResponseEntity<Page<TenantDepartmentResponse>> find(
             @RequestParam(required = false) String filter,

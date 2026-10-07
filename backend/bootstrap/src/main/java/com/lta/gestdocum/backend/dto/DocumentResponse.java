@@ -4,6 +4,7 @@ import com.lta.gestdocum.backend.model.Document;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 public record DocumentResponse(
@@ -13,6 +14,10 @@ public record DocumentResponse(
         UUID authorId,
         UUID responsibleId,
         UUID departmentId,
+        UUID patientId,
+        String specialty,
+        String institutionalProcess,
+        Map<String, Object> metadata,
         String code,
         String name,
         String description,
@@ -23,5 +28,13 @@ public record DocumentResponse(
         Boolean externalSource,
         String source,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt) {
+        OffsetDateTime updatedAt,
+        String documentTypeName,
+        String documentTypeCode,
+        String categoryName,
+        String departmentName,
+        String authorName,
+        String responsibleName,
+        String patientName,
+        String expedientCode) {
 }

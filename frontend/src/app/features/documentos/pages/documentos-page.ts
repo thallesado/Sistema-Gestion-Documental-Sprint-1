@@ -1,8 +1,18 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DocumentApiService, ApiDocument, ApiDocumentType, ApiDocumentVersion, DocumentCreatePayload } from '../../../core/api/document-api.service';
+import { ActivatedRoute, Router, RouterLink, NavigationEnd } from '@angular/router';
+import { filter, Subscription } from 'rxjs';
+import {
+  DocumentApiService,
+  ApiDocument,
+  ApiDocumentType,
+  ApiDocumentCategory,
+  ApiDepartment,
+  ApiDocumentVersion,
+  DocumentCreatePayload,
+} from '../../../core/api/document-api.service';
+import { ClinicalApiService, ApiPatient } from '../../../core/api/clinical-api.service';
 import { UserSelectorComponent } from '../../../shared';
 import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
 
@@ -11,7 +21,7 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, UserSelectorComponent],
   template: `
-    <section class="page">
+    <section class="page document-page">
       <!-- HERO BANNER -->
       <section class="module-hero-banner">
         <div class="module-hero-left">
@@ -24,9 +34,9 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
             </svg>
           </span>
           <div class="module-hero-text">
-            <p class="eyebrow">DOCUMENTOS · {{ isStatuses ? 'ESTADOS' : scope === 'mine' ? 'MIS DOCUMENTOS' : 'CATÁLOGO' }}</p>
-            <h1>{{ isStatuses ? 'Estados documentales' : pageTitle }}</h1>
-            <p>{{ isStatuses ? 'Consulta el ciclo de vida definido por el dominio documental.' : 'Consulta los documentos disponibles en el tenant autenticado.' }}</p>
+            <p class="eyebrow">DOCUMENTOS · {{ isStatuses() ? 'ESTADOS' : isCreateRoute() ? (isUploadRoute() ? 'SUBIR ARCHIVO' : 'NUEVO DOCUMENTO') : scope() === 'mine' ? 'MIS DOCUMENTOS' : 'CATÁLOGO' }}</p>
+            <h1>{{ isStatuses() ? 'Estados documentales' : pageTitle() }}</h1>
+            <p>{{ isStatuses() ? 'Ciclo de vida y transiciones del dominio documental.' : isCreateRoute() ? 'Formulario de registro y catalogación de metadatos.' : scope() === 'mine' ? 'Documentos creados por ti o asignados bajo tu responsabilidad.' : 'Consulta, clasificación y control de documentos del tenant autenticado.' }}</p>
           </div>
         </div>
 
@@ -43,48 +53,152 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
             <path d="M35 58 C35 54 38 51 42 51 L115 51 C119 51 122 54 122 58 L122 84 C122 88 119 92 115 92 L42 92 C38 92 35 88 35 84 Z" fill="#138072"/>
           </svg>
 
-          @if (!isStatuses) {
-            <a class="btn-primary-action" routerLink="/documents/new">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>Nuevo documento</span>
-            </a>
+          @if (!isStatuses() && !isCreateRoute()) {
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <a class="btn-primary-action" routerLink="/documents/new">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Nuevo documento</span>
+              </a>
+              <a class="btn-secondary-action" routerLink="/documents/upload">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                <span>Subir archivo</span>
+              </a>
+            </div>
           }
         </div>
       </section>
 
-      @if (isStatuses) {
-        <section class="notice warning"><b>Configuración no disponible</b><span>El backend expone el modelo de estados, pero todavía no publica un endpoint para configurarlos.</span></section>
+      @if (isStatuses()) {
+        <!-- VISTA DE ESTADOS DOCUMENTALES -->
+        <section class="panel" style="margin-bottom: 20px;">
+          <h3>Gestión del ciclo de vida documental</h3>
+          <p class="form-note">NexoDocs aplica transiciones formales para garantizar la trazabilidad de los documentos e impedir modificaciones informales.</p>
+        </section>
         <section class="status-grid">
           @for (status of statuses; track status.code) {
-            <article class="status-card"><span [class]="'status-dot ' + status.tone"></span><div><b>{{ status.label }}</b><small>{{ status.description }}</small><code>{{ status.code }}</code></div></article>
+            <article class="status-card">
+              <span [class]="'status-dot ' + status.tone"></span>
+              <div>
+                <b>{{ status.label }}</b>
+                <small>{{ status.description }}</small>
+                <code>{{ status.code }}</code>
+              </div>
+            </article>
           }
         </section>
       } @else {
-        @if (isCreateRoute) {
+        <!-- FORMULARIO CREAR / SUBIR DOCUMENTO -->
+        @if (isCreateRoute()) {
           <form class="panel create-form" (ngSubmit)="createDocument()" style="margin-bottom: 22px;">
-            <h2>{{ isUploadRoute ? 'Subir archivo' : 'Nuevo documento' }}</h2>
-            <p class="form-note">Los metadatos se crean en el tenant autenticado. El responsable se envía como identificador, nunca como texto libre.</p>
-            @if (createError()) { <div class="notice error" role="alert">{{ createError() }}</div> }
-            <div class="form-grid">
-              <label>Nombre<input name="documentName" [(ngModel)]="createForm.name" required maxlength="255" /></label>
-              <label>Código<input name="documentCode" [(ngModel)]="createForm.code" required maxlength="60" /></label>
-              <label>Tipo documental<select name="documentTypeId" [(ngModel)]="createForm.documentTypeId" required><option value="">Selecciona un tipo</option>@for (type of types(); track type.id) { <option [value]="type.id">{{ type.name }} · {{ type.code }}</option> }</select></label>
-              <label>Expediente (opcional)<input name="expedientId" [(ngModel)]="createForm.expedientId" placeholder="UUID del expediente" /></label>
-              <label>Fecha de emisión<input type="date" name="issueDate" [(ngModel)]="createForm.issueDate" /></label>
-              <label>Fecha de vencimiento<input type="date" name="expiryDate" [(ngModel)]="createForm.expiryDate" /></label>
-              <app-user-selector label="Responsable (opcional)" [(value)]="createForm.responsibleUserId" />
-              <label class="full-width">Descripción<textarea name="description" rows="4" [(ngModel)]="createForm.description" maxlength="10000"></textarea></label>
-              @if (isUploadRoute) { <label class="full-width">Archivo inicial<input type="file" name="initialFile" accept=".pdf,.png,.jpg,.jpeg,.docx" (change)="selectInitialFile($event)" /><small class="form-note">El archivo se almacena como una nueva versión después de crear los metadatos.</small></label> }
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <h2>{{ isUploadRoute() ? 'Subir archivo y registrar metadatos' : 'Nuevo documento' }}</h2>
+              <a routerLink="/documents" class="secondary-action" style="text-decoration: none;">✕ Cerrar formulario</a>
             </div>
-            <div class="form-actions"><a routerLink="/documents" class="secondary-action">Cancelar</a><button class="primary-action" type="submit" [disabled]="creating() || !createForm.name.trim() || !createForm.code.trim() || !createForm.documentTypeId || (isUploadRoute && !initialFile)">{{ creating() ? 'Guardando…' : (isUploadRoute ? 'Crear y subir' : 'Crear documento') }}</button></div>
+            <p class="form-note">Registra la clasificación documental y metadatos del documento. Los datos se aislarán bajo el tenant activo.</p>
+            @if (createError()) { <div class="notice error" role="alert">{{ createError() }}</div> }
+            @if (actionMessage()) { <div class="notice" role="status">{{ actionMessage() }}</div> }
+
+            <div class="form-grid">
+              <label>Nombre del documento *
+                <input name="documentName" [(ngModel)]="createForm.name" required maxlength="255" placeholder="Ej: Contrato Marco de Adquisición" />
+              </label>
+
+              <label>Código institucional *
+                <input name="documentCode" [(ngModel)]="createForm.code" required maxlength="60" placeholder="Ej: DOC-2026-001" />
+              </label>
+
+              <label>Tipo documental *
+                <select name="documentTypeId" [(ngModel)]="createForm.documentTypeId" required>
+                  <option value="">Selecciona un tipo documental</option>
+                  @for (type of types(); track type.id) {
+                    <option [value]="type.id">{{ type.name }} · {{ type.code }}</option>
+                  }
+                </select>
+              </label>
+
+              <label>Servicio / Departamento
+                <select name="departmentId" [(ngModel)]="createForm.departmentId">
+                  <option value="">Selecciona servicio o área</option>
+                  @for (dept of departments(); track dept.id) {
+                    <option [value]="dept.id">{{ dept.name }} ({{ dept.code }})</option>
+                  }
+                </select>
+              </label>
+
+              <label>Especialidad
+                <select name="specialty" [(ngModel)]="createForm.specialty">
+                  <option value="">Selecciona especialidad</option>
+                  @for (spec of specialties(); track spec) {
+                    <option [value]="spec">{{ spec }}</option>
+                  }
+                </select>
+              </label>
+
+              <label>Proceso institucional
+                <select name="institutionalProcess" [(ngModel)]="createForm.institutionalProcess">
+                  <option value="">Selecciona proceso</option>
+                  @for (proc of processes(); track proc) {
+                    <option [value]="proc">{{ proc }}</option>
+                  }
+                </select>
+              </label>
+
+              <label>Paciente asociado (si aplica)
+                <select name="patientId" [(ngModel)]="createForm.patientId">
+                  <option value="">Sin paciente asociado</option>
+                  @for (pat of patients(); track pat.id) {
+                    <option [value]="pat.id">{{ pat.firstName }} {{ pat.lastName }} ({{ pat.documentNumber }})</option>
+                  }
+                </select>
+              </label>
+
+              <label>Expediente vinculado (opcional)
+                <input name="expedientId" [(ngModel)]="createForm.expedientId" placeholder="UUID del expediente" />
+              </label>
+
+              <label>Fecha de emisión
+                <input type="date" name="issueDate" [(ngModel)]="createForm.issueDate" />
+              </label>
+
+              <label>Fecha de vencimiento
+                <input type="date" name="expiryDate" [(ngModel)]="createForm.expiryDate" />
+              </label>
+
+              <app-user-selector label="Responsable asignado" [(value)]="createForm.responsibleUserId" />
+
+              <label class="full-width">Descripción / Resumen
+                <textarea name="description" rows="3" [(ngModel)]="createForm.description" maxlength="10000" placeholder="Breve descripción del contenido y alcance documental..."></textarea>
+              </label>
+
+              @if (isUploadRoute()) {
+                <label class="full-width" style="border: 1px dashed #087f7b; padding: 16px; border-radius: 12px; background: #f4faf9;">
+                  <strong>Archivo inicial (v1) *</strong>
+                  <input type="file" name="initialFile" accept=".pdf,.png,.jpg,.jpeg,.docx" (change)="selectInitialFile($event)" required />
+                  <small class="form-note">Formatos admitidos: PDF, JPEG, PNG, DOCX (máx 25 MB). Se almacenará con cálculo de checksum SHA-256 inmutable.</small>
+                </label>
+              }
+            </div>
+
+            <div class="form-actions" style="margin-top: 20px;">
+              <a routerLink="/documents" class="secondary-action">Cancelar</a>
+              <button class="primary-action" type="submit" [disabled]="creating() || !createForm.name.trim() || !createForm.code.trim() || !createForm.documentTypeId || (isUploadRoute() && !initialFile)">
+                {{ creating() ? 'Procesando…' : (isUploadRoute() ? 'Crear y subir versión v1' : 'Crear documento') }}
+              </button>
+            </div>
           </form>
         }
 
-        @if (apiError()) { <div class="notice error" role="alert"><b>No se pudo consultar el catálogo documental.</b><span>{{ apiError() }}</span><button type="button" (click)="loadTypes()">Reintentar</button></div> }
-        @if (loading()) { <div class="notice" role="status">Consultando tipos documentales…</div> }
+        @if (apiError()) {
+          <div class="notice error" role="alert">
+            <b>No se pudo consultar el catálogo documental.</b>
+            <span>{{ apiError() }}</span>
+            <button type="button" (click)="loadDocuments()">Reintentar</button>
+          </div>
+        }
+        @if (loading()) { <div class="notice" role="status">Cargando catálogo documental…</div> }
         @if (actionMessage()) { <div class="notice" role="status">{{ actionMessage() }}</div> }
 
-        <!-- MATRIZ DE FILTROS (Card Superior) -->
+        <!-- MATRIZ DE FILTROS (Clasificación Documental y Búsqueda) -->
         <section class="doc-filter-card">
           <div class="doc-filter-card-left">
             <span class="filter-box-icon">
@@ -95,61 +209,77 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
                 <line x1="9" y1="17" x2="13" y2="17"/>
               </svg>
             </span>
-            <h3>{{ pageTitle }}</h3>
-            <p>{{ scope ? 'Resultados devueltos por el endpoint del usuario.' : 'Documentos disponibles en el tenant autenticado.' }}</p>
+            <h3>{{ pageTitle() }}</h3>
+            <p>{{ scope() === 'mine' ? 'Documentos donde eres autor o responsable asignado.' : 'Documentos disponibles en el tenant autenticado.' }}</p>
           </div>
 
           <div class="doc-filter-card-right">
-            <!-- Fila 1 de Filtros -->
+            <!-- Fila 1 de Filtros: Clasificación base -->
             <div class="doc-filter-grid-row">
               <div class="doc-input-box">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input placeholder="Nombre o código..." [value]="search()" (input)="setSearch($event)" />
+                <input placeholder="Nombre, código, especialidad..." [value]="search()" (input)="setSearch($event)" />
               </div>
 
               <div class="doc-input-box">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 <select [value]="statusFilter()" (change)="setStatus($event)">
                   <option value="">Todos los estados</option>
-                  <option value="DRAFT">Borrador</option>
-                  <option value="PENDING">Pendiente</option>
-                  <option value="IN_REVIEW">En revisión</option>
-                  <option value="APPROVED">Aprobado</option>
-                  <option value="ARCHIVED">Archivado</option>
+                  @for (st of statuses; track st.code) {
+                    <option [value]="st.code">{{ st.label }}</option>
+                  }
                 </select>
               </div>
 
               <div class="doc-input-box">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
-                <input placeholder="Tipo documental" [value]="typeFilter()" (input)="setFilter('type', $event)" />
+                <select [value]="categoryFilter()" (change)="setCategory($event)">
+                  <option value="">Todas las categorías</option>
+                  @for (cat of categories(); track cat.id) {
+                    <option [value]="cat.name">{{ cat.name }}</option>
+                  }
+                </select>
               </div>
 
               <div class="doc-input-box">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-                <input placeholder="Categoría" [value]="categoryFilter()" (input)="setFilter('category', $event)" />
+                <select [value]="typeFilter()" (change)="setFilter('type', $event)">
+                  <option value="">Todos los tipos</option>
+                  @for (type of types(); track type.id) {
+                    <option [value]="type.id">{{ type.name }}</option>
+                  }
+                </select>
               </div>
 
               <div class="doc-input-box">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                <input placeholder="Responsable" [value]="responsibleFilter()" (input)="setFilter('responsible', $event)" />
+                <input placeholder="Responsable..." [value]="responsibleFilter()" (input)="setFilter('responsible', $event)" />
               </div>
             </div>
 
-            <!-- Fila 2 de Filtros -->
+            <!-- Fila 2 de Filtros: Especialidad, Servicio, Proceso -->
             <div class="doc-filter-grid-row">
               <div class="doc-input-box">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                <input placeholder="Creador" [value]="creatorFilter()" (input)="setFilter('creator', $event)" />
+                <select [value]="departmentFilter()" (change)="setFilter('department', $event)">
+                  <option value="">Todos los servicios/áreas</option>
+                  @for (dept of departments(); track dept.id) {
+                    <option [value]="dept.name">{{ dept.name }}</option>
+                  }
+                </select>
               </div>
 
               <div class="doc-input-box">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><path d="M9 18h6v4H9z"/></svg>
-                <input placeholder="Área" [value]="areaFilter()" (input)="setFilter('area', $event)" />
+                <select [value]="specialtyFilter()" (change)="setFilter('specialty', $event)">
+                  <option value="">Todas las especialidades</option>
+                  @for (spec of specialties(); track spec) {
+                    <option [value]="spec">{{ spec }}</option>
+                  }
+                </select>
               </div>
 
               <div class="doc-input-box">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                <input placeholder="Expediente" [value]="expedientFilter()" (input)="setFilter('expedient', $event)" />
+                <select [value]="processFilter()" (change)="setFilter('process', $event)">
+                  <option value="">Todos los procesos</option>
+                  @for (proc of processes(); track proc) {
+                    <option [value]="proc">{{ proc }}</option>
+                  }
+                </select>
               </div>
 
               <div class="doc-input-box">
@@ -158,11 +288,12 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
               </div>
 
               <div class="doc-input-box">
+                <span style="font-size: 11px; color: #648280;">Hasta</span>
                 <input type="date" [value]="dateTo()" (change)="setFilter('dateTo', $event)" />
               </div>
             </div>
 
-            <!-- Fila 3: Ordenar y Limpiar -->
+            <!-- Fila 3: Ordenar y Exportar -->
             <div class="doc-filter-bottom-row">
               <div class="doc-input-box" style="max-width: 200px;">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -209,7 +340,7 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
           </div>
         </section>
 
-        <!-- LISTA DE DOCUMENTOS (Card Inferior) -->
+        <!-- LISTA DE DOCUMENTOS (Catálogo) -->
         <section class="doc-catalog-list-card">
           <div class="doc-list-items">
             @for (item of pagedDocuments(); track item.id) {
@@ -217,18 +348,25 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
                 <span class="doc-api-badge">API</span>
                 <div class="doc-item-main">
                   <h3>{{ item.name }}</h3>
-                  <p>{{ item.code }} · versión {{ item.currentVersion || 1 }}</p>
+                  <p>
+                    <b>{{ item.code }}</b> ·
+                    <span class="pill-mini">{{ item.documentTypeName || 'Tipo general' }}</span>
+                    @if (item.categoryName) { <span class="pill-mini">{{ item.categoryName }}</span> }
+                    @if (item.departmentName) { <span class="pill-mini">{{ item.departmentName }}</span> }
+                    @if (item.specialty) { <span class="pill-mini">{{ item.specialty }}</span> }
+                    · versión <b>v{{ item.currentVersion || 1 }}</b>
+                  </p>
                 </div>
                 <div class="doc-item-right">
                   <time>{{ item.effectiveDate || item.createdAt | date:'dd/MM/yyyy' }}</time>
-                  <span class="status status-pill" [ngClass]="item.status ? item.status.toLowerCase() : 'in_review'">{{ item.status }}</span>
-                  <button type="button" class="btn-doc-action" (click)="$event.stopPropagation(); loadVersions(item)">
+                  <span class="status status-pill" [ngClass]="item.status ? item.status.toLowerCase() : 'draft'">{{ statusLabel(item.status) }}</span>
+                  <button type="button" class="btn-doc-action" (click)="$event.stopPropagation(); openVersions(item)">
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    <span>Versiones</span>
+                    <span>Versiones (v{{ item.currentVersion || 1 }})</span>
                   </button>
                   <label class="btn-doc-action" (click)="$event.stopPropagation()">
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                    <span>Subir</span>
+                    <span>Subir v{{ (item.currentVersion || 1) + 1 }}</span>
                     <input type="file" accept=".pdf,.png,.jpg,.jpeg,.docx" style="display: none;" (change)="uploadVersion(item, $event)" />
                   </label>
                 </div>
@@ -242,14 +380,14 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
                       <polyline points="14 2 14 8 20 8"/>
                     </svg>
                   </span>
-                  <strong>{{ apiDocuments().length ? 'No hay documentos que coincidan con los filtros.' : 'La API no devolvió documentos para este tenant.' }}</strong>
-                  <p>Prueba una combinación diferente de filtros o crea un nuevo documento.</p>
+                  <strong>{{ apiDocuments().length ? 'No hay documentos que coincidan con los filtros seleccionados.' : (scope() === 'mine' ? 'No tienes documentos creados o asignados todavía.' : 'No se encontraron documentos en este tenant.') }}</strong>
+                  <p>Prueba ajustando los filtros o registra un nuevo documento.</p>
                 </div>
               }
             }
           </div>
 
-          <!-- Paginación de Documentos -->
+          <!-- Paginación -->
           @if (filteredDocuments().length) {
             <div class="module-table-footer">
               <div class="module-table-footer-left">
@@ -266,66 +404,91 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
               <div class="module-table-footer-right">
                 <button type="button" class="filter-btn-pill" (click)="previousPage()" [disabled]="page() === 0">Anterior</button>
                 <button type="button" class="filter-btn-pill active" (click)="nextPage()" [disabled]="page() + 1 >= totalPages()">Siguiente</button>
-                <span>Página {{ page() + 1 }} de {{ totalPages() }}</span>
+                <span>Página {{ page() + 1 }} de {{ totalPages() }} (Total: {{ totalDocuments() }})</span>
               </div>
             </div>
           }
         </section>
 
-        <!-- TIPOS DOCUMENTALES DEL TENANT -->
-        @if (types().length) {
-          <section class="doc-types-section">
-            <h3>Tipos documentales del tenant</h3>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              @for (type of types(); track type.id) {
-                <span class="doc-type-pill">{{ type.name }} <code>{{ type.code }}</code></span>
-              }
-            </div>
-          </section>
-        }
-
-        <!-- DRAWER DE DETALLES -->
+        <!-- DRAWER DE DETALLES Y METADATOS DOCUMENTALES -->
         @if (selectedDocument()) {
           <div class="modal-backdrop drawer-backdrop" role="presentation" (click)="closeDetails()">
             <aside class="detail-drawer" role="dialog" aria-modal="true" aria-labelledby="document-detail-title" (click)="$event.stopPropagation()">
               <button class="drawer-close" type="button" aria-label="Cerrar detalle" (click)="closeDetails()">×</button>
-              <p class="eyebrow">Detalle documental</p>
+              <p class="eyebrow">Detalle y Metadatos Documentales</p>
               <h2 id="document-detail-title">{{ selectedDocument()?.name }}</h2>
+
               <dl>
-                <dt>Código</dt><dd>{{ selectedDocument()?.code }}</dd>
-                <dt>Tipo / categoría</dt><dd>{{ selectedDocument()?.documentTypeId }} · {{ selectedDocument()?.category || 'No disponible' }}</dd>
-                <dt>Descripción</dt><dd>{{ selectedDocument()?.description || 'Sin descripción disponible.' }}</dd>
-                <dt>Estado</dt><dd><span class="pill">{{ selectedDocument()?.status }}</span></dd>
-                <dt>Responsable</dt><dd>{{ selectedDocument()?.responsibleUserName || selectedDocument()?.responsibleUserId || 'No disponible' }}</dd>
-                <dt>Creador / área</dt><dd>{{ selectedDocument()?.creatorName || selectedDocument()?.creatorId || 'No disponible' }} · {{ selectedDocument()?.area || 'No disponible' }}</dd>
+                <dt>Código</dt><dd><b>{{ selectedDocument()?.code }}</b></dd>
+                <dt>Estado actual</dt><dd><span class="status status-pill" [ngClass]="selectedDocument()?.status?.toLowerCase()">{{ statusLabel(selectedDocument()!.status) }}</span></dd>
+                <dt>Tipo documental</dt><dd>{{ selectedDocument()?.documentTypeName || selectedDocument()?.documentTypeId }}</dd>
+                <dt>Categoría</dt><dd>{{ selectedDocument()?.categoryName || 'No clasificado' }}</dd>
+                <dt>Servicio / Área</dt><dd>{{ selectedDocument()?.departmentName || 'No asignado' }}</dd>
+                <dt>Especialidad</dt><dd>{{ selectedDocument()?.specialty || 'General' }}</dd>
+                <dt>Proceso institucional</dt><dd>{{ selectedDocument()?.institutionalProcess || 'Estándar' }}</dd>
+                <dt>Paciente</dt><dd>{{ selectedDocument()?.patientName || 'No aplica' }}</dd>
+                <dt>Autor (creador)</dt><dd>{{ selectedDocument()?.authorName || selectedDocument()?.authorId }}</dd>
+                <dt>Responsable</dt><dd>{{ selectedDocument()?.responsibleName || 'Sin asignar' }}</dd>
                 <dt>Expediente</dt><dd>{{ selectedDocument()?.expedientCode || selectedDocument()?.expedientId || 'No vinculado' }}</dd>
-                <dt>Versión actual</dt><dd>{{ selectedDocument()?.currentVersion || 'Sin archivo' }}</dd>
-                <dt>Creado</dt><dd>{{ selectedDocument()?.createdAt | date:'dd/MM/yyyy HH:mm' }}</dd>
+                <dt>Versión actual</dt><dd><b>v{{ selectedDocument()?.currentVersion || 1 }}</b></dd>
+                <dt>Fecha de emisión</dt><dd>{{ selectedDocument()?.issueDate ? (selectedDocument()?.issueDate | date:'dd/MM/yyyy') : 'No especificada' }}</dd>
+                <dt>Fecha de vencimiento</dt><dd>{{ selectedDocument()?.expiryDate ? (selectedDocument()?.expiryDate | date:'dd/MM/yyyy') : 'Sin vencimiento' }}</dd>
+                <dt>Creado en el sistema</dt><dd>{{ selectedDocument()?.createdAt | date:'dd/MM/yyyy HH:mm' }}</dd>
                 <dt>Última actualización</dt><dd>{{ selectedDocument()?.updatedAt | date:'dd/MM/yyyy HH:mm' }}</dd>
+                <dt>Descripción</dt><dd>{{ selectedDocument()?.description || 'Sin descripción disponible.' }}</dd>
               </dl>
-              <p class="tenant-disclaimer">Las transiciones habilitadas se validan de forma definitiva en el backend según tus permisos.</p>
-              <div class="drawer-actions">
-                <button type="button" (click)="loadVersions(selectedDocument()!)">Cargar historial</button>
-                <label class="btn-doc-action">Subir versión<input type="file" accept=".pdf,.png,.jpg,.jpeg,.docx" (change)="uploadVersion(selectedDocument()!, $event)" /></label>
-              </div>
+
+              <!-- TRANSICIONES DE ESTADO PERMITIDAS -->
               @if (allowedStatusTransitions(selectedDocument()!).length) {
                 <div class="status-actions">
-                  <span>Cambiar estado</span>
+                  <span>Cambiar estado del documento:</span>
                   @for (status of allowedStatusTransitions(selectedDocument()!); track status) {
-                    <button type="button" (click)="changeStatus(selectedDocument()!, status)" [disabled]="changingStatus()">{{ statusLabel(status) }}</button>
+                    <button type="button" (click)="changeStatus(selectedDocument()!, status)" [disabled]="changingStatus()">
+                      {{ statusLabel(status) }}
+                    </button>
                   }
                 </div>
               }
-              @if (detailLoading()) { <p class="drawer-note">Cargando historial…</p> }
+              @if (changingStatus()) { <p class="drawer-note">Actualizando estado...</p> }
               @if (detailError()) { <p class="drawer-error" role="alert">{{ detailError() }}</p> }
+
+              <div class="drawer-actions" style="margin-top: 20px;">
+                <label class="btn-primary-action" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                  <span>Subir nueva versión (v{{ (selectedDocument()?.currentVersion || 1) + 1 }})</span>
+                  <input type="file" accept=".pdf,.png,.jpg,.jpeg,.docx" style="display: none;" (change)="uploadVersion(selectedDocument()!, $event)" />
+                </label>
+              </div>
+
+              <!-- HISTORIAL DE VERSIONES -->
+              <h3 style="margin-top: 25px;">Historial de Versiones</h3>
+              <p class="form-note">Trazabilidad inmutable de archivos y evoluciones del documento.</p>
+              @if (detailLoading()) { <p class="drawer-note">Cargando versiones…</p> }
               @if (versions()[selectedDocument()!.id]; as history) {
-                <h3>Historial de versiones</h3>
-                @if (!history.length) { <p class="drawer-note">No hay versiones disponibles.</p> }
+                @if (!history.length) { <p class="drawer-note">No hay versiones almacenadas para este documento.</p> }
                 @for (version of history; track version.id) {
-                  <button class="history-item" type="button" (click)="download(selectedDocument()!, version)">
-                    v{{ version.versionNumber }} · {{ version.fileName }}
-                    <small>{{ version.createdAt | date:'dd/MM/yyyy HH:mm' }} · {{ version.changeReason }}</small>
-                  </button>
+                  <div class="history-item-card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                      <div>
+                        <strong>v{{ version.versionNumber }} · {{ version.fileName }}</strong>
+                        <div style="font-size: 11px; color: #6b8583; margin-top: 2px;">
+                          {{ formatBytes(version.fileSizeBytes) }} · {{ version.createdAt | date:'dd/MM/yyyy HH:mm' }}
+                        </div>
+                      </div>
+                      <button class="btn-doc-action" type="button" (click)="download(selectedDocument()!, version)">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Descargar
+                      </button>
+                    </div>
+                    <div style="font-size: 11px; margin-top: 6px; background: #fff; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2eee9;">
+                      <b>Motivo:</b> {{ version.changeReason }}
+                    </div>
+                    @if (version.checksumSha256) {
+                      <div style="font-size: 10px; color: #6b8583; font-family: monospace; margin-top: 4px; overflow-wrap: anywhere;">
+                        SHA-256: {{ version.checksumSha256 }}
+                      </div>
+                    }
+                  </div>
                 }
               }
             </aside>
@@ -336,12 +499,17 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
         @if (uploadFile()) {
           <div class="modal-backdrop" role="presentation">
             <section class="modal" role="dialog" aria-modal="true" aria-labelledby="version-title">
-              <h2 id="version-title">Nueva versión</h2>
-              <p>Archivo seleccionado: <b>{{ uploadFile()?.name }}</b></p>
-              <label>Motivo del cambio<textarea rows="3" [(ngModel)]="uploadReason" required></textarea></label>
+              <h2 id="version-title">Subir nueva versión</h2>
+              <p>Documento: <b>{{ uploadDocument?.name }}</b> ({{ uploadDocument?.code }})</p>
+              <p>Archivo seleccionado: <b>{{ uploadFile()?.name }}</b> ({{ formatBytes(uploadFile()?.size || 0) }})</p>
+              <label>Motivo obligatorio del cambio *
+                <textarea rows="3" [(ngModel)]="uploadReason" required placeholder="Explica detalladamente la razón de esta actualización..."></textarea>
+              </label>
               <div class="modal-actions">
                 <button type="button" (click)="cancelUpload()">Cancelar</button>
-                <button class="primary-action" type="button" (click)="confirmUpload()" [disabled]="!uploadReason.trim() || uploading()">Guardar versión</button>
+                <button class="primary-action" type="button" (click)="confirmUpload()" [disabled]="!uploadReason.trim() || uploading()">
+                  {{ uploading() ? 'Subiendo versión…' : 'Confirmar versión' }}
+                </button>
               </div>
             </section>
           </div>
@@ -351,89 +519,138 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
   `,
   styles: [`
     .document-page { max-width: 1440px; margin: auto; padding: 30px 36px 48px; color: #153a39; }
-    .page-header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 22px; }
     .eyebrow { color: #087f7b; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
     .notice { display: flex; gap: 10px; flex-wrap: wrap; background: #eef7ff; border: 1px solid #cfe3f5; color: #356d9e; border-radius: 10px; padding: 12px; margin-bottom: 15px; font-size: 12px; }
     .notice span { flex: 1; }
     .notice.error { background: #fff4f3; border-color: #f3d2d0; color: #a65050; }
     .notice.warning { background: #fff8e8; border-color: #f3e1b6; color: #8b671c; }
-    .notice button { border: 0; background: transparent; text-decoration: underline; color: inherit; }
+    .notice button { border: 0; background: transparent; text-decoration: underline; color: inherit; cursor: pointer; }
     .panel { background: #fff; border: 1px solid #dcebe8; border-radius: 16px; padding: 20px; }
-    .modal-backdrop { position: fixed; inset: 0; background: #153a3966; display: grid; place-items: center; padding: 20px; z-index: 20; }
+    .create-form h2 { margin-top: 0; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 14px; }
+    .form-grid label { display: grid; gap: 5px; font-size: 12px; font-weight: 700; color: #153a39; }
+    .form-grid input, .form-grid select, .form-grid textarea { border: 1px solid #c8e0dc; border-radius: 8px; padding: 9px 12px; font-size: 13px; color: #153a39; background: #fff; width: 100%; box-sizing: border-box; }
+    .form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus { border-color: #087f7b; outline: none; box-shadow: 0 0 0 3px #087f7b20; }
+    .form-grid .full-width { grid-column: span 2; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    .primary-action { background: #087f7b; color: white; border: 0; border-radius: 8px; padding: 10px 18px; cursor: pointer; font-weight: 700; font-size: 13px; }
+    .primary-action:disabled { opacity: 0.6; cursor: not-allowed; }
+    .secondary-action { background: #f0f7f5; border: 1px solid #c8e0dc; color: #153a39; border-radius: 8px; padding: 10px 18px; cursor: pointer; font-weight: 600; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; }
+    .modal-backdrop { position: fixed; inset: 0; background: #153a3966; display: grid; place-items: center; padding: 20px; z-index: 50; }
     .modal { background: white; border-radius: 14px; padding: 22px; max-width: 480px; width: 100%; box-shadow: 0 18px 50px #153a3940; }
     .modal h2 { margin-top: 0; }
     .modal label { display: grid; gap: 7px; font-size: 12px; font-weight: 700; }
     .modal textarea { border: 1px solid #dcebe8; border-radius: 8px; padding: 9px; resize: vertical; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-    .modal-actions .primary-action { background: #087f7b; color: white; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 700; }
+    .modal-actions button { border: 1px solid #c8e0dc; background: #f0f7f5; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 600; }
+    .modal-actions .primary-action { background: #087f7b; color: white; border: 0; }
     .drawer-backdrop { display: flex; justify-content: flex-end; padding: 0; }
-    .detail-drawer { background: #fff; height: 100%; max-width: 470px; overflow: auto; padding: 32px 28px; position: relative; width: 100%; box-shadow: -10px 0 30px #153a3940; }
+    .detail-drawer { background: #fff; height: 100%; max-width: 520px; overflow: auto; padding: 32px 28px; position: relative; width: 100%; box-shadow: -10px 0 30px #153a3940; }
     .drawer-close { background: transparent; border: 0; color: #6b8583; cursor: pointer; font-size: 28px; position: absolute; right: 18px; top: 12px; }
-    .detail-drawer h2 { font-size: 26px; margin: 5px 0 22px; }
+    .detail-drawer h2 { font-size: 22px; margin: 5px 0 18px; color: #153a39; }
     .detail-drawer dl { display: grid; gap: 7px; grid-template-columns: 145px 1fr; font-size: 12px; }
-    .detail-drawer dt { color: #6b8583; font-weight: 800; }
-    .detail-drawer dd { margin: 0; overflow-wrap: anywhere; }
+    .detail-drawer dt { color: #6b8583; font-weight: 700; }
+    .detail-drawer dd { margin: 0; overflow-wrap: anywhere; color: #153a39; }
     .status-actions { border-top: 1px solid #edf3f1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; }
     .status-actions span { align-self: center; color: #6b8583; font-size: 11px; font-weight: 800; width: 100%; }
-    .status-actions button { border: 1px solid #bfeae5; background: white; color: #087f7b; border-radius: 7px; padding: 7px 11px; cursor: pointer; font-size: 11px; font-weight: 700; }
-    .tenant-disclaimer, .drawer-note, .drawer-error { font-size: 11px; line-height: 1.5; margin: 20px 0; }
-    .tenant-disclaimer { background: #eef7ff; border-radius: 8px; color: #356d9e; padding: 10px; }
+    .status-actions button { border: 1px solid #bfeae5; background: white; color: #087f7b; border-radius: 7px; padding: 7px 11px; cursor: pointer; font-size: 11px; font-weight: 700; transition: all 0.2s; }
+    .status-actions button:hover { background: #087f7b; color: white; }
+    .drawer-note, .drawer-error { font-size: 11px; line-height: 1.5; margin: 15px 0; }
     .drawer-error { color: #a65050; }
-    .drawer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .drawer-actions input { display: none; }
-    .detail-drawer h3 { font-size: 14px; margin: 25px 0 10px; }
-    .history-item { background: #f8fbfa; border: 1px solid #dcebe8; border-radius: 8px; color: #153a39; cursor: pointer; display: grid; gap: 4px; margin: 5px 0; padding: 9px; text-align: left; width: 100%; }
-    .history-item small { color: #6b8583; }
     .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
     .status-card { background: #fff; border: 1px solid #dcebe8; border-radius: 14px; padding: 17px; display: flex; gap: 12px; }
     .status-card div { display: grid; gap: 5px; }
     .status-card small { color: #6b8583; font-size: 11px; }
     .status-card code { font-size: 10px; color: #087f7b; }
-    .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; background: #9aa; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; background: #9aa; flex-shrink: 0; }
     .status-dot.teal { background: #087f7b; }
     .status-dot.amber { background: #d99a26; }
     .status-dot.blue { background: #4386c5; }
     .status-dot.green { background: #3b9b69; }
+    .status-dot.rose { background: #dc2626; }
     .status-dot.gray { background: #899b9a; }
+    .pill-mini { display: inline-block; background: #f0f7f5; border: 1px solid #d4eae5; color: #087f7b; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-right: 4px; }
+    .history-item-card { background: #f8fbfa; border: 1px solid #dcebe8; border-radius: 8px; color: #153a39; margin: 8px 0; padding: 12px; }
+    .status-pill.draft { background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; }
+    .status-pill.pending { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .status-pill.in_review { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .status-pill.approved { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .status-pill.rejected { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .status-pill.corrected { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
+    .status-pill.current { background: #ccfbf1; color: #115e59; border: 1px solid #99f6e4; }
+    .status-pill.archived { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+    .status-pill.voided { background: #fee2e2; color: #7f1d1d; border: 1px solid #fca5a5; }
+    .status-pill.trashed { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
   `],
 })
-export class DocumentPage {
+export class DocumentPage implements OnInit, OnDestroy {
   private readonly api = inject(DocumentApiService);
+  private readonly clinicalApi = inject(ClinicalApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  readonly isStatuses = this.route.snapshot.routeConfig?.path === 'settings/statuses';
-  readonly isCreateRoute = ['documents/new', 'documents/upload'].includes(this.route.snapshot.routeConfig?.path || '');
-  readonly isUploadRoute = this.route.snapshot.routeConfig?.path === 'documents/upload';
+
+  private routerSub?: Subscription;
+
+  // Estados de ruta reactivos
+  readonly isStatuses = signal(false);
+  readonly isCreateRoute = signal(false);
+  readonly isUploadRoute = signal(false);
+  readonly scope = signal<'mine' | 'shared' | undefined>(undefined);
+  readonly pageTitle = signal('Todos los documentos');
+
+  // Formulario de creación
   readonly createError = signal('');
   readonly creating = signal(false);
-  createForm: DocumentCreatePayload & { responsibleUserId: string } = { documentTypeId: '', code: '', name: '', description: '', responsibleUserId: '' };
+  createForm: DocumentCreatePayload & { responsibleUserId: string } = {
+    documentTypeId: '',
+    code: '',
+    name: '',
+    description: '',
+    responsibleUserId: '',
+    departmentId: '',
+    specialty: '',
+    institutionalProcess: '',
+    patientId: '',
+    issueDate: '',
+    expiryDate: '',
+    expedientId: '',
+  };
   initialFile: File | null = null;
-  readonly exportMenuOpen = signal(false);
-  readonly scope = ((): 'mine' | 'shared' | undefined => {
-    const path = this.route.snapshot.routeConfig?.path;
-    return path === 'documents/mine' ? 'mine' : path === 'documents/shared' ? 'shared' : undefined;
-  })();
-  readonly pageTitle = this.scope === 'mine' ? 'Mis documentos' : this.scope === 'shared' ? 'Compartidos conmigo' : 'Todos los documentos';
+
+  // Catálogos auxiliares
+  readonly types = signal<ApiDocumentType[]>([]);
+  readonly categories = signal<ApiDocumentCategory[]>([]);
+  readonly departments = signal<ApiDepartment[]>([]);
+  readonly specialties = signal<string[]>([]);
+  readonly processes = signal<string[]>([]);
+  readonly patients = signal<ApiPatient[]>([]);
+
+  // Listado de documentos y estado API
   readonly loading = signal(false);
   readonly apiError = signal('');
-  readonly types = signal<ApiDocumentType[]>([]);
   readonly apiDocuments = signal<ApiDocument[]>([]);
   readonly totalDocuments = signal(0);
   readonly versions = signal<Record<string, ApiDocumentVersion[]>>({});
   readonly actionMessage = signal('');
+
+  // Filtros
   readonly search = signal('');
   readonly statusFilter = signal('');
-  readonly typeFilter = signal('');
   readonly categoryFilter = signal('');
+  readonly typeFilter = signal('');
+  readonly departmentFilter = signal('');
+  readonly specialtyFilter = signal('');
+  readonly processFilter = signal('');
   readonly responsibleFilter = signal('');
   readonly creatorFilter = signal('');
-  readonly areaFilter = signal('');
-  readonly expedientFilter = signal('');
   readonly dateFrom = signal('');
   readonly dateTo = signal('');
   readonly sortBy = signal('updated');
   readonly page = signal(0);
   readonly pageSize = signal(10);
+  readonly exportMenuOpen = signal(false);
+
+  // Detalle y versiones
   readonly selectedDocument = signal<ApiDocument | null>(null);
   readonly detailLoading = signal(false);
   readonly detailError = signal('');
@@ -442,111 +659,333 @@ export class DocumentPage {
   uploadReason = '';
   readonly uploading = signal(false);
   readonly changingStatus = signal(false);
-  readonly filteredDocuments = () => {
-    const query = this.search().trim().toLowerCase();
-    const matches = (value: string | null | undefined, filter: string) => !filter || (value || '').toLowerCase().includes(filter.toLowerCase());
-    return [...this.apiDocuments()].filter(item => (!query || `${item.name} ${item.code}`.toLowerCase().includes(query))
-      && (!this.statusFilter() || item.status === this.statusFilter())
-      && matches(item.documentTypeId, this.typeFilter()) && matches(item.category, this.categoryFilter())
-      && matches(item.responsibleUserName || item.responsibleUserId, this.responsibleFilter())
-      && matches(item.creatorName || item.creatorId, this.creatorFilter()) && matches(item.area, this.areaFilter())
-      && matches(item.expedientCode || item.expedientId, this.expedientFilter())
-      && (!this.dateFrom() || (item.effectiveDate || item.createdAt) >= this.dateFrom())
-      && (!this.dateTo() || (item.effectiveDate || item.createdAt).slice(0, 10) <= this.dateTo())).sort((a,b) => {
-      if (this.sortBy() === 'name') return a.name.localeCompare(b.name);
-      if (this.sortBy() === 'version') return (b.currentVersion || 0) - (a.currentVersion || 0);
-      const field = this.sortBy() === 'created' ? 'createdAt' : 'updatedAt';
-      return b[field].localeCompare(a[field]);
+
+  // Estados documentales
+  readonly statuses = [
+    { code: 'DRAFT', label: 'Borrador', description: 'Edición inicial en preparación', tone: 'gray' },
+    { code: 'PENDING', label: 'Pendiente', description: 'Esperando pase a revisión técnica', tone: 'amber' },
+    { code: 'IN_REVIEW', label: 'En revisión', description: 'Validación y evaluación en curso', tone: 'blue' },
+    { code: 'APPROVED', label: 'Aprobado', description: 'Revisión superada, listo para emisión', tone: 'green' },
+    { code: 'REJECTED', label: 'Rechazado', description: 'No cumple requerimientos; requiere cambios', tone: 'rose' },
+    { code: 'CORRECTED', label: 'Corregido', description: 'Observaciones solventadas; en re-evaluación', tone: 'amber' },
+    { code: 'CURRENT', label: 'Vigente', description: 'Documento oficial en plena vigencia', tone: 'teal' },
+    { code: 'ARCHIVED', label: 'Archivado', description: 'Histórico, fuera de circulación activa', tone: 'gray' },
+    { code: 'VOIDED', label: 'Anulado', description: 'Revocado formalmente sin validez legal', tone: 'rose' },
+  ];
+
+  ngOnInit(): void {
+    this.routerSub = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe(() => {
+        this.syncRouteState();
+      });
+
+    this.syncRouteState();
+    this.loadCatalogData();
+  }
+
+  ngOnDestroy(): void {
+    this.routerSub?.unsubscribe();
+  }
+
+  syncRouteState(): void {
+    const url = this.router.url.split('?')[0];
+    const isStat = url === '/settings/statuses';
+    const isCreate = url === '/documents/new' || url === '/documents/upload';
+    const isUpload = url === '/documents/upload';
+    const scopeVal = url === '/documents/mine' ? 'mine' : url === '/documents/shared' ? 'shared' : undefined;
+
+    this.isStatuses.set(isStat);
+    this.isCreateRoute.set(isCreate);
+    this.isUploadRoute.set(isUpload);
+    this.scope.set(scopeVal);
+
+    if (isStat) {
+      this.pageTitle.set('Estados documentales');
+    } else if (isCreate) {
+      this.pageTitle.set(isUpload ? 'Subir archivo' : 'Nuevo documento');
+      this.resetCreateForm();
+    } else if (scopeVal === 'mine') {
+      this.pageTitle.set('Mis documentos');
+    } else if (scopeVal === 'shared') {
+      this.pageTitle.set('Compartidos conmigo');
+    } else {
+      this.pageTitle.set('Todos los documentos');
+    }
+
+    if (!isStat) {
+      this.loadDocuments();
+    }
+  }
+
+  resetCreateForm(): void {
+    this.createForm = {
+      documentTypeId: '',
+      code: '',
+      name: '',
+      description: '',
+      responsibleUserId: '',
+      departmentId: '',
+      specialty: '',
+      institutionalProcess: '',
+      patientId: '',
+      issueDate: '',
+      expiryDate: '',
+      expedientId: '',
+    };
+    this.initialFile = null;
+    this.createError.set('');
+  }
+
+  loadCatalogData(): void {
+    this.api.documentTypes('', 0, 100).subscribe({
+      next: res => this.types.set(res.content || []),
+      error: () => {},
     });
+
+    this.api.categories().subscribe({
+      next: list => this.categories.set(list || []),
+      error: () => {},
+    });
+
+    this.api.departments().subscribe({
+      next: list => this.departments.set(list || []),
+      error: () => {},
+    });
+
+    this.api.specialties().subscribe({
+      next: list => this.specialties.set(list || []),
+      error: () => {},
+    });
+
+    this.api.processes().subscribe({
+      next: list => this.processes.set(list || []),
+      error: () => {},
+    });
+
+    this.clinicalApi.patients('', 0, 50).subscribe({
+      next: res => this.patients.set(res.content || []),
+      error: () => {},
+    });
+  }
+
+  loadDocuments(): void {
+    this.loading.set(true);
+    this.apiError.set('');
+    this.api.documents(this.search(), this.statusFilter() || undefined, this.page(), this.pageSize(), this.scope()).subscribe({
+      next: response => {
+        this.apiDocuments.set(response.content || []);
+        this.totalDocuments.set(response.totalElements || 0);
+        this.apiError.set('');
+        this.loading.set(false);
+      },
+      error: err => {
+        this.apiDocuments.set([]);
+        this.totalDocuments.set(0);
+        this.apiError.set(err?.error?.message || err?.message || 'No se pudo consultar la API de documentos.');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  // Filtrado reactivo en memoria sobre la página actual
+  readonly filteredDocuments = () => {
+    const q = this.search().trim().toLowerCase();
+    const cat = this.categoryFilter().toLowerCase();
+    const type = this.typeFilter();
+    const dept = this.departmentFilter().toLowerCase();
+    const spec = this.specialtyFilter().toLowerCase();
+    const proc = this.processFilter().toLowerCase();
+    const resp = this.responsibleFilter().toLowerCase();
+
+    return [...this.apiDocuments()]
+      .filter(doc => {
+        if (q && !(`${doc.name} ${doc.code} ${doc.specialty || ''} ${doc.institutionalProcess || ''}`.toLowerCase().includes(q))) return false;
+        if (this.statusFilter() && doc.status !== this.statusFilter()) return false;
+        if (cat && !(doc.categoryName || '').toLowerCase().includes(cat)) return false;
+        if (type && doc.documentTypeId !== type) return false;
+        if (dept && !(doc.departmentName || '').toLowerCase().includes(dept)) return false;
+        if (spec && !(doc.specialty || '').toLowerCase().includes(spec)) return false;
+        if (proc && !(doc.institutionalProcess || '').toLowerCase().includes(proc)) return false;
+        if (resp && !(doc.responsibleName || '').toLowerCase().includes(resp)) return false;
+        if (this.dateFrom() && (doc.effectiveDate || doc.createdAt) < this.dateFrom()) return false;
+        if (this.dateTo() && (doc.effectiveDate || doc.createdAt).slice(0, 10) > this.dateTo()) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        if (this.sortBy() === 'name') return (a.name || '').localeCompare(b.name || '');
+        if (this.sortBy() === 'version') return (b.currentVersion || 0) - (a.currentVersion || 0);
+        const f = this.sortBy() === 'created' ? 'createdAt' : 'updatedAt';
+        const aVal = String(a[f] || '');
+        const bVal = String(b[f] || '');
+        return bVal.localeCompare(aVal);
+      });
   };
+
   readonly pagedDocuments = () => this.filteredDocuments();
   readonly totalPages = () => Math.max(1, Math.ceil(this.totalDocuments() / this.pageSize()));
-  readonly statuses = [
-    { code: 'DRAFT', label: 'Borrador', description: 'Edición inicial', tone: 'gray' },
-    { code: 'PENDING', label: 'Pendiente', description: 'Esperando revisión', tone: 'amber' },
-    { code: 'IN_REVIEW', label: 'En revisión', description: 'Validación en curso', tone: 'blue' },
-    { code: 'APPROVED', label: 'Aprobado', description: 'Listo para uso', tone: 'green' },
-    { code: 'ARCHIVED', label: 'Archivado', description: 'Fuera de circulación', tone: 'teal' },
-  ];
-  constructor() { if (!this.isStatuses) this.loadTypes(); }
+
   selectInitialFile(event: Event): void {
-    const file = (event.target as HTMLInputElement).files?.[0] || null;
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] || null;
     const error = this.fileValidationError(file);
     this.initialFile = error ? null : file;
     this.createError.set(error);
   }
+
   createDocument(): void {
     this.createError.set('');
-    if (!this.createForm.documentTypeId || !this.createForm.name.trim() || !this.createForm.code.trim()) return;
-    if (this.isUploadRoute && !this.initialFile) {
+    if (!this.createForm.documentTypeId || !this.createForm.name.trim() || !this.createForm.code.trim()) {
+      this.createError.set('Por favor completa el nombre, código y tipo documental.');
+      return;
+    }
+    if (this.isUploadRoute() && !this.initialFile) {
       this.createError.set('Selecciona un archivo PDF, PNG, JPEG o DOCX de hasta 25 MB.');
       return;
     }
-    const payload: DocumentCreatePayload = { ...this.createForm };
-    if (!payload.description?.trim()) delete payload.description;
-    if (!payload.expedientId?.trim()) delete payload.expedientId;
-    if (!payload.responsibleUserId?.trim()) delete payload.responsibleUserId;
+
+    const payload: DocumentCreatePayload = {
+      documentTypeId: this.createForm.documentTypeId,
+      code: this.createForm.code.trim(),
+      name: this.createForm.name.trim(),
+    };
+
+    if (this.createForm.description?.trim()) payload.description = this.createForm.description.trim();
+    if (this.createForm.expedientId?.trim()) payload.expedientId = this.createForm.expedientId.trim();
+    if (this.createForm.responsibleUserId?.trim()) payload.responsibleUserId = this.createForm.responsibleUserId.trim();
+    if (this.createForm.departmentId?.trim()) payload.departmentId = this.createForm.departmentId.trim();
+    if (this.createForm.patientId?.trim()) payload.patientId = this.createForm.patientId.trim();
+    if (this.createForm.specialty?.trim()) payload.specialty = this.createForm.specialty.trim();
+    if (this.createForm.institutionalProcess?.trim()) payload.institutionalProcess = this.createForm.institutionalProcess.trim();
+    if (this.createForm.issueDate?.trim()) payload.issueDate = this.createForm.issueDate.trim();
+    if (this.createForm.expiryDate?.trim()) payload.expiryDate = this.createForm.expiryDate.trim();
+
     this.creating.set(true);
     this.api.createDocument(payload).subscribe({
-      next: document => {
+      next: doc => {
         if (!this.initialFile) {
           this.creating.set(false);
+          this.actionMessage.set(`Documento ${doc.code} registrado con éxito.`);
           this.router.navigateByUrl('/documents');
           return;
         }
-        this.api.uploadVersion(document.id, this.initialFile, 'Carga inicial').subscribe({
-          next: () => { this.creating.set(false); this.router.navigateByUrl('/documents'); },
+
+        this.api.uploadVersion(doc.id, this.initialFile, 'Carga inicial (versión v1)').subscribe({
+          next: () => {
+            this.creating.set(false);
+            this.actionMessage.set(`Documento ${doc.code} y versión inicial v1 almacenados con éxito.`);
+            this.router.navigateByUrl('/documents');
+          },
           error: () => {
             this.creating.set(false);
-            this.createError.set(`El documento ${document.code} fue creado, pero no se pudo almacenar el archivo inicial. Puedes subirlo desde su detalle.`);
+            this.actionMessage.set(`Documento ${doc.code} creado. Puedes subir la versión desde el detalle.`);
+            this.router.navigateByUrl('/documents');
           },
         });
       },
-      error: error => {
+      error: err => {
         this.creating.set(false);
-        this.createError.set(error?.error?.message || 'No se pudo crear el documento. Revisa los datos e inténtalo nuevamente.');
+        this.createError.set(err?.error?.message || 'No se pudo crear el documento. Verifica los datos.');
       },
     });
   }
-  loadTypes(): void {
-    this.loading.set(true); this.apiError.set('');
-    this.api.documentTypes().subscribe({ next: response => { this.types.set(response.content); }, error: () => undefined });
-    this.api.documents(this.search(), this.statusFilter() || undefined, this.page(), this.pageSize(), this.scope).subscribe({
-      next: response => {
-        this.apiDocuments.set(response.content);
-        this.totalDocuments.set(response.totalElements);
-        this.apiError.set('');
-        this.loading.set(false);
-      },
-      error: error => {
-        this.apiDocuments.set([]);
-        this.totalDocuments.set(0);
-        this.apiError.set(error instanceof Error ? error.message : 'La API de documentos no respondió.');
-        this.loading.set(false);
-      },
-    });
+
+  setSearch(event: Event): void {
+    this.search.set((event.target as HTMLInputElement).value);
+    this.page.set(0);
+    this.loadDocuments();
   }
-  setSearch(event: Event): void { this.search.set((event.target as HTMLInputElement).value); this.page.set(0); this.loadTypes(); }
-  setStatus(event: Event): void { this.statusFilter.set((event.target as HTMLSelectElement).value); this.page.set(0); this.loadTypes(); }
-  setFilter(field: 'type' | 'category' | 'responsible' | 'creator' | 'area' | 'expedient' | 'dateFrom' | 'dateTo', event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    ({ type: this.typeFilter, category: this.categoryFilter, responsible: this.responsibleFilter, creator: this.creatorFilter, area: this.areaFilter, expedient: this.expedientFilter, dateFrom: this.dateFrom, dateTo: this.dateTo }[field]).set(value);
+
+  setStatus(event: Event): void {
+    this.statusFilter.set((event.target as HTMLSelectElement).value);
+    this.page.set(0);
+    this.loadDocuments();
+  }
+
+  setCategory(event: Event): void {
+    this.categoryFilter.set((event.target as HTMLSelectElement).value);
     this.page.set(0);
   }
-  clearFilters(): void {
-    this.search.set(''); this.statusFilter.set(''); this.typeFilter.set(''); this.categoryFilter.set('');
-    this.responsibleFilter.set(''); this.creatorFilter.set(''); this.areaFilter.set(''); this.expedientFilter.set('');
-    this.dateFrom.set(''); this.dateTo.set('');
-    this.sortBy.set('updated'); this.page.set(0); this.loadTypes();
+
+  setFilter(field: 'type' | 'department' | 'specialty' | 'process' | 'responsible' | 'dateFrom' | 'dateTo', event: Event): void {
+    const val = (event.target as HTMLInputElement | HTMLSelectElement).value;
+    if (field === 'type') this.typeFilter.set(val);
+    else if (field === 'department') this.departmentFilter.set(val);
+    else if (field === 'specialty') this.specialtyFilter.set(val);
+    else if (field === 'process') this.processFilter.set(val);
+    else if (field === 'responsible') this.responsibleFilter.set(val);
+    else if (field === 'dateFrom') this.dateFrom.set(val);
+    else if (field === 'dateTo') this.dateTo.set(val);
+    this.page.set(0);
   }
-  setSort(event: Event): void { this.sortBy.set((event.target as HTMLSelectElement).value); this.page.set(0); }
-  setPageSize(event: Event): void { this.pageSize.set(Number((event.target as HTMLSelectElement).value)); this.page.set(0); this.loadTypes(); }
-  previousPage(): void { this.page.update(value => Math.max(0, value - 1)); this.loadTypes(); }
-  nextPage(): void { this.page.update(value => Math.min(this.totalPages() - 1, value + 1)); this.loadTypes(); }
-  openDetails(document: ApiDocument): void { this.selectedDocument.set(document); this.detailError.set(''); this.loadVersions(document); }
-  closeDetails(): void { this.selectedDocument.set(null); }
-  loadVersions(document: ApiDocument): void { this.detailLoading.set(true); this.detailError.set(''); this.api.versions(document.id).subscribe({next: versions => { this.versions.update(current => ({...current,[document.id]:versions})); this.detailLoading.set(false); },error:()=>{ this.detailLoading.set(false); this.detailError.set('No se pudo cargar el historial de versiones.'); this.actionMessage.set('No se pudieron cargar las versiones.'); }}); }
-  uploadVersion(document: ApiDocument, event: Event): void {
+
+  clearFilters(): void {
+    this.search.set('');
+    this.statusFilter.set('');
+    this.categoryFilter.set('');
+    this.typeFilter.set('');
+    this.departmentFilter.set('');
+    this.specialtyFilter.set('');
+    this.processFilter.set('');
+    this.responsibleFilter.set('');
+    this.dateFrom.set('');
+    this.dateTo.set('');
+    this.sortBy.set('updated');
+    this.page.set(0);
+    this.loadDocuments();
+  }
+
+  setSort(event: Event): void {
+    this.sortBy.set((event.target as HTMLSelectElement).value);
+    this.page.set(0);
+  }
+
+  setPageSize(event: Event): void {
+    this.pageSize.set(Number((event.target as HTMLSelectElement).value));
+    this.page.set(0);
+    this.loadDocuments();
+  }
+
+  previousPage(): void {
+    this.page.update(v => Math.max(0, v - 1));
+    this.loadDocuments();
+  }
+
+  nextPage(): void {
+    this.page.update(v => Math.min(this.totalPages() - 1, v + 1));
+    this.loadDocuments();
+  }
+
+  openDetails(doc: ApiDocument): void {
+    this.selectedDocument.set(doc);
+    this.detailError.set('');
+    this.loadVersions(doc);
+  }
+
+  closeDetails(): void {
+    this.selectedDocument.set(null);
+  }
+
+  openVersions(doc: ApiDocument): void {
+    this.openDetails(doc);
+  }
+
+  loadVersions(doc: ApiDocument): void {
+    this.detailLoading.set(true);
+    this.detailError.set('');
+    this.api.versions(doc.id).subscribe({
+      next: verList => {
+        this.versions.update(curr => ({ ...curr, [doc.id]: verList }));
+        this.detailLoading.set(false);
+      },
+      error: () => {
+        this.detailLoading.set(false);
+        this.detailError.set('No se pudo cargar el historial de versiones.');
+      },
+    });
+  }
+
+  uploadVersion(doc: ApiDocument, event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0] || null;
     const error = this.fileValidationError(file);
@@ -555,26 +994,65 @@ export class DocumentPage {
       input.value = '';
       return;
     }
-    this.uploadDocument = document;
+    this.uploadDocument = doc;
     this.uploadFile.set(file);
-    this.uploadReason = 'Carga de archivo';
+    this.uploadReason = `Actualización de versión v${(doc.currentVersion || 1) + 1}`;
     input.value = '';
   }
-  cancelUpload(): void { this.uploadDocument=null; this.uploadFile.set(null); this.uploadReason=''; }
-  confirmUpload(): void { const document=this.uploadDocument;const file=this.uploadFile();if(!document || !file || !this.uploadReason.trim())return;this.uploading.set(true);this.api.uploadVersion(document.id,file,this.uploadReason.trim()).subscribe({next:()=>{this.actionMessage.set('Versión almacenada correctamente.');this.loadVersions(document);this.loadTypes();this.uploading.set(false);this.cancelUpload();},error:()=>{this.actionMessage.set('No se pudo almacenar la versión.');this.uploading.set(false);}}); }
-  download(document: ApiDocument, version: ApiDocumentVersion): void { this.api.downloadVersion(document.id,version.id).subscribe({next:blob=>{const url=URL.createObjectURL(blob);const link=window.document.createElement('a');link.href=url;link.download=version.fileName;link.click();URL.revokeObjectURL(url);},error:()=>this.actionMessage.set('No se pudo descargar la versión.')}); }
-  changeStatus(document: ApiDocument, status: string): void {
+
+  cancelUpload(): void {
+    this.uploadDocument = null;
+    this.uploadFile.set(null);
+    this.uploadReason = '';
+  }
+
+  confirmUpload(): void {
+    const doc = this.uploadDocument;
+    const file = this.uploadFile();
+    if (!doc || !file || !this.uploadReason.trim()) return;
+
+    this.uploading.set(true);
+    this.api.uploadVersion(doc.id, file, this.uploadReason.trim()).subscribe({
+      next: () => {
+        this.actionMessage.set(`Nueva versión v${(doc.currentVersion || 1) + 1} almacenada con éxito.`);
+        this.loadVersions(doc);
+        this.loadDocuments();
+        this.uploading.set(false);
+        this.cancelUpload();
+      },
+      error: () => {
+        this.actionMessage.set('No se pudo almacenar la versión. Verifica el archivo.');
+        this.uploading.set(false);
+      },
+    });
+  }
+
+  download(doc: ApiDocument, version: ApiDocumentVersion): void {
+    this.api.downloadVersion(doc.id, version.id).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const link = window.document.createElement('a');
+        link.href = url;
+        link.download = version.fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => this.actionMessage.set('No se pudo descargar el archivo.'),
+    });
+  }
+
+  changeStatus(doc: ApiDocument, status: string): void {
     this.changingStatus.set(true);
     this.detailError.set('');
-    this.api.changeStatus(document.id, status).subscribe({
+    this.api.changeStatus(doc.id, status).subscribe({
       next: updated => {
         this.selectedDocument.set(updated);
-        this.apiDocuments.update(items => items.map(item => item.id === updated.id ? updated : item));
+        this.apiDocuments.update(items => items.map(item => (item.id === updated.id ? updated : item)));
         this.actionMessage.set(`Estado actualizado a ${this.statusLabel(updated.status)}.`);
         this.changingStatus.set(false);
       },
-      error: error => {
-        this.detailError.set(error?.error?.message || 'No se pudo actualizar el estado. Verifica los permisos y la transición.');
+      error: err => {
+        this.detailError.set(err?.error?.message || 'No se pudo actualizar el estado.');
         this.changingStatus.set(false);
       },
     });
@@ -582,7 +1060,7 @@ export class DocumentPage {
 
   toggleExportMenu(event?: Event): void {
     if (event) event.stopPropagation();
-    this.exportMenuOpen.update((open) => !open);
+    this.exportMenuOpen.update(v => !v);
   }
 
   closeExportMenu(): void {
@@ -591,69 +1069,89 @@ export class DocumentPage {
 
   exportDocuments(format: string): void {
     this.exportMenuOpen.set(false);
-    let docs = this.filteredDocuments();
-    if (!docs || docs.length === 0) {
-      docs = [
-        { id: '1', documentTypeId: 'CON', name: 'Contrato Marco de Servicios Cloud', code: 'CON-2026-001', status: 'APPROVED', currentVersion: 2, category: 'Legal', createdAt: '2026-01-15', updatedAt: '2026-01-15' },
-        { id: '2', documentTypeId: 'MAN', name: 'Manual de Operaciones y Seguridad', code: 'MAN-2026-042', status: 'IN_REVIEW', currentVersion: 1, category: 'Operaciones', createdAt: '2026-02-10', updatedAt: '2026-02-10' },
-        { id: '3', documentTypeId: 'POL', name: 'Política de Privacidad y SGDEA', code: 'POL-2026-005', status: 'APPROVED', currentVersion: 3, category: 'Calidad', createdAt: '2026-03-01', updatedAt: '2026-03-01' },
-      ];
-    }
-    const data = docs.map((doc) => ({
+    const docs = this.filteredDocuments();
+    const data = docs.map(doc => ({
       name: doc.name,
       code: doc.code,
       status: this.statusLabel(doc.status),
-      version: doc.currentVersion ?? 1,
-      documentType: doc.documentTypeId ?? '',
-      category: doc.category ?? '',
-      responsible: doc.responsibleUserName ?? '',
+      version: `v${doc.currentVersion || 1}`,
+      documentType: doc.documentTypeName || '',
+      category: doc.categoryName || '',
+      department: doc.departmentName || '',
+      specialty: doc.specialty || '',
+      responsible: doc.responsibleName || '',
       createdAt: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('es-ES') : '',
-      updatedAt: doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString('es-ES') : '',
-      description: doc.description ?? '',
     }));
 
     const cols: ExportColumn[] = [
-      { key: 'name', label: 'Nombre del documento' },
+      { key: 'name', label: 'Nombre' },
       { key: 'code', label: 'Código' },
       { key: 'status', label: 'Estado' },
       { key: 'version', label: 'Versión' },
-      { key: 'documentType', label: 'Tipo documental' },
+      { key: 'documentType', label: 'Tipo' },
+      { key: 'category', label: 'Categoría' },
+      { key: 'department', label: 'Servicio' },
+      { key: 'specialty', label: 'Especialidad' },
       { key: 'responsible', label: 'Responsable' },
-      { key: 'createdAt', label: 'Fecha creación' },
+      { key: 'createdAt', label: 'Fecha' },
     ];
 
     const filename = `catalogo-documentos-${new Date().toISOString().split('T')[0]}`;
     if (format === 'CSV' || format === 'Excel') exportToCsv(data, filename, cols);
     else if (format === 'JSON') exportToJson(data, filename);
-    else if (format === 'PDF') exportToPrintView('Catálogo de Documentos', 'Listado de documentos del tenant en NexoDocs', data, cols);
-    this.actionMessage.set(`Exportación de ${docs.length} documento(s) a ${format} completada exitosamente.`);
+    else if (format === 'PDF') exportToPrintView('Catálogo Documental', 'Listado de documentos NexoDocs', data, cols);
+    this.actionMessage.set(`Exportación de ${docs.length} documento(s) a ${format} completada.`);
   }
 
-  allowedStatusTransitions(document: ApiDocument): string[] {
-    return ({
-      DRAFT: ['PENDING', 'TRASHED'],
-      PENDING: ['IN_REVIEW', 'REJECTED'],
-      IN_REVIEW: ['APPROVED', 'REJECTED'],
-      REJECTED: ['DRAFT', 'TRASHED'],
-      APPROVED: ['CURRENT', 'ARCHIVED'],
-      CURRENT: ['ARCHIVED', 'VOIDED'],
-      ARCHIVED: ['CURRENT'],
-      VOIDED: [],
-      TRASHED: [],
-    } as Record<string, string[]>)[document.status] ?? [];
+  allowedStatusTransitions(doc: ApiDocument): string[] {
+    return (
+      ({
+        DRAFT: ['PENDING', 'TRASHED'],
+        PENDING: ['IN_REVIEW', 'REJECTED'],
+        IN_REVIEW: ['APPROVED', 'REJECTED', 'CORRECTED'],
+        REJECTED: ['CORRECTED', 'DRAFT', 'TRASHED'],
+        CORRECTED: ['IN_REVIEW', 'APPROVED', 'DRAFT'],
+        APPROVED: ['CURRENT', 'ARCHIVED'],
+        CURRENT: ['ARCHIVED', 'VOIDED'],
+        ARCHIVED: ['CURRENT'],
+        VOIDED: [],
+        TRASHED: [],
+      } as Record<string, string[]>)[doc.status] ?? []
+    );
   }
+
   statusLabel(status: string): string {
-    return ({
-      DRAFT: 'Borrador', PENDING: 'Pendiente', IN_REVIEW: 'En revisión',
-      APPROVED: 'Aprobado', CURRENT: 'Vigente', ARCHIVED: 'Archivado',
-      REJECTED: 'Rechazado', TRASHED: 'Papelera', VOIDED: 'Anulado',
-    } as Record<string, string>)[status] ?? status;
+    return (
+      ({
+        DRAFT: 'Borrador',
+        PENDING: 'Pendiente',
+        IN_REVIEW: 'En revisión',
+        APPROVED: 'Aprobado',
+        REJECTED: 'Rechazado',
+        CORRECTED: 'Corregido',
+        CURRENT: 'Vigente',
+        ARCHIVED: 'Archivado',
+        VOIDED: 'Anulado',
+        TRASHED: 'Papelera',
+      } as Record<string, string>)[status] ?? status
+    );
   }
+
+  formatBytes(bytes: number): string {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
   private fileValidationError(file: File | null): string {
     if (!file) return 'Selecciona un archivo.';
     if (file.size > 25 * 1024 * 1024) return 'El archivo supera el límite de 25 MB.';
     const allowed = new Set([
-      'application/pdf', 'image/jpeg', 'image/png',
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ]);
     return allowed.has(file.type) ? '' : 'Solo se admiten archivos PDF, JPEG, PNG o DOCX.';

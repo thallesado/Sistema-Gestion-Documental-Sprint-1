@@ -32,6 +32,19 @@ public class Document {
     @Column(name = "department_id")
     private UUID departmentId;
 
+    @Column(name = "patient_id")
+    private UUID patientId;
+
+    @Column(name = "specialty", length = 100)
+    private String specialty;
+
+    @Column(name = "institutional_process", length = 100)
+    private String institutionalProcess;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "metadata", nullable = false, columnDefinition = "jsonb")
+    private java.util.Map<String, Object> metadata = new java.util.HashMap<>();
+
     @Column(name = "code", nullable = false)
     private String code;
 
@@ -257,7 +270,39 @@ public class Document {
         this.updatedAt = updatedAt;
     }
 
+    public UUID getPatientId() {
+        return patientId;
+    }
+
+    public void setPatientId(UUID patientId) {
+        this.patientId = patientId;
+    }
+
+    public String getSpecialty() {
+        return specialty;
+    }
+
+    public void setSpecialty(String specialty) {
+        this.specialty = specialty;
+    }
+
+    public String getInstitutionalProcess() {
+        return institutionalProcess;
+    }
+
+    public void setInstitutionalProcess(String institutionalProcess) {
+        this.institutionalProcess = institutionalProcess;
+    }
+
+    public java.util.Map<String, Object> getMetadata() {
+        return metadata == null ? java.util.Map.of() : metadata;
+    }
+
+    public void setMetadata(java.util.Map<String, Object> metadata) {
+        this.metadata = metadata == null ? new java.util.HashMap<>() : metadata;
+    }
+
     public enum DocumentStatus {
-        DRAFT, PENDING, IN_REVIEW, APPROVED, REJECTED, CURRENT, ARCHIVED, VOIDED, TRASHED
+        DRAFT, PENDING, IN_REVIEW, APPROVED, REJECTED, CORRECTED, CURRENT, ARCHIVED, VOIDED, TRASHED
     }
 }
