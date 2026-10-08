@@ -87,3 +87,23 @@ export interface MedicalNoteRequest {
   status?: MedicalNoteStatus;
 }
 
+export interface ClinicalHistoryRevisionResponse {
+  id: string;
+  clinicalHistoryId: string;
+  revisionNumber: number;
+  authorId?: string;
+  authorName?: string;
+  createdAt: string;
+  changeSummary: string;
+  snapshotData: string;
+}
+
+export interface TimelineFilterCriteria {
+  dateFrom?: string;
+  dateTo?: string;
+  eventType?: string;
+  professionalId?: string;
+  specialty?: string;
+  episodeId?: string;
+}
+

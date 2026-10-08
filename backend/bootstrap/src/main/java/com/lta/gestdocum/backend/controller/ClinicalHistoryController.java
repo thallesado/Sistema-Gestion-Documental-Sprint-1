@@ -61,9 +61,24 @@ public class ClinicalHistoryController {
     @GetMapping("/{id}/timeline")
     @PreAuthorize("hasAuthority('patient:read')")
     @Operation(summary = "Consultar expediente en orden cronológico",
-            description = "Devuelve apertura y episodios ordenados por fecha descendente")
-    public ResponseEntity<List<TimelineEventResponse>> timeline(@PathVariable UUID id) {
-        return ResponseEntity.ok(service.timeline(id));
+            description = "Devuelve apertura, episodios, notas y documentos ordenados por fecha descendente con filtros avanzados")
+    public ResponseEntity<List<TimelineEventResponse>> timeline(
+            @PathVariable UUID id,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.OffsetDateTime dateFrom,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.OffsetDateTime dateTo,
+            @RequestParam(required = false) String eventType,
+            @RequestParam(required = false) UUID professionalId,
+            @RequestParam(required = false) String specialty,
+            @RequestParam(required = false) UUID episodeId) {
+        return ResponseEntity.ok(service.timeline(id, dateFrom, dateTo, eventType, professionalId, specialty, episodeId));
+    }
+
+    @GetMapping("/{id}/revisions")
+    @PreAuthorize("hasAnyAuthority('clinical_history:revision_read', 'patient:read')")
+    @Operation(summary = "Consultar revisiones históricas del expediente",
+            description = "Devuelve el historial inmutable de modificaciones y versiones de la historia clínica")
+    public ResponseEntity<List<com.lta.gestdocum.backend.dto.ClinicalHistoryRevisionResponse>> getRevisions(@PathVariable UUID id) {
+        return ResponseEntity.ok(service.getRevisions(id));
     }
 
     @PostMapping

@@ -13,4 +13,7 @@ public class TimelineEventResponse {
     String status;
     UUID referenceId;
     String description;
+    UUID episodeId;
+    UUID professionalId;
+    String specialty;
 }

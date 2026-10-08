@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalLinkedDocument } from '../../../core/api/clinical-api.service';
+import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalLinkedDocument, ClinicalHistoryRevisionItem } from '../../../core/api/clinical-api.service';
 import { DocumentApiService, MedicalNote, ApiDocument } from '../../../core/api/document-api.service';
 
 export interface SignosVitales {
@@ -301,6 +301,16 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                     style="border: 0; border-radius: 7px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s;"
                   >
                     Documentos ({{ linkedDocuments().length }})
+                  </button>
+                  <button
+                    type="button"
+                    (click)="activeTab.set('revisiones'); loadRevisions()"
+                    [style.background]="activeTab() === 'revisiones' ? '#087f7b' : 'transparent'"
+                    [style.color]="activeTab() === 'revisiones' ? '#ffffff' : '#334155'"
+                    [style.boxShadow]="activeTab() === 'revisiones' ? '0 2px 6px rgba(8, 127, 123, 0.25)' : 'none'"
+                    style="border: 0; border-radius: 7px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s;"
+                  >
+                    Revisiones ({{ historyRevisions().length }})
                   </button>
                 </div>
 
@@ -757,6 +767,65 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                         >
                           Desvincular
                         </button>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- CONTENIDO DE LA OPCIÓN 4: REVISIONES HISTÓRICAS DEL EXPEDIENTE -->
+            @if (activeTab() === 'revisiones') {
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                  <div>
+                    <h3 style="font-size: 13px; font-weight: 800; text-transform: uppercase; color: #087f7b; margin: 0; letter-spacing: 0.05em;">
+                      Historial de Versiones y Modificaciones ({{ historyRevisions().length }})
+                    </h3>
+                    <small style="color: #64748b; font-size: 11px;">
+                      Trazabilidad inmutable de cambios sobre antecedentes, alergias y diagnósticos.
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    (click)="loadRevisions()"
+                    style="background: #ffffff; color: #087f7b; border: 1px solid #c9dedb; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer;"
+                  >
+                    Refrescar
+                  </button>
+                </div>
+
+                @if (revisionsLoading()) {
+                  <div style="text-align: center; padding: 40px; color: #64748b; font-size: 13px;">
+                    Cargando historial de revisiones...
+                  </div>
+                } @else if (historyRevisions().length === 0) {
+                  <div style="text-align: center; padding: 48px 16px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; color: #64748b;">
+                    <strong style="font-size: 14px; display: block; margin-bottom: 4px; color: #334155;">Sin modificaciones registradas</strong>
+                    <span style="font-size: 12px;">El expediente clínico conserva su versión inicial o no ha sufrido actualizaciones posteriores.</span>
+                  </div>
+                } @else {
+                  <div style="display: flex; flex-direction: column; gap: 10px;">
+                    @for (rev of historyRevisions(); track rev.id) {
+                      <div style="padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="background: #087f7b; color: #ffffff; font-weight: 800; font-size: 11px; padding: 3px 8px; border-radius: 6px;">
+                              Revisión #{{ rev.revisionNumber }}
+                            </span>
+                            <strong style="color: #1e293b; font-size: 13px;">{{ rev.authorName || 'Profesional de salud' }}</strong>
+                          </div>
+                          <span style="color: #64748b; font-size: 11px;">
+                            {{ formatMedicalDate(rev.createdAt) }}
+                          </span>
+                        </div>
+                        <div style="color: #475569; font-size: 12px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #087f7b;">
+                          <strong>Detalle:</strong> {{ rev.changeSummary }}
+                        </div>
+                        <details style="font-size: 11px; color: #64748b; cursor: pointer;">
+                          <summary style="font-weight: 600; color: #087f7b;">Ver snapshot JSON previo</summary>
+                          <pre style="background: #f1f5f9; padding: 8px; border-radius: 6px; overflow-x: auto; margin-top: 6px; font-size: 11px; white-space: pre-wrap;">{{ rev.snapshotData }}</pre>
+                        </details>
                       </div>
                     }
                   </div>
@@ -1464,8 +1533,10 @@ export class HistoriaClinicaPage implements OnInit {
   readonly selectedPatientId = signal<string>('');
   readonly selectedPatient = signal<ApiPatient | null>(null);
 
-  // Tab activo en la esquina superior derecha: 'historial' | 'consultas' | 'documentos'
-  readonly activeTab = signal<'historial' | 'consultas' | 'documentos'>('historial');
+  // Tab activo en la esquina superior derecha: 'historial' | 'consultas' | 'documentos' | 'revisiones'
+  readonly activeTab = signal<'historial' | 'consultas' | 'documentos' | 'revisiones'>('historial');
+  readonly historyRevisions = signal<ClinicalHistoryRevisionItem[]>([]);
+  readonly revisionsLoading = signal<boolean>(false);
 
   // Baja justificada (HU-11)
   readonly showDeleteModal = signal<boolean>(false);
@@ -1612,11 +1683,13 @@ export class HistoriaClinicaPage implements OnInit {
           this.populateForm(hist);
           this.loadPatientConsultations(hist.id);
           this.loadLinkedDocuments(hist.id);
+          this.loadRevisions(hist.id);
         } else {
           this.currentHistory.set(null);
           this.resetFormFieldsKeepPatient(patientId);
           this.patientConsultations.set([]);
           this.linkedDocuments.set([]);
+          this.historyRevisions.set([]);
         }
       },
       error: () => {
@@ -1624,6 +1697,7 @@ export class HistoriaClinicaPage implements OnInit {
         this.currentHistory.set(null);
         this.patientConsultations.set([]);
         this.linkedDocuments.set([]);
+        this.historyRevisions.set([]);
       }
     });
   }
@@ -1727,6 +1801,7 @@ export class HistoriaClinicaPage implements OnInit {
           this.currentHistory.set(updated);
           this.successMessage.set(`Historia clínica ${updated.code} actualizada exitosamente.`);
           this.isSaving.set(false);
+          this.loadRevisions(updated.id);
         },
         error: (err: HttpErrorResponse) => {
           this.isSaving.set(false);
@@ -2023,6 +2098,24 @@ export class HistoriaClinicaPage implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         alert(err.error?.message || 'Error al desvincular el documento.');
+      }
+    });
+  }
+
+  loadRevisions(historyId?: string) {
+    const id = historyId || this.currentHistory()?.id;
+    if (!id) {
+      this.historyRevisions.set([]);
+      return;
+    }
+    this.revisionsLoading.set(true);
+    this.clinicalService.getRevisions(id).subscribe({
+      next: (revs) => {
+        this.revisionsLoading.set(false);
+        this.historyRevisions.set(revs || []);
+      },
+      error: () => {
+        this.revisionsLoading.set(false);
       }
     });
   }

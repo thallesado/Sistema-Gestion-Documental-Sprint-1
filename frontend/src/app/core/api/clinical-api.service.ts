@@ -50,6 +50,9 @@ export interface TimelineEvent {
   status: string | null;
   referenceId: string | null;
   description: string | null;
+  episodeId?: string | null;
+  professionalId?: string | null;
+  specialty?: string | null;
 }
 
 export interface ClinicalHistoryPayload {
@@ -151,8 +154,20 @@ export class ClinicalApiService {
     return this.http.put<ClinicalHistory>(`${API_URL}/clinical-histories/${id}`, payload);
   }
 
-  timeline(historyId: string): Observable<TimelineEvent[]> {
-    return this.http.get<TimelineEvent[]>(`${API_URL}/clinical-histories/${historyId}/timeline`);
+  timeline(historyId: string, filters?: { dateFrom?: string; dateTo?: string; eventType?: string; professionalId?: string; specialty?: string; episodeId?: string }): Observable<TimelineEvent[]> {
+    let params = new HttpParams();
+    if (filters?.dateFrom) params = params.set('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params = params.set('dateTo', filters.dateTo);
+    if (filters?.eventType) params = params.set('eventType', filters.eventType);
+    if (filters?.professionalId) params = params.set('professionalId', filters.professionalId);
+    if (filters?.specialty) params = params.set('specialty', filters.specialty);
+    if (filters?.episodeId) params = params.set('episodeId', filters.episodeId);
+
+    return this.http.get<TimelineEvent[]>(`${API_URL}/clinical-histories/${historyId}/timeline`, { params });
+  }
+
+  getRevisions(historyId: string): Observable<ClinicalHistoryRevisionItem[]> {
+    return this.http.get<ClinicalHistoryRevisionItem[]>(`${API_URL}/clinical-histories/${historyId}/revisions`);
   }
 
   notes(clinicalHistoryId: string, status?: MedicalNoteStatus, page = 0, size = 50): Observable<ApiPage<MedicalNoteItem>> {
@@ -194,6 +209,17 @@ export interface ClinicalLinkedDocument {
   status: string;
   currentVersion?: number;
   createdAt: string;
+}
+
+export interface ClinicalHistoryRevisionItem {
+  id: string;
+  clinicalHistoryId: string;
+  revisionNumber: number;
+  authorId?: string | null;
+  authorName?: string | null;
+  createdAt: string;
+  changeSummary: string;
+  snapshotData: string;
 }
 
 function normalizePatientPage(response: unknown): ApiPage<ApiPatient> {

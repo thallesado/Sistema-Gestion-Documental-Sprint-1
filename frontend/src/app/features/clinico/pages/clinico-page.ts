@@ -385,8 +385,22 @@ type TimelineItem = {
             <div class="panel-title">
               <div>
                 <h2 id="timeline-title">Línea cronológica</h2>
-                <p>HU-07 · eventos disponibles para este expediente.</p>
+                <p>HU-07 · Disponibilidad inmediata y eventos cronológicos del expediente.</p>
               </div>
+            </div>
+
+            <div class="timeline-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:10px;background:#f8fbfa;border:1px solid #dcebe8;border-radius:10px;align-items:center;">
+              <select [value]="timelineFilterEventType()" (change)="timelineFilterEventType.set($any($event.target).value); applyTimelineFilters()" style="padding:6px 10px;border-radius:6px;border:1px solid #dcebe8;background:#fff;font-size:12px;">
+                <option value="">Todos los eventos</option>
+                <option value="MEDICAL_NOTE">Notas médicas</option>
+                <option value="DOCUMENT">Documentos</option>
+                <option value="EPISODE">Episodios</option>
+              </select>
+              <input type="text" [value]="timelineFilterSpecialty()" (input)="timelineFilterSpecialty.set($any($event.target).value)" (keyup.enter)="applyTimelineFilters()" placeholder="Especialidad (ej. Cardiología)" style="padding:6px 10px;border-radius:6px;border:1px solid #dcebe8;background:#fff;font-size:12px;flex:1;min-width:140px;" />
+              <input type="date" [value]="timelineFilterDateFrom()" (change)="timelineFilterDateFrom.set($any($event.target).value); applyTimelineFilters()" title="Fecha desde" style="padding:6px 8px;border-radius:6px;border:1px solid #dcebe8;background:#fff;font-size:12px;" />
+              <input type="date" [value]="timelineFilterDateTo()" (change)="timelineFilterDateTo.set($any($event.target).value); applyTimelineFilters()" title="Fecha hasta" style="padding:6px 8px;border-radius:6px;border:1px solid #dcebe8;background:#fff;font-size:12px;" />
+              <button type="button" class="primary" (click)="applyTimelineFilters()" style="padding:6px 12px;font-size:12px;">Filtrar</button>
+              <button type="button" class="secondary" (click)="clearTimelineFilters()" style="padding:6px 12px;font-size:12px;">Limpiar</button>
             </div>
 
             @if (timelineLoading()) {
@@ -460,6 +474,10 @@ export class ClinicalPage {
   readonly history = signal<ClinicalHistory | null>(null);
   readonly quickSummary = signal<PatientQuickSummary | null>(null);
   readonly timeline = signal<TimelineItem[]>([]);
+  readonly timelineFilterEventType = signal('');
+  readonly timelineFilterSpecialty = signal('');
+  readonly timelineFilterDateFrom = signal('');
+  readonly timelineFilterDateTo = signal('');
   readonly medicalNotes = signal<MedicalNote[]>([]);
   readonly showNewPatient = signal(false);
 
@@ -746,10 +764,41 @@ export class ClinicalPage {
     });
   }
 
+  applyTimelineFilters(): void {
+    const hist = this.history();
+    const pat = this.selected();
+    if (pat && hist) {
+      this.loadTimeline(pat.id, hist.id, this.detailRequestId);
+    }
+  }
+
+  clearTimelineFilters(): void {
+    this.timelineFilterEventType.set('');
+    this.timelineFilterSpecialty.set('');
+    this.timelineFilterDateFrom.set('');
+    this.timelineFilterDateTo.set('');
+    this.applyTimelineFilters();
+  }
+
   private loadTimeline(patientId: string, historyId: string, requestId: number): void {
     this.timelineLoading.set(true);
     this.timelineError.set('');
-    this.api.timeline(historyId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    const filters: {
+      dateFrom?: string;
+      dateTo?: string;
+      eventType?: string;
+      specialty?: string;
+    } = {};
+    if (this.timelineFilterEventType()) filters.eventType = this.timelineFilterEventType();
+    if (this.timelineFilterSpecialty().trim()) filters.specialty = this.timelineFilterSpecialty().trim();
+    if (this.timelineFilterDateFrom()) filters.dateFrom = new Date(this.timelineFilterDateFrom()).toISOString();
+    if (this.timelineFilterDateTo()) {
+      const d = new Date(this.timelineFilterDateTo());
+      d.setHours(23, 59, 59, 999);
+      filters.dateTo = d.toISOString();
+    }
+
+    this.api.timeline(historyId, filters).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (events) => {
         if (!this.isCurrentDetail(patientId, requestId)) return;
         this.timeline.set(events.map((event) => this.mapTimeline(event)));
