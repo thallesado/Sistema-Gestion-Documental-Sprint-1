@@ -34,7 +34,7 @@ public class PatientController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('patient:read')")
+    @PreAuthorize("hasAuthority('patient:read') or hasAuthority('document:read') or hasAuthority('document:create')")
     @Operation(summary = "Listar pacientes", description = "Lista pacientes del tenant autenticado con filtro por nombre o documento")
     public ResponseEntity<Page<PatientResponse>> find(
             @RequestParam(required = false) String filter,

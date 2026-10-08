@@ -23,7 +23,9 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
         where d.tenantId = :tenantId and d.deletedAt is null
           and (lower(d.name) like lower(concat('%', :filter, '%'))
             or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
-            or lower(d.code) like lower(concat('%', :filter, '%')))
+            or lower(d.code) like lower(concat('%', :filter, '%'))
+            or lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%'))
+            or lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%')))
         """)
     Page<Document> searchByTenant(UUID tenantId, String filter, Pageable pageable);
 
@@ -32,7 +34,9 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
         where d.tenantId = :tenantId and d.deletedAt is null and d.status = :status
           and (lower(d.name) like lower(concat('%', :filter, '%'))
             or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
-            or lower(d.code) like lower(concat('%', :filter, '%')))
+            or lower(d.code) like lower(concat('%', :filter, '%'))
+            or lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%'))
+            or lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%')))
         """)
     Page<Document> searchByTenantAndStatus(UUID tenantId, String filter, Document.DocumentStatus status, Pageable pageable);
 
@@ -42,7 +46,9 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
           and (d.authorId = :userId or d.responsibleId = :userId)
           and (lower(d.name) like lower(concat('%', :filter, '%'))
             or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
-            or lower(d.code) like lower(concat('%', :filter, '%')))
+            or lower(d.code) like lower(concat('%', :filter, '%'))
+            or lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%'))
+            or lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%')))
         """)
     Page<Document> searchMine(UUID tenantId, UUID userId, String filter, Pageable pageable);
 
@@ -53,7 +59,9 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
           and d.status = :status
           and (lower(d.name) like lower(concat('%', :filter, '%'))
             or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
-            or lower(d.code) like lower(concat('%', :filter, '%')))
+            or lower(d.code) like lower(concat('%', :filter, '%'))
+            or lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%'))
+            or lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%')))
         """)
     Page<Document> searchMineAndStatus(UUID tenantId, UUID userId, String filter,
                                        Document.DocumentStatus status, Pageable pageable);

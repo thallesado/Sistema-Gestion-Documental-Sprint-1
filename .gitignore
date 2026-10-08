@@ -16,7 +16,9 @@ node_modules
 .angular/
 dist/
 backend/data/
+backend/bootstrap/data/
 data/storage/
+**/data/storage/
 .DS_Store
 
 # Local database dumps can contain private data.

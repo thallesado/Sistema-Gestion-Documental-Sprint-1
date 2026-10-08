@@ -37,7 +37,7 @@ public class DocumentTypeController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('configuration:read')")
+    @PreAuthorize("hasAuthority('configuration:read') or hasAuthority('document:read') or hasAuthority('document:create')")
     @Operation(summary = "Listar tipos documentales")
     public ResponseEntity<Page<DocumentTypeResponse>> find(
             @RequestParam(required = false) String filter,
@@ -47,7 +47,7 @@ public class DocumentTypeController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('configuration:read')")
+    @PreAuthorize("hasAuthority('configuration:read') or hasAuthority('document:read')")
     @Operation(summary = "Consultar tipo documental")
     public ResponseEntity<DocumentTypeResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(service.findById(id));

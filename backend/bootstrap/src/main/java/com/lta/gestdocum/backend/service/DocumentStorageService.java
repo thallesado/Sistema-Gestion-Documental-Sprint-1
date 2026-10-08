@@ -79,8 +79,8 @@ public class DocumentStorageService {
             version.setChecksumSha256(HexFormat.of().formatHex(digest.digest()));
             version.setCreatedAt(OffsetDateTime.now());
             versionRepository.saveAndFlush(version);
-            entityManager.refresh(version);
-            return toResponse(version);
+            DocumentVersion saved = versionRepository.findById(versionId).orElse(version);
+            return toResponse(saved);
         } catch (Exception exception) {
             try { Files.deleteIfExists(temporary); Files.deleteIfExists(target); } catch (Exception ignored) { }
             if (exception instanceof RuntimeException runtime) throw runtime;

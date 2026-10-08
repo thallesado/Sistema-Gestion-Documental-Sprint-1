@@ -57,6 +57,27 @@ public class DocumentController {
         return ResponseEntity.ok(service.findMine(filter, status, pageable));
     }
 
+    @GetMapping("/categories")
+    @PreAuthorize("hasAuthority('document:read')")
+    @Operation(summary = "Listar categorías documentales activas")
+    public ResponseEntity<java.util.List<com.lta.gestdocum.backend.model.DocumentCategory>> categories() {
+        return ResponseEntity.ok(service.categories());
+    }
+
+    @GetMapping("/specialties")
+    @PreAuthorize("hasAuthority('document:read')")
+    @Operation(summary = "Listar especialidades disponibles")
+    public ResponseEntity<java.util.List<String>> specialties() {
+        return ResponseEntity.ok(service.specialties());
+    }
+
+    @GetMapping("/processes")
+    @PreAuthorize("hasAuthority('document:read')")
+    @Operation(summary = "Listar procesos institucionales disponibles")
+    public ResponseEntity<java.util.List<String>> processes() {
+        return ResponseEntity.ok(service.processes());
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('document:read')")
     public ResponseEntity<DocumentResponse> findById(@PathVariable UUID id) {
