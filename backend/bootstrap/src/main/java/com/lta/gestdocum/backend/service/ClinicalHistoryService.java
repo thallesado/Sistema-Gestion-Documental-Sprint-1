@@ -441,6 +441,10 @@ public class ClinicalHistoryService {
                 document.getAuthorId(),
                 document.getResponsibleId(),
                 document.getDepartmentId(),
+                document.getPatientId(),
+                document.getSpecialty(),
+                document.getInstitutionalProcess(),
+                document.getMetadata(),
                 document.getCode(),
                 document.getName(),
                 document.getDescription(),
@@ -451,7 +455,15 @@ public class ClinicalHistoryService {
                 document.getIsExternalSource(),
                 document.getSource(),
                 document.getCreatedAt(),
-                document.getUpdatedAt()
+                document.getUpdatedAt(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 
