@@ -15,6 +15,7 @@ import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
 import com.lta.gestdocum.backend.support.CrudTextSupport;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +39,7 @@ public class ClinicalHistoryService {
     private final UserRepository userRepository;
     private final ClinicalStaffRepository clinicalStaffRepository;
     private final ObjectMapper objectMapper;
-
+    @Autowired
     public ClinicalHistoryService(
             ClinicalHistoryRepository repository,
             PatientService patientService,
