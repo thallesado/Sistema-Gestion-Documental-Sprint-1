@@ -32,7 +32,7 @@ export interface CreateExpedientPayload {
   code: string;
   name: string;
   description?: string;
-  metadata: Record<string, never>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ApiExpedientType {
@@ -50,6 +50,8 @@ export interface ApiResponsible {
   id: string;
   firstName: string;
   lastName: string;
+  staffType?: string | null;
+  roleNames?: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -72,6 +74,10 @@ export class ExpedientApiService {
     return this.http.get<unknown>(`${API_URL}/expedient-types`, { params: new HttpParams().set('size', 100) }).pipe(
       map((response) => catalogContent(response, isApiExpedientType)),
     );
+  }
+
+  createExpedientType(name: string): Observable<ApiExpedientType> {
+    return this.http.post<ApiExpedientType>(`${API_URL}/expedient-types`, { name });
   }
 
   departments(): Observable<ApiDepartment[]> {

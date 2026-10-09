@@ -6,6 +6,7 @@ import { clinicoRoutes } from '../../features/clinico/clinico.routes';
 import { administracionRoutes } from '../../features/users/users.routes';
 import { documentosRoutes } from '../../features/documentos/documentos.routes';
 import { expedientesRoutes } from '../../features/expedientes/expedientes.routes';
+import { workflowsRoutes } from '../../features/workflows/workflows.routes';
 
 const clinicalPaths = new Set([
   'expedients/clinical',
@@ -19,7 +20,7 @@ const documentPaths = new Set(['documents', 'documents/mine', 'documents/shared'
 const expedientPaths = new Set(['expedientes', 'expedients', 'expedientes/new', 'expedientes/active', 'expedientes/closed', 'expedientes/archived']);
 
 const dynamicCatalogRoutes: Routes = navigationRoutes
-  .filter((route) => !clinicalPaths.has(route.href.slice(1)) && !documentPaths.has(route.href.slice(1)) && !expedientPaths.has(route.href.slice(1)))
+  .filter((route) => route.module !== 'Workflows' && !clinicalPaths.has(route.href.slice(1)) && !documentPaths.has(route.href.slice(1)) && !expedientPaths.has(route.href.slice(1)))
   .map((route) => ({
     path: route.href === '/' ? '' : route.href.slice(1),
     loadComponent: () => {
@@ -42,6 +43,7 @@ export const routes: Routes = [
   ...administracionRoutes,
   ...documentosRoutes,
   ...expedientesRoutes,
+  ...workflowsRoutes,
   ...dynamicCatalogRoutes,
   {
     path: '**',

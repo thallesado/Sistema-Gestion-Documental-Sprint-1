@@ -145,6 +145,8 @@ no lo concedas al backend ni a personas.
 | init/015_acme_superadmin_demo_users.sql | Usuarios demo de Acme para probar superadministración y permisos por rol. |
 | init/016_finocode_tenant_name.sql | Renombra el tenant demo a FinoCode y ajusta datos asociados. |
 | init/017_revoked_access_tokens.sql | Revocación persistente de access tokens (tabla `revoked_access_tokens` con hash SHA-256, sin RLS por diseño para que el filtro de seguridad la consulte antes de establecer contexto). |
+| init/030_workflow_approvals_deadlines.sql | Aprobaciones, checklist normalizado, auditoría compartida, códigos legibles y notificaciones/job SLA. |
+| init/031_workflow_status_rules.sql | Reglas configurables de estado documental, guardadas también en la instancia del workflow. |
 | migrate.ps1 | Respaldo y aplicación al servicio local existente. |
 | tests/validate.sql | Regresión de integridad, aislamiento y autorización con rollback. |
 | tests/run.ps1 | Inicialización, upgrade, errores, login real y concurrencia en Docker temporal. |

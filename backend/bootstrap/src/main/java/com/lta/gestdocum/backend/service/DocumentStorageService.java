@@ -6,7 +6,6 @@ import com.lta.gestdocum.backend.model.DocumentVersion;
 import com.lta.gestdocum.backend.repository.DocumentRepository;
 import com.lta.gestdocum.backend.repository.DocumentVersionRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
-import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -34,18 +33,15 @@ public class DocumentStorageService {
     private final DocumentRepository documentRepository;
     private final DocumentVersionRepository versionRepository;
     private final AuthenticatedUserContext context;
-    private final EntityManager entityManager;
 
     public DocumentStorageService(@Value("${app.storage.local-path:./data/storage}") String storagePath,
                                   DocumentRepository documentRepository,
                                   DocumentVersionRepository versionRepository,
-                                  AuthenticatedUserContext context,
-                                  EntityManager entityManager) {
+                                  AuthenticatedUserContext context) {
         this.storageRoot = Path.of(storagePath).toAbsolutePath().normalize();
         this.documentRepository = documentRepository;
         this.versionRepository = versionRepository;
         this.context = context;
-        this.entityManager = entityManager;
     }
 
     @Transactional

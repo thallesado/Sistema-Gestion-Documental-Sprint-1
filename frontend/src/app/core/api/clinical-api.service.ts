@@ -141,6 +141,12 @@ export class ClinicalApiService {
     );
   }
 
+  updatePatientStatus(id: string, status: 'ACTIVE' | 'INACTIVE'): Observable<ApiPatient> {
+    return this.http.patch<unknown>(`${API_URL}/patients/${id}/status`, { status }).pipe(
+      map((response) => normalizePatient(response)),
+    );
+  }
+
   histories(patientId: string): Observable<{ content: ClinicalHistory[]; totalElements: number }> {
     const params = new HttpParams().set('patientId', patientId).set('page', 0).set('size', 20);
     return this.http.get<{ content: ClinicalHistory[]; totalElements: number }>(`${API_URL}/clinical-histories`, { params });

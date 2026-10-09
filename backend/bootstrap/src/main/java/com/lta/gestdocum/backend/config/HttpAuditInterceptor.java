@@ -23,6 +23,7 @@ public class HttpAuditInterceptor implements HandlerInterceptor {
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
                                 Object handler, Exception exception) {
+        if (!shouldRecord(request.getMethod(), request.getRequestURI())) return;
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUser user)) return;
         try {
@@ -35,5 +36,15 @@ public class HttpAuditInterceptor implements HandlerInterceptor {
                     request.getMethod(), request.getRequestURI(), response.getStatus(),
                     auditException.getClass().getSimpleName());
         }
+    }
+
+    private boolean shouldRecord(String method, String path) {
+        String normalizedPath = path == null ? "" : path.toLowerCase(java.util.Locale.ROOT);
+        if ("POST".equalsIgnoreCase(method) && normalizedPath.endsWith("/validate")) return false;
+        if ("POST".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method)
+                || "PATCH".equalsIgnoreCase(method) || "DELETE".equalsIgnoreCase(method)) return true;
+        if (!"GET".equalsIgnoreCase(method)) return false;
+        return normalizedPath.contains("/download") || normalizedPath.contains("/export")
+                || normalizedPath.endsWith("/file") || normalizedPath.endsWith("/content");
     }
 }

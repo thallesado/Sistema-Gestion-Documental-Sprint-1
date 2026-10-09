@@ -1,9 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
 import { ApiDepartment, ApiExpedient, ApiExpedientType, ApiResponsible, ExpedientApiService } from '../../../core/api/expedient-api.service';
+import { ApiPatient, ClinicalApiService } from '../../../core/api/clinical-api.service';
+import { WorkflowApi } from '../../workflows/workflow-api.service';
+import { WorkflowStart } from '../../workflows/components/workflow-start';
+import { AuthService } from '../../../core/auth/auth.service';
 
 type ExpedientView = 'all' | 'active' | 'closed' | 'archived' | 'new';
 type ExpedientForm = {
@@ -21,12 +26,14 @@ type ExpedientItem = {
   date: string;
   status: string;
   area: string;
+  record: ApiExpedient;
 };
+type ExpedientParticipant = { key: string; source: 'USER' | 'PATIENT' | 'CUSTOM'; sourceId?: string; name: string; role: string };
 
 @Component({
   selector: 'app-expedients-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, WorkflowStart],
   templateUrl: './expedientes-page.html',
   styleUrl: './expedientes-page.css',
 })
@@ -34,6 +41,13 @@ export class ExpedientsPage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(ExpedientApiService);
+  private readonly clinicalApi = inject(ClinicalApiService);
+  private readonly workflowApi = inject(WorkflowApi);
+  private readonly auth = inject(AuthService);
+  readonly workflowStartExpedient = signal<any>(null);
+  readonly workflowOptions = signal<any>({users:[],roles:[],departments:[]});
+  readonly loadingWorkflowOptions = signal(false);
+  readonly expedientWorkflows = signal<any[]>([]);
   readonly view = (this.route.snapshot.data['expedientView'] ?? 'all') as ExpedientView;
   readonly search = signal('');
   readonly area = signal('');
@@ -49,6 +63,16 @@ export class ExpedientsPage {
   readonly expedientTypes = signal<ApiExpedientType[]>([]);
   readonly departments = signal<ApiDepartment[]>([]);
   readonly responsibleUsers = signal<ApiResponsible[]>([]);
+  readonly patients = signal<ApiPatient[]>([]);
+  readonly participants = signal<ExpedientParticipant[]>([]);
+  participantSource: 'USER' | 'PATIENT' | 'CUSTOM' = 'USER';
+  participantUserId = '';
+  participantPatientId = '';
+  participantName = '';
+  participantRole = 'EXTERNO';
+  newExpedientTypeName = '';
+  showExpedientTypeForm = false;
+  readonly creatingExpedientType = signal(false);
   readonly loadingFormOptions = signal(false);
   readonly activeCount = computed(() => this.expedients().filter((item) => item.status === 'Activo').length);
   readonly areas = ['General'];
@@ -89,8 +113,9 @@ export class ExpedientsPage {
     this.searchTimer = setTimeout(() => this.loadExpedients(), 300);
   }
   setArea(event: Event): void { this.area.set((event.target as HTMLSelectElement).value); }
-  choose(item: ExpedientItem): void { this.selected.set(item); }
-  closeDetail(): void { this.selected.set(null); }
+  choose(item: ExpedientItem): void { this.selected.set(item);this.workflowApi.page('',{expedientId:item.id,size:20}).subscribe({next:p=>this.expedientWorkflows.set(p.content),error:()=>this.expedientWorkflows.set([])}); }
+  closeDetail(): void { this.selected.set(null);this.expedientWorkflows.set([]); }
+  openWorkflow(flow:any):void{void this.router.navigate(['/workflows'],{queryParams:{workflow:flow.id}});}
   nextStep(): void { if (this.step() < 3) this.step.update((value) => value + 1); }
   previousStep(): void { if (this.step() > 1) this.step.update((value) => value - 1); }
   saveExpedient(): void {
@@ -108,7 +133,7 @@ export class ExpedientsPage {
       code: form.code.trim(),
       name: form.name.trim(),
       description: form.description.trim() || undefined,
-      metadata: {},
+      metadata: { participants: this.participants().map(({ key: _key, ...participant }) => participant) },
     }).subscribe({
       next: () => {
         this.saving.set(false);
@@ -130,6 +155,24 @@ export class ExpedientsPage {
   }
   icon(item: ExpedientItem): string { return '⚕'; }
   goTo(path: string): void { void this.router.navigateByUrl(path); }
+  canStartWorkflow():boolean { try {const token=this.auth.accessToken();return !!token&&JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).authorities?.includes('workflow:start');}catch{return false;} }
+  canManageExpedientTypes():boolean {try{const token=this.auth.accessToken();return !!token&&JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).authorities?.includes('expedient_type:create');}catch{return false;}}
+  createExpedientType():void {const name=this.newExpedientTypeName.trim();if(!name||!this.canManageExpedientTypes())return;this.creatingExpedientType.set(true);this.api.createExpedientType(name).subscribe({next:type=>{this.expedientTypes.update(types=>[...types,type].sort((a,b)=>a.name.localeCompare(b.name,'es')));this.form.update(current=>({...current,expedientTypeId:type.id}));this.newExpedientTypeName='';this.showExpedientTypeForm=false;this.creatingExpedientType.set(false);},error:error=>{this.creatingExpedientType.set(false);this.apiError.set(error?.error?.message||'No se pudo crear el tipo de expediente.');}});}
+  addParticipant():void {
+    let participant:ExpedientParticipant|undefined;
+    if(this.participantSource==='USER') {const user=this.responsibleUsers().find(item=>item.id===this.participantUserId);if(user)participant={key:'USER:'+user.id,source:'USER',sourceId:user.id,name:`${user.firstName} ${user.lastName}`.trim(),role:this.userParticipantRole(user)};}
+    else if(this.participantSource==='PATIENT') {const patient=this.patients().find(item=>item.id===this.participantPatientId);if(patient)participant={key:'PATIENT:'+patient.id,source:'PATIENT',sourceId:patient.id,name:`${patient.firstName} ${patient.lastName}`.trim(),role:'Paciente'};}
+    else {const name=this.participantName.trim();if(name)participant={key:'CUSTOM:'+name.toLocaleLowerCase(),source:'CUSTOM',name,role:this.participantRoleLabel(this.participantRole)};}
+    if(!participant)return;
+    if(this.participants().some(item=>item.key===participant!.key)){this.apiError.set('Esa persona ya fue agregada.');return;}
+    this.apiError.set('');this.participants.update(items=>[...items,participant!]);this.participantUserId='';this.participantPatientId='';this.participantName='';
+  }
+  removeParticipant(key:string):void {this.participants.update(items=>items.filter(item=>item.key!==key));}
+  userParticipantRole(user:ApiResponsible):string {if(user.staffType)return this.participantRoleLabel(user.staffType);return user.roleNames?.[0]||'Usuario del tenant';}
+  participantRoleLabel(role:string):string {return ({DOCTOR:'Médico',MEDICO:'Médico',PHYSICIAN:'Médico',NURSE:'Enfermería',ENFERMERO:'Enfermería',ADMINISTRATIVE:'Administrativo',ADMINISTRATIVO:'Administrativo',DIAGNOSTIC_TECH:'Técnico de diagnóstico',PATIENT:'Paciente',PACIENTE:'Paciente',EXTERNAL:'Externo',EXTERNO:'Externo'} as Record<string,string>)[role.toUpperCase()]||role;}
+  participantInitials(name:string):string {return name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('')||'·';}
+  openWorkflowStart(item:ExpedientItem):void {if(this.loadingWorkflowOptions())return;this.apiError.set('');this.loadingWorkflowOptions.set(true);this.workflowApi.get('/options').subscribe({next:options=>{this.workflowOptions.set(options);this.loadingWorkflowOptions.set(false);this.workflowStartExpedient.set(item.record);},error:error=>{this.loadingWorkflowOptions.set(false);this.apiError.set(error?.error?.message||'No se pudieron cargar los datos para iniciar el workflow.');}});}
+  workflowStarted(flow:any):void {this.workflowStartExpedient.set(null);this.selected.set(null);void this.router.navigate(['/workflows'],{queryParams:{workflow:flow.id}});}
 
   loadExpedients(): void {
     this.loading.set(true);
@@ -176,6 +219,7 @@ export class ExpedientsPage {
         this.expedientTypes.set(types);
         this.departments.set(departments);
         this.responsibleUsers.set(responsibleUsers);
+        this.clinicalApi.patients('',0,100).subscribe({next:page=>this.patients.set(page.content),error:()=>this.patients.set([])});
         this.loadingFormOptions.set(false);
       },
       error: (error: unknown) => {
@@ -188,6 +232,7 @@ export class ExpedientsPage {
   private toExpedient(expedient: ApiExpedient): ExpedientItem {
     return {
       id: expedient.id,
+      record: expedient,
       title: `${expedient.code} - ${expedient.name}`,
       meta: expedient.description || 'Sin descripción',
       date: this.displayDate(expedient.updatedAt || expedient.createdAt),

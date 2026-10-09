@@ -126,7 +126,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Workflows',
         icon: 'WF',
-        sprintEnabled: false,
+        sprintEnabled: true,
         children: [
           { label: 'Todos los workflows', href: '/workflows' },
           { label: 'Mis tareas', href: '/workflows/tasks' },

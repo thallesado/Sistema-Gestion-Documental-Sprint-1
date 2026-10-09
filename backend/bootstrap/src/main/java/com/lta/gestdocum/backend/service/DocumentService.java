@@ -8,7 +8,6 @@ import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.model.Document;
 import com.lta.gestdocum.backend.model.DocumentCategory;
 import com.lta.gestdocum.backend.model.DocumentType;
-import com.lta.gestdocum.backend.model.Patient;
 import com.lta.gestdocum.backend.model.TenantDepartment;
 import com.lta.gestdocum.backend.model.User;
 import com.lta.gestdocum.backend.repository.DocumentCategoryRepository;
@@ -123,6 +122,9 @@ public class DocumentService {
     public DocumentResponse changeStatus(UUID id, DocumentStatusRequest request) {
         userContext.establishDatabaseContext();
         Document document = getForTenant(id);
+        if (repository.hasActiveWorkflow(document.getTenantId(), id)) {
+            throw new IllegalStateException("El estado de este documento lo controla un workflow activo. Resuelve su tarea o cancela el flujo antes de cambiarlo manualmente.");
+        }
         if (!isAllowedTransition(document.getStatus(), request.status())) {
             throw new IllegalArgumentException("Transición documental no permitida: "
                     + document.getStatus() + " -> " + request.status());

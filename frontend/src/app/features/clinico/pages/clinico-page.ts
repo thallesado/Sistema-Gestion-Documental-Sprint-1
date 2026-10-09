@@ -220,15 +220,22 @@ type TimelineItem = {
       }
 
       @if (selected(); as patient) {
-        <section class="detail-grid">
+        <section id="patient-clinical-detail" class="detail-grid">
           <article class="panel patient-detail">
             <div class="panel-title">
               <div>
                 <h2>{{ patientLabel(patient) }}</h2>
                 <p>{{ patientDocument(patient) }} · {{ patientStatus(patient) }}</p>
               </div>
-              <span class="badge">Expediente único</span>
+              <div class="patient-actions">
+                <span class="badge" [class.inactive]="patient.status === 'INACTIVE'">{{ patientStatus(patient) }}</span>
+                <button class="secondary status-action" type="button" [disabled]="updatingPatientStatus()" (click)="togglePatientStatus(patient)">
+                  {{ updatingPatientStatus() ? 'Actualizando…' : patient.status === 'INACTIVE' ? 'Dar de alta' : 'Dar de baja' }}
+                </button>
+              </div>
             </div>
+            @if (patientStatusError()) { <div class="state error" role="alert">{{ patientStatusError() }}</div> }
+            @if (patientStatusMessage()) { <p class="success" role="status">{{ patientStatusMessage() }}</p> }
             <dl class="data">
               <div><dt>Fecha de nacimiento</dt><dd>{{ patient.birthDate ? (patient.birthDate | date:'dd/MM/yyyy') : '—' }}</dd></div>
               <div><dt>Teléfono</dt><dd>{{ patient.phone || '—' }}</dd></div>
@@ -433,7 +440,7 @@ type TimelineItem = {
     </section>
   `,
   styles: [`
-    .clinical-page{max-width:1440px;margin:auto;padding:30px 36px 48px}.clinical-header{display:flex;gap:14px;align-items:center;margin-bottom:22px}.clinical-icon{background:#dff7f3;border-radius:14px;padding:15px;font-size:25px}.eyebrow{color:#087f7b;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.clinical-header h1{margin:5px 0;color:#153a39;font-size:34px;letter-spacing:-.04em}.clinical-header p:last-child{color:#6b8583;font-size:13px}.panel{background:#fff;border:1px solid #dcebe8;border-radius:16px;padding:20px;margin-bottom:18px}.panel-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}.panel h2{font-size:16px;margin:0 0 4px;color:#153a39}.panel h3{font-size:12px;color:#153a39;margin:0 0 9px}.panel-title p{font-size:11px;color:#6b8583;margin:0}.primary,.secondary{border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}.primary{background:#087f7b;color:#fff;border:0}.secondary{background:#fff;border:1px solid #9dd8d1;color:#087f7b}.primary:disabled{opacity:.55;cursor:not-allowed}.search-bar{display:flex;align-items:center;background:#f8fbfa;border:1px solid #dcebe8;border-radius:11px;padding:0 12px}.search-bar input{border:0;background:transparent;outline:0;height:44px;width:100%;padding-left:10px}.patient-list{display:grid;gap:3px;margin-top:12px}.patient-row{display:flex;align-items:center;gap:12px;text-align:left;background:transparent;border:1px solid transparent;border-radius:10px;padding:10px;cursor:pointer;color:#153a39}.patient-row:hover,.patient-row:focus-visible,.patient-row.selected{background:#dff7f3;border-color:#bfeae5}.avatar{background:#d5f5f1;color:#087f7b;border-radius:50%;height:38px;width:38px;display:grid;place-items:center;font-weight:800}.patient-info{display:grid;gap:4px;flex:1}.patient-info small,.empty{color:#6b8583;font-size:11px}.inline-state{color:#356d9e;font-size:11px;padding:10px 0}.state{background:#eef7ff;border:1px solid #cfe3f5;border-radius:10px;color:#356d9e;padding:12px;margin-bottom:15px;display:flex;gap:10px;flex-wrap:wrap}.state.error{background:#fff4f3;border-color:#f3d2d0;color:#a65050}.state.warning{background:#fff8e8;border-color:#f3e1b6;color:#8b671c}.state button{border:0;background:transparent;text-decoration:underline;color:inherit;cursor:pointer;padding:0}.success{color:#087f7b;font-size:11px;font-weight:700}.detail-grid{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(360px,1.2fr);gap:18px}.quick-summary-panel,.timeline-panel{grid-column:1/-1}.badge{background:#dff7f3;color:#087f7b;border-radius:99px;padding:5px 9px;font-size:10px;font-weight:800}.data{display:grid;grid-template-columns:1fr 1fr;gap:12px}.data dt{font-size:10px;color:#6b8583;text-transform:uppercase;font-weight:800}.data dd{margin:4px 0;color:#153a39;font-size:12px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px}.form-grid label{display:grid;gap:5px;font-size:11px;color:#6b8583;font-weight:800}.form-grid input,.form-grid select,.form-grid textarea{border:1px solid #dcebe8;border-radius:8px;padding:9px;color:#153a39;min-width:0;background:#fff}.form-grid input:disabled{background:#f3f7f6;color:#6b8583}.form-grid textarea{min-height:70px;resize:vertical}.form-grid .wide{grid-column:1/-1}.summary{display:grid;gap:5px;background:#f8fbfa;border-radius:9px;padding:11px;margin-bottom:15px;font-size:11px;color:#6b8583}.quick-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.quick-summary-grid section{background:#f8fbfa;border-radius:10px;padding:12px}.quick-item{display:grid;gap:4px;padding:9px 0;border-bottom:1px solid #e4efed;font-size:11px;color:#6b8583}.quick-item:last-child{border-bottom:0;padding-bottom:0}.quick-item b{color:#153a39}.multiline{white-space:pre-line}.timeline{display:grid;gap:0}.event{display:flex;gap:13px;border-bottom:1px solid #edf3f1;padding:10px 0}.event i{width:11px;height:11px;border-radius:50%;background:#087f7b;margin-top:4px;flex:0 0 auto}.event div{display:grid;gap:4px}.event time,.event small{color:#6b8583;font-size:10px}.event p{margin:0;color:#466765;font-size:11px}.event b{font-size:13px}@media(max-width:800px){.clinical-page{padding:22px 16px}.detail-grid{grid-template-columns:1fr}.quick-summary-panel,.timeline-panel{grid-column:auto}.form-grid,.data,.quick-summary-grid{grid-template-columns:1fr}.clinical-header{align-items:flex-start}.panel-title{align-items:flex-start;flex-direction:column}}
+    .clinical-page{max-width:1440px;margin:auto;padding:30px 36px 48px}.clinical-header{display:flex;gap:14px;align-items:center;margin-bottom:22px}.clinical-icon{background:#dff7f3;border-radius:14px;padding:15px;font-size:25px}.eyebrow{color:#087f7b;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.clinical-header h1{margin:5px 0;color:#153a39;font-size:34px;letter-spacing:-.04em}.clinical-header p:last-child{color:#6b8583;font-size:13px}.panel{background:#fff;border:1px solid #dcebe8;border-radius:16px;padding:20px;margin-bottom:18px}.panel-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}.panel h2{font-size:16px;margin:0 0 4px;color:#153a39}.panel h3{font-size:12px;color:#153a39;margin:0 0 9px}.panel-title p{font-size:11px;color:#6b8583;margin:0}.primary,.secondary{border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}.primary{background:#087f7b;color:#fff;border:0}.secondary{background:#fff;border:1px solid #9dd8d1;color:#087f7b}.primary:disabled,.secondary:disabled{opacity:.55;cursor:not-allowed}.search-bar{display:flex;align-items:center;background:#f8fbfa;border:1px solid #dcebe8;border-radius:11px;padding:0 12px}.search-bar input{border:0;background:transparent;outline:0;height:44px;width:100%;padding-left:10px}.patient-list{display:grid;gap:3px;margin-top:12px;max-height:360px;overflow:auto;scrollbar-gutter:stable}.patient-row{display:flex;align-items:center;gap:12px;text-align:left;background:transparent;border:1px solid transparent;border-radius:10px;padding:10px;cursor:pointer;color:#153a39}.patient-row:hover,.patient-row:focus-visible,.patient-row.selected{background:#dff7f3;border-color:#bfeae5}.avatar{background:#d5f5f1;color:#087f7b;border-radius:50%;height:38px;width:38px;display:grid;place-items:center;font-weight:800}.patient-info{display:grid;gap:4px;flex:1}.patient-info small,.empty{color:#6b8583;font-size:11px}.inline-state{color:#356d9e;font-size:11px;padding:10px 0}.state{background:#eef7ff;border:1px solid #cfe3f5;border-radius:10px;color:#356d9e;padding:12px;margin-bottom:15px;display:flex;gap:10px;flex-wrap:wrap}.state.error{background:#fff4f3;border-color:#f3d2d0;color:#a65050}.state.warning{background:#fff8e8;border-color:#f3e1b6;color:#8b671c}.state button{border:0;background:transparent;text-decoration:underline;color:inherit;cursor:pointer;padding:0}.success{color:#087f7b;font-size:11px;font-weight:700}.detail-grid{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(360px,1.2fr);gap:18px;scroll-margin-top:20px}.quick-summary-panel,.timeline-panel{grid-column:1/-1}.badge{background:#dff7f3;color:#087f7b;border-radius:99px;padding:5px 9px;font-size:10px;font-weight:800}.badge.inactive{background:#f1f5f9;color:#64748b}.patient-actions{display:flex;align-items:center;gap:8px}.status-action{padding:7px 10px;font-size:10px}.data{display:grid;grid-template-columns:1fr 1fr;gap:12px}.data dt{font-size:10px;color:#6b8583;text-transform:uppercase;font-weight:800}.data dd{margin:4px 0;color:#153a39;font-size:12px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px}.form-grid label{display:grid;gap:5px;font-size:11px;color:#6b8583;font-weight:800}.form-grid input,.form-grid select,.form-grid textarea{border:1px solid #dcebe8;border-radius:8px;padding:9px;color:#153a39;min-width:0;background:#fff}.form-grid input:disabled{background:#f3f7f6;color:#6b8583}.form-grid textarea{min-height:70px;resize:vertical}.form-grid .wide{grid-column:1/-1}.summary{display:grid;gap:5px;background:#f8fbfa;border-radius:9px;padding:11px;margin-bottom:15px;font-size:11px;color:#6b8583}.quick-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.quick-summary-grid section{background:#f8fbfa;border-radius:10px;padding:12px}.quick-item{display:grid;gap:4px;padding:9px 0;border-bottom:1px solid #e4efed;font-size:11px;color:#6b8583}.quick-item:last-child{border-bottom:0;padding-bottom:0}.quick-item b{color:#153a39}.multiline{white-space:pre-line}.timeline{display:grid;gap:0}.event{display:flex;gap:13px;border-bottom:1px solid #edf3f1;padding:10px 0}.event i{width:11px;height:11px;border-radius:50%;background:#087f7b;margin-top:4px;flex:0 0 auto}.event div{display:grid;gap:4px}.event time,.event small{color:#6b8583;font-size:10px}.event p{margin:0;color:#466765;font-size:11px}.event b{font-size:13px}@media(max-width:800px){.clinical-page{padding:22px 16px}.detail-grid{grid-template-columns:1fr}.quick-summary-panel,.timeline-panel{grid-column:auto}.form-grid,.data,.quick-summary-grid{grid-template-columns:1fr}.clinical-header{align-items:flex-start}.panel-title{align-items:flex-start;flex-direction:column}.patient-actions{align-items:flex-end;flex-direction:column}}
   `],
 })
 export class ClinicalPage {
@@ -467,6 +474,8 @@ export class ClinicalPage {
   readonly notesError = signal('');
   readonly noteError = signal('');
   readonly noteMessage = signal('');
+  readonly patientStatusError = signal('');
+  readonly patientStatusMessage = signal('');
 
   readonly searchTerm = signal('');
   readonly patients = signal<ApiPatient[]>([]);
@@ -480,6 +489,7 @@ export class ClinicalPage {
   readonly timelineFilterDateTo = signal('');
   readonly medicalNotes = signal<MedicalNote[]>([]);
   readonly showNewPatient = signal(false);
+  readonly updatingPatientStatus = signal(false);
 
   readonly newDocumentType = signal('CI');
   readonly newDocument = signal('');
@@ -539,12 +549,34 @@ export class ClinicalPage {
     this.showNewPatient.update((isVisible) => !isVisible);
     this.patientFormError.set('');
     this.patientFormMessage.set('');
+    if (this.showNewPatient()) setTimeout(() => document.getElementById('patient-registration')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
   select(patient: ApiPatient): void {
     this.selected.set(patient);
     this.resetPatientDetails();
     this.loadPatientDetails(patient.id);
+    setTimeout(() => document.getElementById('patient-clinical-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+
+  togglePatientStatus(patient: ApiPatient): void {
+    if (this.updatingPatientStatus()) return;
+    const nextStatus = patient.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE';
+    this.updatingPatientStatus.set(true);
+    this.patientStatusError.set('');
+    this.patientStatusMessage.set('');
+    this.api.updatePatientStatus(patient.id, nextStatus).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (updated) => {
+        this.updatingPatientStatus.set(false);
+        this.selected.set(updated);
+        this.patients.update((items) => items.map((item) => item.id === updated.id ? updated : item));
+        this.patientStatusMessage.set(nextStatus === 'ACTIVE' ? 'Paciente dado de alta correctamente.' : 'Paciente dado de baja correctamente.');
+      },
+      error: (error) => {
+        this.updatingPatientStatus.set(false);
+        this.patientStatusError.set(error?.error?.message || 'No se pudo actualizar el estado del paciente. Verifica el permiso patient:update.');
+      },
+    });
   }
 
   reloadSelectedPatient(): void {

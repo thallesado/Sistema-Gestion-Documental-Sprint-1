@@ -217,6 +217,10 @@ export class DocumentApiService {
     );
   }
 
+  getById(documentId: string): Observable<ApiDocument> {
+    return this.http.get<any>(`${API_URL}/documents/${documentId}`).pipe(map(normalizeDoc));
+  }
+
   createDocument(payload: DocumentCreatePayload): Observable<ApiDocument> {
     return this.http.post<any>(`${API_URL}/documents`, payload).pipe(
       map(normalizeDoc)

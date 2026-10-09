@@ -15,11 +15,14 @@ import {
 import { ClinicalApiService, ApiPatient } from '../../../core/api/clinical-api.service';
 import { UserSelectorComponent } from '../../../shared';
 import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
+import { WorkflowApi } from '../../workflows/workflow-api.service';
+import { WorkflowStart } from '../../workflows/components/workflow-start';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-document-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, UserSelectorComponent],
+  imports: [CommonModule, FormsModule, RouterLink, UserSelectorComponent, WorkflowStart],
   template: `
     <section class="page document-page">
       <!-- HERO BANNER -->
@@ -438,6 +441,17 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
                 <dt>Descripción</dt><dd>{{ selectedDocument()?.description || 'Sin descripción disponible.' }}</dd>
               </dl>
 
+              <section class="workflow-document-panel">
+                <h3>Workflow del documento</h3>
+                @for (workflow of documentWorkflows(); track workflow.id) {
+                  <button type="button" class="btn-doc-action" (click)="router.navigate(['/workflows'], { queryParams: { workflow: workflow.id } })">
+                    {{ workflow.code }} · {{ workflow.title }} · {{ workflow.status }}
+                  </button>
+                  <small>{{ workflow.stage_name || 'Sin etapa' }} · {{ workflow.responsible_name || 'Sin responsable' }} · {{ workflow.progress || 0 }}% · {{ workflow.due_at ? (workflow.due_at | date:'dd/MM/yyyy') : 'Sin vencimiento' }}</small>
+                } @empty { <p class="drawer-note">No hay workflows asociados.</p> }
+                @if (canStartWorkflow()) { <button type="button" class="btn-primary-action" (click)="openWorkflowStart(selectedDocument()!)">Iniciar workflow</button> }
+              </section>
+
               <!-- TRANSICIONES DE ESTADO PERMITIDAS -->
               @if (allowedStatusTransitions(selectedDocument()!).length) {
                 <div class="status-actions">
@@ -493,6 +507,11 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
               }
             </aside>
           </div>
+        }
+
+        @if (workflowStartDocument()) {
+          <app-workflow-start [options]="workflowOptions()" [initialDocument]="workflowStartDocument()"
+            (close)="workflowStartDocument.set(null)" (started)="workflowStarted($event)"></app-workflow-start>
         }
 
         <!-- MODAL SUBIDA DE VERSIÓN -->
@@ -587,9 +606,12 @@ export class DocumentPage implements OnInit, OnDestroy {
   private readonly api = inject(DocumentApiService);
   private readonly clinicalApi = inject(ClinicalApiService);
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
+  readonly router = inject(Router);
+  private readonly workflowApi = inject(WorkflowApi);
+  private readonly auth = inject(AuthService);
 
   private routerSub?: Subscription;
+  private lastLinkedDocumentId = '';
 
   // Estados de ruta reactivos
   readonly isStatuses = signal(false);
@@ -652,6 +674,9 @@ export class DocumentPage implements OnInit, OnDestroy {
 
   // Detalle y versiones
   readonly selectedDocument = signal<ApiDocument | null>(null);
+  readonly documentWorkflows = signal<any[]>([]);
+  readonly workflowStartDocument = signal<ApiDocument | null>(null);
+  readonly workflowOptions = signal<any>({users:[],roles:[],departments:[]});
   readonly detailLoading = signal(false);
   readonly detailError = signal('');
   readonly uploadFile = signal<File | null>(null);
@@ -716,6 +741,11 @@ export class DocumentPage implements OnInit, OnDestroy {
     if (!isStat) {
       this.loadDocuments();
     }
+    const linkedDocumentId=this.route.snapshot.queryParamMap.get('documentId')||'';
+    if(linkedDocumentId&&linkedDocumentId!==this.lastLinkedDocumentId){
+      this.lastLinkedDocumentId=linkedDocumentId;
+      this.api.getById(linkedDocumentId).subscribe({next:doc=>this.openDetails(doc),error:()=>this.detailError.set('No se pudo abrir el documento vinculado al workflow.')});
+    }else if(!linkedDocumentId){this.lastLinkedDocumentId='';}
   }
 
   resetCreateForm(): void {
@@ -960,11 +990,23 @@ export class DocumentPage implements OnInit, OnDestroy {
     this.selectedDocument.set(doc);
     this.detailError.set('');
     this.loadVersions(doc);
+    this.workflowApi.page('',{documentId:doc.id,size:20}).subscribe({next:page=>this.documentWorkflows.set(page.content),error:()=>this.documentWorkflows.set([])});
   }
 
   closeDetails(): void {
     this.selectedDocument.set(null);
+    this.documentWorkflows.set([]);
+    if(this.route.snapshot.queryParamMap.has('documentId'))void this.router.navigate([], {relativeTo:this.route,queryParams:{documentId:null},queryParamsHandling:'merge',replaceUrl:true});
   }
+
+  canStartWorkflow(): boolean {
+    try { const token=this.auth.accessToken(); return !!token&&JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).authorities?.includes('workflow:start'); }
+    catch { return false; }
+  }
+  openWorkflowStart(doc:ApiDocument):void {
+    this.workflowApi.get('/options').subscribe({next:options=>{this.workflowOptions.set(options);this.workflowStartDocument.set(doc);},error:()=>this.detailError.set('No se pudieron cargar los responsables para iniciar el workflow.')});
+  }
+  workflowStarted(flow:any):void { this.workflowStartDocument.set(null);this.closeDetails();void this.router.navigate(['/workflows'],{queryParams:{workflow:flow.id}}); }
 
   openVersions(doc: ApiDocument): void {
     this.openDetails(doc);

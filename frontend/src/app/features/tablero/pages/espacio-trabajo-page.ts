@@ -17,6 +17,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { DocumentApiService, ApiDocument } from '../../../core/api/document-api.service';
 import { WorkspaceApiService, ApiActivity, ApiTask } from '../../../core/api/workspace-api.service';
 import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
+import { WorkflowApi } from '../../workflows/workflow-api.service';
 
 type PageStat = { icon: string; label: string; value: string; detail: string; tone: string };
 type OcrStatus = 'QUEUED' | 'PROCESSING' | 'REQUIRES_VALIDATION' | 'VALIDATED' | 'INDEXED';
@@ -154,6 +155,13 @@ type TabLink = { label: string; href: string };
             }
           </article>
         </div>
+
+        @if (workflowSummary(); as workflow) {
+          <section class="panel dashboard-documents" aria-label="Resumen de workflows">
+            <div class="panel-title"><div><h2>Workflows que requieren atención</h2><p>Tareas asignadas y plazos de tu cuenta.</p></div><a routerLink="/workflows" class="card-link">Ver workflows →</a></div>
+            <div class="task-counter-strip"><a routerLink="/workflows/tasks"><strong>{{ workflow.widgets?.my_tasks || 0 }}</strong><span>Mis tareas</span></a><a routerLink="/workflows/pending-review"><strong>{{ workflow.widgets?.reviews || 0 }}</strong><span>Revisiones</span></a><a routerLink="/workflows/pending-approval"><strong>{{ workflow.widgets?.approvals || 0 }}</strong><span>Aprobaciones</span></a><a routerLink="/workflows/tasks" [queryParams]="{dueSoon:true}"><strong>{{ workflow.widgets?.due_soon || 0 }}</strong><span>Vencen pronto</span></a></div>
+          </section>
+        }
 
         <!-- Documentos recientes Panel -->
         <section class="panel dashboard-documents">
@@ -903,6 +911,8 @@ export class WorkspacePage {
   private readonly documentApi = inject(DocumentApiService);
   private readonly workspaceApi = inject(WorkspaceApiService);
   private readonly adminApi = inject(AdministrationApiService);
+  private readonly workflowApi = inject(WorkflowApi);
+  readonly workflowSummary = signal<any>(null);
   @ViewChild('fileInput') private fileInput?: ElementRef<HTMLInputElement>;
   private readonly routeData = toSignal(this.route.data, {
     initialValue: this.route.snapshot.data,
@@ -1075,6 +1085,7 @@ export class WorkspacePage {
     if (this.isHome || this.isTasksView || this.isActivityView) {
       this.loadDashboard();
     }
+    if(this.isHome)this.workflowApi.get('/summary').subscribe({next:summary=>this.workflowSummary.set(summary),error:()=>this.workflowSummary.set(null)});
     this.route.data.subscribe(() => {
       this.page.set(1);
       this.searchTerm.set('');
@@ -1085,6 +1096,7 @@ export class WorkspacePage {
       if (this.isHome || this.isTasksView || this.isActivityView) {
         this.loadDashboard();
       }
+      if(this.isHome)this.workflowApi.get('/summary').subscribe({next:summary=>this.workflowSummary.set(summary),error:()=>this.workflowSummary.set(null)});
     });
   }
 

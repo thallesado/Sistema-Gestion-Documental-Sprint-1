@@ -6,11 +6,12 @@ import { filter } from 'rxjs';
 import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
 import { AuthService } from '../core/auth/auth.service';
 import { ChatbotService } from '../core/chatbot/chatbot.service';
+import { WorkflowApi } from '../features/workflows/workflow-api.service';
 
 /** Pantallas públicas: siempre a pantalla completa, sin sidebar ni topbar, aunque haya sesión. */
 const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
 
-type ProfileTab = 'profile' | 'security' | 'notifications' | 'access';
+type ProfileTab = 'profile' | 'security' | 'notifications' | 'access' | 'workflows';
 
 @Component({
   selector: 'app-root',
@@ -23,13 +24,17 @@ export class App {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly chatbot = inject(ChatbotService);
+  private readonly workflowApi = inject(WorkflowApi);
+  readonly profileWorkflowTasks = signal<any[]>([]);
+  readonly profileActiveWorkflows = signal<any[]>([]);
+  readonly profileApprovalHistory = signal<any[]>([]);
   readonly roles = roles;
   readonly sections = navSections;
   readonly currentUrl = signal(this.router.url);
   readonly expanded = signal<string[]>([]);
   readonly role = computed<Role>(() => {
     const user = this.currentUser();
-    if (user?.platformAdmin || user?.roleNames?.includes('SUPER_ADMIN')) return 'Superadministrador';
+    if (user?.platformAdmin || user?.roleNames?.some(name => ['SUPER_ADMIN','SUPERADMINISTRADOR'].includes(name.toUpperCase()))) return 'Superadministrador';
     if (user?.roleNames?.some((name) => name.toUpperCase() === 'ADMINISTRADOR DE TENANT' || name.toUpperCase() === 'TENANT_ADMIN')) return 'Administrador de tenant';
     if (user?.roleNames?.some((name) => name.toUpperCase() === 'SUPERVISOR')) return 'Supervisor';
     return 'Usuario basico';
@@ -77,6 +82,9 @@ export class App {
   newPassword = '';
   confirmPassword = '';
   private toastTimer?: ReturnType<typeof setTimeout>;
+  private idleTimer?: ReturnType<typeof setTimeout>;
+  private readonly idleTimeoutMs = 5 * 60 * 1000;
+  private lastIdleResetAt = 0;
 
   readonly availableSections = computed(() =>
     this.sections
@@ -95,7 +103,15 @@ export class App {
     // El chatbot solo existe dentro del layout autenticado: se carga al entrar y se retira al salir
     // (logout, sesión expirada o pantallas públicas como /login).
     effect(() => (this.isWorkspace() ? this.chatbot.load() : this.chatbot.unload()));
-    inject(DestroyRef).onDestroy(() => this.chatbot.unload());
+    const activityEvents = ['pointerdown', 'keydown', 'mousemove', 'touchstart', 'scroll'];
+    const resetIdleTimer = () => this.resetIdleTimer();
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, resetIdleTimer, { passive: true }));
+    effect(() => this.isWorkspace() ? this.resetIdleTimer() : this.clearIdleTimer());
+    inject(DestroyRef).onDestroy(() => {
+      this.chatbot.unload();
+      this.clearIdleTimer();
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, resetIdleTimer));
+    });
     this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe((event) => {
@@ -195,6 +211,7 @@ export class App {
     this.newPassword = '';
     this.confirmPassword = '';
     this.profileTab.set('profile');
+    this.loadProfileWorkflows();
     this.profileError.set('');
     this.profileOpen.set(true);
   }
@@ -251,6 +268,30 @@ export class App {
   setProfileTab(tab: ProfileTab): void {
     this.profileError.set('');
     this.profileTab.set(tab);
+  }
+
+  private resetIdleTimer(): void {
+    const now = Date.now();
+    if (this.idleTimer && now - this.lastIdleResetAt < 1000) return;
+    this.lastIdleResetAt = now;
+    this.clearIdleTimer();
+    if (!this.isWorkspace()) return;
+    this.idleTimer = setTimeout(() => {
+      if (!this.isWorkspace()) return;
+      this.notify('Desconectado por inactividad. Inicia sesión nuevamente.');
+      this.auth.logoutForInactivity();
+    }, this.idleTimeoutMs);
+  }
+
+  private clearIdleTimer(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = undefined;
+  }
+
+  private loadProfileWorkflows():void {
+    this.workflowApi.page('/tasks/my',{status:'PENDING',size:5}).subscribe({next:p=>this.profileWorkflowTasks.set(p.content),error:()=>this.profileWorkflowTasks.set([])});
+     this.workflowApi.page<any>('',{bucket:'active',size:5}).subscribe({next:p=>this.profileActiveWorkflows.set(p.content.filter(flow=>flow.creator_id===this.currentUser()?.id||flow.responsible_id===this.currentUser()?.id)),error:()=>this.profileActiveWorkflows.set([])});
+    this.workflowApi.page('/approvals/my',{size:5}).subscribe({next:p=>this.profileApprovalHistory.set(p.content),error:()=>this.profileApprovalHistory.set([])});
   }
 
   saveNotifications(): void {

@@ -4,9 +4,10 @@ WORKDIR /app
 RUN npm install -g pnpm
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ ./packages/
+COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 RUN pnpm install --frozen-lockfile
-RUN cd frontend && pnpm run build
+RUN cd frontend && pnpm test && pnpm run build
 
 # Run stage
 FROM nginx:alpine

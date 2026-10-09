@@ -19,6 +19,7 @@ backend/data/
 backend/bootstrap/data/
 data/storage/
 **/data/storage/
+mobile/**/build/
 .DS_Store
 
 # Local database dumps can contain private data.

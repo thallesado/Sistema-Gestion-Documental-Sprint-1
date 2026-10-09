@@ -86,6 +86,7 @@ import { PublicTenant } from '../../../core/auth/auth.types';
                 <span>{{ errorMessage() }}</span>
               </div>
             }
+            @if (sessionNotice()) { <div class="login-notice" role="status">{{ sessionNotice() }}</div> }
 
             <div class="field-group">
               <label for="tenant-input">Organización</label>
@@ -524,6 +525,8 @@ import { PublicTenant } from '../../../core/auth/auth.types';
       background: #eef8f6;
     }
 
+    .login-notice{margin:0 0 16px;padding:12px 14px;border:1px solid #f3d696;border-radius:10px;background:#fff8e8;color:#875d0c;font-size:13px;font-weight:700}
+
     @media (max-width: 800px) {
       .login-container {
         grid-template-columns: 1fr;
@@ -544,6 +547,7 @@ export class LoginPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
 
   readonly errorMessage = signal('');
+  readonly sessionNotice = signal('');
   readonly isSubmitting = signal(false);
   readonly showPassword = signal(false);
 
@@ -556,6 +560,9 @@ export class LoginPage implements OnInit {
   password = '';
 
   ngOnInit(): void {
+    if (this.route.snapshot.queryParamMap.get('reason') === 'inactivity') {
+      this.sessionNotice.set('Desconectado por inactividad. Inicia sesión nuevamente.');
+    }
     this.auth.publicTenants().subscribe({
       next: (list) => { this.tenants.set(list); this.tenantsLoading.set(false); },
       error: (error: { status?: number }) => {

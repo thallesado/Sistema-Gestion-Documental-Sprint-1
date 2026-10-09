@@ -11,4 +11,5 @@ import java.util.UUID;
 @Repository
 public interface ExpedientTypeRepository extends JpaRepository<ExpedientType, UUID> {
     Page<ExpedientType> findByTenantIdAndActiveTrueOrderByNameAsc(UUID tenantId, Pageable pageable);
+    boolean existsByTenantIdAndCodeIgnoreCase(UUID tenantId, String code);
 }

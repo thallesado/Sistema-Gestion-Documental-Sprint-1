@@ -11,6 +11,7 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -92,6 +93,14 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, "Conflict", exception.getMessage(), request);
     }
 
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleStatus(
+            ResponseStatusException exception, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.valueOf(exception.getStatusCode().value());
+        String message = exception.getReason() == null ? status.getReasonPhrase() : exception.getReason();
+        return error(status, status.getReasonPhrase(), message, request);
+    }
+
     @ExceptionHandler({
             org.springframework.orm.ObjectOptimisticLockingFailureException.class,
             jakarta.persistence.OptimisticLockException.class
@@ -112,6 +121,28 @@ public class GlobalExceptionHandler {
         body.put("error", error);
         body.put("message", message == null ? error : message);
         body.put("path", request.getRequestURI());
+        body.put("code", errorCode(status, error, message, request.getRequestURI()));
         return ResponseEntity.status(status).body(body);
+    }
+
+    private String errorCode(HttpStatus status, String error, String message, String path) {
+        String text = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT);
+        if (status == HttpStatus.FORBIDDEN) {
+            if (path.contains("/tasks/") && (text.contains("tarea no asignada") || text.contains("no asignada al usuario"))) return "TASK_NOT_ASSIGNED_TO_USER";
+            return "PERMISSION_DENIED";
+        }
+        if (status == HttpStatus.NOT_FOUND && path.contains("/workflows/")) {
+            if (path.contains("/tasks/")) return "TASK_NOT_FOUND";
+            if (path.contains("/templates/")) return "TEMPLATE_NOT_FOUND";
+            return "WORKFLOW_NOT_FOUND";
+        }
+        if (status == HttpStatus.CONFLICT) {
+            if (text.contains("tarea") && (text.contains("resuelta") || text.contains("completada"))) return "TASK_ALREADY_COMPLETED";
+            if (text.contains("transici")) return "INVALID_TRANSITION";
+            if (text.contains("workflow") && (text.contains("finaliz") || text.contains("complet"))) return "WORKFLOW_ALREADY_COMPLETED";
+            return "RESOURCE_CONFLICT";
+        }
+        if (status == HttpStatus.BAD_REQUEST && text.contains("transici")) return "INVALID_TRANSITION";
+        return error.toUpperCase(java.util.Locale.ROOT).replace(' ', '_');
     }
 }

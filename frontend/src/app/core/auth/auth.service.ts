@@ -23,7 +23,9 @@ export class AuthService {
       // Conserva la sesión existente mientras se vuelve a validar la identidad
       // y los roles con el servidor. Las mismas claves de sessionStorage se
       // mantienen para no invalidar sesiones creadas por versiones anteriores.
-      this.loadCurrentUser();
+      // The HTTP interceptor injects this service. Wait until its constructor
+      // finishes to avoid a circular dependency during a page reload.
+      queueMicrotask(() => this.loadCurrentUser());
     } else if (this.user()) {
       this.clearSession();
     }
@@ -101,6 +103,14 @@ export class AuthService {
       next: finish,
       error: finish,
     });
+  }
+
+  logoutForInactivity(): void {
+    const token = this.accessToken();
+    const refreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY);
+    this.clearSession();
+    void this.router.navigate(['/login'], { queryParams: { reason: 'inactivity' } });
+    if (token) this.http.post<void>(`${API_URL}/auth/logout`, { refreshToken }).subscribe({ error: () => undefined });
   }
 
   accessToken(): string | null {

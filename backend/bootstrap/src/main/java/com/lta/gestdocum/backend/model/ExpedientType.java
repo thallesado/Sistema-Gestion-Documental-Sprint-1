@@ -5,6 +5,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
+import lombok.Builder;
+import lombok.Setter;
+import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 
 import java.util.UUID;
@@ -12,6 +15,9 @@ import java.util.UUID;
 @Entity
 @Table(name = "expedient_types")
 @Getter
+@Setter
+@Builder
+@AllArgsConstructor
 @NoArgsConstructor
 public class ExpedientType {
     @Id

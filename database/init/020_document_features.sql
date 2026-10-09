@@ -15,7 +15,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_documents_patient') THEN
     ALTER TABLE documents ADD CONSTRAINT fk_documents_patient
-      FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE SET NULL;
+      FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE SET NULL (patient_id);
   END IF;
 END $$;
 

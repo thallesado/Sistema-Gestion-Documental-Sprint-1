@@ -48,6 +48,19 @@ public class PatientService {
     }
 
     @Transactional
+    public PatientResponse updateStatus(UUID id, String requestedStatus) {
+        userContext.establishDatabaseContext();
+        Patient patient = getForTenant(id);
+        String status = requestedStatus == null ? "" : requestedStatus.trim().toUpperCase();
+        if (!status.equals("ACTIVE") && !status.equals("INACTIVE")) {
+            throw new IllegalArgumentException("El estado del paciente debe ser ACTIVE o INACTIVE");
+        }
+        patient.setStatus(status);
+        patient.setUpdatedAt(OffsetDateTime.now());
+        return toResponse(repository.saveAndFlush(patient));
+    }
+
+    @Transactional
     public PatientResponse create(PatientCreateRequest request) {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
