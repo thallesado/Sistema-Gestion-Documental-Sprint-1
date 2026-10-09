@@ -1,6 +1,9 @@
 -- Perfil editable del usuario autenticado.
 -- Las columnas se mantienen separadas de los datos de autenticación y la foto
 -- se almacena como bytea para que no quede expuesta por una URL pública.
+\set ON_ERROR_STOP on
+BEGIN;
+SELECT pg_advisory_xact_lock(726394, 18);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone varchar(30);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS biography varchar(500);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data bytea;
@@ -28,3 +31,5 @@ GRANT SELECT (phone, biography, avatar_data, avatar_content_type) ON users TO ne
 GRANT UPDATE (phone, biography, avatar_data, avatar_content_type) ON users TO nexodocs_app;
 GRANT SELECT (email_notifications, push_notifications) ON users TO nexodocs_app;
 GRANT UPDATE (email_notifications, push_notifications, password_hash) ON users TO nexodocs_app;
+INSERT INTO app.schema_migrations(version) VALUES ('018_user_profile') ON CONFLICT DO NOTHING;
+COMMIT;

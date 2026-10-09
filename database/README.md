@@ -156,6 +156,23 @@ no lo concedas al backend ni a personas.
 No ejecutes docker compose down --volumes para aplicar una migración: ese comando
 elimina los datos del volumen.
 
+### Actualizar un volumen existente
+
+El servicio Docker `migrate` revisa `app.schema_migrations` y ejecuta sólo las
+migraciones incrementales pendientes antes de permitir que arranque el backend.
+El SQL de migración está incluido dentro de su imagen, así que al desplegar un
+cambio de esquema hay que reconstruirla:
+
+```powershell
+docker compose -f infrastructure/docker-compose.yml up -d --build
+```
+
+Esto conserva los volúmenes y datos existentes; las versiones `001` a `003`
+siguen reservadas para inicializar una base vacía y nunca se repiten en una base
+persistente. `database\\migrate.ps1` ofrece el mismo procedimiento de forma
+manual, creando primero un respaldo recuperable. No uses `down -v` para
+actualizar el esquema.
+
 ### Dataset sintético reproducible de Acme
 
 La carga no se ejecuta automáticamente: `database/seeds/` está fuera de

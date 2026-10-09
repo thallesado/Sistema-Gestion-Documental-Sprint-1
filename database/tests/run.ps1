@@ -37,6 +37,21 @@ function Initialize-LegacyDatabase {
         $null = Invoke-SqlFile -Database $Database -File "/workspace/init/$file"
     }
 }
+function Wait-ForInitializedDatabase {
+    $stableProbes = 0
+    for ($attempt = 0; $attempt -lt 60; $attempt++) {
+        $logs = (Invoke-Docker -AllowFailure -DockerArguments @('logs', $containerName)).Output
+        $probe = Invoke-Docker -AllowFailure -DockerArguments @('exec', $containerName, 'psql', '-X', '-U', 'postgres', '-d', 'fresh', '-At', '-c', "SELECT count(*) FROM app.schema_migrations WHERE version = '033_expedient_type_management'")
+        if ($logs.Contains('ready for start up') -and $probe.ExitCode -eq 0 -and $probe.Output -eq '1') {
+            $stableProbes++
+            if ($stableProbes -ge 3) { return }
+        } else {
+            $stableProbes = 0
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    throw 'PostgreSQL no quedó estable después de inicializar todas las migraciones.'
+}
 
 try {
     $startedContainer = Invoke-Docker -DockerArguments @('run', '--detach', '--name', $containerName,
@@ -53,6 +68,7 @@ try {
         Start-Sleep -Milliseconds 500
     }
     if (!$ready) { throw 'La inicialización Docker no terminó correctamente.' }
+    Wait-ForInitializedDatabase
     $fresh = Invoke-SqlFile -Database 'fresh' -File '/workspace/tests/validate.sql'
     if (!$fresh.Output.Contains('VALIDATION_OK')) { throw $fresh.Output }
     Write-Output 'Inicialización Docker desde cero + VALIDATION_OK'
@@ -72,11 +88,20 @@ SELECT md5(string_agg(row_data, '' ORDER BY row_data)) FROM (
     foreach ($file in @('005_demo_users.sql', '006_password_recovery.sql', '007_tenant_user_management.sql', '008_tenant_status_compatibility.sql', '009_clinical_domain_extensions.sql', '010_medical_notes.sql', '011_persistent_auth_sessions.sql', '012_http_access_audit.sql', '013_document_checksum_compatibility.sql', '014_auth_user_password_hash_privilege.sql', '015_acme_superadmin_demo_users.sql', '016_finocode_tenant_name.sql', '017_revoked_access_tokens.sql')) {
         $null = Invoke-SqlFile -Database 'upgrade' -File "/workspace/init/$file"
     }
+    $laterMigrations = Get-ChildItem -LiteralPath (Join-Path $databaseDirectory 'init') -Filter '*.sql' |
+        Where-Object { $_.Name -match '^\d{3}_' -and [int]$Matches[0].Substring(0,3) -ge 18 } |
+        Sort-Object Name
+    foreach ($file in $laterMigrations) {
+        $null = Invoke-SqlFile -Database 'upgrade' -File ("/workspace/init/" + $file.Name)
+    }
     $afterMigrations = Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql
     foreach ($file in @('004_saas_hardening.sql', '005_demo_users.sql', '006_password_recovery.sql', '007_tenant_user_management.sql', '008_tenant_status_compatibility.sql', '009_clinical_domain_extensions.sql', '010_medical_notes.sql', '011_persistent_auth_sessions.sql', '012_http_access_audit.sql', '013_document_checksum_compatibility.sql', '014_auth_user_password_hash_privilege.sql', '015_acme_superadmin_demo_users.sql', '016_finocode_tenant_name.sql', '017_revoked_access_tokens.sql')) {
         $null = Invoke-SqlFile -Database 'upgrade' -File "/workspace/init/$file"
     }
-    Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql 'SELECT count(*) FROM app.schema_migrations') '14' 'Repetición de migraciones'
+    foreach ($file in $laterMigrations) {
+        $null = Invoke-SqlFile -Database 'upgrade' -File ("/workspace/init/" + $file.Name)
+    }
+    Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql 'SELECT count(*) FROM app.schema_migrations') '32' 'Repetición de migraciones'
     Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql) $afterMigrations 'Repetición alteró datos'
     $upgrade = Invoke-SqlFile -Database 'upgrade' -File '/workspace/tests/validate.sql'
     if (!$upgrade.Output.Contains('VALIDATION_OK')) { throw $upgrade.Output }

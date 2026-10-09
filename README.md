@@ -192,6 +192,10 @@ Si dispones de la utilidad `make`, puedes usar los atajos:
 | **Swagger / OpenAPI** | `http://localhost:8080/swagger-ui.html` | Explorador interactivo de la API REST |
 | **PostgreSQL** | `127.0.0.1:5434` | Base de datos relacional con RLS |
 
+En cada despliegue Docker, el servicio `migrate` aplica las migraciones nuevas
+al volumen actual antes de iniciar el backend. Usa `--build` para incorporar
+los archivos SQL actualizados; no hace falta borrar la base ni sus volúmenes.
+
 ## Historias de usuario de Workflows
 
 Consulta las [cuatro historias de usuario verificables](docs/workflows-user-stories.md), sus criterios de aceptación y las pruebas automatizadas asociadas.

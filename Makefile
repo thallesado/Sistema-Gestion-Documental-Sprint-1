@@ -1,7 +1,7 @@
 .PHONY: up down build logs backend-test frontend-test mobile-test clean
 
 up:
-	docker compose -f infrastructure/docker-compose.yml up -d
+	docker compose -f infrastructure/docker-compose.yml up -d --build
 
 down:
 	docker compose -f infrastructure/docker-compose.yml down

@@ -16,9 +16,13 @@ SELECT EXISTS (
 \if :already_applied
   \echo '018_clinical_roles_and_permission_criticality ya aplicada'
 \else
-  ALTER TABLE permissions ADD COLUMN criticality varchar(10) NOT NULL DEFAULT 'MEDIUM';
-  ALTER TABLE permissions ADD CONSTRAINT ck_permissions_criticality
-    CHECK (criticality IN ('LOW','MEDIUM','HIGH'));
+  ALTER TABLE permissions ADD COLUMN IF NOT EXISTS criticality varchar(10) NOT NULL DEFAULT 'MEDIUM';
+  DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_permissions_criticality') THEN
+      ALTER TABLE permissions ADD CONSTRAINT ck_permissions_criticality
+        CHECK (criticality IN ('LOW','MEDIUM','HIGH'));
+    END IF;
+  END $$;
 
   UPDATE permissions SET criticality = 'HIGH'
     WHERE action IN ('delete','approve','reject','archive');

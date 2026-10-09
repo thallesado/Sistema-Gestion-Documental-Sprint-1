@@ -1,4 +1,7 @@
 -- Migración 020: Extensiones de Clasificación Documental, Metadatos y Estados Documentales
+\set ON_ERROR_STOP on
+BEGIN;
+SELECT pg_advisory_xact_lock(726394, 20);
 DO $$
 BEGIN
   ALTER TYPE document_status ADD VALUE IF NOT EXISTS 'CORRECTED' AFTER 'REJECTED';
@@ -22,3 +25,5 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_documents_patient ON documents(tenant_id, patient_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_documents_specialty ON documents(tenant_id, specialty) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_documents_process ON documents(tenant_id, institutional_process) WHERE deleted_at IS NULL;
+INSERT INTO app.schema_migrations(version) VALUES ('020_document_features') ON CONFLICT DO NOTHING;
+COMMIT;
