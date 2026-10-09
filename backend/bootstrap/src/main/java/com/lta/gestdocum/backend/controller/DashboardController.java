@@ -24,11 +24,7 @@ public class DashboardController {
     }
 
     @GetMapping
-    @PreAuthorize("""
-            hasAuthority('task:read') and hasAuthority('document:read')
-            and hasAuthority('expedient:read')
-            and hasAnyAuthority('audit:read_tenant','audit:read_global')
-            """)
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Cargar dashboard")
     public ResponseEntity<DashboardResponse> load(
             @RequestParam(defaultValue = "10") Integer limit) {

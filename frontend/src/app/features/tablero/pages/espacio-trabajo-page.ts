@@ -1079,7 +1079,10 @@ export class WorkspacePage {
     const user = this.auth.user();
     return user ? `${user.firstName} ${user.lastName}`.trim() : 'Usuario';
   });
-  readonly highPriorityTasks = computed(() => this.tasks().filter((task) => (task.priority ?? '').toLowerCase() === 'high' || (task.priority ?? '').toLowerCase() === 'alta').length);
+  readonly highPriorityTasks = computed(() => this.tasks().filter((task) => {
+    const p = String(task.priority ?? '').toLowerCase();
+    return p === 'high' || p === 'alta' || task.priority === 1;
+  }).length);
 
   constructor() {
     if (this.isHome || this.isTasksView || this.isActivityView) {
@@ -1253,7 +1256,9 @@ export class WorkspacePage {
   formatTaskStatus(status: string): string {
     const s = (status || '').toUpperCase();
     if (s === 'PENDING') return 'Pendiente';
+    if (s === 'IN_PROGRESS') return 'En curso';
     if (s === 'IN_REVIEW') return 'En revisión';
+    if (s === 'OVERDUE') return 'Vencida';
     if (s === 'COMPLETED') return 'Completada';
     if (s === 'REJECTED') return 'Rechazada';
     return status || 'Pendiente';
@@ -1262,7 +1267,9 @@ export class WorkspacePage {
   taskStatusClass(status: string): string {
     const s = (status || '').toUpperCase();
     if (s === 'PENDING') return 'pending';
+    if (s === 'IN_PROGRESS') return 'review';
     if (s === 'IN_REVIEW') return 'review';
+    if (s === 'OVERDUE') return 'danger';
     if (s === 'COMPLETED') return 'ok';
     if (s === 'REJECTED') return 'danger';
     return 'pending';
@@ -1283,55 +1290,38 @@ export class WorkspacePage {
 
   formatActivityDetail(event: ApiActivity): string {
     const entity = event.entityType?.toUpperCase() === 'DOCUMENT' ? 'Documento' : event.entityType?.toUpperCase() === 'TASK' ? 'Tarea' : (event.entityType || 'Entidad');
-    const idStr = event.entityId ? ` #${event.entityId.slice(0, 8)}` : '';
-    const userStr = event.userId ? ` por ${event.userId}` : '';
+    const idStr = event.entityId ? ` #${String(event.entityId).slice(0, 8)}` : '';
+    const userStr = event.actorName ? ` por ${event.actorName}` : (event.userId ? ` por ${event.userId}` : '');
     return `${entity}${idStr}${userStr}`;
   }
 
   private loadDashboard(): void {
-    this.workspaceApi.tasks().subscribe({
+    this.workspaceApi.dashboard(10).subscribe({
       next: (response) => {
-        if (response?.content?.length) {
-          this.tasks.set(response.content);
+        this.tasks.set(response.tasks || []);
+        this.activities.set(response.recentActivity || []);
+        if (response.recentDocuments?.length) {
+          this.recentDocuments.set(
+            response.recentDocuments.map((doc) => ({
+              id: doc.id,
+              name: doc.name,
+              code: doc.code,
+              status: doc.status,
+              updatedAt: doc.updatedAt,
+              expedientId: doc.expedientId ?? undefined,
+            } as ApiDocument))
+          );
         } else {
-          this.tasks.set([
-            { id: '1', title: 'Revisión técnica de contrato marco', description: 'Revisión jurídica y técnica', status: 'PENDING', priority: 'HIGH', dueAt: '2026-09-30', area: 'Legal' },
-            { id: '2', title: 'Aprobación de orden de compra #892', description: 'Autorización presupuestaria', status: 'IN_REVIEW', priority: 'MEDIUM', dueAt: '2026-10-02', area: 'Compras' },
-            { id: '3', title: 'Firma digital de acta de entrega', description: 'Acta de conformidad', status: 'COMPLETED', priority: 'LOW', dueAt: '2026-09-24', area: 'Operaciones' },
-          ]);
+          this.recentDocuments.set([]);
         }
       },
-      error: () => {
-        this.tasks.set([
-          { id: '1', title: 'Revisión técnica de contrato marco', description: 'Revisión jurídica y técnica', status: 'PENDING', priority: 'HIGH', dueAt: '2026-09-30', area: 'Legal' },
-          { id: '2', title: 'Aprobación de orden de compra #892', description: 'Autorización presupuestaria', status: 'IN_REVIEW', priority: 'MEDIUM', dueAt: '2026-10-02', area: 'Compras' },
-          { id: '3', title: 'Firma digital de acta de entrega', description: 'Acta de conformidad', status: 'COMPLETED', priority: 'LOW', dueAt: '2026-09-24', area: 'Operaciones' },
-        ]);
+      error: (err) => {
+        console.error('Error al cargar datos del dashboard:', err);
+        this.tasks.set([]);
+        this.activities.set([]);
+        this.recentDocuments.set([]);
+        this.actionMessage = 'No se pudieron sincronizar los datos del dashboard.';
       },
-    });
-    this.workspaceApi.activity().subscribe({
-      next: (response) => {
-        if (response?.content?.length) {
-          this.activities.set(response.content);
-        } else {
-          this.activities.set([
-            { id: '1', action: 'CREATE', entityType: 'DOCUMENT', occurredAt: new Date().toISOString(), result: 'SUCCESS' },
-            { id: '2', action: 'UPDATE_STATUS', entityType: 'TASK', occurredAt: new Date(Date.now() - 3600000).toISOString(), result: 'SUCCESS' },
-            { id: '3', action: 'UPLOAD_VERSION', entityType: 'DOCUMENT', occurredAt: new Date(Date.now() - 7200000).toISOString(), result: 'SUCCESS' },
-          ]);
-        }
-      },
-      error: () => {
-        this.activities.set([
-          { id: '1', action: 'CREATE', entityType: 'DOCUMENT', occurredAt: new Date().toISOString(), result: 'SUCCESS' },
-          { id: '2', action: 'UPDATE_STATUS', entityType: 'TASK', occurredAt: new Date(Date.now() - 3600000).toISOString(), result: 'SUCCESS' },
-          { id: '3', action: 'UPLOAD_VERSION', entityType: 'DOCUMENT', occurredAt: new Date(Date.now() - 7200000).toISOString(), result: 'SUCCESS' },
-        ]);
-      },
-    });
-    this.documentApi.documents('', undefined, 0, 10).subscribe({
-      next: (response) => this.recentDocuments.set(response.content),
-      error: () => this.recentDocuments.set([]),
     });
   }
 
@@ -1370,13 +1360,10 @@ export class WorkspacePage {
     this.exportMenuOpen.set(false);
 
     if (this.isTasksView) {
-      let data = this.tasks();
+      const data = this.tasks();
       if (!data || data.length === 0) {
-        data = [
-          { id: '1', title: 'Revisión técnica de contrato marco', description: 'Revisión jurídica y técnica', status: 'PENDING', priority: 'HIGH', dueAt: '2026-09-30', area: 'Legal' },
-          { id: '2', title: 'Aprobación de orden de compra #892', description: 'Autorización presupuestaria', status: 'IN_REVIEW', priority: 'MEDIUM', dueAt: '2026-10-02', area: 'Compras' },
-          { id: '3', title: 'Firma digital de acta de entrega', description: 'Acta de conformidad', status: 'COMPLETED', priority: 'LOW', dueAt: '2026-09-24', area: 'Operaciones' },
-        ];
+        this.actionMessage = 'No hay tareas disponibles para exportar.';
+        return;
       }
       const cols: ExportColumn[] = [
         { key: 'title', label: 'Título de la tarea' },
@@ -1391,13 +1378,10 @@ export class WorkspacePage {
       else if (format === 'PDF') exportToPrintView('Reporte de Mis Tareas', 'Listado de tareas asignadas en NexoDocs', data, cols);
       this.actionMessage = `Exportación de tareas a ${format} completada exitosamente.`;
     } else if (this.isActivityView) {
-      let data = this.activities();
+      const data = this.activities();
       if (!data || data.length === 0) {
-        data = [
-          { id: '1', action: 'CREATE', entityType: 'DOCUMENT', occurredAt: new Date().toISOString(), result: 'SUCCESS' },
-          { id: '2', action: 'UPDATE_STATUS', entityType: 'TASK', occurredAt: new Date(Date.now() - 3600000).toISOString(), result: 'SUCCESS' },
-          { id: '3', action: 'UPLOAD_VERSION', entityType: 'DOCUMENT', occurredAt: new Date(Date.now() - 7200000).toISOString(), result: 'SUCCESS' },
-        ];
+        this.actionMessage = 'No hay actividad disponible para exportar.';
+        return;
       }
       const cols: ExportColumn[] = [
         { key: 'action', label: 'Acción' },
