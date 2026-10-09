@@ -68,7 +68,22 @@
   }
 
   @if (selected(); as item) {
-    <div class="detail-backdrop" (click)="closeDetail()"></div><aside class="detail-panel" aria-label="Detalle del expediente"><button class="close-detail" type="button" (click)="closeDetail()" aria-label="Cerrar detalle">×</button><div class="detail-cover"><span class="folder-icon large">{{ icon(item) }}</span><span [class]="statusClass(item.status)">{{ item.status }}</span></div><p class="eyebrow">Expediente {{ item.title.split(' - ')[0] }}</p><h2>{{ item.title.split(' - ')[1] }}</h2><p class="muted">{{ item.meta }}</p><hr><dl class="detail-data"><div><dt>Área responsable</dt><dd>{{ item.area }}</dd></div><div><dt>Última actualización</dt><dd>{{ item.date }}</dd></div><div><dt>Documentos</dt><dd>{{ item.meta.split(' - ')[2] || 'Sin documentos' }}</dd></div></dl><button type="button" class="primary-button full" (click)="goTo('/documents')">Ver documentos</button><button type="button" class="secondary-button full" (click)="closeDetail()">Cerrar panel</button></aside>
+    <div class="detail-backdrop" (click)="closeDetail()"></div><aside class="detail-panel" aria-label="Detalle del expediente"><button class="close-detail" type="button" (click)="closeDetail()" aria-label="Cerrar detalle">×</button><div class="detail-cover"><span class="folder-icon large">{{ icon(item) }}</span><span [class]="statusClass(item.status)">{{ item.status }}</span></div><p class="eyebrow">Expediente {{ item.title.split(' - ')[0] }}</p><h2>{{ item.title.split(' - ')[1] }}</h2><p class="muted">{{ item.meta }}</p><hr><dl class="detail-data"><div><dt>Área responsable</dt><dd>{{ item.area }}</dd></div><div><dt>Última actualización</dt><dd>{{ item.date }}</dd></div><div><dt>Documentos</dt><dd>{{ item.meta.split(' - ')[2] || 'Sin documentos' }}</dd></div></dl>
+    <div class="detail-actions" style="display:flex;flex-direction:column;gap:8px;margin-top:16px;">
+      @if (canUpdateExpedient()) {
+        @if (item.status === 'Activo') {
+          <button type="button" class="secondary-button full" (click)="closeExpedient(item)" [disabled]="updatingStatus()">{{ updatingStatus() ? 'Cerrando…' : 'Cerrar expediente' }}</button>
+        } @else if (item.status === 'Cerrado') {
+          <button type="button" class="secondary-button full" (click)="archiveExpedient(item)" [disabled]="updatingStatus()">{{ updatingStatus() ? 'Archivando…' : 'Archivar expediente' }}</button>
+          <button type="button" class="secondary-button full" (click)="reopenExpedient(item)" [disabled]="updatingStatus()">{{ updatingStatus() ? 'Reabriendo…' : 'Reabrir a activo' }}</button>
+        } @else if (item.status === 'Archivado') {
+          <button type="button" class="secondary-button full" (click)="reopenExpedient(item)" [disabled]="updatingStatus()">{{ updatingStatus() ? 'Reabriendo…' : 'Reabrir a activo' }}</button>
+        }
+      }
+      <button type="button" class="primary-button full" (click)="goTo('/documents')">Ver documentos</button>
+      <button type="button" class="secondary-button full" (click)="closeDetail()">Cerrar panel</button>
+    </div>
+    </aside>
   }
   @if(selected();as item){<section aria-label="Workflows del expediente" style="position:fixed;right:28px;bottom:84px;z-index:40;background:white;padding:14px;border:1px solid #d8e6e5;border-radius:12px;max-width:340px;box-shadow:0 8px 28px #1232"><b>Workflows asociados</b>@if(apiError()){<p class="state error" role="alert">{{ apiError() }}</p>}@for(flow of expedientWorkflows();track flow.id){<p><button type="button" class="secondary-button" (click)="openWorkflow(flow)">{{ flow.code }} · {{ flow.title }} · {{ flow.status }}</button><small>{{ flow.progress || 0 }}% · {{ flow.responsible_name || 'Sin responsable' }} · {{ flow.due_at ? (flow.due_at | date:'dd/MM/yyyy') : 'Sin vencimiento' }}</small></p>}@empty{<p class="muted">Sin workflows asociados.</p>}</section>@if(canStartWorkflow()){<button type="button" class="primary-button" style="position:fixed;right:28px;bottom:28px;z-index:40" (click)="openWorkflowStart(item)" [disabled]="loadingWorkflowOptions()">{{ loadingWorkflowOptions()?'Preparando…':'Iniciar workflow' }}</button>}}
   @if(workflowStartExpedient()){<app-workflow-start [options]="workflowOptions()" [initialExpedient]="workflowStartExpedient()" (close)="workflowStartExpedient.set(null)" (started)="workflowStarted($event)"></app-workflow-start>}

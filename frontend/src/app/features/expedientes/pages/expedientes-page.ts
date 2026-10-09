@@ -155,8 +155,72 @@ export class ExpedientsPage {
   }
   icon(item: ExpedientItem): string { return '⚕'; }
   goTo(path: string): void { void this.router.navigateByUrl(path); }
+  get viewStatusFilter(): string | undefined {
+    if (this.view === 'active') return 'ACTIVE';
+    if (this.view === 'closed') return 'CLOSED';
+    if (this.view === 'archived') return 'ARCHIVED';
+    return undefined;
+  }
+
   canStartWorkflow():boolean { try {const token=this.auth.accessToken();return !!token&&JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).authorities?.includes('workflow:start');}catch{return false;} }
   canManageExpedientTypes():boolean {try{const token=this.auth.accessToken();return !!token&&JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).authorities?.includes('expedient_type:create');}catch{return false;}}
+  canUpdateExpedient():boolean {try{const token=this.auth.accessToken();return !!token&&JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).authorities?.includes('expedient:update');}catch{return false;}}
+
+  readonly updatingStatus = signal(false);
+
+  closeExpedient(item: ExpedientItem): void {
+    if (!item?.id || this.updatingStatus()) return;
+    this.updatingStatus.set(true);
+    this.apiError.set('');
+    this.api.close(item.id).subscribe({
+      next: (updated) => {
+        this.updatingStatus.set(false);
+        const updatedItem = this.toExpedient(updated);
+        this.selected.set(updatedItem);
+        this.loadExpedients();
+      },
+      error: (err) => {
+        this.updatingStatus.set(false);
+        this.apiError.set(err?.error?.message || 'No se pudo cerrar el expediente.');
+      },
+    });
+  }
+
+  archiveExpedient(item: ExpedientItem): void {
+    if (!item?.id || this.updatingStatus()) return;
+    this.updatingStatus.set(true);
+    this.apiError.set('');
+    this.api.archive(item.id).subscribe({
+      next: (updated) => {
+        this.updatingStatus.set(false);
+        const updatedItem = this.toExpedient(updated);
+        this.selected.set(updatedItem);
+        this.loadExpedients();
+      },
+      error: (err) => {
+        this.updatingStatus.set(false);
+        this.apiError.set(err?.error?.message || 'No se pudo archivar el expediente.');
+      },
+    });
+  }
+
+  reopenExpedient(item: ExpedientItem): void {
+    if (!item?.id || this.updatingStatus()) return;
+    this.updatingStatus.set(true);
+    this.apiError.set('');
+    this.api.reopen(item.id).subscribe({
+      next: (updated) => {
+        this.updatingStatus.set(false);
+        const updatedItem = this.toExpedient(updated);
+        this.selected.set(updatedItem);
+        this.loadExpedients();
+      },
+      error: (err) => {
+        this.updatingStatus.set(false);
+        this.apiError.set(err?.error?.message || 'No se pudo reabrir el expediente.');
+      },
+    });
+  }
   createExpedientType():void {const name=this.newExpedientTypeName.trim();if(!name||!this.canManageExpedientTypes())return;this.creatingExpedientType.set(true);this.api.createExpedientType(name).subscribe({next:type=>{this.expedientTypes.update(types=>[...types,type].sort((a,b)=>a.name.localeCompare(b.name,'es')));this.form.update(current=>({...current,expedientTypeId:type.id}));this.newExpedientTypeName='';this.showExpedientTypeForm=false;this.creatingExpedientType.set(false);},error:error=>{this.creatingExpedientType.set(false);this.apiError.set(error?.error?.message||'No se pudo crear el tipo de expediente.');}});}
   addParticipant():void {
     let participant:ExpedientParticipant|undefined;
@@ -177,7 +241,7 @@ export class ExpedientsPage {
   loadExpedients(): void {
     this.loading.set(true);
     this.apiError.set('');
-    this.api.expedients(this.search()).subscribe({
+    this.api.expedients(this.search(), this.viewStatusFilter).subscribe({
       next: (response) => {
         this.expedients.set(response.content.map((expedient) => this.toExpedient(expedient)));
         this.totalCount.set(response.totalElements);

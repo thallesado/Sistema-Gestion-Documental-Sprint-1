@@ -37,10 +37,64 @@ public class ExpedientService {
 
     @Transactional(readOnly = true)
     public Page<ExpedientResponse> find(String filter, Pageable pageable) {
+        return find(filter, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ExpedientResponse> find(String filter, Expedient.ExpedientStatus status, Pageable pageable) {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
-        return repository.findByTenant(tenantId, CrudTextSupport.likePattern(filter), pageable)
+        return repository.findByTenantAndStatus(tenantId, status, CrudTextSupport.likePattern(filter), pageable)
                 .map(this::toResponse);
+    }
+
+    @Transactional
+    public ExpedientResponse updateStatus(UUID id, Expedient.ExpedientStatus targetStatus) {
+        if (targetStatus == null) {
+            throw new IllegalArgumentException("El estado destino no puede ser nulo");
+        }
+        userContext.establishDatabaseContext();
+        UUID tenantId = userContext.requireTenantId();
+        Expedient expedient = repository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
+                .orElseThrow(() -> new NotFoundException("Expediente no encontrado"));
+
+        OffsetDateTime now = OffsetDateTime.now();
+        expedient.setStatus(targetStatus);
+        expedient.setUpdatedAt(now);
+
+        switch (targetStatus) {
+            case CLOSED -> expedient.setClosedAt(now);
+            case ARCHIVED -> {
+                expedient.setArchivedAt(now);
+                if (expedient.getClosedAt() == null) {
+                    expedient.setClosedAt(now);
+                }
+            }
+            case ACTIVE -> {
+                expedient.setClosedAt(null);
+                expedient.setArchivedAt(null);
+            }
+            case BLOCKED -> {
+                // Conserva marcas temporales
+            }
+        }
+
+        return toResponse(repository.save(expedient));
+    }
+
+    @Transactional
+    public ExpedientResponse close(UUID id) {
+        return updateStatus(id, Expedient.ExpedientStatus.CLOSED);
+    }
+
+    @Transactional
+    public ExpedientResponse archive(UUID id) {
+        return updateStatus(id, Expedient.ExpedientStatus.ARCHIVED);
+    }
+
+    @Transactional
+    public ExpedientResponse reopen(UUID id) {
+        return updateStatus(id, Expedient.ExpedientStatus.ACTIVE);
     }
 
     @Transactional(readOnly = true)

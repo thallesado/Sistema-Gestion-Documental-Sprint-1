@@ -58,11 +58,53 @@ export interface ApiResponsible {
 export class ExpedientApiService {
   private readonly http = inject(HttpClient);
 
-  expedients(filter = '', page = 0, size = 100): Observable<ExpedientPage> {
-    let params = new HttpParams().set('page', page).set('size', size);
-    if (filter.trim()) params = params.set('filter', filter.trim());
+  expedients(filter?: string, status?: string, page?: number, size?: number): Observable<ExpedientPage>;
+  expedients(filter?: string, page?: number, size?: number): Observable<ExpedientPage>;
+  expedients(filter = '', statusOrPage: string | number = 0, pageOrSize: number = 0, size = 100): Observable<ExpedientPage> {
+    let status: string | undefined;
+    let page = 0;
+    let pageSize = size;
+
+    if (typeof statusOrPage === 'string') {
+      status = statusOrPage;
+      page = typeof pageOrSize === 'number' ? pageOrSize : 0;
+      pageSize = size;
+    } else if (typeof statusOrPage === 'number') {
+      page = statusOrPage;
+      pageSize = typeof pageOrSize === 'number' ? pageOrSize : 100;
+    }
+
+    let params = new HttpParams().set('page', page).set('size', pageSize);
+    if (filter && filter.trim()) params = params.set('filter', filter.trim());
+    if (status && status.trim() && status.toLowerCase() !== 'all') {
+      params = params.set('status', status.trim().toUpperCase());
+    }
     return this.http.get<unknown>(`${API_URL}/expedients`, { params }).pipe(
       map((response) => normalizePage(response)),
+    );
+  }
+
+  close(id: string): Observable<ApiExpedient> {
+    return this.http.patch<unknown>(`${API_URL}/expedients/${id}/close`, {}).pipe(
+      map((response) => normalizeExpedient(response)),
+    );
+  }
+
+  archive(id: string): Observable<ApiExpedient> {
+    return this.http.patch<unknown>(`${API_URL}/expedients/${id}/archive`, {}).pipe(
+      map((response) => normalizeExpedient(response)),
+    );
+  }
+
+  reopen(id: string): Observable<ApiExpedient> {
+    return this.http.patch<unknown>(`${API_URL}/expedients/${id}/reopen`, {}).pipe(
+      map((response) => normalizeExpedient(response)),
+    );
+  }
+
+  updateStatus(id: string, status: string): Observable<ApiExpedient> {
+    return this.http.patch<unknown>(`${API_URL}/expedients/${id}/status`, { status }).pipe(
+      map((response) => normalizeExpedient(response)),
     );
   }
 
