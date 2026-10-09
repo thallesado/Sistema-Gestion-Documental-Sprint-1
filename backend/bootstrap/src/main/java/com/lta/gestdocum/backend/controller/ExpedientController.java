@@ -2,6 +2,8 @@ package com.lta.gestdocum.backend.controller;
 
 import com.lta.gestdocum.backend.dto.ExpedientResponse;
 import com.lta.gestdocum.backend.dto.ExpedientCreateRequest;
+import com.lta.gestdocum.backend.dto.ExpedientStatusUpdateRequest;
+import com.lta.gestdocum.backend.model.Expedient;
 import com.lta.gestdocum.backend.service.ExpedientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import jakarta.validation.Valid;
 
@@ -36,11 +39,42 @@ public class ExpedientController {
     @GetMapping
     @PreAuthorize("hasAuthority('expedient:read')")
     @Operation(summary = "Listar expedientes",
-            description = "Lista expedientes activos del tenant autenticado con filtro por código, nombre o descripción")
+            description = "Lista expedientes del tenant autenticado con filtro por código, nombre o descripción y estado opcional")
     public ResponseEntity<Page<ExpedientResponse>> find(
             @RequestParam(required = false) String filter,
+            @RequestParam(required = false) Expedient.ExpedientStatus status,
             Pageable pageable) {
-        return ResponseEntity.ok(service.find(filter, pageable));
+        return ResponseEntity.ok(service.find(filter, status, pageable));
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('expedient:update')")
+    @Operation(summary = "Actualizar estado del expediente")
+    public ResponseEntity<ExpedientResponse> updateStatus(
+            @PathVariable UUID id,
+            @Valid @RequestBody ExpedientStatusUpdateRequest request) {
+        return ResponseEntity.ok(service.updateStatus(id, request.status()));
+    }
+
+    @PatchMapping("/{id}/close")
+    @PreAuthorize("hasAuthority('expedient:update')")
+    @Operation(summary = "Cerrar expediente")
+    public ResponseEntity<ExpedientResponse> close(@PathVariable UUID id) {
+        return ResponseEntity.ok(service.close(id));
+    }
+
+    @PatchMapping("/{id}/archive")
+    @PreAuthorize("hasAuthority('expedient:update')")
+    @Operation(summary = "Archivar expediente")
+    public ResponseEntity<ExpedientResponse> archive(@PathVariable UUID id) {
+        return ResponseEntity.ok(service.archive(id));
+    }
+
+    @PatchMapping("/{id}/reopen")
+    @PreAuthorize("hasAuthority('expedient:update')")
+    @Operation(summary = "Reabrir expediente")
+    public ResponseEntity<ExpedientResponse> reopen(@PathVariable UUID id) {
+        return ResponseEntity.ok(service.reopen(id));
     }
 
     @PostMapping
