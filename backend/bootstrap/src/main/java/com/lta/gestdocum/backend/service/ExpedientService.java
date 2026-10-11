@@ -44,7 +44,12 @@ public class ExpedientService {
     public Page<ExpedientResponse> find(String filter, Expedient.ExpedientStatus status, Pageable pageable) {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
-        return repository.findByTenantAndStatus(tenantId, status, CrudTextSupport.likePattern(filter), pageable)
+        String value = filter == null ? "" : filter.trim();
+        if (status != null) {
+            return repository.searchByTenantAndStatus(tenantId, status, value, pageable)
+                    .map(this::toResponse);
+        }
+        return repository.searchByTenant(tenantId, value, pageable)
                 .map(this::toResponse);
     }
 

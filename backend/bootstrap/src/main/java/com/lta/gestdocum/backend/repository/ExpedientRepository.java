@@ -16,20 +16,39 @@ public interface ExpedientRepository extends JpaRepository<Expedient, UUID> {
         SELECT e FROM Expedient e
         WHERE e.tenantId = :tenantId
           AND e.deletedAt IS NULL
-          AND (:status IS NULL OR e.status = :status)
-          AND (:filter IS NULL
-               OR LOWER(e.code) LIKE :filter
-               OR LOWER(e.name) LIKE :filter
-               OR LOWER(COALESCE(e.description, '')) LIKE :filter)
+          AND (lower(e.code) LIKE lower(concat('%', :filter, '%'))
+               OR lower(e.name) LIKE lower(concat('%', :filter, '%'))
+               OR lower(coalesce(e.description, '')) LIKE lower(concat('%', :filter, '%')))
         ORDER BY e.updatedAt DESC, e.id DESC
         """)
-    Page<Expedient> findByTenantAndStatus(@Param("tenantId") UUID tenantId,
-                                         @Param("status") Expedient.ExpedientStatus status,
-                                         @Param("filter") String filter,
-                                         Pageable pageable);
+    Page<Expedient> searchByTenant(@Param("tenantId") UUID tenantId,
+                                   @Param("filter") String filter,
+                                   Pageable pageable);
+
+    @Query("""
+        SELECT e FROM Expedient e
+        WHERE e.tenantId = :tenantId
+          AND e.deletedAt IS NULL
+          AND e.status = :status
+          AND (lower(e.code) LIKE lower(concat('%', :filter, '%'))
+               OR lower(e.name) LIKE lower(concat('%', :filter, '%'))
+               OR lower(coalesce(e.description, '')) LIKE lower(concat('%', :filter, '%')))
+        ORDER BY e.updatedAt DESC, e.id DESC
+        """)
+    Page<Expedient> searchByTenantAndStatus(@Param("tenantId") UUID tenantId,
+                                           @Param("status") Expedient.ExpedientStatus status,
+                                           @Param("filter") String filter,
+                                           Pageable pageable);
 
     default Page<Expedient> findByTenant(UUID tenantId, String filter, Pageable pageable) {
-        return findByTenantAndStatus(tenantId, null, filter, pageable);
+        return searchByTenant(tenantId, filter == null ? "" : filter.trim(), pageable);
+    }
+
+    default Page<Expedient> findByTenantAndStatus(UUID tenantId, Expedient.ExpedientStatus status, String filter, Pageable pageable) {
+        if (status != null) {
+            return searchByTenantAndStatus(tenantId, status, filter == null ? "" : filter.trim(), pageable);
+        }
+        return searchByTenant(tenantId, filter == null ? "" : filter.trim(), pageable);
     }
 
     Optional<Expedient> findByIdAndTenantIdAndDeletedAtIsNull(UUID id, UUID tenantId);

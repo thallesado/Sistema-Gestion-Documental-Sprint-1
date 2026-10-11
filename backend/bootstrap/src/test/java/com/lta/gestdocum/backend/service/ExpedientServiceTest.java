@@ -69,11 +69,11 @@ class ExpedientServiceTest {
     }
 
     @Test
-    @DisplayName("find() should delegate to findByTenantAndStatus with given status and filter")
+    @DisplayName("find() should delegate to searchByTenantAndStatus with given status and filter")
     void shouldFindExpedientsWithStatusFilter() {
         PageRequest pageable = PageRequest.of(0, 10);
         Expedient expedient = buildActiveExpedient();
-        when(repository.findByTenantAndStatus(eq(tenantId), eq(ExpedientStatus.ACTIVE), eq("%auditoria%"), eq(pageable)))
+        when(repository.searchByTenantAndStatus(eq(tenantId), eq(ExpedientStatus.ACTIVE), eq("auditoria"), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(expedient)));
 
         Page<ExpedientResponse> result = service.find("auditoria", ExpedientStatus.ACTIVE, pageable);
@@ -82,6 +82,22 @@ class ExpedientServiceTest {
         assertEquals(1, result.getTotalElements());
         assertEquals(expedientId, result.getContent().get(0).id());
         verify(userContext).establishDatabaseContext();
+        verify(repository).searchByTenantAndStatus(tenantId, ExpedientStatus.ACTIVE, "auditoria", pageable);
+    }
+
+    @Test
+    @DisplayName("find() without status should delegate to searchByTenant")
+    void shouldFindExpedientsWithoutStatusFilter() {
+        PageRequest pageable = PageRequest.of(0, 10);
+        Expedient expedient = buildActiveExpedient();
+        when(repository.searchByTenant(eq(tenantId), eq(""), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(expedient)));
+
+        Page<ExpedientResponse> result = service.find(null, null, pageable);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        verify(repository).searchByTenant(tenantId, "", pageable);
     }
 
     @Test
