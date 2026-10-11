@@ -36,3 +36,6 @@ database/backups/
 # Machine-local by team decision: never pushed to any branch.
 odd/
 .atl/
+
+# Local documents and technical specifications
+/*.docx
