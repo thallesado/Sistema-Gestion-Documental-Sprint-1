@@ -98,6 +98,10 @@ export class ExpedientsPage {
   get countLabel(): string { return `${this.items().length} de ${this.totalCount()} expedientes`; }
 
   constructor() {
+    const qParam = this.route.snapshot.queryParamMap.get('q') || this.route.snapshot.queryParamMap.get('filter');
+    if (qParam) {
+      this.search.set(qParam);
+    }
     if (this.isForm) this.loadFormOptions();
     else this.loadExpedients();
   }

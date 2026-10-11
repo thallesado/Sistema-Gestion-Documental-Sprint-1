@@ -209,14 +209,21 @@
         </div>
 
         @if (!hideGlobalSearch()) {
-          <label class="topbar-search">
+          <form class="topbar-search" (submit)="onGlobalSearch($event)">
             <span class="search-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
             </span>
-            <input aria-label="Buscar en NexoDocs" placeholder="Buscar documentos, expedientes o usuarios..." />
-          </label>
+            <input
+              type="search"
+              aria-label="Buscar en NexoDocs"
+              placeholder="Buscar documentos, expedientes o usuarios..."
+              [value]="globalSearchTerm()"
+              (input)="globalSearchTerm.set($any($event.target).value)"
+              (keydown.enter)="onGlobalSearch($event)"
+            />
+          </form>
         }
 
         <div class="topbar-actions">

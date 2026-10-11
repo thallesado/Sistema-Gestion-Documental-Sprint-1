@@ -49,6 +49,22 @@ export class App {
   readonly tenantName = computed(() => this.currentUser()?.tenantName || (this.currentUser()?.platformAdmin ? 'Todos los tenants' : 'Organización autenticada'));
   /** El módulo «Usuarios y equipos» (/users, /users/...) ya trae su propio buscador: se oculta el global. */
   readonly hideGlobalSearch = computed(() => this.currentUrl().split(/[?#]/)[0].split('/')[1] === 'users');
+  readonly globalSearchTerm = signal('');
+
+  onGlobalSearch(event?: Event): void {
+    if (event) event.preventDefault();
+    const term = this.globalSearchTerm().trim();
+    if (!term) return;
+
+    const url = this.currentUrl().split(/[?#]/)[0];
+    if (url.startsWith('/expedients')) {
+      void this.router.navigate(['/expedients'], { queryParams: { q: term } });
+    } else if (url.startsWith('/patients')) {
+      void this.router.navigate(['/patients'], { queryParams: { q: term } });
+    } else {
+      void this.router.navigate(['/documents'], { queryParams: { q: term } });
+    }
+  }
   readonly toast = signal('');
   readonly mobileNavOpen = signal(false);
   /** Sidebar reducido a iconos (solo escritorio). Se recuerda entre sesiones. */

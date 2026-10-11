@@ -705,6 +705,14 @@ export class DocumentPage implements OnInit, OnDestroy {
         this.syncRouteState();
       });
 
+    this.route.queryParamMap.subscribe(params => {
+      const q = params.get('q') || params.get('filter');
+      if (q !== null && q !== undefined && q !== this.search()) {
+        this.search.set(q);
+        this.loadDocuments();
+      }
+    });
+
     this.syncRouteState();
     this.loadCatalogData();
   }
@@ -736,6 +744,11 @@ export class DocumentPage implements OnInit, OnDestroy {
       this.pageTitle.set('Compartidos conmigo');
     } else {
       this.pageTitle.set('Todos los documentos');
+    }
+
+    const initialQ = this.route.snapshot.queryParamMap.get('q') || this.route.snapshot.queryParamMap.get('filter');
+    if (initialQ !== null && initialQ !== undefined && !this.search()) {
+      this.search.set(initialQ);
     }
 
     if (!isStat) {

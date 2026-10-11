@@ -57,6 +57,17 @@ public class DocumentController {
         return ResponseEntity.ok(service.findMine(filter, status, pageable));
     }
 
+    @GetMapping("/shared")
+    @PreAuthorize("hasAuthority('document:read')")
+    @Operation(summary = "Listar documentos compartidos",
+            description = "Documentos del tenant autenticado compartidos con el usuario o pertenecientes a otros colaboradores")
+    public ResponseEntity<Page<DocumentResponse>> findShared(
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) Document.DocumentStatus status,
+            Pageable pageable) {
+        return ResponseEntity.ok(service.findShared(filter, status, pageable));
+    }
+
     @GetMapping("/categories")
     @PreAuthorize("hasAuthority('document:read')")
     @Operation(summary = "Listar categorías documentales activas")

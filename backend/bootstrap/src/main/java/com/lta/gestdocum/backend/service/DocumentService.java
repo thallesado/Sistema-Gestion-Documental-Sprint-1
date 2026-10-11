@@ -82,6 +82,18 @@ public class DocumentService {
     }
 
     @Transactional(readOnly = true)
+    public Page<DocumentResponse> findShared(String filter, Document.DocumentStatus status, Pageable pageable) {
+        UUID tenantId = userContext.requireTenantId();
+        UUID userId = userContext.requireUserId();
+        userContext.establishDatabaseContext();
+        String value = filter == null ? "" : filter.trim();
+        if (status != null) {
+            return repository.searchSharedAndStatus(tenantId, userId, value, status, pageable).map(this::toResponse);
+        }
+        return repository.searchShared(tenantId, userId, value, pageable).map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
     public DocumentResponse findById(UUID id) {
         userContext.establishDatabaseContext();
         return toResponse(getForTenant(id));
