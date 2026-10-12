@@ -176,7 +176,7 @@
         </button>
         <button type="button" class="user-details profile-open-trigger" (click)="openProfile()">
           <b>{{ displayName() }}</b>
-          <small>{{ currentUser()?.username ?? 'laura.martinez' }}</small>
+          <small>{{ currentUser()?.username || '' }}</small>
         </button>
         <button type="button" class="user-menu-btn" aria-label="Opciones de usuario" [attr.aria-expanded]="sidebarUserMenuOpen()" (click)="toggleSidebarUserMenu()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
