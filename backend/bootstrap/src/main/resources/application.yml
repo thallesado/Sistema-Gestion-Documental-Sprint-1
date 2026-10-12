@@ -26,16 +26,16 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: ${MAIL_SMTP_AUTH:false}
+          auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: ${MAIL_SMTP_STARTTLS:false}
+            enable: ${MAIL_SMTP_STARTTLS:true}
 
   servlet:
     multipart:
@@ -66,8 +66,8 @@ app:
     public-tenants:
       max-requests: ${PUBLIC_TENANTS_RATE_LIMIT:10}
       window-seconds: ${PUBLIC_TENANTS_RATE_WINDOW_SECONDS:60}
-  frontend-url: ${FRONTEND_URL:http://localhost:4200}
-  mail-from: ${MAIL_FROM:hello@demomailtrap.co}
+  frontend-url: ${FRONTEND_URL:http://nexodocs-si2.duckdns.org}
+  mail-from: ${MAIL_FROM:diegoastetepaz@gmail.com}
   password-recovery-expiration-minutes: ${PASSWORD_RECOVERY_EXPIRATION_MINUTES:30}
   storage:
     local-path: ${STORAGE_LOCAL_PATH:./data/storage}
