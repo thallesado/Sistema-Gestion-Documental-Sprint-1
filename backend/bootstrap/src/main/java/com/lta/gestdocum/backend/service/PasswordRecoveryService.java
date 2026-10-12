@@ -125,7 +125,12 @@ public class PasswordRecoveryService {
                 + tokenExpirationMinutes + " minutos:\n\n"
                 + frontendUrl + "/reset-password/" + rawToken
                 + "\n\nSi no fuiste tú, ignora este correo.");
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (org.springframework.mail.MailException mailException) {
+            org.slf4j.LoggerFactory.getLogger(PasswordRecoveryService.class)
+                    .warn("No se pudo enviar el correo de recuperación SMTP: {}. Token generado en base de datos.", mailException.getMessage());
+        }
     }
 
     private String hash(String value) {
