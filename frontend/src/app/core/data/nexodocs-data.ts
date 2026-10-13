@@ -84,7 +84,7 @@ export const navSections: NavSection[] = [
         label: 'Digitalizacion',
         icon: 'DG',
         roles: ['Administrador de tenant', 'Superadministrador'],
-        sprintEnabled: false,
+        sprintEnabled: true,
         children: [
           { label: 'Escanear documento', href: '/digitization' },
           { label: 'Subir documento', href: '/digitization/upload', visible: false },

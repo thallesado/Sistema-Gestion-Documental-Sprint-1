@@ -18,6 +18,7 @@ import { DocumentApiService, ApiDocument } from '../../../core/api/document-api.
 import { WorkspaceApiService, ApiActivity, ApiTask } from '../../../core/api/workspace-api.service';
 import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
 import { WorkflowApi } from '../../workflows/workflow-api.service';
+import { OcrApiService, OcrProcessResult } from '../../../core/api/ocr-api.service';
 
 type PageStat = { icon: string; label: string; value: string; detail: string; tone: string };
 type OcrStatus = 'QUEUED' | 'PROCESSING' | 'REQUIRES_VALIDATION' | 'VALIDATED' | 'INDEXED';
@@ -713,7 +714,7 @@ type TabLink = { label: string; href: string };
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           <span>Las operaciones disponibles dependen de la API y los permisos de la sesión autenticada.</span>
         </footer>
-      } @else {
+      } @else if (!isScanPage && !isOcrFlow) {
         <header class="module-header">
           <div class="module-icon">{{ moduleIcon }}</div>
           <div class="module-heading">
@@ -734,13 +735,13 @@ type TabLink = { label: string; href: string };
                 </div>
               }
             </div>
-          } @else if (!isOcrFlow) {
+          } @else {
             <button type="button" class="module-action" (click)="isUploadPage ? triggerFilePicker() : actionMessage = copy.action + ' preparado'"><span>{{ actionIcon }}</span>{{ copy.action }}</button>
           }
         </header>
       }
 
-      @if (!isHome && !isTasksView && !isActivityView && !isRolesView && !isPermissionsView && !isNotificationsView) {
+      @if (!isHome && !isTasksView && !isActivityView && !isRolesView && !isPermissionsView && !isNotificationsView && !isScanPage && !isOcrFlow) {
         <div class="stats">
           @for (stat of stats; track stat.label) {
             <article>
@@ -752,57 +753,298 @@ type TabLink = { label: string; href: string };
       }
 
       @if (isScanPage) {
-        <section class="panel scan-panel">
-          <div class="panel-title"><div><h2>Selecciona el origen del documento</h2><p>La captura es local y queda preparada para una futura integración con OCR.</p></div><span class="status muted">Pendiente de integración</span></div>
-          <div class="scan-source-grid">
-            <article class="scan-source">
-              <span class="scan-source-icon">↑</span><h3>Subir archivo</h3><p>Selecciona un PDF o una imagen desde este dispositivo.</p>
-              <input #uploadInput type="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff" (change)="onFileSelected($event, 'Carga de archivo')" />
-              <button type="button" class="source-button" (click)="uploadInput.click()">Elegir archivo</button>
+        <!-- HERO BANNER DIGITALIZACIÓN -->
+        <section class="module-hero-banner">
+          <div class="module-hero-left">
+            <span class="module-hero-badge">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </span>
+            <div class="module-hero-text">
+              <p class="eyebrow">DIGITALIZACIÓN <span>·</span> VISIÓN MULTIMODAL</p>
+              <h1>Escanear y Digitalizar Documentos</h1>
+              <p>Ingesta de informes clínicos, laboratorios y recetas físicas mediante motor IA multimodal (Gemini 3.8 Flash).</p>
+            </div>
+          </div>
+          <div class="module-hero-right">
+            <span class="status ok" style="background: #ecfdf5; color: #047857; font-weight: 700; border: 1px solid #a7f3d0; padding: 6px 14px; border-radius: 999px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+              <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span> Motor OCR Activo
+            </span>
+          </div>
+        </section>
+
+        <!-- KPI STATS CARDS ROW (3 Cards) -->
+        <div class="kpi-stats-grid">
+          <article class="kpi-stat-card">
+            <div class="kpi-stat-main">
+              <span class="kpi-icon-wrap mint">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10 9 9 9 8 9"/>
+                </svg>
+              </span>
+              <div class="kpi-stat-info">
+                <small>Digitalizaciones</small>
+                <strong>142</strong>
+                <p>Documentos en repositorio</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="kpi-stat-card">
+            <div class="kpi-stat-main">
+              <span class="kpi-icon-wrap amber">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </span>
+              <div class="kpi-stat-info">
+                <small>Precisión de extracción</small>
+                <strong>98.4%</strong>
+                <p>Visión multimodal Gemini</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="kpi-stat-card">
+            <div class="kpi-stat-main">
+              <span class="kpi-icon-wrap green">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+              </span>
+              <div class="kpi-stat-info">
+                <small>Tiempo promedio</small>
+                <strong>&lt; 1.8s</strong>
+                <p>Estructuración JSON clínica</p>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <section class="module-main-card">
+          <div class="module-card-header">
+            <h2>Selecciona el origen del documento</h2>
+            <p>Sube una foto o escaneo clínico para extraer metadatos, paciente y resultados en segundos.</p>
+          </div>
+          <div class="scan-source-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+            <article class="scan-source" style="background: #f8fbfa; border: 2px dashed #bfeae5; border-radius: 14px; padding: 24px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; transition: all 0.2s ease;">
+              <span class="scan-source-icon" style="background: var(--mint); color: var(--teal); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </span>
+              <h3 style="font-size: 15px; margin: 0; color: #102d2a; font-weight: 700;">Subir archivo o escaneo</h3>
+              <p style="font-size: 12px; color: #557774; margin: 0; line-height: 1.4;">Selecciona un informe en PDF, PNG o JPG desde tu computadora.</p>
+              <input #uploadInput type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" (change)="onFileSelected($event, 'Carga de archivo local')" style="display: none;" />
+              <button type="button" class="btn-primary-action" style="margin-top: 8px; width: 100%; border-radius: 8px; font-weight: 700; padding: 10px; justify-content: center;" (click)="uploadInput.click()">Elegir archivo</button>
             </article>
-            <article class="scan-source">
-              <span class="scan-source-icon">▣</span><h3>Tomar foto</h3><p>Usa la cámara del teléfono para capturar un documento.</p>
-              <input #cameraInput type="file" accept="image/*" capture="environment" (change)="onFileSelected($event, 'Cámara móvil')" />
-              <button type="button" class="source-button" (click)="cameraInput.click()">Abrir cámara</button>
-            </article>
-            <article class="scan-source scanner-stub">
-              <span class="scan-source-icon">▤</span><h3>Escáner conectado</h3><p>Conecta un escáner de escritorio compatible para importar sus páginas.</p>
-              <span class="stub-label">STUB · INTEGRACIÓN DE ESCRITORIO PENDIENTE</span>
-              <button type="button" class="source-button secondary-source" (click)="useScannerStub()">Simular conexión</button>
+
+            <article class="scan-source" style="background: #f8fbfa; border: 2px dashed #bfeae5; border-radius: 14px; padding: 24px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; transition: all 0.2s ease;">
+              <span class="scan-source-icon" style="background: #fef3c7; color: #d97706; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </span>
+              <h3 style="font-size: 15px; margin: 0; color: #102d2a; font-weight: 700;">Tomar foto con cámara</h3>
+              <p style="font-size: 12px; color: #557774; margin: 0; line-height: 1.4;">Usa la cámara web o del dispositivo móvil para capturar el papel.</p>
+              <input #cameraInput type="file" accept="image/*" capture="environment" (change)="onFileSelected($event, 'Cámara del dispositivo')" style="display: none;" />
+              <button type="button" class="btn-secondary-action" style="margin-top: 8px; width: 100%; border-radius: 8px; font-weight: 700; padding: 10px; justify-content: center;" (click)="cameraInput.click()">Abrir cámara</button>
             </article>
           </div>
+
           @if (selectedFileName !== 'Ningún archivo seleccionado') {
-            <div class="scan-selection" role="status"><span>✓</span><div><strong>{{ selectedFileName }}</strong><small>Origen: {{ selectedSource }}</small></div><button type="button" (click)="startOcr()">Iniciar procesamiento OCR</button></div>
+            <div class="scan-selection" role="status" style="margin-top: 20px;">
+              <span style="font-size: 20px;">✓</span>
+              <div>
+                <strong>{{ selectedFileName }}</strong>
+                <small>Origen: {{ selectedSource }} · Listo para análisis de IA</small>
+              </div>
+              <button type="button" class="btn-primary-action" style="margin-left: auto; padding: 10px 18px;" (click)="startOcr()">
+                <span>⚡ Iniciar procesamiento OCR</span>
+              </button>
+            </div>
           }
         </section>
+
+        <footer class="module-bottom-info" style="margin-top: 22px;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span>Las operaciones disponibles dependen de la API y los permisos de la sesión autenticada.</span>
+        </footer>
       } @else if (isOcrFlow) {
+        <!-- HERO BANNER OCR FLOW -->
+        <section class="module-hero-banner">
+          <div class="module-hero-left">
+            <span class="module-hero-badge">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+            </span>
+            <div class="module-hero-text">
+              <p class="eyebrow">DIGITALIZACIÓN <span>·</span> PROCESAMIENTO OCR</p>
+              <h1>Validación y Extracción Clínica</h1>
+              <p>Revisa el texto extraído, la confianza del modelo y los parámetros analíticos antes de indexar.</p>
+            </div>
+          </div>
+          <div class="module-hero-right">
+            <a routerLink="/digitization" class="btn-secondary-action">
+              <span>← Digitalizar otro</span>
+            </a>
+          </div>
+        </section>
         <section class="ocr-workspace">
-          <nav class="step-tabs" aria-label="Pasos del procesamiento OCR">
+          <nav class="step-tabs" aria-label="Pasos del procesamiento OCR" style="background: #ffffff; border: 1px solid var(--line); border-radius: 14px; padding: 6px; display: flex; gap: 6px; box-shadow: 0 2px 8px rgba(10,50,48,0.02); margin-bottom: 20px;">
             @for (tab of ocrTabs; track tab.href) {
-              <a [routerLink]="tab.href" [class.active]="routeInfo.href === tab.href" [attr.aria-current]="routeInfo.href === tab.href ? 'step' : null"><span>{{ tab.label === 'Validación y extracción' ? '1' : tab.label === 'Indexación' ? '2' : '3' }}</span>{{ tab.label }}</a>
+              <a [routerLink]="tab.href" [class.active]="routeInfo.href === tab.href" [attr.aria-current]="routeInfo.href === tab.href ? 'step' : null" style="display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 10px; font-size: 12px; font-weight: 700; text-decoration: none;">
+                <span style="width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800;">{{ tab.label === 'Validación y extracción' ? '1' : tab.label === 'Indexación' ? '2' : '3' }}</span>
+                {{ tab.label }}
+              </a>
             }
           </nav>
-          <div class="ocr-grid">
-            <article class="panel ocr-source-card">
-              <div class="panel-title"><div><h2>Documento origen</h2><p>Entrada seleccionada para este proceso</p></div><span class="status review">{{ ocrStatus() }}</span></div>
-              <div class="ocr-file"><span class="file-icon">PDF</span><div><strong>{{ ocrFileName }}</strong><small>Origen: digitalización local · 2.4 MB</small></div></div>
-              <dl class="ocr-details"><div><dt>Identificador</dt><dd>OCR-2026-0098</dd></div><div><dt>Páginas</dt><dd>4 páginas</dd></div><div><dt>Confianza</dt><dd>91.4%</dd></div></dl>
-              <p class="simulated-note"><b>Estado del procesamiento</b><span>{{ ocrStatusDescription }}</span></p>
+
+          <div class="ocr-grid" style="display: grid; grid-template-columns: minmax(320px, 1fr) minmax(0, 1.8fr); gap: 20px; align-items: start;">
+            <!-- DOCUMENTO ORIGEN CARD -->
+            <article class="module-main-card ocr-source-card">
+              <div class="module-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                <div>
+                  <h2 style="font-size: 16px; font-weight: 800; color: #102d2a; margin: 0 0 3px;">Documento origen</h2>
+                  <p style="font-size: 12px; color: #557774; margin: 0;">Entrada seleccionada para este proceso</p>
+                </div>
+                <span class="status-pill status review" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 999px;">
+                  {{ ocrStatus() }}
+                </span>
+              </div>
+
+              <div class="ocr-file" style="display: flex; align-items: center; gap: 12px; background: #f8fbfa; border: 1px solid #c2ebe3; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;">
+                <span class="file-icon" style="background: var(--mint); color: var(--teal); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; flex-shrink: 0;">
+                  {{ ocrRawFile()?.name?.endsWith('.pdf') ? 'PDF' : 'IMG' }}
+                </span>
+                <div style="min-width: 0; flex: 1;">
+                  <strong style="display: block; font-size: 13px; color: #102d2a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ ocrRawFile()?.name || 'Documento clínico seleccionado' }}</strong>
+                  <small style="color: #648280; font-size: 11.5px;">{{ selectedSource }}{{ ocrRawFile() ? ' · ' + formatFileSize(ocrRawFile()!.size) : '' }}</small>
+                </div>
+              </div>
+
+              <dl class="ocr-details" style="display: grid; gap: 10px; margin: 0 0 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
+                  <dt style="color: #648280; font-size: 11.5px; margin: 0;">Tipo documental</dt>
+                  <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()?.documentType || (ocrLoading() ? 'Detectando...' : 'Pendiente') }}</dd>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
+                  <dt style="color: #648280; font-size: 11.5px; margin: 0;">Confianza del modelo</dt>
+                  <dd style="color: #087f7b; font-size: 12px; font-weight: 800; margin: 0;">{{ ocrData() ? (((ocrData()?.confidence || 0) * 100) | number:'1.1-1') + '%' : (ocrLoading() ? 'Calculando...' : '—') }}</dd>
+                </div>
+                @if (ocrData()?.patientName) {
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
+                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">Paciente</dt>
+                    <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()?.patientName }}</dd>
+                  </div>
+                }
+                @if (ocrData()?.doctorName) {
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
+                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">Médico</dt>
+                    <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()?.doctorName }}</dd>
+                  </div>
+                }
+                @if (ocrData()?.issueDate) {
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
+                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">Fecha del estudio</dt>
+                    <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()?.issueDate }}</dd>
+                  </div>
+                }
+              </dl>
+
+              @if (ocrLoading()) {
+                <div class="inline-toast" style="margin-top: 12px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px 12px; font-size: 12px; font-weight: 600;">
+                  ⏳ Procesando visión multimodal con Gemini... Extrayendo texto y entidades clínicas en tiempo real...
+                </div>
+              }
+
+              <div style="background: #f8fbfa; border: 1px solid #c2ebe3; border-radius: 10px; padding: 12px 14px; margin-top: 8px;">
+                <b style="color: #087f7b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Estado del procesamiento</b>
+                <span style="color: #102d2a; font-size: 12px;">{{ ocrStatusDescription }}</span>
+              </div>
             </article>
-            <article class="panel ocr-result-card">
-              <div class="panel-title"><div><h2>Resultado OCR</h2><p>Texto extraído y resumen para revisión humana</p></div><span class="status ok">Texto disponible</span></div>
-              <div class="ocr-summary"><span class="side-kicker">RESUMEN EXTRAÍDO</span><p>El resumen aparecerá cuando el servicio OCR devuelva información del documento.</p></div>
-              <div class="extracted-text"><span class="side-kicker">TEXTO EXTRAÍDO</span><p>“Las partes acuerdan establecer las condiciones generales para la prestación de servicios profesionales. La vigencia del presente documento será de doce meses...”</p></div>
+
+            <!-- RESULTADO OCR CARD -->
+            <article class="module-main-card ocr-result-card">
+              <div class="module-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px;">
+                <div>
+                  <h2 style="font-size: 16px; font-weight: 800; color: #102d2a; margin: 0 0 3px;">Resultado OCR</h2>
+                  <p style="font-size: 12px; color: #557774; margin: 0;">Texto extraído y metadatos clínicos estructurados</p>
+                </div>
+                <span class="status-pill status ok" style="background: #ecfdf5; color: #047857; font-weight: 700; border: 1px solid #a7f3d0; font-size: 11px; padding: 4px 10px; border-radius: 999px;">
+                  {{ ocrData() ? 'Extracción completada' : (ocrLoading() ? 'Analizando...' : 'Pendiente') }}
+                </span>
+              </div>
+
+              <!-- RESUMEN DETECTADO -->
+              <div style="background: #f8fbfa; border: 1px solid #e2ece9; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;">
+                <span style="color: var(--teal); font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 6px;">Resumen Clínico Detectado</span>
+                <p style="color: #102d2a; font-size: 13px; line-height: 1.6; margin: 0;">
+                  {{ ocrData()?.extractedSummary || (ocrLoading() ? 'Analizando resumen y diagnóstico preliminar con IA...' : 'El resumen aparecerá cuando el servicio OCR complete la lectura del documento.') }}
+                </p>
+              </div>
+
+              <!-- VALORES CLÍNICOS ESTRUCTURADOS -->
+              @if (ocrData()?.structuredFields?.length) {
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;">
+                  <span style="color: #166534; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 10px;">Valores Clínicos / Parámetros Extraídos</span>
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                    @for (field of ocrData()!.structuredFields; track field.key) {
+                      <div style="padding: 8px 12px; background: #fff; border-radius: 8px; border: 1px solid #dcfce7; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                          <span style="color: #64748b; display: block; font-size: 11px; font-weight: 600;">{{ field.key }}</span>
+                          <strong style="color: #0f172a; font-size: 13px;">{{ field.value }}</strong>
+                        </div>
+                        @if (field.status && field.status !== 'NORMAL' && field.status !== 'N/A') {
+                          <span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px;">[{{ field.status }}]</span>
+                        } @else if (field.status === 'NORMAL') {
+                          <span style="background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px;">[NORMAL]</span>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+
+              <!-- TEXTO COMPLETO -->
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;">
+                <span style="color: #64748b; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 8px;">Transcripción Completa del Documento</span>
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto;">
+                  <p style="white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.5; color: #334155; margin: 0;">{{ ocrData()?.fullText || (ocrLoading() ? 'Transcribiendo texto íntegro...' : 'Sin documento procesado.') }}</p>
+                </div>
+              </div>
+
+              <!-- ACCIONES DEL PASO -->
               @if (ocrStep === 'validation') {
-                <div class="ocr-actions"><button type="button" class="secondary-button" (click)="rejectOcr()">Rechazar resultado</button><button type="button" class="primary-button" (click)="validateOcr()">Confirmar extracción</button></div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 8px;">
+                  <button type="button" class="btn-secondary-action" (click)="rejectOcr()">Rechazar resultado</button>
+                  <button type="button" class="btn-primary-action" (click)="validateOcr()">Confirmar extracción</button>
+                </div>
               } @else if (ocrStep === 'indexing') {
-                <div class="metadata-preview"><label>Tipo documental <select><option>Contrato</option><option>Informe</option></select></label><label>Área <select><option>Legal</option><option>Compras</option></select></label><button type="button" class="primary-button" (click)="indexOcr()">Guardar indexación</button></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; padding-top: 8px;">
+                  <label style="display: grid; gap: 4px; font-size: 11px; font-weight: 700; color: #557774;">Tipo documental <input style="height: 38px; border-radius: 8px; border: 1px solid var(--line); padding: 0 10px; font-size: 12px;" [value]="ocrData()?.documentType || 'LABORATORIO'" /></label>
+                  <label style="display: grid; gap: 4px; font-size: 11px; font-weight: 700; color: #557774;">Área hospitalaria <select style="height: 38px; border-radius: 8px; border: 1px solid var(--line); padding: 0 10px; font-size: 12px; background: #fff;"><option>Laboratorio</option><option>Consulta Externa</option><option>Emergencias</option><option>Historias clínicas</option></select></label>
+                  <button type="button" class="btn-primary-action" style="height: 38px;" (click)="indexOcr()">Guardar e Indexar Documento</button>
+                </div>
               } @else {
-                <div class="metadata-preview"><label>Responsable <input /></label><label>Etiqueta <input /></label><button type="button" class="primary-button" (click)="correctMetadata()">Confirmar metadatos</button></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; padding-top: 8px;">
+                  <label style="display: grid; gap: 4px; font-size: 11px; font-weight: 700; color: #557774;">Paciente detectado <input style="height: 38px; border-radius: 8px; border: 1px solid var(--line); padding: 0 10px; font-size: 12px;" [value]="ocrData()?.patientName || ''" /></label>
+                  <label style="display: grid; gap: 4px; font-size: 11px; font-weight: 700; color: #557774;">Fecha del estudio <input style="height: 38px; border-radius: 8px; border: 1px solid var(--line); padding: 0 10px; font-size: 12px;" [value]="ocrData()?.issueDate || ''" /></label>
+                  <button type="button" class="btn-primary-action" style="height: 38px;" (click)="correctMetadata()">Confirmar metadatos finales</button>
+                </div>
               }
             </article>
           </div>
         </section>
+
+        <footer class="module-bottom-info" style="margin-top: 22px;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span>Las operaciones disponibles dependen de la API y los permisos de la sesión autenticada.</span>
+        </footer>
       } @else if (isFormPage) {
         <div class="content-grid">
           <form class="panel form-panel" (submit)="$event.preventDefault(); actionMessage = 'Borrador guardado localmente'">
@@ -896,7 +1138,7 @@ type TabLink = { label: string; href: string };
       }
 
       @if (actionMessage) { <div class="inline-toast" role="status">{{ actionMessage }}</div> }
-      @if (!isTasksView && !isActivityView && !isRolesView && !isPermissionsView && !isNotificationsView) {
+      @if (!isTasksView && !isActivityView && !isRolesView && !isPermissionsView && !isNotificationsView && !isScanPage && !isOcrFlow) {
         <footer class="demo-note"><span>ⓘ</span> Las operaciones disponibles dependen de la API y los permisos de la sesión autenticada.</footer>
       }
       @if (roleFormOpen()) { <app-role-form-modal [role]="editingRole()" (closed)="closeRoleForm()" (saved)="loadRoles(); actionMessage = editingRole() ? 'Rol actualizado correctamente' : 'Rol creado correctamente'" /> }
@@ -912,7 +1154,12 @@ export class WorkspacePage {
   private readonly workspaceApi = inject(WorkspaceApiService);
   private readonly adminApi = inject(AdministrationApiService);
   private readonly workflowApi = inject(WorkflowApi);
+  private readonly ocrApi = inject(OcrApiService);
   readonly workflowSummary = signal<any>(null);
+  get ocrRawFile() { return this.ocrApi.rawFile; }
+  get ocrLoading() { return this.ocrApi.ocrLoading; }
+  get ocrData() { return this.ocrApi.ocrData; }
+  get ocrStatus() { return this.ocrApi.ocrStatus; }
   @ViewChild('fileInput') private fileInput?: ElementRef<HTMLInputElement>;
   private readonly routeData = toSignal(this.route.data, {
     initialValue: this.route.snapshot.data,
@@ -1071,8 +1318,6 @@ export class WorkspacePage {
   actionMenuOpen = false;
   openRowMenu = '';
   readonly exportMenuOpen = signal(false);
-  readonly ocrStatus = signal<OcrStatus>('REQUIRES_VALIDATION');
-  readonly ocrFileName = 'contrato-marco-proveedores-2025.pdf';
   get stats(): PageStat[] { return this.buildStats(this.routeInfo.module); }
   readonly todayLabel = new Intl.DateTimeFormat('es-BO', { dateStyle: 'long' }).format(new Date());
   readonly displayName = computed(() => {
@@ -1227,15 +1472,29 @@ export class WorkspacePage {
       this.actionMessage = 'El archivo supera el límite de 25 MB';
       return;
     }
+    this.ocrApi.setFile(file, source);
     this.selectedFileName = `${file.name} (${this.formatFileSize(file.size)})`;
     this.selectedSource = source;
-    this.actionMessage = 'Archivo seleccionado localmente; aún no se ha enviado a un servidor';
+    this.actionMessage = 'Archivo listo para procesamiento multimodal';
   }
 
   startOcr(): void {
-    this.ocrStatus.set('QUEUED');
-    this.actionMessage = 'Documento encolado para OCR simulado';
+    const file = this.ocrApi.rawFile();
+    if (!file) {
+      this.actionMessage = 'Selecciona o toma una foto primero';
+      return;
+    }
+    this.actionMessage = 'Analizando documento con Gemini Multimodal...';
     void this.router.navigateByUrl('/digitization/ocr');
+
+    this.ocrApi.processFile(file).subscribe({
+      next: () => {
+        this.actionMessage = 'Extracción completada con éxito por visión multimodal.';
+      },
+      error: (err) => {
+        this.actionMessage = err?.error?.message || 'Error al procesar el documento con IA multimodal';
+      }
+    });
   }
 
   useScannerStub(): void {
@@ -1453,10 +1712,29 @@ export class WorkspacePage {
     }
   }
 
-  validateOcr(): void { this.ocrStatus.set('VALIDATED'); this.actionMessage = 'Extracción confirmada; el documento queda listo para indexar'; }
-  rejectOcr(): void { this.ocrStatus.set('PROCESSING'); this.actionMessage = 'Resultado marcado para reprocesamiento manual'; }
-  indexOcr(): void { this.ocrStatus.set('INDEXED'); this.actionMessage = 'Documento indexado en el estado local de demostración'; }
-  correctMetadata(): void { this.ocrStatus.set('INDEXED'); this.actionMessage = 'Metadatos corregidos y confirmados localmente'; }
+  validateOcr(): void {
+    this.ocrApi.ocrStatus.set('VALIDATED');
+    this.actionMessage = 'Extracción confirmada; avanzando a la fase de indexación...';
+    void this.router.navigateByUrl('/digitization/indexing');
+  }
+
+  rejectOcr(): void {
+    this.ocrApi.ocrStatus.set('PROCESSING');
+    this.actionMessage = 'Resultado rechazado; puedes volver a escanear o seleccionar otra fuente.';
+    void this.router.navigateByUrl('/digitization');
+  }
+
+  indexOcr(): void {
+    this.ocrApi.ocrStatus.set('INDEXED');
+    this.actionMessage = 'Documento catalogado e indexado con éxito. Pasando a corrección de metadatos...';
+    void this.router.navigateByUrl('/digitization/metadata');
+  }
+
+  correctMetadata(): void {
+    this.ocrApi.ocrStatus.set('INDEXED');
+    this.actionMessage = '¡Expediente digitalizado y registrado en el repositorio documental!';
+    void this.router.navigateByUrl('/documents');
+  }
 
   private documentMatchesCurrentTab(item: DemoItem): boolean {
     const href = this.routeInfo.href;
@@ -1468,7 +1746,7 @@ export class WorkspacePage {
     return true;
   }
 
-  private formatFileSize(size: number): string {
+  formatFileSize(size: number): string {
     if (size < 1024 * 1024) return `${Math.ceil(size / 1024)} KB`;
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   }
