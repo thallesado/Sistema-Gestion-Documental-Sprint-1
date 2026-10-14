@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, tap, catchError, throwError } from 'rxjs';
+import { Observable, tap, catchError, finalize, throwError } from 'rxjs';
+import { describeOcrError } from '../utils/ocr-error-message';
 
 const API_URL = '/api/v1/ocr';
 
@@ -31,8 +32,11 @@ export class OcrApiService {
   readonly selectedSource = signal<string>('Carga local');
   readonly ocrData = signal<OcrProcessResult | null>(null);
   readonly ocrLoading = signal<boolean>(false);
+  /** Seconds since the current request started; drives the loading indicator. */
+  readonly ocrElapsed = signal<number>(0);
+  private elapsedTimer: ReturnType<typeof setInterval> | null = null;
   readonly ocrError = signal<string | null>(null);
-  readonly ocrStatus = signal<'IDLE' | 'PROCESSING' | 'REQUIRES_VALIDATION' | 'VALIDATED' | 'INDEXED'>('IDLE');
+  readonly ocrStatus = signal<'IDLE' | 'PROCESSING' | 'REQUIRES_VALIDATION' | 'VALIDATED' | 'INDEXED' | 'ERROR'>('IDLE');
 
   setFile(file: File, source: string): void {
     this.rawFile.set(file);
@@ -45,6 +49,7 @@ export class OcrApiService {
     this.ocrLoading.set(true);
     this.ocrStatus.set('PROCESSING');
     this.ocrError.set(null);
+    this.startElapsedTimer();
 
     const formData = new FormData();
     formData.append('file', file);
@@ -57,11 +62,23 @@ export class OcrApiService {
       }),
       catchError((err) => {
         this.ocrLoading.set(false);
-        const errorMsg = err?.error?.message || err?.message || 'Error al procesar el documento con IA multimodal';
-        this.ocrError.set(errorMsg);
+        this.ocrStatus.set('ERROR');
+        this.ocrError.set(describeOcrError(err));
         return throwError(() => err);
-      })
+      }),
+      finalize(() => this.stopElapsedTimer())
     );
+  }
+
+  private startElapsedTimer(): void {
+    this.stopElapsedTimer();
+    this.ocrElapsed.set(0);
+    this.elapsedTimer = setInterval(() => this.ocrElapsed.update((seconds) => seconds + 1), 1000);
+  }
+
+  private stopElapsedTimer(): void {
+    if (this.elapsedTimer) clearInterval(this.elapsedTimer);
+    this.elapsedTimer = null;
   }
 
   reset(): void {
@@ -69,6 +86,7 @@ export class OcrApiService {
     this.selectedSource.set('Carga local');
     this.ocrData.set(null);
     this.ocrLoading.set(false);
+    this.stopElapsedTimer();
     this.ocrError.set(null);
     this.ocrStatus.set('IDLE');
   }

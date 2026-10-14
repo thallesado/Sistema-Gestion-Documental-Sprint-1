@@ -1635,3 +1635,45 @@ a {
 .create-user-modal .create-user-modal-body .form-grid { margin-top: 0; }
 .create-user-modal .create-user-modal-footer { background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 14px 14px; display: flex; flex: none; gap: 9px; justify-content: flex-end; padding: 16px 28px; }
 .create-user-modal .field-roles .chip-field-header { display: flex; justify-content: space-between; }
+
+/* ---- OCR digitization: responsive layout, loading indicator and camera viewer ---- */
+.ocr-grid { align-items: start; gap: 20px; grid-template-columns: minmax(320px, 1fr) minmax(0, 1.8fr); }
+.ocr-grid > * { min-width: 0; }
+@media (max-width: 900px) {
+  .ocr-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 620px) {
+  .module-hero-banner { align-items: flex-start; flex-direction: column; padding: 18px; }
+  .module-hero-left { min-width: 0; }
+  .module-hero-right, .module-hero-right .btn-secondary-action { width: 100%; }
+  .module-hero-right .btn-secondary-action { justify-content: center; }
+  .ocr-result-card .btn-primary-action, .ocr-result-card .btn-secondary-action { flex: 1 1 140px; justify-content: center; }
+}
+
+.ocr-loading { align-items: center; background: linear-gradient(135deg, #f0fdfa, #ffffff); border: 1px solid #99e6dd; border-radius: 12px; display: flex; gap: 14px; margin-bottom: 16px; padding: 14px 16px; }
+.ocr-loading-text { display: grid; flex: 1; gap: 4px; min-width: 0; }
+.ocr-loading-text strong { color: #0b4f4b; font-size: 13px; }
+.ocr-loading-text small { color: #557774; font-size: 11px; }
+.ocr-spinner { animation: ocr-spin 0.9s linear infinite; border: 3px solid #cdeee9; border-radius: 50%; border-top-color: var(--teal, #087f7b); flex: none; height: 28px; width: 28px; }
+.ocr-progress { background: #d9f0ec; border-radius: 999px; display: block; height: 6px; margin-top: 6px; overflow: hidden; position: relative; }
+.ocr-progress i { animation: ocr-slide 1.3s ease-in-out infinite; background: linear-gradient(90deg, transparent, var(--teal, #087f7b), transparent); border-radius: 999px; display: block; height: 100%; position: absolute; width: 45%; }
+.ocr-error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; color: #991b1b; margin-bottom: 16px; padding: 14px 16px; }
+.ocr-error p { font-size: 12.5px; line-height: 1.5; margin: 6px 0 12px; }
+.ocr-error-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@keyframes ocr-spin { to { transform: rotate(360deg); } }
+@keyframes ocr-slide { 0% { left: -45%; } 100% { left: 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  .ocr-spinner, .ocr-progress i { animation-duration: 3s; }
+}
+
+.cam-overlay { align-items: center; background: rgba(8, 24, 23, 0.82); display: flex; inset: 0; justify-content: center; padding: 12px; position: fixed; z-index: 1000; }
+.cam-sheet { background: #0e1f1e; border-radius: 16px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); color: #fff; display: flex; flex-direction: column; max-height: 100%; max-width: 760px; overflow: hidden; width: 100%; }
+.cam-header { align-items: center; display: flex; justify-content: space-between; padding: 12px 16px; }
+.cam-close { background: transparent; border: 0; color: #fff; cursor: pointer; font-size: 18px; padding: 4px 8px; }
+.cam-stage { background: #000; flex: 1; min-height: 220px; position: relative; }
+.cam-video { display: block; max-height: 65vh; object-fit: contain; width: 100%; }
+.cam-status { align-items: center; background: rgba(0, 0, 0, 0.6); display: flex; flex-direction: column; gap: 12px; inset: 0; justify-content: center; padding: 20px; position: absolute; text-align: center; }
+.cam-status-error { color: #fecaca; }
+.cam-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; padding: 12px 16px; }
+.cam-actions button { flex: 1 1 120px; justify-content: center; }
+.cam-actions button:disabled, .ocr-result-card button:disabled { cursor: not-allowed; opacity: 0.5; }

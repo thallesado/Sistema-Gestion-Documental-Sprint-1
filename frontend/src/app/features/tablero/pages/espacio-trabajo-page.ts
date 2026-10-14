@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
+import { Component, computed, ElementRef, HostListener, inject, OnDestroy, signal, ViewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
@@ -19,6 +19,15 @@ import { WorkspaceApiService, ApiActivity, ApiTask } from '../../../core/api/wor
 import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
 import { WorkflowApi } from '../../workflows/workflow-api.service';
 import { OcrApiService, OcrProcessResult } from '../../../core/api/ocr-api.service';
+import {
+  cameraFailureMessage,
+  captureFrameToFile,
+  CameraFacing,
+  classifyCameraError,
+  isCameraSupported,
+  openCameraStream,
+  stopStream,
+} from '../../../core/utils/camera-capture';
 
 type PageStat = { icon: string; label: string; value: string; detail: string; tone: string };
 type OcrStatus = 'QUEUED' | 'PROCESSING' | 'REQUIRES_VALIDATION' | 'VALIDATED' | 'INDEXED';
@@ -851,7 +860,7 @@ type TabLink = { label: string; href: string };
               <h3 style="font-size: 15px; margin: 0; color: #102d2a; font-weight: 700;">Tomar foto con cámara</h3>
               <p style="font-size: 12px; color: #557774; margin: 0; line-height: 1.4;">Usa la cámara web o del dispositivo móvil para capturar el papel.</p>
               <input #cameraInput type="file" accept="image/*" capture="environment" (change)="onFileSelected($event, 'Cámara del dispositivo')" style="display: none;" />
-              <button type="button" class="btn-secondary-action" style="margin-top: 8px; width: 100%; border-radius: 8px; font-weight: 700; padding: 10px; justify-content: center;" (click)="cameraInput.click()">Abrir cámara</button>
+              <button type="button" class="btn-secondary-action" style="margin-top: 8px; width: 100%; border-radius: 8px; font-weight: 700; padding: 10px; justify-content: center;" (click)="openCamera()">Abrir cámara</button>
             </article>
           </div>
 
@@ -865,6 +874,34 @@ type TabLink = { label: string; href: string };
               <button type="button" class="btn-primary-action" style="margin-left: auto; padding: 10px 18px;" (click)="startOcr()">
                 <span>⚡ Iniciar procesamiento OCR</span>
               </button>
+            </div>
+          }
+
+          @if (cameraOpen()) {
+            <div class="cam-overlay" role="dialog" aria-modal="true" aria-label="Capturar documento con la cámara">
+              <div class="cam-sheet">
+                <div class="cam-header">
+                  <strong>Capturar documento</strong>
+                  <button type="button" class="cam-close" (click)="closeCamera()" aria-label="Cerrar cámara">✕</button>
+                </div>
+                <div class="cam-stage">
+                  <video #cameraVideo class="cam-video" autoplay playsinline muted></video>
+                  @if (cameraStarting()) {
+                    <div class="cam-status"><span class="ocr-spinner" aria-hidden="true"></span><span>Iniciando cámara...</span></div>
+                  }
+                  @if (cameraError()) {
+                    <div class="cam-status cam-status-error" role="alert">
+                      <span>{{ cameraError() }}</span>
+                      <button type="button" class="btn-primary-action" (click)="useFilePickerInstead()">Usar selector de archivos</button>
+                    </div>
+                  }
+                </div>
+                <div class="cam-actions">
+                  <button type="button" class="btn-secondary-action" (click)="closeCamera()">Cancelar</button>
+                  <button type="button" class="btn-secondary-action" (click)="switchCamera()" [disabled]="cameraStarting() || !!cameraError()">Cambiar cámara</button>
+                  <button type="button" class="btn-primary-action" (click)="capturePhoto()" [disabled]="!cameraReady()">📸 Capturar</button>
+                </div>
+              </div>
             </div>
           }
         </section>
@@ -904,7 +941,7 @@ type TabLink = { label: string; href: string };
             }
           </nav>
 
-          <div class="ocr-grid" style="display: grid; grid-template-columns: minmax(320px, 1fr) minmax(0, 1.8fr); gap: 20px; align-items: start;">
+          <div class="ocr-grid">
             <!-- DOCUMENTO ORIGEN CARD -->
             <article class="module-main-card ocr-source-card">
               <div class="module-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
@@ -980,6 +1017,27 @@ type TabLink = { label: string; href: string };
                 </span>
               </div>
 
+              @if (ocrLoading()) {
+                <div class="ocr-loading" role="status" aria-live="polite">
+                  <span class="ocr-spinner" aria-hidden="true"></span>
+                  <div class="ocr-loading-text">
+                    <strong>{{ ocrLoadingMessage() }}</strong>
+                    <small>Tiempo transcurrido: {{ ocrElapsed() }} s · No cierres esta pantalla</small>
+                    <span class="ocr-progress" aria-hidden="true"><i></i></span>
+                  </div>
+                </div>
+              }
+              @if (ocrError(); as ocrErrorMessage) {
+                <div class="ocr-error" role="alert">
+                  <strong>No se pudo procesar el documento</strong>
+                  <p>{{ ocrErrorMessage }}</p>
+                  <div class="ocr-error-actions">
+                    <button type="button" class="btn-primary-action" (click)="startOcr()">Reintentar</button>
+                    <a routerLink="/digitization" class="btn-secondary-action">Elegir otro documento</a>
+                  </div>
+                </div>
+              }
+
               <!-- RESUMEN DETECTADO -->
               <div style="background: #f8fbfa; border: 1px solid #e2ece9; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;">
                 <span style="color: var(--teal); font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 6px;">Resumen Clínico Detectado</span>
@@ -1022,7 +1080,7 @@ type TabLink = { label: string; href: string };
               @if (ocrStep === 'validation') {
                 <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 8px;">
                   <button type="button" class="btn-secondary-action" (click)="rejectOcr()">Rechazar resultado</button>
-                  <button type="button" class="btn-primary-action" (click)="validateOcr()">Confirmar extracción</button>
+                  <button type="button" class="btn-primary-action" (click)="validateOcr()" [disabled]="!ocrData()">Confirmar extracción</button>
                 </div>
               } @else if (ocrStep === 'indexing') {
                 <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; padding-top: 8px;">
@@ -1146,7 +1204,7 @@ type TabLink = { label: string; href: string };
     </section>
   `,
 })
-export class WorkspacePage {
+export class WorkspacePage implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
@@ -1160,6 +1218,28 @@ export class WorkspacePage {
   get ocrLoading() { return this.ocrApi.ocrLoading; }
   get ocrData() { return this.ocrApi.ocrData; }
   get ocrStatus() { return this.ocrApi.ocrStatus; }
+  get ocrError() { return this.ocrApi.ocrError; }
+  get ocrElapsed() { return this.ocrApi.ocrElapsed; }
+  readonly ocrLoadingMessage = computed(() => {
+    const seconds = this.ocrElapsed();
+    if (seconds < 4) return 'Subiendo documento...';
+    if (seconds < 12) return 'Analizando con visión multimodal...';
+    if (seconds < 25) return 'Extrayendo campos clínicos...';
+    return 'Esto está tardando más de lo normal, sigue en curso...';
+  });
+
+  readonly cameraOpen = signal(false);
+  readonly cameraStarting = signal(false);
+  readonly cameraError = signal('');
+  readonly cameraReady = signal(false);
+  private cameraFacing: CameraFacing = 'environment';
+  private cameraStream: MediaStream | null = null;
+  private cameraVideoEl: HTMLVideoElement | null = null;
+  @ViewChild('cameraVideo') set cameraVideoRef(ref: ElementRef<HTMLVideoElement> | undefined) {
+    this.cameraVideoEl = ref?.nativeElement ?? null;
+    this.attachCameraStream();
+  }
+  @ViewChild('cameraInput') private cameraInput?: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') private fileInput?: ElementRef<HTMLInputElement>;
   private readonly routeData = toSignal(this.route.data, {
     initialValue: this.route.snapshot.data,
@@ -1467,15 +1547,98 @@ export class WorkspacePage {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    if (!this.acceptFile(file, source)) input.value = '';
+  }
+
+  private acceptFile(file: File, source: string): boolean {
     if (file.size > 25 * 1024 * 1024) {
-      input.value = '';
       this.actionMessage = 'El archivo supera el límite de 25 MB';
-      return;
+      return false;
     }
     this.ocrApi.setFile(file, source);
     this.selectedFileName = `${file.name} (${this.formatFileSize(file.size)})`;
     this.selectedSource = source;
     this.actionMessage = 'Archivo listo para procesamiento multimodal';
+    return true;
+  }
+
+  /** Live webcam viewer; without camera API (e.g. plain http) falls back to the native picker/camera app. */
+  async openCamera(): Promise<void> {
+    if (!isCameraSupported(navigator)) {
+      this.cameraInput?.nativeElement.click();
+      return;
+    }
+    this.cameraError.set('');
+    this.cameraReady.set(false);
+    this.cameraOpen.set(true);
+    await this.startCameraStream();
+  }
+
+  private async startCameraStream(): Promise<void> {
+    stopStream(this.cameraStream);
+    this.cameraStream = null;
+    this.cameraReady.set(false);
+    this.cameraError.set('');
+    this.cameraStarting.set(true);
+    try {
+      this.cameraStream = await openCameraStream(navigator, this.cameraFacing);
+      if (!this.cameraOpen()) {
+        stopStream(this.cameraStream);
+        this.cameraStream = null;
+        return;
+      }
+      this.attachCameraStream();
+    } catch (error) {
+      this.cameraError.set(cameraFailureMessage(classifyCameraError(error)));
+    } finally {
+      this.cameraStarting.set(false);
+    }
+  }
+
+  private attachCameraStream(): void {
+    if (!this.cameraVideoEl || !this.cameraStream) return;
+    const video = this.cameraVideoEl;
+    video.srcObject = this.cameraStream;
+    video.onloadedmetadata = () => this.cameraReady.set(true);
+    void video.play().catch(() => undefined);
+  }
+
+  async switchCamera(): Promise<void> {
+    this.cameraFacing = this.cameraFacing === 'environment' ? 'user' : 'environment';
+    await this.startCameraStream();
+  }
+
+  async capturePhoto(): Promise<void> {
+    if (!this.cameraVideoEl) return;
+    try {
+      const file = await captureFrameToFile(this.cameraVideoEl, () => document.createElement('canvas'));
+      if (this.acceptFile(file, 'Cámara web')) this.closeCamera();
+    } catch (error) {
+      this.cameraError.set((error as Error).message || 'No se pudo capturar la imagen');
+    }
+  }
+
+  closeCamera(): void {
+    stopStream(this.cameraStream);
+    this.cameraStream = null;
+    this.cameraOpen.set(false);
+    this.cameraReady.set(false);
+    this.cameraError.set('');
+    this.cameraStarting.set(false);
+  }
+
+  useFilePickerInstead(): void {
+    this.closeCamera();
+    this.cameraInput?.nativeElement.click();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.cameraOpen()) this.closeCamera();
+  }
+
+  ngOnDestroy(): void {
+    stopStream(this.cameraStream);
   }
 
   startOcr(): void {
@@ -1491,8 +1654,8 @@ export class WorkspacePage {
       next: () => {
         this.actionMessage = 'Extracción completada con éxito por visión multimodal.';
       },
-      error: (err) => {
-        this.actionMessage = err?.error?.message || 'Error al procesar el documento con IA multimodal';
+      error: () => {
+        this.actionMessage = this.ocrError() || 'Error al procesar el documento con IA multimodal';
       }
     });
   }
@@ -1719,7 +1882,7 @@ export class WorkspacePage {
   }
 
   rejectOcr(): void {
-    this.ocrApi.ocrStatus.set('PROCESSING');
+    this.ocrApi.ocrStatus.set('IDLE');
     this.actionMessage = 'Resultado rechazado; puedes volver a escanear o seleccionar otra fuente.';
     void this.router.navigateByUrl('/digitization');
   }

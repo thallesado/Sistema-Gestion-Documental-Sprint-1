@@ -39,3 +39,50 @@ test('WorkspacePage connects startOcr to real ocrApi.processFile and renders ext
   assert.match(workspacePage, /Valores Clínicos \/ Parámetros Extraídos/);
   assert.match(ocrApi, /this\.ocrData\.set\(result\)/);
 });
+
+const [styles, nginxConf] = await Promise.all([
+  read('frontend/src/styles.css'),
+  read('infrastructure/docker/nginx.conf'),
+]);
+
+test('Abrir cámara opens the live viewer and falls back to the file input when the camera API is unavailable', () => {
+  assert.match(workspacePage, /\(click\)="openCamera\(\)">Abrir cámara/);
+  assert.doesNotMatch(workspacePage, /\(click\)="cameraInput\.click\(\)"/);
+  assert.match(workspacePage, /if \(!isCameraSupported\(navigator\)\) \{\s*this\.cameraInput\?\.nativeElement\.click\(\);/);
+  assert.match(workspacePage, /<video #cameraVideo class="cam-video" autoplay playsinline muted>/);
+  assert.match(workspacePage, /captureFrameToFile\(this\.cameraVideoEl/);
+  assert.match(workspacePage, /acceptFile\(file, 'Cámara web'\)/);
+});
+
+test('the camera is always released: on close, on destroy and on Escape', () => {
+  assert.match(workspacePage, /closeCamera\(\): void \{\s*stopStream\(this\.cameraStream\);/);
+  assert.match(workspacePage, /ngOnDestroy\(\): void \{\s*stopStream\(this\.cameraStream\);/);
+  assert.match(workspacePage, /@HostListener\('document:keydown\.escape'\)/);
+});
+
+test('OCR page shows an animated loading indicator while processing and a visible error with retry', () => {
+  assert.match(workspacePage, /@if \(ocrLoading\(\)\) \{\s*<div class="ocr-loading" role="status"/);
+  assert.match(workspacePage, /ocrLoadingMessage\(\)/);
+  assert.match(workspacePage, /Tiempo transcurrido: \{\{ ocrElapsed\(\) \}\} s/);
+  assert.match(workspacePage, /<div class="ocr-error" role="alert">/);
+  assert.match(workspacePage, /\(click\)="startOcr\(\)">Reintentar/);
+  assert.match(styles, /@keyframes ocr-spin/);
+  assert.match(styles, /@keyframes ocr-slide/);
+});
+
+test('failed OCR requests leave PROCESSING, expose the message and always stop the timer', () => {
+  assert.match(ocrApi, /this\.ocrStatus\.set\('ERROR'\)/);
+  assert.match(ocrApi, /this\.ocrError\.set\(describeOcrError\(err\)\)/);
+  assert.match(ocrApi, /finalize\(\(\) => this\.stopElapsedTimer\(\)\)/);
+});
+
+test('OCR grid is responsive: no inline grid template overriding the stylesheet breakpoints', () => {
+  assert.match(workspacePage, /<div class="ocr-grid">/);
+  assert.doesNotMatch(workspacePage, /class="ocr-grid" style=/);
+  assert.match(styles, /@media \(max-width: 900px\) \{\s*\.ocr-grid \{ grid-template-columns: minmax\(0, 1fr\); \}/);
+});
+
+test('nginx accepts camera-sized uploads and waits long enough for the multi-model OCR call', () => {
+  assert.match(nginxConf, /client_max_body_size 26m;/);
+  assert.match(nginxConf, /proxy_read_timeout 120s;/);
+});
