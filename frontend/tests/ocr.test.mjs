@@ -22,8 +22,9 @@ test('OcrApiService sends file via multipart/form-data to /api/v1/ocr/process', 
 
 test('OcrController exposes POST /api/v1/ocr/process with RBAC authority', () => {
   assert.match(ocrController, /@PostMapping\(value = "\/process"/);
-  assert.match(ocrController, /@PreAuthorize\("hasAnyAuthority\('ocr:create', 'document:create', 'document:update', 'patient:create'\)"\)/);
-  assert.match(ocrController, /processDocument\(file\)/);
+  assert.match(ocrController, /@PreAuthorize\(CAN_RUN_OCR\)/);
+  assert.match(ocrController, /CAN_RUN_OCR =\s*"hasAnyAuthority\('ocr:create', 'document:create', 'document:update', 'patient:create'\)"/);
+  assert.match(ocrController, /jobService\.process\(file\)/);
 });
 
 test('OcrService connects to Gemini Vision API with structured medical prompt and fallback', () => {
@@ -37,7 +38,7 @@ test('WorkspacePage connects startOcr to real ocrApi.processFile and renders ext
   assert.match(workspacePage, /get ocrData\(\) \{ return this\.ocrApi\.ocrData; \}/);
   assert.match(workspacePage, /ocrData\(\)\?\.structuredFields\?\.length/);
   assert.match(workspacePage, /Valores Clínicos \/ Parámetros Extraídos/);
-  assert.match(ocrApi, /this\.ocrData\.set\(result\)/);
+  assert.match(ocrApi, /this\.ocrData\.set\(job\)/);
 });
 
 const [styles, nginxConf] = await Promise.all([
@@ -104,4 +105,52 @@ test('choosing a new file clears a previous ERROR status and the status text cov
 test('there is a single loading indicator and capture errors surface inside the camera viewer', () => {
   assert.doesNotMatch(workspacePage, /Procesando visión multimodal con Gemini\.\.\. Extrayendo texto/);
   assert.match(workspacePage, /if \(this\.acceptFile\(file, 'Cámara web'\)\) this\.closeCamera\(\);\s*else this\.cameraError\.set\(this\.actionMessage\);/);
+});
+
+test('OcrController exposes the job lifecycle with the right authority on each step', () => {
+  assert.match(ocrController, /@GetMapping\("\/jobs"\)\s*@PreAuthorize\(CAN_READ_OCR\)/);
+  assert.match(ocrController, /@GetMapping\("\/jobs\/\{id\}"\)\s*@PreAuthorize\(CAN_READ_OCR\)/);
+  assert.match(ocrController, /@GetMapping\("\/stats"\)\s*@PreAuthorize\(CAN_READ_OCR\)/);
+  assert.match(ocrController, /@PostMapping\("\/jobs\/\{id\}\/validate"\)\s*@PreAuthorize\(CAN_REVIEW_OCR\)/);
+  assert.match(ocrController, /@PostMapping\("\/jobs\/\{id\}\/reject"\)\s*@PreAuthorize\(CAN_REVIEW_OCR\)/);
+  assert.match(ocrController, /@PostMapping\("\/jobs\/\{id\}\/index"\)\s*@PreAuthorize\(CAN_INDEX_OCR\)/);
+  assert.match(ocrController, /@PatchMapping\("\/jobs\/\{id\}\/metadata"\)\s*@PreAuthorize\(CAN_REVIEW_OCR\)/);
+  assert.match(ocrController, /CAN_INDEX_OCR = "hasAuthority\('document:create'\)"/);
+});
+
+test('the Digitalización screen has no hardcoded statistics or fake engine status', () => {
+  assert.doesNotMatch(workspacePage, /<strong>142<\/strong>/);
+  assert.doesNotMatch(workspacePage, /98\.4%/);
+  assert.doesNotMatch(workspacePage, /&lt; 1\.8s/);
+  assert.doesNotMatch(workspacePage, /Gemini 3\.8 Flash\)/);
+  assert.match(workspacePage, /\{\{ statCards\(\)\[0\]\.value \}\}/);
+  assert.match(workspacePage, /\{\{ statCards\(\)\[1\]\.value \}\}/);
+  assert.match(workspacePage, /\{\{ statCards\(\)\[2\]\.value \}\}/);
+  assert.match(workspacePage, /@if \(ocrStats\(\)\?\.engineConfigured === true\) \{\s*<span class="ocr-engine ocr-engine-on"><i><\/i> Motor OCR Activo/);
+  assert.match(workspacePage, /Motor OCR sin configurar/);
+  assert.match(workspacePage, /this\.ocrApi\.loadStats\(\);\s*this\.ocrApi\.loadRecent\(\);/);
+  assert.match(workspacePage, /Digitalizaciones recientes/);
+});
+
+test('validate, reject, index and metadata correction call the backend instead of faking the status', () => {
+  assert.match(workspacePage, /this\.ocrApi\.validate\(\)\.subscribe/);
+  assert.match(workspacePage, /this\.ocrApi\.reject\(\)\.subscribe/);
+  assert.match(workspacePage, /this\.ocrApi\.index\(\{/);
+  assert.match(workspacePage, /this\.ocrApi\.updateMetadata\(changes\)\.subscribe/);
+  assert.doesNotMatch(workspacePage, /ocrStatus\.set\('(VALIDATED|INDEXED|IDLE)'\)/);
+  assert.doesNotMatch(workspacePage, /useScannerStub|Escáner conectado \(stub/);
+  assert.match(ocrApi, /\/jobs\/\$\{job\.id\}\/\$\{path\}/);
+  assert.match(ocrApi, /finalize\(\(\) => this\.ocrBusy\.set\(false\)\)/);
+});
+
+test('a FAILED digitization is shown as an error, never as a result', () => {
+  assert.match(ocrApi, /if \(job\.status === 'FAILED'\) \{[^}]*this\.ocrStatus\.set\('ERROR'\);[^}]*this\.ocrError\.set\(job\.errorMessage/s);
+  assert.match(workspacePage, /job\.status === 'FAILED'\s*\?\s*\(this\.ocrError\(\)/);
+});
+
+test('step buttons are disabled when the digitization is not in the state that step needs', () => {
+  assert.match(workspacePage, /\(click\)="validateOcr\(\)" \[disabled\]="ocrStatus\(\) !== 'REQUIRES_VALIDATION' \|\| ocrBusy\(\)"/);
+  assert.match(workspacePage, /\(click\)="indexOcr\(\)" \[disabled\]="ocrStatus\(\) !== 'VALIDATED' \|\| !indexTypeId\(\) \|\| ocrBusy\(\)"/);
+  assert.match(workspacePage, /\(click\)="correctMetadata\(\)" \[disabled\]="!canCorrectMetadata\(\) \|\| ocrBusy\(\)"/);
+  assert.match(workspacePage, /No hay una digitalización abierta/);
 });
