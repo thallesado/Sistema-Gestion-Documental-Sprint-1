@@ -73,5 +73,7 @@ app:
     local-path: ${STORAGE_LOCAL_PATH:./data/storage}
   gemini:
     api-key: ${GEMINI_API_KEY:}
-    model: ${GEMINI_MODEL:gemini-3.1-flash-lite}
+    model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
     timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:35}
+    base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+    retry-delay-ms: ${GEMINI_RETRY_DELAY_MS:1000}

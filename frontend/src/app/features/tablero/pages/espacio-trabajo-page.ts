@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
+import { Component, computed, ElementRef, HostListener, inject, OnDestroy, signal, ViewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
@@ -14,11 +14,21 @@ import { PermissionsCatalog } from '../../users/components/permissions-catalog';
 import { RoleFormModal } from '../../users/components/role-form-modal';
 import { RolePermissionsModal } from '../../users/components/role-permissions-modal';
 import { AuthService } from '../../../core/auth/auth.service';
-import { DocumentApiService, ApiDocument } from '../../../core/api/document-api.service';
+import { DocumentApiService, ApiDocument, ApiDocumentType, ApiDepartment } from '../../../core/api/document-api.service';
 import { WorkspaceApiService, ApiActivity, ApiTask } from '../../../core/api/workspace-api.service';
 import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
 import { WorkflowApi } from '../../workflows/workflow-api.service';
 import { OcrApiService, OcrProcessResult } from '../../../core/api/ocr-api.service';
+import { buildStatCards, changedMetadata, OcrMetadataFields, personLabels, reviewWarning, routeForStatus, statusLabel } from '../../../core/utils/ocr-flow';
+import {
+  cameraFailureMessage,
+  captureFrameToFile,
+  CameraFacing,
+  classifyCameraError,
+  isCameraSupported,
+  openCameraStream,
+  stopStream,
+} from '../../../core/utils/camera-capture';
 
 type PageStat = { icon: string; label: string; value: string; detail: string; tone: string };
 type OcrStatus = 'QUEUED' | 'PROCESSING' | 'REQUIRES_VALIDATION' | 'VALIDATED' | 'INDEXED';
@@ -754,7 +764,7 @@ type TabLink = { label: string; href: string };
 
       @if (isScanPage) {
         <!-- HERO BANNER DIGITALIZACIÓN -->
-        <section class="module-hero-banner">
+        <section class="module-hero-banner ocr-hero">
           <div class="module-hero-left">
             <span class="module-hero-badge">
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
@@ -766,13 +776,17 @@ type TabLink = { label: string; href: string };
             <div class="module-hero-text">
               <p class="eyebrow">DIGITALIZACIÓN <span>·</span> VISIÓN MULTIMODAL</p>
               <h1>Escanear y Digitalizar Documentos</h1>
-              <p>Ingesta de informes clínicos, laboratorios y recetas físicas mediante motor IA multimodal (Gemini 3.8 Flash).</p>
+              <p>Ingesta de informes clínicos, laboratorios y recetas físicas mediante motor IA multimodal (Gemini).</p>
             </div>
           </div>
           <div class="module-hero-right">
-            <span class="status ok" style="background: #ecfdf5; color: #047857; font-weight: 700; border: 1px solid #a7f3d0; padding: 6px 14px; border-radius: 999px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
-              <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span> Motor OCR Activo
-            </span>
+            @if (ocrStats()?.engineConfigured === true) {
+              <span class="ocr-engine ocr-engine-on"><i></i> Motor OCR Activo</span>
+            } @else if (ocrStats()?.engineConfigured === false) {
+              <span class="ocr-engine ocr-engine-off" title="Falta configurar GEMINI_API_KEY en el servidor"><i></i> Motor OCR sin configurar</span>
+            } @else {
+              <span class="ocr-engine ocr-engine-unknown"><i></i> Verificando motor OCR...</span>
+            }
           </div>
         </section>
 
@@ -790,9 +804,9 @@ type TabLink = { label: string; href: string };
                 </svg>
               </span>
               <div class="kpi-stat-info">
-                <small>Digitalizaciones</small>
-                <strong>142</strong>
-                <p>Documentos en repositorio</p>
+                <small>{{ statCards()[0].label }}</small>
+                <strong>{{ statCards()[0].value }}</strong>
+                <p>{{ statCards()[0].detail }}</p>
               </div>
             </div>
           </article>
@@ -805,9 +819,10 @@ type TabLink = { label: string; href: string };
                 </svg>
               </span>
               <div class="kpi-stat-info">
-                <small>Precisión de extracción</small>
-                <strong>98.4%</strong>
-                <p>Visión multimodal Gemini</p>
+                <small>{{ statCards()[1].label }}</small>
+                <strong>{{ statCards()[1].value }}</strong>
+                <p>{{ statCards()[1].detail }}</p>
+                @if (statCards()[1].note) { <p class="kpi-note">{{ statCards()[1].note }}</p> }
               </div>
             </div>
           </article>
@@ -820,9 +835,9 @@ type TabLink = { label: string; href: string };
                 </svg>
               </span>
               <div class="kpi-stat-info">
-                <small>Tiempo promedio</small>
-                <strong>&lt; 1.8s</strong>
-                <p>Estructuración JSON clínica</p>
+                <small>{{ statCards()[2].label }}</small>
+                <strong>{{ statCards()[2].value }}</strong>
+                <p>{{ statCards()[2].detail }}</p>
               </div>
             </div>
           </article>
@@ -851,7 +866,7 @@ type TabLink = { label: string; href: string };
               <h3 style="font-size: 15px; margin: 0; color: #102d2a; font-weight: 700;">Tomar foto con cámara</h3>
               <p style="font-size: 12px; color: #557774; margin: 0; line-height: 1.4;">Usa la cámara web o del dispositivo móvil para capturar el papel.</p>
               <input #cameraInput type="file" accept="image/*" capture="environment" (change)="onFileSelected($event, 'Cámara del dispositivo')" style="display: none;" />
-              <button type="button" class="btn-secondary-action" style="margin-top: 8px; width: 100%; border-radius: 8px; font-weight: 700; padding: 10px; justify-content: center;" (click)="cameraInput.click()">Abrir cámara</button>
+              <button type="button" class="btn-secondary-action" style="margin-top: 8px; width: 100%; border-radius: 8px; font-weight: 700; padding: 10px; justify-content: center;" (click)="openCamera()">Abrir cámara</button>
             </article>
           </div>
 
@@ -867,6 +882,60 @@ type TabLink = { label: string; href: string };
               </button>
             </div>
           }
+
+          @if (cameraOpen()) {
+            <div class="cam-overlay" role="dialog" aria-modal="true" aria-label="Capturar documento con la cámara">
+              <div class="cam-sheet">
+                <div class="cam-header">
+                  <strong>Capturar documento</strong>
+                  <button type="button" class="cam-close" (click)="closeCamera()" aria-label="Cerrar cámara">✕</button>
+                </div>
+                <div class="cam-stage">
+                  <video #cameraVideo class="cam-video" autoplay playsinline muted></video>
+                  @if (cameraStarting()) {
+                    <div class="cam-status"><span class="ocr-spinner" aria-hidden="true"></span><span>Iniciando cámara...</span></div>
+                  }
+                  @if (cameraError()) {
+                    <div class="cam-status cam-status-error" role="alert">
+                      <span>{{ cameraError() }}</span>
+                      <button type="button" class="btn-primary-action" (click)="useFilePickerInstead()">Usar selector de archivos</button>
+                    </div>
+                  }
+                </div>
+                <div class="cam-actions">
+                  <button type="button" class="btn-secondary-action" (click)="closeCamera()">Cancelar</button>
+                  <button type="button" class="btn-secondary-action" (click)="switchCamera()" [disabled]="cameraStarting() || !!cameraError()">Cambiar cámara</button>
+                  <button type="button" class="btn-primary-action" (click)="capturePhoto()" [disabled]="!cameraReady()">📸 Capturar</button>
+                </div>
+              </div>
+            </div>
+          }
+        </section>
+
+        <section class="module-main-card ocr-recent">
+          <div class="module-card-header">
+            <h2>Digitalizaciones recientes</h2>
+            <p>Retoma una digitalización donde quedó o revisa su resultado.</p>
+          </div>
+          @if (recentJobs().length === 0) {
+            <p class="ocr-recent-empty">Aún no hay digitalizaciones. Sube un documento para empezar.</p>
+          } @else {
+            <ul class="ocr-recent-list">
+              @for (job of recentJobs(); track job.id) {
+                <li>
+                  <div class="ocr-recent-main">
+                    <strong>{{ job.originalFilename || 'Documento' }}</strong>
+                    <small>{{ job.createdAt | date:'dd/MM/yyyy HH:mm' }}@if (job.confidence !== null) { · confianza {{ job.confidence * 100 | number:'1.0-0' }}% }@if (job.processingMs !== null) { · {{ job.processingMs / 1000 | number:'1.1-1' }} s }</small>
+                    @if (job.errorMessage && (job.status === 'FAILED' || job.status === 'REJECTED')) { <small class="ocr-recent-reason">{{ job.errorMessage }}</small> }
+                  </div>
+                  <span class="ocr-status" [attr.data-status]="job.status">{{ statusText(job.status) }}</span>
+                  @if (resumeRoute(job.status)) {
+                    <button type="button" class="btn-secondary-action" (click)="openRecent(job)">Abrir</button>
+                  }
+                </li>
+              }
+            </ul>
+          }
         </section>
 
         <footer class="module-bottom-info" style="margin-top: 22px;">
@@ -875,7 +944,7 @@ type TabLink = { label: string; href: string };
         </footer>
       } @else if (isOcrFlow) {
         <!-- HERO BANNER OCR FLOW -->
-        <section class="module-hero-banner">
+        <section class="module-hero-banner ocr-hero">
           <div class="module-hero-left">
             <span class="module-hero-badge">
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
@@ -904,7 +973,7 @@ type TabLink = { label: string; href: string };
             }
           </nav>
 
-          <div class="ocr-grid" style="display: grid; grid-template-columns: minmax(320px, 1fr) minmax(0, 1.8fr); gap: 20px; align-items: start;">
+          <div class="ocr-grid">
             <!-- DOCUMENTO ORIGEN CARD -->
             <article class="module-main-card ocr-source-card">
               <div class="module-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
@@ -913,7 +982,7 @@ type TabLink = { label: string; href: string };
                   <p style="font-size: 12px; color: #557774; margin: 0;">Entrada seleccionada para este proceso</p>
                 </div>
                 <span class="status-pill status review" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 999px;">
-                  {{ ocrStatus() }}
+                  {{ statusText(ocrStatus()) }}
                 </span>
               </div>
 
@@ -922,8 +991,8 @@ type TabLink = { label: string; href: string };
                   {{ ocrRawFile()?.name?.endsWith('.pdf') ? 'PDF' : 'IMG' }}
                 </span>
                 <div style="min-width: 0; flex: 1;">
-                  <strong style="display: block; font-size: 13px; color: #102d2a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ ocrRawFile()?.name || 'Documento clínico seleccionado' }}</strong>
-                  <small style="color: #648280; font-size: 11.5px;">{{ selectedSource }}{{ ocrRawFile() ? ' · ' + formatFileSize(ocrRawFile()!.size) : '' }}</small>
+                  <strong style="display: block; font-size: 13px; color: #102d2a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ ocrRawFile()?.name || ocrData()?.originalFilename || 'Documento clínico seleccionado' }}</strong>
+                  <small style="color: #648280; font-size: 11.5px;">{{ ocrRawFile() ? selectedSource : 'Digitalización guardada' }}{{ ocrFileSize() ? ' · ' + formatFileSize(ocrFileSize()!) : '' }}</small>
                 </div>
               </div>
 
@@ -933,18 +1002,18 @@ type TabLink = { label: string; href: string };
                   <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()?.documentType || (ocrLoading() ? 'Detectando...' : 'Pendiente') }}</dd>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
-                  <dt style="color: #648280; font-size: 11.5px; margin: 0;">Confianza del modelo</dt>
-                  <dd style="color: #087f7b; font-size: 12px; font-weight: 800; margin: 0;">{{ ocrData() ? (((ocrData()?.confidence || 0) * 100) | number:'1.1-1') + '%' : (ocrLoading() ? 'Calculando...' : '—') }}</dd>
+                  <dt style="color: #648280; font-size: 11.5px; margin: 0;">Confianza del modelo (autodeclarada)</dt>
+                  <dd style="color: #087f7b; font-size: 12px; font-weight: 800; margin: 0;">{{ ocrData()?.confidence != null ? ((ocrData()!.confidence! * 100) | number:'1.1-1') + '%' : (ocrLoading() ? 'Calculando...' : '—') }}</dd>
                 </div>
                 @if (ocrData()?.patientName) {
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
-                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">Paciente</dt>
+                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">{{ labels().patient }}</dt>
                     <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()?.patientName }}</dd>
                   </div>
                 }
                 @if (ocrData()?.doctorName) {
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
-                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">Médico</dt>
+                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">{{ labels().doctor }}</dt>
                     <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()?.doctorName }}</dd>
                   </div>
                 }
@@ -954,13 +1023,19 @@ type TabLink = { label: string; href: string };
                     <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()?.issueDate }}</dd>
                   </div>
                 }
+                @if (ocrData()?.modelUsed) {
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
+                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">Modelo</dt>
+                    <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()?.modelUsed }}</dd>
+                  </div>
+                }
+                @if (ocrData()?.processingMs != null) {
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
+                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">Tiempo de procesamiento</dt>
+                    <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()!.processingMs! / 1000 | number:'1.1-1' }} s</dd>
+                  </div>
+                }
               </dl>
-
-              @if (ocrLoading()) {
-                <div class="inline-toast" style="margin-top: 12px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px 12px; font-size: 12px; font-weight: 600;">
-                  ⏳ Procesando visión multimodal con Gemini... Extrayendo texto y entidades clínicas en tiempo real...
-                </div>
-              }
 
               <div style="background: #f8fbfa; border: 1px solid #c2ebe3; border-radius: 10px; padding: 12px 14px; margin-top: 8px;">
                 <b style="color: #087f7b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Estado del procesamiento</b>
@@ -979,6 +1054,39 @@ type TabLink = { label: string; href: string };
                   {{ ocrData() ? 'Extracción completada' : (ocrLoading() ? 'Analizando...' : 'Pendiente') }}
                 </span>
               </div>
+
+              @if (ocrLoading()) {
+                <div class="ocr-loading" role="status" aria-live="polite">
+                  <span class="ocr-spinner" aria-hidden="true"></span>
+                  <div class="ocr-loading-text">
+                    <strong>{{ ocrLoadingMessage() }}</strong>
+                    <small>Tiempo transcurrido: {{ ocrElapsed() }} s · No cierres esta pantalla</small>
+                    <span class="ocr-progress" aria-hidden="true"><i></i></span>
+                  </div>
+                </div>
+              }
+              @if (ocrError(); as ocrErrorMessage) {
+                <div class="ocr-error" role="alert">
+                  <strong>{{ ocrStatus() === 'ERROR' ? 'No se pudo procesar el documento' : 'No se pudo completar la acción' }}</strong>
+                  <p>{{ ocrErrorMessage }}</p>
+                  @if (ocrStatus() === 'ERROR') {
+                    <div class="ocr-error-actions">
+                      <button type="button" class="btn-primary-action" (click)="startOcr()">Reintentar</button>
+                      <a routerLink="/digitization" class="btn-secondary-action">Elegir otro documento</a>
+                    </div>
+                  }
+                </div>
+              }
+              @if (reviewNotice(); as notice) {
+                <div class="ocr-warning" role="status"><strong>Revisión recomendada</strong><p>{{ notice }}</p></div>
+              }
+              @if (!ocrData() && !ocrLoading() && !ocrError()) {
+                <div class="ocr-empty" role="status">
+                  <strong>No hay una digitalización abierta</strong>
+                  <p>Sube un documento o abre una de las digitalizaciones recientes para continuar.</p>
+                  <a routerLink="/digitization" class="btn-primary-action">Ir a Digitalizar</a>
+                </div>
+              }
 
               <!-- RESUMEN DETECTADO -->
               <div style="background: #f8fbfa; border: 1px solid #e2ece9; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;">
@@ -1020,22 +1128,64 @@ type TabLink = { label: string; href: string };
 
               <!-- ACCIONES DEL PASO -->
               @if (ocrStep === 'validation') {
-                <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 8px;">
-                  <button type="button" class="btn-secondary-action" (click)="rejectOcr()">Rechazar resultado</button>
-                  <button type="button" class="btn-primary-action" (click)="validateOcr()">Confirmar extracción</button>
+                <div class="ocr-step-actions">
+                  <button type="button" class="btn-secondary-action" (click)="rejectOcr()" [disabled]="!canReject() || ocrBusy()">Rechazar resultado</button>
+                  <button type="button" class="btn-primary-action" (click)="validateOcr()" [disabled]="ocrStatus() !== 'REQUIRES_VALIDATION' || ocrBusy()">Confirmar extracción</button>
                 </div>
+                @if (ocrData() && ocrStatus() !== 'REQUIRES_VALIDATION') {
+                  <p class="ocr-step-hint">Esta digitalización está en estado «{{ statusText(ocrStatus()) }}» y ya no se puede validar.</p>
+                }
               } @else if (ocrStep === 'indexing') {
-                <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; padding-top: 8px;">
-                  <label style="display: grid; gap: 4px; font-size: 11px; font-weight: 700; color: #557774;">Tipo documental <input style="height: 38px; border-radius: 8px; border: 1px solid var(--line); padding: 0 10px; font-size: 12px;" [value]="ocrData()?.documentType || 'LABORATORIO'" /></label>
-                  <label style="display: grid; gap: 4px; font-size: 11px; font-weight: 700; color: #557774;">Área hospitalaria <select style="height: 38px; border-radius: 8px; border: 1px solid var(--line); padding: 0 10px; font-size: 12px; background: #fff;"><option>Laboratorio</option><option>Consulta Externa</option><option>Emergencias</option><option>Historias clínicas</option></select></label>
-                  <button type="button" class="btn-primary-action" style="height: 38px;" (click)="indexOcr()">Guardar e Indexar Documento</button>
+                <div class="ocr-step-form">
+                  <label>Tipo documental *
+                    <select [value]="indexTypeId()" (change)="setIndexField('typeId', $any($event.target).value)">
+                      <option value="">Selecciona un tipo</option>
+                      @for (type of documentTypes(); track type.id) { <option [value]="type.id">{{ type.name }}</option> }
+                    </select>
+                  </label>
+                  <label>Nombre del documento
+                    <input [value]="indexName()" [placeholder]="defaultIndexName()" (input)="setIndexField('name', $any($event.target).value)" maxlength="255" />
+                  </label>
+                  <label>Código
+                    <input [value]="indexCode()" placeholder="Se genera automáticamente" (input)="setIndexField('code', $any($event.target).value)" maxlength="60" />
+                  </label>
+                  <label>Área hospitalaria
+                    <select [value]="indexDepartmentId()" (change)="setIndexField('department', $any($event.target).value)">
+                      <option value="">Sin área</option>
+                      @for (department of departments(); track department.id) { <option [value]="department.id">{{ department.name }}</option> }
+                    </select>
+                  </label>
+                  <button type="button" class="btn-primary-action" (click)="indexOcr()" [disabled]="ocrStatus() !== 'VALIDATED' || !indexTypeId() || ocrBusy()">Guardar e Indexar Documento</button>
                 </div>
+                @if (ocrData() && ocrStatus() !== 'VALIDATED') {
+                  <p class="ocr-step-hint">Solo se puede indexar una digitalización validada; esta está en estado «{{ statusText(ocrStatus()) }}».</p>
+                }
               } @else {
-                <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; padding-top: 8px;">
-                  <label style="display: grid; gap: 4px; font-size: 11px; font-weight: 700; color: #557774;">Paciente detectado <input style="height: 38px; border-radius: 8px; border: 1px solid var(--line); padding: 0 10px; font-size: 12px;" [value]="ocrData()?.patientName || ''" /></label>
-                  <label style="display: grid; gap: 4px; font-size: 11px; font-weight: 700; color: #557774;">Fecha del estudio <input style="height: 38px; border-radius: 8px; border: 1px solid var(--line); padding: 0 10px; font-size: 12px;" [value]="ocrData()?.issueDate || ''" /></label>
-                  <button type="button" class="btn-primary-action" style="height: 38px;" (click)="correctMetadata()">Confirmar metadatos finales</button>
+                <div class="ocr-step-form">
+                  <label>Tipo documental detectado
+                    <select [value]="metaValue('documentType')" (change)="setMetaField('documentType', $any($event.target).value)">
+                      @for (type of ocrDocumentTypes; track type) { <option [value]="type">{{ type }}</option> }
+                    </select>
+                  </label>
+                  <label>{{ labels().patient }} detectado
+                    <input [value]="metaValue('patientName')" (input)="setMetaField('patientName', $any($event.target).value)" maxlength="200" />
+                  </label>
+                  <label>Documento del paciente
+                    <input [value]="metaValue('patientDocumentNumber')" (input)="setMetaField('patientDocumentNumber', $any($event.target).value)" maxlength="60" />
+                  </label>
+                  <label>{{ labels().doctor }}
+                    <input [value]="metaValue('doctorName')" (input)="setMetaField('doctorName', $any($event.target).value)" maxlength="200" />
+                  </label>
+                  <label>Fecha del estudio
+                    <input type="date" [value]="metaValue('issueDate')" (input)="setMetaField('issueDate', $any($event.target).value)" />
+                  </label>
+                  <button type="button" class="btn-primary-action" (click)="correctMetadata()" [disabled]="!canCorrectMetadata() || ocrBusy()">Confirmar metadatos finales</button>
                 </div>
+                @if (ocrData()?.documentId) {
+                  <p class="ocr-step-hint ocr-step-ok">Documento registrado en el repositorio con el archivo original como versión 1. <a routerLink="/documents">Ver en Documentos</a></p>
+                } @else if (ocrData() && ocrStatus() !== 'INDEXED' && ocrStatus() !== 'VALIDATED') {
+                  <p class="ocr-step-hint">Esta digitalización está en estado «{{ statusText(ocrStatus()) }}»; los metadatos solo se corrigen tras validarla.</p>
+                }
               }
             </article>
           </div>
@@ -1146,7 +1296,7 @@ type TabLink = { label: string; href: string };
     </section>
   `,
 })
-export class WorkspacePage {
+export class WorkspacePage implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
@@ -1160,6 +1310,44 @@ export class WorkspacePage {
   get ocrLoading() { return this.ocrApi.ocrLoading; }
   get ocrData() { return this.ocrApi.ocrData; }
   get ocrStatus() { return this.ocrApi.ocrStatus; }
+  get ocrError() { return this.ocrApi.ocrError; }
+  get ocrBusy() { return this.ocrApi.ocrBusy; }
+  get ocrStats() { return this.ocrApi.stats; }
+  get recentJobs() { return this.ocrApi.recentJobs; }
+  readonly reviewNotice = computed(() => reviewWarning(this.ocrApi.ocrData()));
+  readonly labels = computed(() => personLabels(this.ocrApi.ocrData()?.documentType));
+  readonly statCards = computed(() => buildStatCards(this.ocrApi.stats(), this.ocrApi.statsState()));
+  readonly ocrDocumentTypes = ['LABORATORIO', 'RECETA', 'CONSENTIMIENTO', 'INFORME_MEDICO', 'OTRO'];
+  readonly documentTypes = signal<ApiDocumentType[]>([]);
+  readonly departments = signal<ApiDepartment[]>([]);
+  private readonly indexEdits = signal({ typeId: '', name: '', code: '', department: '' });
+  readonly indexTypeId = computed(() => this.indexEdits().typeId);
+  readonly indexName = computed(() => this.indexEdits().name);
+  readonly indexCode = computed(() => this.indexEdits().code);
+  readonly indexDepartmentId = computed(() => this.indexEdits().department);
+  private readonly metaEdits = signal<Partial<OcrMetadataFields>>({});
+  get ocrElapsed() { return this.ocrApi.ocrElapsed; }
+  readonly ocrLoadingMessage = computed(() => {
+    const seconds = this.ocrElapsed();
+    if (seconds < 4) return 'Subiendo documento...';
+    if (seconds < 12) return 'Analizando con visión multimodal...';
+    if (seconds < 25) return 'Extrayendo campos clínicos...';
+    return 'Esto está tardando más de lo normal, sigue en curso...';
+  });
+
+  readonly cameraOpen = signal(false);
+  readonly cameraStarting = signal(false);
+  readonly cameraError = signal('');
+  readonly cameraReady = signal(false);
+  private cameraFacing: CameraFacing = 'environment';
+  private cameraRequest = 0;
+  private cameraStream: MediaStream | null = null;
+  private cameraVideoEl: HTMLVideoElement | null = null;
+  @ViewChild('cameraVideo') set cameraVideoRef(ref: ElementRef<HTMLVideoElement> | undefined) {
+    this.cameraVideoEl = ref?.nativeElement ?? null;
+    this.attachCameraStream();
+  }
+  @ViewChild('cameraInput') private cameraInput?: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') private fileInput?: ElementRef<HTMLInputElement>;
   private readonly routeData = toSignal(this.route.data, {
     initialValue: this.route.snapshot.data,
@@ -1339,6 +1527,11 @@ export class WorkspacePage {
       this.searchTerm.set('');
       this.openRowMenu = '';
       this.exportMenuOpen.set(false);
+      if (this.isScanPage) {
+        this.ocrApi.loadStats();
+        this.ocrApi.loadRecent();
+      }
+      if (this.isOcrFlow && this.ocrStep === 'indexing') this.loadIndexOptions();
       if (this.isRolesView) this.loadRoles();
       if (this.isPermissionsView) this.adminApi.permissions().subscribe({ next: (list) => this.permissions.set(list), error: () => (this.actionMessage = 'No se pudo cargar el catálogo de permisos') });
       if (this.isHome || this.isTasksView || this.isActivityView) {
@@ -1442,7 +1635,13 @@ export class WorkspacePage {
 
   get actionIcon(): string { return this.isFormPage ? '＋' : '↗'; }
   get ocrStatusDescription(): string {
-    return this.ocrStatus() === 'INDEXED' ? 'Resultado indexado y listo para consulta.' : this.ocrStatus() === 'VALIDATED' ? 'Extracción confirmada por revisión humana.' : 'Requiere validación humana antes de indexar.';
+    const status = this.ocrStatus();
+    if (status === 'INDEXED') return 'Resultado indexado y listo para consulta.';
+    if (status === 'VALIDATED') return 'Extracción confirmada por revisión humana.';
+    if (status === 'ERROR') return 'El procesamiento falló; reintenta o elige otro documento.';
+    if (status === 'IDLE') return 'Sin documento procesado todavía.';
+    if (status === 'PROCESSING') return 'Procesando el documento con visión multimodal...';
+    return 'Requiere validación humana antes de indexar.';
   }
 
   statusClass(item: DemoItem): string {
@@ -1467,15 +1666,103 @@ export class WorkspacePage {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    if (!this.acceptFile(file, source)) input.value = '';
+  }
+
+  private acceptFile(file: File, source: string): boolean {
     if (file.size > 25 * 1024 * 1024) {
-      input.value = '';
       this.actionMessage = 'El archivo supera el límite de 25 MB';
-      return;
+      return false;
     }
     this.ocrApi.setFile(file, source);
     this.selectedFileName = `${file.name} (${this.formatFileSize(file.size)})`;
     this.selectedSource = source;
     this.actionMessage = 'Archivo listo para procesamiento multimodal';
+    return true;
+  }
+
+  /** Live webcam viewer; without camera API (e.g. plain http) falls back to the native picker/camera app. */
+  async openCamera(): Promise<void> {
+    if (!isCameraSupported(navigator)) {
+      this.cameraInput?.nativeElement.click();
+      return;
+    }
+    this.cameraError.set('');
+    this.cameraReady.set(false);
+    this.cameraOpen.set(true);
+    await this.startCameraStream();
+  }
+
+  private async startCameraStream(): Promise<void> {
+    const request = ++this.cameraRequest;
+    stopStream(this.cameraStream);
+    this.cameraStream = null;
+    this.cameraReady.set(false);
+    this.cameraError.set('');
+    this.cameraStarting.set(true);
+    try {
+      const stream = await openCameraStream(navigator, this.cameraFacing);
+      // The viewer may have been closed, reopened or destroyed while the permission prompt was pending.
+      if (request !== this.cameraRequest || !this.cameraOpen()) {
+        stopStream(stream);
+        return;
+      }
+      this.cameraStream = stream;
+      this.attachCameraStream();
+    } catch (error) {
+      if (request === this.cameraRequest) this.cameraError.set(cameraFailureMessage(classifyCameraError(error)));
+    } finally {
+      if (request === this.cameraRequest) this.cameraStarting.set(false);
+    }
+  }
+
+  private attachCameraStream(): void {
+    if (!this.cameraVideoEl || !this.cameraStream) return;
+    const video = this.cameraVideoEl;
+    video.srcObject = this.cameraStream;
+    video.onloadedmetadata = () => this.cameraReady.set(true);
+    void video.play().catch(() => undefined);
+  }
+
+  async switchCamera(): Promise<void> {
+    this.cameraFacing = this.cameraFacing === 'environment' ? 'user' : 'environment';
+    await this.startCameraStream();
+  }
+
+  async capturePhoto(): Promise<void> {
+    if (!this.cameraVideoEl) return;
+    try {
+      const file = await captureFrameToFile(this.cameraVideoEl, () => document.createElement('canvas'));
+      if (this.acceptFile(file, 'Cámara web')) this.closeCamera();
+      else this.cameraError.set(this.actionMessage);
+    } catch (error) {
+      this.cameraError.set((error as Error).message || 'No se pudo capturar la imagen');
+    }
+  }
+
+  closeCamera(): void {
+    this.cameraRequest++;
+    stopStream(this.cameraStream);
+    this.cameraStream = null;
+    this.cameraOpen.set(false);
+    this.cameraReady.set(false);
+    this.cameraError.set('');
+    this.cameraStarting.set(false);
+  }
+
+  useFilePickerInstead(): void {
+    this.closeCamera();
+    this.cameraInput?.nativeElement.click();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.cameraOpen()) this.closeCamera();
+  }
+
+  ngOnDestroy(): void {
+    this.cameraRequest++;
+    stopStream(this.cameraStream);
   }
 
   startOcr(): void {
@@ -1488,19 +1775,17 @@ export class WorkspacePage {
     void this.router.navigateByUrl('/digitization/ocr');
 
     this.ocrApi.processFile(file).subscribe({
-      next: () => {
-        this.actionMessage = 'Extracción completada con éxito por visión multimodal.';
+      next: (job) => {
+        this.indexEdits.set({ typeId: '', name: '', code: '', department: '' });
+        this.metaEdits.set({});
+        this.actionMessage = job.status === 'FAILED'
+          ? (this.ocrError() || 'No se pudo extraer el documento')
+          : 'Extracción completada con éxito por visión multimodal.';
       },
-      error: (err) => {
-        this.actionMessage = err?.error?.message || 'Error al procesar el documento con IA multimodal';
+      error: () => {
+        this.actionMessage = this.ocrError() || 'Error al procesar el documento con IA multimodal';
       }
     });
-  }
-
-  useScannerStub(): void {
-    this.selectedSource = 'Escáner conectado (stub de escritorio)';
-    this.selectedFileName = 'captura-escaner.pdf (1.1 MB)';
-    this.actionMessage = 'Stub de escáner activado: falta integrar el conector de escritorio';
   }
 
   handleExpedientAction(action: string): void {
@@ -1713,27 +1998,144 @@ export class WorkspacePage {
   }
 
   validateOcr(): void {
-    this.ocrApi.ocrStatus.set('VALIDATED');
-    this.actionMessage = 'Extracción confirmada; avanzando a la fase de indexación...';
-    void this.router.navigateByUrl('/digitization/indexing');
+    this.ocrApi.validate().subscribe({
+      next: () => {
+        this.actionMessage = 'Extracción confirmada; avanzando a la fase de indexación...';
+        this.loadIndexOptions();
+        void this.router.navigateByUrl('/digitization/indexing');
+      },
+      error: () => (this.actionMessage = this.ocrError() || 'No se pudo confirmar la extracción'),
+    });
   }
 
   rejectOcr(): void {
-    this.ocrApi.ocrStatus.set('PROCESSING');
-    this.actionMessage = 'Resultado rechazado; puedes volver a escanear o seleccionar otra fuente.';
-    void this.router.navigateByUrl('/digitization');
+    this.ocrApi.reject().subscribe({
+      next: () => {
+        this.actionMessage = 'Resultado rechazado; puedes volver a escanear o seleccionar otra fuente.';
+        this.finishDigitization();
+        void this.router.navigateByUrl('/digitization');
+      },
+      error: () => (this.actionMessage = this.ocrError() || 'No se pudo rechazar el resultado'),
+    });
   }
 
   indexOcr(): void {
-    this.ocrApi.ocrStatus.set('INDEXED');
-    this.actionMessage = 'Documento catalogado e indexado con éxito. Pasando a corrección de metadatos...';
-    void this.router.navigateByUrl('/digitization/metadata');
+    const form = this.indexEdits();
+    this.ocrApi.index({
+      documentTypeId: form.typeId,
+      name: form.name.trim() || undefined,
+      code: form.code.trim() || undefined,
+      departmentId: form.department || undefined,
+    }).subscribe({
+      next: () => {
+        this.actionMessage = 'Documento catalogado e indexado con éxito. Pasando a corrección de metadatos...';
+        void this.router.navigateByUrl('/digitization/metadata');
+      },
+      error: () => (this.actionMessage = this.ocrError() || 'No se pudo indexar el documento'),
+    });
   }
 
   correctMetadata(): void {
-    this.ocrApi.ocrStatus.set('INDEXED');
-    this.actionMessage = '¡Expediente digitalizado y registrado en el repositorio documental!';
-    void this.router.navigateByUrl('/documents');
+    const job = this.ocrApi.ocrData();
+    if (!job) return;
+    const changes = changedMetadata(this.metaEdits(), {
+      documentType: job.documentType, patientName: job.patientName, patientDocumentNumber: job.patientDocumentNumber,
+      doctorName: job.doctorName, issueDate: job.issueDate,
+    });
+    const done = (indexed: boolean) => {
+      if (indexed) {
+        this.actionMessage = '¡Expediente digitalizado y registrado en el repositorio documental!';
+        this.finishDigitization();
+        void this.router.navigateByUrl('/documents');
+      } else {
+        this.actionMessage = 'Metadatos guardados. Falta indexar el documento en el repositorio.';
+        void this.router.navigateByUrl('/digitization/indexing');
+      }
+    };
+    if (Object.keys(changes).length === 0) {
+      done(job.status === 'INDEXED');
+      return;
+    }
+    this.ocrApi.updateMetadata(changes).subscribe({
+      next: (updated) => done(updated.status === 'INDEXED'),
+      error: () => (this.actionMessage = this.ocrError() || 'No se pudieron guardar los metadatos'),
+    });
+  }
+
+  statusText(status: string): string {
+    return statusLabel(status as Parameters<typeof statusLabel>[0]);
+  }
+
+  resumeRoute(status: string): string | null {
+    return routeForStatus(status as Parameters<typeof routeForStatus>[0]);
+  }
+
+  openRecent(job: OcrProcessResult): void {
+    const route = routeForStatus(job.status);
+    if (!route) return;
+    this.metaEdits.set({});
+    this.indexEdits.set({ typeId: '', name: '', code: '', department: '' });
+    this.ocrApi.openJob(job);
+    void this.router.navigateByUrl(route);
+  }
+
+  ocrFileSize(): number | null {
+    return this.ocrApi.rawFile()?.size ?? this.ocrApi.ocrData()?.fileSizeBytes ?? null;
+  }
+
+  canReject(): boolean {
+    const status = this.ocrApi.ocrStatus();
+    return status === 'REQUIRES_VALIDATION' || status === 'VALIDATED';
+  }
+
+  canCorrectMetadata(): boolean {
+    const status = this.ocrApi.ocrStatus();
+    return status === 'VALIDATED' || status === 'INDEXED';
+  }
+
+  defaultIndexName(): string {
+    const name = this.ocrApi.ocrData()?.originalFilename ?? '';
+    const dot = name.lastIndexOf('.');
+    return (dot > 0 ? name.slice(0, dot) : name) || 'Documento digitalizado';
+  }
+
+  setIndexField(field: 'typeId' | 'name' | 'code' | 'department', value: string): void {
+    this.indexEdits.update((current) => ({ ...current, [field]: value }));
+  }
+
+  setMetaField(field: keyof OcrMetadataFields, value: string): void {
+    this.metaEdits.update((current) => ({ ...current, [field]: value }));
+  }
+
+  metaValue(field: keyof OcrMetadataFields): string {
+    const edited = this.metaEdits()[field];
+    if (edited !== undefined) return edited;
+    const job = this.ocrApi.ocrData();
+    return (job?.[field] ?? (field === 'documentType' ? 'OTRO' : '')) as string;
+  }
+
+  private loadIndexOptions(): void {
+    if (this.documentTypes().length === 0) {
+      this.documentApi.documentTypes('', 0, 100).subscribe({
+        next: (page) => this.documentTypes.set(page.content ?? []),
+        error: () => (this.actionMessage = 'No se pudieron cargar los tipos documentales'),
+      });
+    }
+    if (this.departments().length === 0) {
+      this.documentApi.departments().subscribe({
+        next: (list) => this.departments.set(list),
+        error: () => this.departments.set([]),
+      });
+    }
+  }
+
+  /** Back to a clean slate once a digitization is closed (rejected or fully indexed). */
+  private finishDigitization(): void {
+    this.ocrApi.reset();
+    this.selectedFileName = 'Ningún archivo seleccionado';
+    this.selectedSource = 'Sin seleccionar';
+    this.indexEdits.set({ typeId: '', name: '', code: '', department: '' });
+    this.metaEdits.set({});
   }
 
   private documentMatchesCurrentTab(item: DemoItem): boolean {
