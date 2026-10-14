@@ -56,7 +56,7 @@ class OcrServiceExtractTest {
     }
 
     private OcrService service(String model) {
-        return new OcrService("key", model, 5, baseUrl(), mapper);
+        return new OcrService("key", model, 5, baseUrl(), 0, mapper);
     }
 
     @Test
@@ -87,8 +87,35 @@ class OcrServiceExtractTest {
         OcrService.OcrExtraction result = service("gemini-a").extract("img".getBytes(), "image/png", "x.png");
 
         assertFalse(result.fallback());
-        assertEquals("gemini-3.1-flash-lite", result.model());
+        assertEquals("gemini-3.5-flash-lite", result.model(), "el respaldo preferido es el 3.5 flash-lite, el que mejor respondio en pruebas reales");
         assertTrue(requestedPaths.get(0).contains("gemini-a"));
+    }
+
+    @Test
+    @DisplayName("extract() reintenta el mismo modelo ante 503 y tiene exito sin pasar a otro modelo")
+    void extractRetriesTransientOverload() {
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        behaviour = path -> new int[]{calls.incrementAndGet() <= 2 ? 503 : 200};
+        bodies = path -> calls.get() <= 2 ? "{\"error\":\"UNAVAILABLE\"}" : GEMINI_OK;
+
+        OcrService.OcrExtraction result = service("gemini-a").extract("img".getBytes(), "image/png", "x.png");
+
+        assertFalse(result.fallback());
+        assertEquals("gemini-a", result.model(), "el mismo modelo, no el de respaldo");
+        assertEquals(3, requestedPaths.size());
+        assertTrue(requestedPaths.stream().allMatch(p -> p.contains("gemini-a")));
+    }
+
+    @Test
+    @DisplayName("extract() no reintenta errores no transitorios (404, 400): pasa directo al siguiente modelo")
+    void extractDoesNotRetryPermanentErrors() {
+        behaviour = path -> new int[]{path.contains("gemini-a") ? 404 : 200};
+        bodies = path -> path.contains("gemini-a") ? "{}" : GEMINI_OK;
+
+        OcrService.OcrExtraction result = service("gemini-a").extract("img".getBytes(), "image/png", "x.png");
+
+        assertFalse(result.fallback());
+        assertEquals(1, requestedPaths.stream().filter(p -> p.contains("gemini-a")).count(), "un solo intento para el 404");
     }
 
     @Test
@@ -99,7 +126,7 @@ class OcrServiceExtractTest {
 
         OcrService.OcrExtraction result = service("gemini-3.8-flash").extract("img".getBytes(), "image/png", "x.png");
 
-        assertEquals(2, requestedPaths.size(), "gemini-3.8-flash configurado + gemini-3.1-flash-lite, sin repetir");
+        assertEquals(9, requestedPaths.size(), "3 modelos distintos (sin repetir) x 3 intentos ante un error transitorio");
         assertTrue(result.fallback());
         assertTrue(result.failureReason().contains("HTTP 500"));
         assertNull(result.model());
@@ -109,13 +136,25 @@ class OcrServiceExtractTest {
     @DisplayName("isConfigured() refleja si hay API key")
     void isConfiguredReflectsApiKey() {
         assertTrue(service("gemini-a").isConfigured());
-        assertFalse(new OcrService(" ", "gemini-a", 5, baseUrl(), mapper).isConfigured());
+        assertFalse(new OcrService(" ", "gemini-a", 5, baseUrl(), 0, mapper).isConfigured());
+    }
+
+    @Test
+    @DisplayName("el modelo por defecto es gemini-3.5-flash-lite y 3.1 queda como respaldo")
+    void defaultCandidateOrder() {
+        behaviour = path -> new int[]{503};
+        bodies = path -> "{}";
+
+        new OcrService("key", "", 5, baseUrl(), 0, mapper).extract("img".getBytes(), "image/png", "x.png");
+
+        List<String> models = requestedPaths.stream().map(p -> p.replaceAll(".*/models/([^:]+):.*", "$1")).distinct().toList();
+        assertEquals(List.of("gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"), models);
     }
 
     @Test
     @DisplayName("extract() sin API key es un fallo explicito, no una extraccion")
     void extractWithoutApiKeyIsFallback() {
-        OcrService unconfigured = new OcrService("", "gemini-a", 5, baseUrl(), mapper);
+        OcrService unconfigured = new OcrService("", "gemini-a", 5, baseUrl(), 0, mapper);
 
         OcrService.OcrExtraction result = unconfigured.extract("img".getBytes(), "image/png", "x.png");
 

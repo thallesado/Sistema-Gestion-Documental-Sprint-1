@@ -31,8 +31,13 @@ public class OcrService {
             Set.of("application/pdf", "image/jpeg", "image/png", "image/webp");
     public static final Set<String> DOCUMENT_TYPES =
             Set.of("LABORATORIO", "RECETA", "CONSENTIMIENTO", "INFORME_MEDICO", "OTRO");
-    private static final String DEFAULT_MODEL = "gemini-3.8-flash";
+    /** Probado con documentos reales: el que respondio de forma mas estable (7/7) frente a la saturacion de los demas. */
+    private static final String DEFAULT_MODEL = "gemini-3.5-flash-lite";
     private static final String DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com";
+    private static final long DEFAULT_RETRY_DELAY_MS = 1000;
+    /** Intentos por modelo ante una sobrecarga transitoria de Google (503, 429, 500...). */
+    private static final int MAX_ATTEMPTS = 3;
+    private static final Set<Integer> TRANSIENT_STATUS = Set.of(429, 500, 502, 503, 504);
 
     private static final Logger log = LoggerFactory.getLogger(OcrService.class);
 
@@ -40,11 +45,12 @@ public class OcrService {
     private final String model;
     private final int timeoutSeconds;
     private final String baseUrl;
+    private final long retryDelayMs;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
 
     public OcrService(String apiKey, String model, int timeoutSeconds, ObjectMapper objectMapper) {
-        this(apiKey, model, timeoutSeconds, DEFAULT_BASE_URL, objectMapper);
+        this(apiKey, model, timeoutSeconds, DEFAULT_BASE_URL, DEFAULT_RETRY_DELAY_MS, objectMapper);
     }
 
     @Autowired
@@ -53,11 +59,13 @@ public class OcrService {
             @Value("${app.gemini.model:" + DEFAULT_MODEL + "}") String model,
             @Value("${app.gemini.timeout-seconds:25}") int timeoutSeconds,
             @Value("${app.gemini.base-url:" + DEFAULT_BASE_URL + "}") String baseUrl,
+            @Value("${app.gemini.retry-delay-ms:" + DEFAULT_RETRY_DELAY_MS + "}") long retryDelayMs,
             ObjectMapper objectMapper) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = model == null || model.isBlank() ? DEFAULT_MODEL : model.trim();
         this.timeoutSeconds = Math.max(timeoutSeconds, 5);
         this.baseUrl = baseUrl == null || baseUrl.isBlank() ? DEFAULT_BASE_URL : baseUrl.trim().replaceAll("/+$", "");
+        this.retryDelayMs = Math.max(retryDelayMs, 0);
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
@@ -136,42 +144,52 @@ public class OcrService {
                 ))
         );
 
-        Set<String> candidateModels = new LinkedHashSet<>(List.of(model, "gemini-3.1-flash-lite", DEFAULT_MODEL));
+        Set<String> candidateModels = new LinkedHashSet<>(List.of(model, DEFAULT_MODEL, "gemini-3.1-flash-lite", "gemini-3.8-flash"));
         String lastError = null;
 
         for (String currentModel : candidateModels) {
             String url = String.format("%s/v1beta/models/%s:generateContent", baseUrl, currentModel);
-            try {
-                String jsonBody = objectMapper.writeValueAsString(payload);
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(url))
-                        .timeout(Duration.ofSeconds(timeoutSeconds))
-                        .header("Content-Type", "application/json")
-                        .header("x-goog-api-key", apiKey)
-                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                        .build();
+            for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                boolean retry = false;
+                try {
+                    String jsonBody = objectMapper.writeValueAsString(payload);
+                    HttpRequest request = HttpRequest.newBuilder()
+                            .uri(URI.create(url))
+                            .timeout(Duration.ofSeconds(timeoutSeconds))
+                            .header("Content-Type", "application/json")
+                            .header("x-goog-api-key", apiKey)
+                            .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                            .build();
 
-                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-                if (response.statusCode() == 200) {
-                    OcrExtraction parsed = parseGeminiResponse(response.body(), originalFilename, currentModel, started);
-                    if (!parsed.fallback()) {
-                        log.info("Extracción OCR completada exitosamente con modelo {}", currentModel);
-                        return parsed;
+                    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                    if (response.statusCode() == 200) {
+                        OcrExtraction parsed = parseGeminiResponse(response.body(), originalFilename, currentModel, started);
+                        if (!parsed.fallback()) {
+                            log.info("Extracción OCR completada con modelo {} (intento {})", currentModel, attempt);
+                            return parsed;
+                        }
+                        lastError = parsed.failureReason();
+                        break;
                     }
-                    lastError = parsed.failureReason();
-                    continue;
+                    lastError = "HTTP " + response.statusCode();
+                    retry = TRANSIENT_STATUS.contains(response.statusCode());
+                    log.warn("Modelo {} respondió HTTP {} (intento {}/{}){}", currentModel, response.statusCode(),
+                            attempt, MAX_ATTEMPTS, retry && attempt < MAX_ATTEMPTS ? ". Reintentando..." : ". Probando siguiente modelo candidato...");
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return failure(originalFilename, "Fallo en motor de visión multimodal: interrumpido", started);
+                } catch (Exception e) {
+                    // Un timeout ya consumió el plazo completo: se pasa al siguiente modelo sin reintentar.
+                    log.warn("Excepción llamando a modelo {}: {}. Probando siguiente...", currentModel, e.getMessage());
+                    lastError = e.getMessage();
+                    break;
                 }
-
-                log.warn("Modelo {} respondió HTTP {}. Probando siguiente modelo candidato...",
-                        currentModel, response.statusCode());
-                lastError = "HTTP " + response.statusCode();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                lastError = "interrumpido";
-                break;
-            } catch (Exception e) {
-                log.warn("Excepción llamando a modelo {}: {}. Probando siguiente...", currentModel, e.getMessage());
-                lastError = e.getMessage();
+                if (!retry) {
+                    break;
+                }
+                if (attempt < MAX_ATTEMPTS && !pause(retryDelayMs * attempt)) {
+                    return failure(originalFilename, "Fallo en motor de visión multimodal: interrumpido", started);
+                }
             }
         }
 
@@ -264,6 +282,20 @@ public class OcrService {
         }
         String text = value.asText(null);
         return text == null || text.isBlank() || "null".equalsIgnoreCase(text.trim()) ? null : text.trim();
+    }
+
+    /** Espera entre reintentos; devuelve false si el hilo fue interrumpido. */
+    private static boolean pause(long millis) {
+        if (millis <= 0) {
+            return true;
+        }
+        try {
+            Thread.sleep(millis);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     private static long elapsedMs(long startedNanos) {
