@@ -42,6 +42,7 @@ export class OcrApiService {
     this.rawFile.set(file);
     this.selectedSource.set(source);
     this.ocrError.set(null);
+    if (this.ocrStatus() === 'ERROR') this.ocrStatus.set('IDLE');
   }
 
   processFile(file: File): Observable<OcrProcessResult> {

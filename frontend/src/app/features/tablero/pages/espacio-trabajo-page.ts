@@ -993,12 +993,6 @@ type TabLink = { label: string; href: string };
                 }
               </dl>
 
-              @if (ocrLoading()) {
-                <div class="inline-toast" style="margin-top: 12px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px 12px; font-size: 12px; font-weight: 600;">
-                  ⏳ Procesando visión multimodal con Gemini... Extrayendo texto y entidades clínicas en tiempo real...
-                </div>
-              }
-
               <div style="background: #f8fbfa; border: 1px solid #c2ebe3; border-radius: 10px; padding: 12px 14px; margin-top: 8px;">
                 <b style="color: #087f7b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Estado del procesamiento</b>
                 <span style="color: #102d2a; font-size: 12px;">{{ ocrStatusDescription }}</span>
@@ -1233,6 +1227,7 @@ export class WorkspacePage implements OnDestroy {
   readonly cameraError = signal('');
   readonly cameraReady = signal(false);
   private cameraFacing: CameraFacing = 'environment';
+  private cameraRequest = 0;
   private cameraStream: MediaStream | null = null;
   private cameraVideoEl: HTMLVideoElement | null = null;
   @ViewChild('cameraVideo') set cameraVideoRef(ref: ElementRef<HTMLVideoElement> | undefined) {
@@ -1522,7 +1517,13 @@ export class WorkspacePage implements OnDestroy {
 
   get actionIcon(): string { return this.isFormPage ? '＋' : '↗'; }
   get ocrStatusDescription(): string {
-    return this.ocrStatus() === 'INDEXED' ? 'Resultado indexado y listo para consulta.' : this.ocrStatus() === 'VALIDATED' ? 'Extracción confirmada por revisión humana.' : 'Requiere validación humana antes de indexar.';
+    const status = this.ocrStatus();
+    if (status === 'INDEXED') return 'Resultado indexado y listo para consulta.';
+    if (status === 'VALIDATED') return 'Extracción confirmada por revisión humana.';
+    if (status === 'ERROR') return 'El procesamiento falló; reintenta o elige otro documento.';
+    if (status === 'IDLE') return 'Sin documento procesado todavía.';
+    if (status === 'PROCESSING') return 'Procesando el documento con visión multimodal...';
+    return 'Requiere validación humana antes de indexar.';
   }
 
   statusClass(item: DemoItem): string {
@@ -1575,23 +1576,25 @@ export class WorkspacePage implements OnDestroy {
   }
 
   private async startCameraStream(): Promise<void> {
+    const request = ++this.cameraRequest;
     stopStream(this.cameraStream);
     this.cameraStream = null;
     this.cameraReady.set(false);
     this.cameraError.set('');
     this.cameraStarting.set(true);
     try {
-      this.cameraStream = await openCameraStream(navigator, this.cameraFacing);
-      if (!this.cameraOpen()) {
-        stopStream(this.cameraStream);
-        this.cameraStream = null;
+      const stream = await openCameraStream(navigator, this.cameraFacing);
+      // The viewer may have been closed, reopened or destroyed while the permission prompt was pending.
+      if (request !== this.cameraRequest || !this.cameraOpen()) {
+        stopStream(stream);
         return;
       }
+      this.cameraStream = stream;
       this.attachCameraStream();
     } catch (error) {
-      this.cameraError.set(cameraFailureMessage(classifyCameraError(error)));
+      if (request === this.cameraRequest) this.cameraError.set(cameraFailureMessage(classifyCameraError(error)));
     } finally {
-      this.cameraStarting.set(false);
+      if (request === this.cameraRequest) this.cameraStarting.set(false);
     }
   }
 
@@ -1613,12 +1616,14 @@ export class WorkspacePage implements OnDestroy {
     try {
       const file = await captureFrameToFile(this.cameraVideoEl, () => document.createElement('canvas'));
       if (this.acceptFile(file, 'Cámara web')) this.closeCamera();
+      else this.cameraError.set(this.actionMessage);
     } catch (error) {
       this.cameraError.set((error as Error).message || 'No se pudo capturar la imagen');
     }
   }
 
   closeCamera(): void {
+    this.cameraRequest++;
     stopStream(this.cameraStream);
     this.cameraStream = null;
     this.cameraOpen.set(false);
@@ -1638,6 +1643,7 @@ export class WorkspacePage implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.cameraRequest++;
     stopStream(this.cameraStream);
   }
 

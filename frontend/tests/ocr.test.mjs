@@ -55,8 +55,8 @@ test('Abrir cámara opens the live viewer and falls back to the file input when 
 });
 
 test('the camera is always released: on close, on destroy and on Escape', () => {
-  assert.match(workspacePage, /closeCamera\(\): void \{\s*stopStream\(this\.cameraStream\);/);
-  assert.match(workspacePage, /ngOnDestroy\(\): void \{\s*stopStream\(this\.cameraStream\);/);
+  assert.match(workspacePage, /closeCamera\(\): void \{\s*this\.cameraRequest\+\+;\s*stopStream\(this\.cameraStream\);/);
+  assert.match(workspacePage, /ngOnDestroy\(\): void \{\s*this\.cameraRequest\+\+;\s*stopStream\(this\.cameraStream\);/);
   assert.match(workspacePage, /@HostListener\('document:keydown\.escape'\)/);
 });
 
@@ -85,4 +85,23 @@ test('OCR grid is responsive: no inline grid template overriding the stylesheet 
 test('nginx accepts camera-sized uploads and waits long enough for the multi-model OCR call', () => {
   assert.match(nginxConf, /client_max_body_size 26m;/);
   assert.match(nginxConf, /proxy_read_timeout 120s;/);
+});
+
+test('a getUserMedia result that arrives after close, reopen or destroy never leaves the camera on', () => {
+  assert.match(workspacePage, /private cameraRequest = 0;/);
+  assert.match(workspacePage, /const request = \+\+this\.cameraRequest;/);
+  assert.match(workspacePage, /if \(request !== this\.cameraRequest \|\| !this\.cameraOpen\(\)\) \{\s*stopStream\(stream\);/);
+  assert.match(workspacePage, /closeCamera\(\): void \{\s*this\.cameraRequest\+\+;/);
+  assert.match(workspacePage, /ngOnDestroy\(\): void \{\s*this\.cameraRequest\+\+;/);
+});
+
+test('choosing a new file clears a previous ERROR status and the status text covers IDLE and ERROR', () => {
+  assert.match(ocrApi, /setFile\(file: File, source: string\): void \{[^}]*if \(this\.ocrStatus\(\) === 'ERROR'\) this\.ocrStatus\.set\('IDLE'\);/);
+  assert.match(workspacePage, /=== 'ERROR'[^\n]*'El procesamiento falló/);
+  assert.match(workspacePage, /=== 'IDLE'[^\n]*'Sin documento procesado/);
+});
+
+test('there is a single loading indicator and capture errors surface inside the camera viewer', () => {
+  assert.doesNotMatch(workspacePage, /Procesando visión multimodal con Gemini\.\.\. Extrayendo texto/);
+  assert.match(workspacePage, /if \(this\.acceptFile\(file, 'Cámara web'\)\) this\.closeCamera\(\);\s*else this\.cameraError\.set\(this\.actionMessage\);/);
 });
