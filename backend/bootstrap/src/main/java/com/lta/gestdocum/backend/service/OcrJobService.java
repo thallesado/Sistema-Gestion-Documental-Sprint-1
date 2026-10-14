@@ -170,7 +170,7 @@ public class OcrJobService {
         Double acceptanceRate = reviewed == 0 ? null : (double) accepted / reviewed;
         Double averageConfidence = successful == 0 ? null : repository.averageConfidence(tenantId, SUCCESSFUL);
         Double averageMs = successful == 0 ? null : repository.averageProcessingMs(tenantId, SUCCESSFUL);
-        return new OcrStatsResponse(total, successful, failed, indexed, reviewed, accepted, rejected,
+        return new OcrStatsResponse(ocrService.isConfigured(), total, successful, failed, indexed, reviewed, accepted, rejected,
                 acceptanceRate, averageConfidence, averageMs == null ? null : averageMs / 1000.0);
     }
 

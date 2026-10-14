@@ -5,6 +5,7 @@ package com.lta.gestdocum.backend.dto;
  * no exista ninguna extracción exitosa, para que la interfaz no muestre cifras inventadas.
  */
 public record OcrStatsResponse(
+        boolean engineConfigured,
         long total,
         long successful,
         long failed,

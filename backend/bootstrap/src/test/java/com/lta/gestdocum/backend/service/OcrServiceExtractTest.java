@@ -106,6 +106,13 @@ class OcrServiceExtractTest {
     }
 
     @Test
+    @DisplayName("isConfigured() refleja si hay API key")
+    void isConfiguredReflectsApiKey() {
+        assertTrue(service("gemini-a").isConfigured());
+        assertFalse(new OcrService(" ", "gemini-a", 5, baseUrl(), mapper).isConfigured());
+    }
+
+    @Test
     @DisplayName("extract() sin API key es un fallo explicito, no una extraccion")
     void extractWithoutApiKeyIsFallback() {
         OcrService unconfigured = new OcrService("", "gemini-a", 5, baseUrl(), mapper);

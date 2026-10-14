@@ -64,6 +64,11 @@ public class OcrService {
                 .build();
     }
 
+    /** Hay API key: sin ella toda extracción termina en fallo explícito. */
+    public boolean isConfigured() {
+        return !apiKey.isBlank();
+    }
+
     public void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("El archivo a procesar no puede estar vacío");

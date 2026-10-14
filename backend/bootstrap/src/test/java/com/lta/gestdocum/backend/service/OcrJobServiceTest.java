@@ -249,8 +249,10 @@ class OcrJobServiceTest {
         job(Status.FAILED, user, null, 300);
         job(Status.PROCESSING, user, null, null);
 
+        when(ocrService.isConfigured()).thenReturn(true);
         OcrStatsResponse stats = service.stats();
 
+        assertTrue(stats.engineConfigured());
         assertEquals(6, stats.total(), "PROCESSING aun no es una digitalizacion");
         assertEquals(5, stats.successful());
         assertEquals(1, stats.failed());
@@ -268,6 +270,7 @@ class OcrJobServiceTest {
     void statsWithoutDataAreNull() {
         OcrStatsResponse stats = service.stats();
 
+        assertFalse(stats.engineConfigured(), "sin API key el motor no esta activo");
         assertEquals(0, stats.total());
         assertEquals(0, stats.successful());
         assertNull(stats.acceptanceRate());
