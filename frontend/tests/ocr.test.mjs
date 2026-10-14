@@ -34,7 +34,8 @@ test('OcrService connects to Gemini Vision API with structured medical prompt an
 
 test('WorkspacePage connects startOcr to real ocrApi.processFile and renders extracted clinical fields', () => {
   assert.match(workspacePage, /this\.ocrApi\.processFile\(file\)\.subscribe/);
-  assert.match(workspacePage, /this\.ocrData\.set\(result\)/);
-  assert.match(workspacePage, /RESUMEN CLÍNICO DETECTADO/);
-  assert.match(workspacePage, /VALORES CLÍNICOS \/ TABLA EXTRAÍDA/);
+  assert.match(workspacePage, /get ocrData\(\) \{ return this\.ocrApi\.ocrData; \}/);
+  assert.match(workspacePage, /ocrData\(\)\?\.structuredFields\?\.length/);
+  assert.match(workspacePage, /Valores Clínicos \/ Parámetros Extraídos/);
+  assert.match(ocrApi, /this\.ocrData\.set\(result\)/);
 });
