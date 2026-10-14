@@ -29,6 +29,9 @@ public class DocumentStorageService {
     private static final Set<String> ALLOWED_TYPES = Set.of(
             "application/pdf", "image/jpeg", "image/png",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    /** Formatos que puede aportar el OCR; incluye WEBP, que la carga manual de versiones no admite. */
+    private static final Set<String> ADOPTABLE_TYPES = Set.of(
+            "application/pdf", "image/jpeg", "image/png", "image/webp");
     private final Path storageRoot;
     private final DocumentRepository documentRepository;
     private final DocumentVersionRepository versionRepository;
@@ -72,6 +75,53 @@ public class DocumentStorageService {
             version.setFileName(safeFileName(file.getOriginalFilename()));
             version.setMimeType(file.getContentType());
             version.setFileSizeBytes(file.getSize());
+            version.setChecksumSha256(HexFormat.of().formatHex(digest.digest()));
+            version.setCreatedAt(OffsetDateTime.now());
+            versionRepository.saveAndFlush(version);
+            DocumentVersion saved = versionRepository.findById(versionId).orElse(version);
+            return toResponse(saved);
+        } catch (Exception exception) {
+            try { Files.deleteIfExists(temporary); Files.deleteIfExists(target); } catch (Exception ignored) { }
+            if (exception instanceof RuntimeException runtime) throw runtime;
+            throw new IllegalStateException("No se pudo almacenar el archivo", exception);
+        }
+    }
+
+    /**
+     * Registra un archivo que ya está en disco (p. ej. el original de una digitalización OCR)
+     * como una nueva versión del documento. Copia el archivo; el original no se toca.
+     */
+    @Transactional
+    public DocumentVersionResponse adoptExistingFile(UUID documentId, Path source, String fileName,
+                                                     String mimeType, String reason) {
+        UUID tenantId = context.requireTenantId();
+        context.establishDatabaseContext();
+        documentRepository.findByIdAndTenantIdAndDeletedAtIsNull(documentId, tenantId)
+                .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
+        if (!ADOPTABLE_TYPES.contains(mimeType)) throw new IllegalArgumentException("Tipo de archivo no permitido");
+        if (reason == null || reason.isBlank() || reason.length() > 1000) throw new IllegalArgumentException("Motivo de versión inválido");
+        UUID versionId = UUID.randomUUID();
+        Path relative = Path.of(tenantId.toString(), documentId.toString(), versionId.toString());
+        Path target = safePath(relative);
+        Path temporary = target.resolveSibling(target.getFileName() + ".uploading");
+        try {
+            Files.createDirectories(target.getParent());
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            long size;
+            try (DigestInputStream input = new DigestInputStream(Files.newInputStream(source), digest)) {
+                size = Files.copy(input, temporary, StandardCopyOption.REPLACE_EXISTING);
+            }
+            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            DocumentVersion version = new DocumentVersion();
+            version.setId(versionId);
+            version.setTenantId(tenantId);
+            version.setDocumentId(documentId);
+            version.setAuthorId(context.requireUserId());
+            version.setChangeReason(reason.trim());
+            version.setFilePath(relative.toString().replace('\\', '/'));
+            version.setFileName(safeFileName(fileName));
+            version.setMimeType(mimeType);
+            version.setFileSizeBytes(size);
             version.setChecksumSha256(HexFormat.of().formatHex(digest.digest()));
             version.setCreatedAt(OffsetDateTime.now());
             versionRepository.saveAndFlush(version);

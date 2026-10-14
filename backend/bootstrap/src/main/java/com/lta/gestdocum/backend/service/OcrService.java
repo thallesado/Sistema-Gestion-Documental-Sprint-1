@@ -29,7 +29,7 @@ public class OcrService {
 
     public static final Set<String> ALLOWED_MIME_TYPES =
             Set.of("application/pdf", "image/jpeg", "image/png", "image/webp");
-    private static final Set<String> DOCUMENT_TYPES =
+    public static final Set<String> DOCUMENT_TYPES =
             Set.of("LABORATORIO", "RECETA", "CONSENTIMIENTO", "INFORME_MEDICO", "OTRO");
     private static final String DEFAULT_MODEL = "gemini-3.8-flash";
     private static final String DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com";

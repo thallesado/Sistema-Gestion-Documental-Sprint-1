@@ -69,7 +69,9 @@ class OcrJobServiceTest {
                 j -> j.getConfidenceScore() == null ? null : j.getConfidenceScore().doubleValue()));
         when(repository.averageProcessingMs(any(), anyCollection())).thenAnswer(i -> average(i.getArgument(1),
                 j -> j.getProcessingMs() == null ? null : j.getProcessingMs().doubleValue()));
-        service = new OcrJobService(ocrService, repository, fileStore, context, TransactionOperations.withoutTransaction());
+        service = new OcrJobService(ocrService, repository, fileStore, context, mock(DocumentService.class),
+                mock(DocumentStorageService.class), mock(com.lta.gestdocum.backend.repository.DocumentRepository.class),
+                TransactionOperations.withoutTransaction());
     }
 
     private OcrJob save(OcrJob job) {
