@@ -16,6 +16,8 @@ public interface OcrJobRepository extends JpaRepository<OcrJob, UUID> {
 
     List<OcrJob> findTop10ByTenantIdOrderByCreatedAtDesc(UUID tenantId);
 
+    List<OcrJob> findTop10ByTenantIdAndUploadedByOrderByCreatedAtDesc(UUID tenantId, UUID uploadedBy);
+
     long countByTenantId(UUID tenantId);
 
     long countByTenantIdAndStatusIn(UUID tenantId, Collection<OcrJob.Status> statuses);
