@@ -58,3 +58,21 @@ test('changedMetadata sends only fields the reviewer changed', () => {
   assert.deepEqual(changedMetadata({ patientName: '   ', issueDate: '' }, current), {}, 'blank means no change');
   assert.deepEqual(changedMetadata({}, current), {});
 });
+
+import { personLabels, reviewWarning } from '../src/app/core/utils/ocr-flow.ts';
+
+test('reviewWarning flags non-clinical documents and low confidence, and stays quiet otherwise', () => {
+  assert.match(reviewWarning({ documentType: 'OTRO', confidence: 0.9 }), /no parece un documento clínico/i);
+  assert.match(reviewWarning({ documentType: 'LABORATORIO', confidence: 0.4 }), /confianza del modelo es baja/i);
+  assert.match(reviewWarning({ documentType: 'OTRO', confidence: 0.3 }), /no parece un documento clínico/i);
+  assert.equal(reviewWarning({ documentType: 'LABORATORIO', confidence: 0.9 }), null);
+  assert.equal(reviewWarning({ documentType: 'RECETA', confidence: null }), null);
+  assert.equal(reviewWarning(null), null);
+});
+
+test('personLabels avoids clinical wording when the document is not clinical', () => {
+  assert.deepEqual(personLabels('LABORATORIO'), { patient: 'Paciente', doctor: 'Médico' });
+  assert.deepEqual(personLabels('RECETA'), { patient: 'Paciente', doctor: 'Médico' });
+  assert.deepEqual(personLabels('OTRO'), { patient: 'Persona mencionada', doctor: 'Firmante u otra persona' });
+  assert.deepEqual(personLabels(null), { patient: 'Paciente', doctor: 'Médico' });
+});

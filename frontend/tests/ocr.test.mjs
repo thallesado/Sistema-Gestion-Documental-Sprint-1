@@ -160,3 +160,12 @@ test('mobile hero-banner rules are scoped to the OCR screens so other modules ke
   assert.doesNotMatch(styles, /@media \(max-width: 620px\) \{[^}]*\n  \.module-hero-banner \{/);
   assert.equal((workspacePage.match(/class="module-hero-banner ocr-hero"/g) || []).length, 2);
 });
+
+test('the OCR screen warns about non-clinical or low-confidence results and does not call everyone a patient', () => {
+  assert.match(workspacePage, /@if \(reviewNotice\(\); as notice\) \{\s*<div class="ocr-warning" role="status">/);
+  assert.match(workspacePage, /readonly reviewNotice = computed\(\(\) => reviewWarning\(this\.ocrApi\.ocrData\(\)\)\);/);
+  assert.match(workspacePage, /\{\{ labels\(\)\.patient \}\}<\/dt>/);
+  assert.match(workspacePage, /\{\{ labels\(\)\.doctor \}\}<\/dt>/);
+  assert.doesNotMatch(workspacePage, /margin: 0;">Paciente<\/dt>/);
+  assert.match(styles, /\.ocr-warning \{/);
+});

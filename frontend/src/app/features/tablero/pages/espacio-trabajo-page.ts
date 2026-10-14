@@ -19,7 +19,7 @@ import { WorkspaceApiService, ApiActivity, ApiTask } from '../../../core/api/wor
 import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
 import { WorkflowApi } from '../../workflows/workflow-api.service';
 import { OcrApiService, OcrProcessResult } from '../../../core/api/ocr-api.service';
-import { buildStatCards, changedMetadata, OcrMetadataFields, routeForStatus, statusLabel } from '../../../core/utils/ocr-flow';
+import { buildStatCards, changedMetadata, OcrMetadataFields, personLabels, reviewWarning, routeForStatus, statusLabel } from '../../../core/utils/ocr-flow';
 import {
   cameraFailureMessage,
   captureFrameToFile,
@@ -1007,13 +1007,13 @@ type TabLink = { label: string; href: string };
                 </div>
                 @if (ocrData()?.patientName) {
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
-                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">Paciente</dt>
+                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">{{ labels().patient }}</dt>
                     <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()?.patientName }}</dd>
                   </div>
                 }
                 @if (ocrData()?.doctorName) {
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #edf4f3;">
-                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">Médico</dt>
+                    <dt style="color: #648280; font-size: 11.5px; margin: 0;">{{ labels().doctor }}</dt>
                     <dd style="color: #102d2a; font-size: 12px; font-weight: 700; margin: 0;">{{ ocrData()?.doctorName }}</dd>
                   </div>
                 }
@@ -1076,6 +1076,9 @@ type TabLink = { label: string; href: string };
                     </div>
                   }
                 </div>
+              }
+              @if (reviewNotice(); as notice) {
+                <div class="ocr-warning" role="status"><strong>Revisión recomendada</strong><p>{{ notice }}</p></div>
               }
               @if (!ocrData() && !ocrLoading() && !ocrError()) {
                 <div class="ocr-empty" role="status">
@@ -1164,13 +1167,13 @@ type TabLink = { label: string; href: string };
                       @for (type of ocrDocumentTypes; track type) { <option [value]="type">{{ type }}</option> }
                     </select>
                   </label>
-                  <label>Paciente detectado
+                  <label>{{ labels().patient }} detectado
                     <input [value]="metaValue('patientName')" (input)="setMetaField('patientName', $any($event.target).value)" maxlength="200" />
                   </label>
                   <label>Documento del paciente
                     <input [value]="metaValue('patientDocumentNumber')" (input)="setMetaField('patientDocumentNumber', $any($event.target).value)" maxlength="60" />
                   </label>
-                  <label>Médico
+                  <label>{{ labels().doctor }}
                     <input [value]="metaValue('doctorName')" (input)="setMetaField('doctorName', $any($event.target).value)" maxlength="200" />
                   </label>
                   <label>Fecha del estudio
@@ -1311,6 +1314,8 @@ export class WorkspacePage implements OnDestroy {
   get ocrBusy() { return this.ocrApi.ocrBusy; }
   get ocrStats() { return this.ocrApi.stats; }
   get recentJobs() { return this.ocrApi.recentJobs; }
+  readonly reviewNotice = computed(() => reviewWarning(this.ocrApi.ocrData()));
+  readonly labels = computed(() => personLabels(this.ocrApi.ocrData()?.documentType));
   readonly statCards = computed(() => buildStatCards(this.ocrApi.stats(), this.ocrApi.statsState()));
   readonly ocrDocumentTypes = ['LABORATORIO', 'RECETA', 'CONSENTIMIENTO', 'INFORME_MEDICO', 'OTRO'];
   readonly documentTypes = signal<ApiDocumentType[]>([]);

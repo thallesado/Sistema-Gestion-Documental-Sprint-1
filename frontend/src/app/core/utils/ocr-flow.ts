@@ -104,3 +104,24 @@ export function changedMetadata(
   });
   return result;
 }
+
+const LOW_CONFIDENCE = 0.6;
+
+/** A reminder shown above the result when it deserves a closer human look; null when nothing stands out. */
+export function reviewWarning(job: { documentType: string | null; confidence: number | null } | null): string | null {
+  if (!job) return null;
+  if (job.documentType === 'OTRO') {
+    return 'Este documento no parece un documento clínico (tipo OTRO). Los campos de paciente y médico pueden no aplicar: revisa el texto antes de continuar.';
+  }
+  if (job.confidence != null && job.confidence < LOW_CONFIDENCE) {
+    return 'La confianza del modelo es baja. Revisa con cuidado el texto y los datos extraídos antes de continuar.';
+  }
+  return null;
+}
+
+/** The extraction schema is clinical; for other documents the labels must not claim a patient or a doctor. */
+export function personLabels(documentType: string | null | undefined): { patient: string; doctor: string } {
+  return documentType === 'OTRO'
+    ? { patient: 'Persona mencionada', doctor: 'Firmante u otra persona' }
+    : { patient: 'Paciente', doctor: 'Médico' };
+}
