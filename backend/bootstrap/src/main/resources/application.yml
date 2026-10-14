@@ -75,3 +75,4 @@ app:
     api-key: ${GEMINI_API_KEY:}
     model: ${GEMINI_MODEL:gemini-3.1-flash-lite}
     timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:35}
+    base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
