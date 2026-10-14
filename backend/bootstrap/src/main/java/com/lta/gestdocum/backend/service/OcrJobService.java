@@ -220,6 +220,14 @@ public class OcrJobService {
                 blankToDefault(request.code(), defaultCode(job)),
                 blankToDefault(request.name(), defaultName(job)),
                 request.description(), lenientDate(effective.get("issueDate")), null, false, "OCR"));
+        try {
+            // El INSERT del documento se difiere hasta el flush; sin esto un codigo repetido
+            // explotaria al confirmar la transaccion (500) en lugar de ser un conflicto (409).
+            documentRepository.flush();
+        } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+            throw new com.lta.gestdocum.backend.exception.DuplicateResourceException(
+                    "El código de documento ya existe o referencia datos inválidos");
+        }
         documentStorage.adoptExistingFile(created.id(), fileStore.resolve(job.getOriginalFilePath()),
                 job.getOriginalFilename(), job.getFileType(), "Digitalización OCR");
 
@@ -323,7 +331,7 @@ public class OcrJobService {
     }
 
     private static String defaultCode(OcrJob job) {
-        String stamp = DateTimeFormatter.BASIC_ISO_DATE.format(job.getCreatedAt());
+        String stamp = DateTimeFormatter.BASIC_ISO_DATE.format(job.getCreatedAt().toLocalDate());
         return "OCR-" + stamp + "-" + job.getId().toString().substring(0, 8).toUpperCase(Locale.ROOT);
     }
 

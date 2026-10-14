@@ -208,7 +208,7 @@ class OcrJobWorkflowTest {
         verify(documentService).create(created.capture());
         DocumentCreateRequest request = created.getValue();
         assertEquals(typeId, request.documentTypeId());
-        assertTrue(request.code().startsWith("OCR-"), request.code());
+        assertTrue(request.code().matches("OCR-\\d{8}-[0-9A-F]{8}"), request.code());
         assertTrue(request.code().length() <= 60);
         assertEquals("informe laboratorio", request.name(), "nombre por defecto: archivo sin extension");
         assertEquals("Resultados", request.description());
@@ -263,6 +263,22 @@ class OcrJobWorkflowTest {
 
         assertEquals(Status.VALIDATED, job.getStatus());
         assertNull(job.getDocumentId());
+        verifyNoInteractions(documentStorage);
+    }
+
+    @Test
+    @DisplayName("index() convierte una violacion de unicidad detectada al hacer flush en conflicto 409")
+    void indexDuplicateCodeDetectedOnFlush() {
+        OcrJob job = job(Status.VALIDATED);
+        DocumentResponse stub = documentResponse(UUID.randomUUID());
+        when(documentService.create(any())).thenReturn(stub);
+        doThrow(new org.springframework.dao.DataIntegrityViolationException("documents_tenant_id_code_key"))
+                .when(documentRepository).flush();
+
+        assertThrows(DuplicateResourceException.class,
+                () -> service.index(job.getId(), new OcrIndexRequest(typeId, "DUP", null, null, null, null, null)));
+
+        assertEquals(Status.VALIDATED, job.getStatus());
         verifyNoInteractions(documentStorage);
     }
 
