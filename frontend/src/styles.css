@@ -1643,10 +1643,10 @@ a {
   .ocr-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 620px) {
-  .module-hero-banner { align-items: flex-start; flex-direction: column; padding: 18px; }
-  .module-hero-left { min-width: 0; }
-  .module-hero-right, .module-hero-right .btn-secondary-action { width: 100%; }
-  .module-hero-right .btn-secondary-action { justify-content: center; }
+  .module-hero-banner.ocr-hero { align-items: flex-start; flex-direction: column; padding: 18px; }
+  .ocr-hero .module-hero-left { min-width: 0; }
+  .ocr-hero .module-hero-right, .ocr-hero .module-hero-right .btn-secondary-action { width: 100%; }
+  .ocr-hero .module-hero-right .btn-secondary-action { justify-content: center; }
   .ocr-result-card .btn-primary-action, .ocr-result-card .btn-secondary-action { flex: 1 1 140px; justify-content: center; }
 }
 

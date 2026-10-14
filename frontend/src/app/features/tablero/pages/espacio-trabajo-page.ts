@@ -764,7 +764,7 @@ type TabLink = { label: string; href: string };
 
       @if (isScanPage) {
         <!-- HERO BANNER DIGITALIZACIÓN -->
-        <section class="module-hero-banner">
+        <section class="module-hero-banner ocr-hero">
           <div class="module-hero-left">
             <span class="module-hero-badge">
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
@@ -944,7 +944,7 @@ type TabLink = { label: string; href: string };
         </footer>
       } @else if (isOcrFlow) {
         <!-- HERO BANNER OCR FLOW -->
-        <section class="module-hero-banner">
+        <section class="module-hero-banner ocr-hero">
           <div class="module-hero-left">
             <span class="module-hero-badge">
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">

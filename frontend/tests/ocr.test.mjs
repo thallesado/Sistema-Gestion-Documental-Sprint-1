@@ -154,3 +154,9 @@ test('step buttons are disabled when the digitization is not in the state that s
   assert.match(workspacePage, /\(click\)="correctMetadata\(\)" \[disabled\]="!canCorrectMetadata\(\) \|\| ocrBusy\(\)"/);
   assert.match(workspacePage, /No hay una digitalización abierta/);
 });
+
+test('mobile hero-banner rules are scoped to the OCR screens so other modules keep their layout', () => {
+  assert.match(styles, /\.module-hero-banner\.ocr-hero \{ align-items: flex-start; flex-direction: column;/);
+  assert.doesNotMatch(styles, /@media \(max-width: 620px\) \{[^}]*\n  \.module-hero-banner \{/);
+  assert.equal((workspacePage.match(/class="module-hero-banner ocr-hero"/g) || []).length, 2);
+});
