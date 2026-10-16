@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 import java.util.List;
 import java.util.UUID;
+import com.lta.gestdocum.backend.model.UserStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -31,6 +32,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByTenantIdAndUsernameIgnoreCase(UUID tenantId, String username);
 
     boolean existsByTenantIdAndEmailIgnoreCase(UUID tenantId, String email);
+
+    long countByTenantIdAndStatusAndDeletedAtIsNull(UUID tenantId, UserStatus status);
 
     @Query("""
         SELECT u FROM User u

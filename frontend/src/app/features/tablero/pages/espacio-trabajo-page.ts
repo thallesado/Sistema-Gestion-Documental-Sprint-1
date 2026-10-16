@@ -13,6 +13,7 @@ import { AdministrationApiService, ApiPermission, ApiRole } from '../../../core/
 import { PermissionsCatalog } from '../../users/components/permissions-catalog';
 import { RoleFormModal } from '../../users/components/role-form-modal';
 import { RolePermissionsModal } from '../../users/components/role-permissions-modal';
+import { activeLocale } from '../../../core/i18n/i18n.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { DocumentApiService, ApiDocument, ApiDocumentType, ApiDepartment } from '../../../core/api/document-api.service';
 import { WorkspaceApiService, ApiActivity, ApiTask } from '../../../core/api/workspace-api.service';
@@ -29,16 +30,18 @@ import {
   openCameraStream,
   stopStream,
 } from '../../../core/utils/camera-capture';
+import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 
 type PageStat = { icon: string; label: string; value: string; detail: string; tone: string };
 type OcrStatus = 'QUEUED' | 'PROCESSING' | 'REQUIRES_VALIDATION' | 'VALIDATED' | 'INDEXED';
 type TabLink = { label: string; href: string };
+const DEFAULT_ROUTE_INFO: RouteInfo = { module: 'Inicio', subcategory: 'Resumen', href: '/' };
 
 @Component({
   selector: 'app-workspace-page',
-  imports: [CommonModule, RouterLink, Pagination, PermissionsCatalog, RoleFormModal, RolePermissionsModal],
+  imports: [CommonModule, RouterLink, Pagination, PermissionsCatalog, RoleFormModal, RolePermissionsModal, LocalizedContentDirective],
   template: `
-    <section class="page">
+    <section class="page" i18nContent>
       @if (isHome) {
         <section class="dashboard-welcome">
           <div class="welcome-left">
@@ -1354,7 +1357,9 @@ export class WorkspacePage implements OnDestroy {
   });
 
   get routeInfo(): RouteInfo {
-    return (this.routeData()?.['routeInfo'] as RouteInfo) ?? (this.route.snapshot.data['routeInfo'] as RouteInfo);
+    return (this.routeData()?.['routeInfo'] as RouteInfo | undefined)
+      ?? (this.route.snapshot.data['routeInfo'] as RouteInfo | undefined)
+      ?? DEFAULT_ROUTE_INFO;
   }
 
   get copy() {
@@ -1507,10 +1512,14 @@ export class WorkspacePage implements OnDestroy {
   openRowMenu = '';
   readonly exportMenuOpen = signal(false);
   get stats(): PageStat[] { return this.buildStats(this.routeInfo.module); }
-  readonly todayLabel = new Intl.DateTimeFormat('es-BO', { dateStyle: 'long' }).format(new Date());
+  get todayLabel(): string { return new Intl.DateTimeFormat(activeLocale(), { dateStyle: 'long' }).format(new Date()); }
   readonly displayName = computed(() => {
     const user = this.auth.user();
-    return user ? `${user.firstName} ${user.lastName}`.trim() : 'Usuario';
+    if (!user) return 'Usuario';
+    return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+      || user.username?.trim()
+      || user.email?.trim()
+      || 'Usuario';
   });
   readonly highPriorityTasks = computed(() => this.tasks().filter((task) => {
     const p = String(task.priority ?? '').toLowerCase();

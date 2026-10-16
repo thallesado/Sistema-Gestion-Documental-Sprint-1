@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiPatient, ClinicalApiService, CreatePatientPayload } from '../../../core/api/clinical-api.service';
+import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 
 @Component({
   selector: 'app-pacientes-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, LocalizedContentDirective],
   template: `
-    <div class="page">
+    <div class="page" i18nContent>
       <!-- Encabezado Corporativo NexoDocs -->
       <header class="dashboard-welcome">
         <div>

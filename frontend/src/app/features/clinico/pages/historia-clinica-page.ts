@@ -4,6 +4,8 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalLinkedDocument, ClinicalHistoryRevisionItem } from '../../../core/api/clinical-api.service';
 import { DocumentApiService, MedicalNote, ApiDocument } from '../../../core/api/document-api.service';
+import { activeLocale } from '../../../core/i18n/i18n.service';
+import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 
 export interface SignosVitales {
   peso?: number | null;
@@ -56,7 +58,7 @@ function formatMedicalDate(val: string | number | undefined | null): string {
     d = new Date(val);
   }
   if (isNaN(d.getTime())) return String(val);
-  return d.toLocaleString('es-BO', {
+  return d.toLocaleString(activeLocale(), {
     year: 'numeric',
     month: 'short',
     day: '2-digit',
@@ -112,9 +114,9 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
 @Component({
   selector: 'app-historia-clinica-page',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, CommonModule],
+  imports: [ReactiveFormsModule, FormsModule, CommonModule, LocalizedContentDirective],
   template: `
-    <div class="page" style="max-width: 1400px; margin: auto; padding: 24px 32px 48px; font-family: system-ui, -apple-system, sans-serif;">
+    <div class="page" i18nContent style="max-width: 1400px; margin: auto; padding: 24px 32px 48px; font-family: system-ui, -apple-system, sans-serif;">
       
       <!-- Encabezado superior -->
       <header style="margin-bottom: 20px;">
@@ -171,7 +173,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
       </section>
 
       <!-- 2. DIVISIÓN: LISTA DE PACIENTES A LA IZQUIERDA Y RESULTADOS A LA DERECHA -->
-      <div style="display: grid; grid-template-columns: 350px 1fr; gap: 20px; align-items: stretch;">
+      <div class="hc-cols" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px; align-items: stretch;">
         
         <!-- ========================================== -->
         <!-- COLUMNA IZQUIERDA: LISTA DE PACIENTES       -->
@@ -374,7 +376,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                   <h3 style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #087f7b; margin: 0 0 10px; letter-spacing: 0.05em;">
                     1. Identificación y Grupo Sanguíneo
                   </h3>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                  <div class="hc-cols" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <label style="display: grid; gap: 5px; font-size: 12px; color: #153a39; font-weight: 700;">
                       <span>Grupo Sanguíneo y Factor Rh *</span>
                       <select formControlName="bloodType" style="border: 1px solid #dcebe8; border-radius: 8px; padding: 9px; background: #fff; font-size: 13px;">
@@ -407,7 +409,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                   <h3 style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #087f7b; margin: 0 0 10px; letter-spacing: 0.05em;">
                     2. Antecedentes Médicos y Clínicos
                   </h3>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
+                  <div class="hc-cols" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
                     <label style="display: grid; gap: 5px; font-size: 12px; color: #153a39; font-weight: 700;">
                       <span>Antecedentes Patológicos (Hospitalizaciones, cirugías, traumas)</span>
                       <textarea
@@ -429,7 +431,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                     </label>
                   </div>
 
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                  <div class="hc-cols" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <label style="display: grid; gap: 5px; font-size: 12px; color: #153a39; font-weight: 700;">
                       <span>Antecedentes Familiares (Diabetes, hipertensión, cardiopatías)</span>
                       <textarea
@@ -478,7 +480,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                     }
 
                     @for (a of allergies.controls; track $index) {
-                      <div [formGroupName]="$index" style="display: grid; grid-template-columns: 2fr 1.3fr 2fr auto; gap: 8px; align-items: center; margin-bottom: 8px;">
+                      <div class="hc-cols" [formGroupName]="$index" style="display: grid; grid-template-columns: 2fr 1.3fr 2fr auto; gap: 8px; align-items: center; margin-bottom: 8px;">
                         <div>
                           <label style="font-size: 10px; font-weight: 700; color: #557573; text-transform: uppercase;">Alérgeno *</label>
                           <input
@@ -901,7 +903,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
 
               <form [formGroup]="consultationForm" (ngSubmit)="saveConsultation()">
                 
-                <div style="display: grid; grid-template-columns: 1fr 1.3fr; gap: 14px; margin-bottom: 12px;">
+                <div class="hc-cols" style="display: grid; grid-template-columns: 1fr 1.3fr; gap: 14px; margin-bottom: 12px;">
                   <label style="display: grid; gap: 4px; font-size: 11px; font-weight: 700; color: #1e293b;">
                     <span>Fecha y Hora de la Consulta *</span>
                     <input
@@ -971,7 +973,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                     }
                   </div>
 
-                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
+                  <div class="hc-cols" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
                     <label style="display: grid; gap: 3px; font-size: 10px; font-weight: 700; color: #475569;">
                       <span>Peso (kg)</span>
                       <input type="number" step="0.1" formControlName="peso" placeholder="Ej. 65" style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px; font-size: 12px; background: #fff;" />
@@ -986,7 +988,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                     </label>
                   </div>
 
-                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
+                  <div class="hc-cols" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
                     <label style="display: grid; gap: 3px; font-size: 10px; font-weight: 700; color: #475569;">
                       <span>Frecuencia Cardíaca (lpm)</span>
                       <input type="number" formControlName="frecuenciaCardiaca" placeholder="Ej. 72" style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px; font-size: 12px; background: #fff;" />
@@ -1001,7 +1003,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                     </label>
                   </div>
 
-                  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                  <div class="hc-cols" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
                     <label style="display: grid; gap: 3px; font-size: 10px; font-weight: 700; color: #475569;">
                       <span>Saturación de Oxígeno (%)</span>
                       <input type="number" formControlName="saturacionOxigeno" placeholder="Ej. 98" style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px; font-size: 12px; background: #fff;" />
@@ -1161,7 +1163,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
               </p>
 
               <!-- Bloque de Firmas -->
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; text-align: center; margin-top: 40px; padding-top: 20px;">
+              <div class="hc-cols" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; text-align: center; margin-top: 40px; padding-top: 20px;">
                 <div>
                   <div style="border-top: 1px solid #000; width: 80%; margin: auto; padding-top: 4px;">
                     <strong>Firma / Sello del Médico Tratante</strong><br />
@@ -1223,12 +1225,12 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                 <b style="font-size: 11px; text-transform: uppercase; display: block; border-bottom: 1px solid #ccc; margin-bottom: 4px;">
                   B. IDENTIFICACIÓN DEL PACIENTE / USUARIO
                 </b>
-                <div style="display: grid; grid-template-columns: 2fr 1.5fr 1fr; gap: 8px; margin-bottom: 4px;">
+                <div class="hc-cols" style="display: grid; grid-template-columns: 2fr 1.5fr 1fr; gap: 8px; margin-bottom: 4px;">
                   <div><strong>Paciente:</strong> {{ patient.firstName }} {{ patient.lastName }}</div>
                   <div><strong>Documento:</strong> {{ patient.documentType }} {{ patient.documentNumber }}</div>
                   <div><strong>Grupo Sanguíneo:</strong> {{ historyForm.value.bloodType || 'Sin registrar' }}</div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                <div class="hc-cols" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
                   <div><strong>Teléfono:</strong> {{ patient.phone || 'No registrado' }}</div>
                   <div><strong>Email:</strong> {{ patient.email || 'No registrado' }}</div>
                   <div><strong>Estado:</strong> {{ patient.status }}</div>
@@ -1265,7 +1267,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
 
               <!-- ANTECEDENTES NO PATOLÓGICOS Y FAMILIARES -->
               <div style="border: 1px solid #333; margin-bottom: 10px; padding: 6px 10px;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="hc-cols" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                   <div>
                     <b style="font-size: 11px; text-transform: uppercase; display: block; border-bottom: 1px solid #ccc; margin-bottom: 4px;">
                       ANTECEDENTES NO PATOLÓGICOS
@@ -1309,7 +1311,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
               </div>
 
               <!-- Bloque de Firmas -->
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; text-align: center; margin-top: 30px; padding-top: 20px;">
+              <div class="hc-cols" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; text-align: center; margin-top: 30px; padding-top: 20px;">
                 <div>
                   <div style="border-top: 1px solid #000; width: 80%; margin: auto; padding-top: 4px;">
                     <strong>Firma / Sello del Médico Tratante</strong><br />
@@ -1473,6 +1475,9 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
     </div>
   `,
   styles: [`
+    /* Rejillas definidas inline: en móvil pasan a una columna (el !important gana al estilo inline). */
+    .hc-cols > * { min-width: 0; }
+    @media (max-width: 760px) { .hc-cols { grid-template-columns: minmax(0, 1fr) !important; } }
     .patients-scroll::-webkit-scrollbar,
     .consultations-feed::-webkit-scrollbar {
       width: 5px;

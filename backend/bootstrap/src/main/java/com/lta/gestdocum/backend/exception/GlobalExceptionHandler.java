@@ -55,7 +55,9 @@ public class GlobalExceptionHandler {
             TenantRequiredException.class})
     public ResponseEntity<Map<String, Object>> handleForbidden(
             Exception exception, HttpServletRequest request) {
-        return error(HttpStatus.FORBIDDEN, "Forbidden", exception.getMessage(), request);
+        ResponseEntity<Map<String, Object>> response = error(HttpStatus.FORBIDDEN, "Forbidden", exception.getMessage(), request);
+        if (exception instanceof PlanLimitExceededException) response.getBody().put("code", "PLAN_LIMIT_EXCEEDED");
+        return response;
     }
 
     @ExceptionHandler(NotFoundException.class)
@@ -128,6 +130,7 @@ public class GlobalExceptionHandler {
     private String errorCode(HttpStatus status, String error, String message, String path) {
         String text = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT);
         if (status == HttpStatus.FORBIDDEN) {
+            if (text.contains("límite del plan") || text.contains("plan de suscripción")) return "PLAN_LIMIT_EXCEEDED";
             if (path.contains("/tasks/") && (text.contains("tarea no asignada") || text.contains("no asignada al usuario"))) return "TASK_NOT_ASSIGNED_TO_USER";
             return "PERMISSION_DENIED";
         }

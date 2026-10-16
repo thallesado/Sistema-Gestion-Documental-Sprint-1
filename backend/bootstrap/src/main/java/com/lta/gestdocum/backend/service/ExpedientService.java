@@ -7,7 +7,6 @@ import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.model.Expedient;
 import com.lta.gestdocum.backend.repository.ExpedientRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
-import com.lta.gestdocum.backend.support.CrudTextSupport;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;

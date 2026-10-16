@@ -38,6 +38,7 @@ public class UserService {
     private final com.lta.gestdocum.backend.repository.RoleRepository roleRepository;
     private final com.lta.gestdocum.backend.repository.TenantRepository tenantRepository;
     private final AuthSessionService authSessionService;
+    private final PlanEnforcementService planEnforcementService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public UserService(UserRepository userRepository,
@@ -46,7 +47,8 @@ public class UserService {
                        AuthenticatedUserContext authenticatedUserContext,
                        com.lta.gestdocum.backend.repository.RoleRepository roleRepository,
                        com.lta.gestdocum.backend.repository.TenantRepository tenantRepository,
-                       AuthSessionService authSessionService) {
+                       AuthSessionService authSessionService,
+                       PlanEnforcementService planEnforcementService) {
         this.userRepository = userRepository;
         this.clinicalStaffRepository = clinicalStaffRepository;
         this.passwordEncoder = passwordEncoder;
@@ -54,9 +56,10 @@ public class UserService {
         this.roleRepository = roleRepository;
         this.tenantRepository = tenantRepository;
         this.authSessionService = authSessionService;
+        this.planEnforcementService = planEnforcementService;
     }
     public UserService(UserRepository u, ClinicalStaffRepository c, PasswordEncoder p, AuthenticatedUserContext a) {
-        this(u,c,p,a,null,null,null);
+        this(u,c,p,a,null,null,null,null);
     }
 
     @Transactional
@@ -67,6 +70,7 @@ public class UserService {
         if (request.getTenantId() != null && !tenantId.equals(request.getTenantId())) {
             throw new TenantMismatchException();
         }
+        planEnforcementService.validateUserLimit(tenantId);
         if (userRepository.existsByTenantIdAndUsernameIgnoreCase(tenantId, request.getUsername())) {
             throw new com.lta.gestdocum.backend.exception.DuplicateResourceException(
                     "El nombre de usuario '" + request.getUsername() + "' ya está en uso");
@@ -303,6 +307,9 @@ public class UserService {
     }
 
     private UserResponse mapToResponse(User user, String staffType, String specialty) {
+        com.lta.gestdocum.backend.model.Tenant tenant = user.getTenantId() == null || tenantRepository == null
+                ? null
+                : tenantRepository.findById(user.getTenantId()).orElse(null);
         return UserResponse.builder()
                 .id(user.getId())
                 .tenantId(user.getTenantId())
@@ -311,8 +318,8 @@ public class UserService {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .status(user.getStatus().name())
-                .tenantName(user.getTenantId() == null || tenantRepository == null ? null
-                        : tenantRepository.findById(user.getTenantId()).map(t -> t.getName()).orElse(null))
+                .tenantName(tenant == null ? null : tenant.getName())
+                .tenantLogoUrl(tenant == null ? null : tenant.getLogoUrl())
                 .platformAdmin(user.isPlatformAdmin())
                 .staffType(staffType)
                 .specialty(specialty)

@@ -52,6 +52,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/tenants/public").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/plans").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/public/onboarding").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/billing/webhooks/stripe").permitAll()
                 .requestMatchers(
                         "/api/v1/auth/login",
                         "/api/v1/auth/refresh",
@@ -92,7 +95,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Accept-Language"));
         configuration.setExposedHeaders(List.of("Location"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -6,13 +6,14 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem, MedicalNoteStatus } from '../../../core/api/clinical-api.service';
 import { RichTextEditorComponent } from '../../../shared';
+import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 
 @Component({
   selector: 'app-notas-medicas-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, RichTextEditorComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, RichTextEditorComponent, LocalizedContentDirective],
   template: `
-    <div class="page">
+    <div class="page" i18nContent>
       <!-- Encabezado Corporativo NexoDocs -->
       <header class="dashboard-welcome">
         <div>

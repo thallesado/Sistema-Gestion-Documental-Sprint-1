@@ -1,12 +1,14 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { PublicTenant } from '../../../core/auth/auth.types';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 
 @Component({
   selector: 'app-login-page',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   template: `
     <main class="login-wrapper">
       <div class="login-container">
@@ -22,13 +24,13 @@ import { PublicTenant } from '../../../core/auth/auth.types';
             </div>
             <div class="brand-text">
               <strong>NexoDocs</strong>
-              <small>GESTIÓN DOCUMENTAL</small>
+              <small>{{ 'shell.documentManagement' | translate }}</small>
             </div>
           </div>
 
           <div class="banner-content">
-            <h1>Tu espacio de trabajo, siempre contigo</h1>
-            <p>Accede a tu organización y gestiona tus documentos de forma segura, rápida y sencilla.</p>
+            <h1>{{ 'auth.bannerTitle' | translate }}</h1>
+            <p>{{ 'auth.bannerSubtitle' | translate }}</p>
 
             <div class="banner-illustration">
               <svg viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg" class="folder-svg">
@@ -62,8 +64,8 @@ import { PublicTenant } from '../../../core/auth/auth.types';
                 <path d="m9 12 2 2 4-4"/>
               </svg>
               <div>
-                <strong>Seguridad y control</strong>
-                <small>Tus documentos, en buenas manos.</small>
+                <strong>{{ 'auth.security' | translate }}</strong>
+                <small>{{ 'auth.securityText' | translate }}</small>
               </div>
             </div>
           </div>
@@ -72,10 +74,19 @@ import { PublicTenant } from '../../../core/auth/auth.types';
         <!-- Columna Derecha: Formulario de Login -->
         <section class="login-form-section">
           <form class="login-form" (ngSubmit)="submit()">
+            <label class="login-language" [attr.aria-label]="'language.label' | translate">
+              <select
+                [ngModel]="i18n.language()"
+                (ngModelChange)="i18n.setLanguage($event)"
+                [ngModelOptions]="{ standalone: true }"
+              >
+                @for (language of i18n.languages; track language.code) { <option [value]="language.code">{{ language.label }}</option> }
+              </select>
+            </label>
             <header class="form-header">
-              <p class="eyebrow">BIENVENIDO DE NUEVO</p>
-              <h2>Inicia sesión</h2>
-              <p class="subtitle">Ingresa con tu usuario y contraseña para acceder a tu cuenta.</p>
+              <p class="eyebrow">{{ 'auth.welcome' | translate }}</p>
+              <h2>{{ 'auth.loginTitle' | translate }}</h2>
+              <p class="subtitle">{{ 'auth.loginSubtitle' | translate }}</p>
             </header>
 
             @if (errorMessage()) {
@@ -89,7 +100,7 @@ import { PublicTenant } from '../../../core/auth/auth.types';
             @if (sessionNotice()) { <div class="login-notice" role="status">{{ sessionNotice() }}</div> }
 
             <div class="field-group">
-              <label for="tenant-input">Organización</label>
+              <label for="tenant-input">{{ 'auth.organization' | translate }}</label>
               <div class="input-wrap">
                 <span class="input-icon">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -97,7 +108,7 @@ import { PublicTenant } from '../../../core/auth/auth.types';
                   </svg>
                 </span>
                 <select id="tenant-input" name="tenantId" [(ngModel)]="tenantId" [disabled]="tenantsLoading()">
-                  <option [ngValue]="null">[ Plataforma / Administración Global ]</option>
+                  <option [ngValue]="null">{{ 'auth.platform' | translate }}</option>
                   @for (tenant of tenants(); track tenant.id) {
                     <option [value]="tenant.id">{{ tenant.name }}</option>
                   }
@@ -107,7 +118,7 @@ import { PublicTenant } from '../../../core/auth/auth.types';
             </div>
 
             <div class="field-group">
-              <label for="email-input">Correo electrónico</label>
+              <label for="email-input">{{ 'auth.email' | translate }}</label>
               <div class="input-wrap">
                 <span class="input-icon">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -118,7 +129,7 @@ import { PublicTenant } from '../../../core/auth/auth.types';
                   id="email-input"
                   name="usernameOrEmail"
                   [(ngModel)]="usernameOrEmail"
-                  placeholder="usuario@ejemplo.com"
+                  [placeholder]="'auth.emailPlaceholder' | translate"
                   autocomplete="username"
                   required
                 />
@@ -126,7 +137,7 @@ import { PublicTenant } from '../../../core/auth/auth.types';
             </div>
 
             <div class="field-group">
-              <label for="password-input">Contraseña</label>
+              <label for="password-input">{{ 'auth.password' | translate }}</label>
               <div class="input-wrap">
                 <span class="input-icon">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -138,7 +149,7 @@ import { PublicTenant } from '../../../core/auth/auth.types';
                   name="password"
                   [type]="showPassword() ? 'text' : 'password'"
                   [(ngModel)]="password"
-                  placeholder="Ingresa tu contraseña"
+                  [placeholder]="'auth.passwordPlaceholder' | translate"
                   autocomplete="current-password"
                   required
                 />
@@ -157,15 +168,19 @@ import { PublicTenant } from '../../../core/auth/auth.types';
             </div>
 
             <button class="submit-btn" type="submit" [disabled]="isSubmitting()">
-              <span>{{ isSubmitting() ? 'Validando...' : 'Iniciar sesión' }}</span>
+              <span>{{ isSubmitting() ? ('auth.validating' | translate) : ('auth.signIn' | translate) }}</span>
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
               </svg>
             </button>
 
             <button type="button" class="recovery-btn" (click)="requestRecovery()">
-              ¿Olvidaste tu contraseña?
+              {{ 'auth.forgot' | translate }}
             </button>
+            <a routerLink="/welcome" class="explore-plans">
+              <strong>{{ 'marketing.backToHome' | translate }}</strong>
+              <span>{{ 'marketing.loginExplore' | translate }}</span>
+            </a>
           </form>
         </section>
       </div>
@@ -349,6 +364,9 @@ import { PublicTenant } from '../../../core/auth/auth.types';
       gap: 18px;
     }
 
+    .login-language { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+    .login-language select { appearance: none; background: #f4f8f7; border: 1px solid #d9e8e5; border-radius: 999px; color: #315956; cursor: pointer; font: 800 11px inherit; letter-spacing: .04em; padding: 7px 10px; }
+
     .form-header .eyebrow {
       font-size: 10px;
       font-weight: 800;
@@ -524,6 +542,8 @@ import { PublicTenant } from '../../../core/auth/auth.types';
     .recovery-btn:hover {
       background: #eef8f6;
     }
+    .explore-plans { color:#2c7167; display:grid; font-size:12px; gap:3px; line-height:1.45; text-align:center; text-decoration:none; }
+    .explore-plans strong { font-size:13px; }
 
     .login-notice{margin:0 0 16px;padding:12px 14px;border:1px solid #f3d696;border-radius:10px;background:#fff8e8;color:#875d0c;font-size:13px;font-weight:700}
 
@@ -543,6 +563,7 @@ import { PublicTenant } from '../../../core/auth/auth.types';
 })
 export class LoginPage implements OnInit {
   private readonly auth = inject(AuthService);
+  readonly i18n = inject(I18nService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -590,8 +611,8 @@ export class LoginPage implements OnInit {
       },
       error: (error: { status?: number }) => {
         this.errorMessage.set(error.status === 401
-          ? 'Las credenciales no son válidas.'
-          : 'No fue posible conectar con el servidor. Intenta nuevamente.');
+          ? this.i18n.t('auth.invalidCredentials')
+          : this.i18n.t('auth.connectError'));
         this.isSubmitting.set(false);
       },
     });

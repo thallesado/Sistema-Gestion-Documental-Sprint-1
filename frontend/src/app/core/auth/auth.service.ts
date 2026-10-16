@@ -26,7 +26,7 @@ export class AuthService {
       // The HTTP interceptor injects this service. Wait until its constructor
       // finishes to avoid a circular dependency during a page reload.
       queueMicrotask(() => this.loadCurrentUser());
-    } else if (this.user()) {
+    } else if (sessionStorage.getItem(TOKEN_KEY) || this.user()) {
       this.clearSession();
     }
   }
@@ -83,6 +83,7 @@ export class AuthService {
       error: (error: HttpErrorResponse) => {
         if (error.status === 401 || error.status === 403) {
           this.clearSession();
+          this.redirectAfterInvalidSession();
         }
       },
     });
@@ -93,7 +94,7 @@ export class AuthService {
     const refreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY);
     const finish = () => {
       this.clearSession();
-      void this.router.navigateByUrl('/login');
+      void this.router.navigateByUrl('/welcome');
     };
     if (!token) {
       finish();
@@ -165,7 +166,38 @@ export class AuthService {
   }
 
   private readToken(): string | null {
-    return sessionStorage.getItem(TOKEN_KEY);
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    return token && this.isUsableAccessToken(token) ? token : null;
+  }
+
+  /**
+   * The API remains the authority for token validity, but an expired JWT must
+   * never be treated as an active browser session while choosing the entry
+   * route. Signature validation intentionally remains server-side.
+   */
+  private isUsableAccessToken(token: string): boolean {
+    try {
+      const payload = token.split('.')[1];
+      if (!payload) return false;
+      const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+      const claims = JSON.parse(decoded) as { exp?: unknown };
+      return typeof claims.exp !== 'number' || claims.exp * 1000 > Date.now();
+    } catch {
+      return false;
+    }
+  }
+
+  private redirectAfterInvalidSession(): void {
+    const attemptedUrl = this.router.url || '/';
+    const isPublicPage = attemptedUrl === '/welcome'
+      || attemptedUrl.startsWith('/register')
+      || attemptedUrl.startsWith('/plans/contact-sales');
+
+    if (attemptedUrl === '/') {
+      void this.router.navigateByUrl('/welcome');
+    } else if (!isPublicPage && !attemptedUrl.startsWith('/login')) {
+      void this.router.navigate(['/login'], { queryParams: { returnUrl: attemptedUrl } });
+    }
   }
 
   private readUser(): AuthUser | null {
@@ -182,6 +214,7 @@ export class AuthService {
         id: user.id,
         tenantId: typeof user.tenantId === 'string' ? user.tenantId : null,
         tenantName: typeof user.tenantName === 'string' ? user.tenantName : null,
+        tenantLogoUrl: typeof user.tenantLogoUrl === 'string' ? user.tenantLogoUrl : null,
         platformAdmin: user.platformAdmin === true,
         roleNames: Array.isArray(user.roleNames)
           ? user.roleNames.filter((role): role is string => typeof role === 'string')

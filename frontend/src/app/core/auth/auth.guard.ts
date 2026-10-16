@@ -11,6 +11,13 @@ export const authGuard: CanActivateFn = (_route, state) => {
   return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
 };
 
+/** Root is the smart entry point: visitors discover the product, members enter their workspace. */
+export const rootEntryGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  return auth.isAuthenticated() ? true : router.createUrlTree(['/welcome']);
+};
+
 export const platformAdminGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);

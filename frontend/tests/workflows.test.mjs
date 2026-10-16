@@ -104,8 +104,8 @@ test('pending approval uses a three-pane workbench with real task metadata and k
 test('active workflows has the reference hero, working filters and status lanes using real progress and assignees', () => {
   assert.match(html, /wf-active-hero/);
   assert.match(html, /wf-active-toolbar/);
-  assert.match(html, /\[\(ngModel\)\]="filters\['responsibleId'\]"/);
-  assert.match(html, /\[\(ngModel\)\]="filters\['priority'\]"/);
+  assert.match(html, /\[ngModel\]="filters\['responsibleId'\] \?\? ''" \(ngModelChange\)="filters\['responsibleId'\]=\$event/);
+  assert.match(html, /\[ngModel\]="filters\['priority'\] \?\? ''" \(ngModelChange\)="filters\['priority'\]=\$event/);
   assert.match(html, /laneItems\(laneDef\.key\)/);
   assert.match(html, /item\.responsible_name\|\|'Sin responsable'/);
   assert.match(html, /progress\(item\)/);
