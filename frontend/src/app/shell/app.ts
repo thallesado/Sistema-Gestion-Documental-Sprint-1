@@ -14,17 +14,21 @@ import { LanguageCode } from '../core/i18n/translations';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { LocalizedContentDirective } from '../core/i18n/localized-content.directive';
 import { navigationLabel, roleLabel } from '../core/i18n/ui-translations';
+import { AssistantContextService } from '../core/assistant/assistant-context.service';
+import { AssistantWidget } from '../features/assistant/components/assistant-widget';
+import { HelpDrawer } from '../features/help/components/help-drawer';
+import { HelpService } from '../features/help/help.service';
 
 /** Pantallas públicas: siempre a pantalla completa, sin sidebar ni topbar, aunque haya sesión. */
 // These routes own a full-screen layout. Contact Sales remains authenticated so
 // its form can use the active organization, but intentionally bypasses the shell.
-const PUBLIC_PATHS = ['/welcome', '/register', '/login', '/forgot-password', '/reset-password', '/plans/contact-sales'];
+const PUBLIC_PATHS = ['/welcome', '/register', '/login', '/forgot-password', '/reset-password', '/plans/contact-sales', '/planes'];
 
 type ProfileTab = 'profile' | 'security' | 'notifications' | 'access' | 'workflows';
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, RouterOutlet, UpgradePlanModalComponent, TranslatePipe, LocalizedContentDirective],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, RouterOutlet, UpgradePlanModalComponent, TranslatePipe, LocalizedContentDirective, HelpDrawer, AssistantWidget],
   templateUrl: './app.html',
   styleUrl: './app.css',
   encapsulation: ViewEncapsulation.None,
@@ -33,6 +37,9 @@ export class App {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly chatbot = inject(ChatbotService);
+  /** Instantiated here so it listens to navigation from the very first route. */
+  private readonly assistantContext = inject(AssistantContextService);
+  readonly help = inject(HelpService);
   private readonly workflowApi = inject(WorkflowApi);
   readonly subscription = inject(SubscriptionService);
   readonly i18n = inject(I18nService);

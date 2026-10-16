@@ -7,6 +7,10 @@ import { administracionRoutes } from '../../features/users/users.routes';
 import { documentosRoutes } from '../../features/documentos/documentos.routes';
 import { expedientesRoutes } from '../../features/expedientes/expedientes.routes';
 import { workflowsRoutes } from '../../features/workflows/workflows.routes';
+import { backupsRoutes } from '../../features/backups/backups.routes';
+import { settingsRoutes } from '../../features/settings/settings.routes';
+import { pricingRoutes } from '../../features/pricing/pricing.routes';
+import { reportesDinamicosRoutes } from '../../features/reportes/reportes-dinamicos.routes';
 
 const clinicalPaths = new Set([
   'expedients/clinical',
@@ -17,6 +21,8 @@ const clinicalPaths = new Set([
   'clinical/notes',
 ]);
 const documentPaths = new Set(['documents', 'documents/mine', 'documents/shared', 'documents/new', 'documents/upload', 'settings/statuses']);
+/** Screens with their own page (created by the sprint scaffold): the generic catalog must not claim them. */
+const sprintOwnedPaths = new Set(['settings/backups', 'settings/appearance', 'users/form-permissions', 'reports/queries', 'reports/voice']);
 const expedientPaths = new Set(['expedientes', 'expedients', 'expedientes/new', 'expedientes/active', 'expedientes/closed', 'expedientes/archived']);
 // WorkspacePage is shared by the dashboard and catalogue routes.  It reads
 // routeInfo during its first change-detection cycle, so the root dashboard
@@ -28,7 +34,7 @@ const homeRoute: RouteInfo = navigationRoutes.find((route) => route.href === '/'
 };
 
 const dynamicCatalogRoutes: Routes = navigationRoutes
-  .filter((route) => route.href !== '/' && route.module !== 'Workflows' && !clinicalPaths.has(route.href.slice(1)) && !documentPaths.has(route.href.slice(1)) && !expedientPaths.has(route.href.slice(1)))
+  .filter((route) => route.href !== '/' && route.module !== 'Workflows' && !clinicalPaths.has(route.href.slice(1)) && !documentPaths.has(route.href.slice(1)) && !expedientPaths.has(route.href.slice(1)) && !sprintOwnedPaths.has(route.href.slice(1)))
   .map((route) => ({
     path: route.href === '/' ? '' : route.href.slice(1),
     loadComponent: () => {
@@ -69,6 +75,10 @@ export const routes: Routes = [
     loadComponent: () => import('../../features/subscription/pages/contact-sales-page').then((m) => m.ContactSalesPage),
     title: 'NexoDocs Enterprise',
   },
+  ...backupsRoutes,
+  ...settingsRoutes,
+  ...pricingRoutes,
+  ...reportesDinamicosRoutes,
   ...dynamicCatalogRoutes,
   {
     path: '**',
