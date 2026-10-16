@@ -4,7 +4,7 @@
 
 ## Conexión
 
-Clientes bajo core/api, API relativa /api/v1. Proxy de desarrollo [frontend/proxy.conf.json](../../../frontend/proxy.conf.json) apunta actualmente a localhost:8085. Docker usa Nginx hacia backend:8080; HTTPS se termina en Caddy en el despliegue documentado.
+Clientes bajo core/api, API relativa /api/v1. Proxy de desarrollo [frontend/proxy.conf.json](../../../frontend/proxy.conf.json) apunta actualmente a localhost:8080 (puerto por defecto del backend, BACKEND_PORT). Docker usa Nginx hacia backend:8080; HTTPS se termina en Caddy en el despliegue documentado.
 
 ## Sesión e interceptor
 

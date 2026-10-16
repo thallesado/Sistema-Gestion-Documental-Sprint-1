@@ -25,7 +25,7 @@ NexoDocs es un gestor documental SaaS para organizaciones de distintos rubros. E
 - PostgreSQL 17 en Compose. Flutter: consultar `mobile/pubspec.yaml` y el SDK instalado.
 - Raíz declara pnpm 9.15.0; frontend declara 12.3.4: discrepancia pendiente, no garantía de uniformidad.
 - API: `/api/v1`. Backend interno 8080, Postgres interno 5432.
-- Desarrollo Angular 4200; su proxy apunta actualmente a **8085**, no al 8080 predeterminado del backend.
+- Desarrollo Angular 4200; su proxy apunta a **8080**, el puerto predeterminado del backend.
 - JDBC local predeterminado usa 5434. Los puertos publicados de Compose dependen del entorno.
 - La revisión de código a590a6d contiene SQL hasta 035. No deducir el estado de una base por la lista de archivos.
 - Swagger usa `springdoc.swagger-ui.use-root-path`; comprobar el entorno antes de prometer una URL pública.

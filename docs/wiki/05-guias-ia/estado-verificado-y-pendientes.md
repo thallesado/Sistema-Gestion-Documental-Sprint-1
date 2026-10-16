@@ -24,7 +24,7 @@ Este snapshot es deliberadamente fechado. No actualizar su revisión automática
 - Documentos.patientId y clinical_document_links pueden contradecirse.
 - Tipos almacenan esquema/retención/plantilla sin ciclo completo aplicado.
 - Compartidos significa autor distinto; reportes siguen siendo demo.
-- Proxy desarrollo 8085 frente a backend default 8080; pnpm declarado no uniforme.
+- Proxy de desarrollo alineado con el backend en 8080 (resuelto); pnpm declarado no uniforme.
 - Sesiones: revisar identificación de sesión, rollback de revocación, cambio de contraseña e inactividad.
 - Almacenamiento MIME no equivale a validación binaria; backups deben incluir archivos.
 

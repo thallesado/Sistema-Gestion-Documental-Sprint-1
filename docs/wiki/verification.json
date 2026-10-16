@@ -98,7 +98,7 @@
       "page": "03-frontend/estado-y-comunicacion-api.md",
       "path": "frontend/proxy.conf.json",
       "includes": [
-        "http://localhost:8085"
+        "http://localhost:8080"
       ]
     },
     {
