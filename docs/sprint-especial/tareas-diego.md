@@ -15,7 +15,7 @@ Estado: hecho en la rama `feature/diego-pr0-andamiaje`, pendiente de revisión y
 3. Interceptores: `assistantErrorInterceptor` (primero) y `clientTimestampInterceptor` (último, sin efecto todavía).
 4. Shell: el botón de ayuda abre `HelpDrawer`, y `<app-assistant-widget />` queda montado una sola vez. `/planes` figura entre las rutas públicas del shell.
 5. `.github/pull_request_template.md` y esta carpeta `docs/sprint-especial/`.
-6. Pendiente: `.github/CODEOWNERS`, que necesita los usuarios de GitHub de los seis.
+6. `.github/CODEOWNERS`, con los usuarios de GitHub del equipo: Andres `thallesado`, Diego `wdiegow`, Oscar `OscarArancibia`, Mauricio `MauricioD98`, Cruz `DenilCruz` y Edixon `ELkin2624`.
 
 Revisor: Andres, porque toca `.github/`.
 

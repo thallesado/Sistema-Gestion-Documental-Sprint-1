@@ -40,7 +40,7 @@ El reparto sigue lo que cada uno ya tocó en el historial de git, con una carga 
 
 ## 4. Orden y dependencias
 
-1. **PR 0, primero y solo de Diego:** deja registradas las rutas y entradas de menú de las pantallas nuevas (ocultas con `sprintEnabled: false`), crea las páginas placeholder, los ganchos del shell (permisos, tema, idioma, ayuda y asistente), la plantilla de PR y esta documentación. Nadie empieza a editar los archivos calientes hasta que ese PR esté en `main`. El `CODEOWNERS` queda pendiente hasta tener los usuarios de GitHub de cada integrante.
+1. **PR 0, primero y solo de Diego:** deja registradas las rutas y entradas de menú de las pantallas nuevas (ocultas con `sprintEnabled: false`), crea las páginas placeholder, los ganchos del shell (permisos, tema, idioma, ayuda y asistente), la plantilla de PR y esta documentación. Nadie empieza a editar los archivos calientes hasta que ese PR esté en `main`. El `.github/CODEOWNERS` pide revisión al dueño de cada archivo caliente.
 2. **G0, de Diego:** extrae un cliente Gemini reutilizable desde `OcrService`. Lo usan H2 (Diego) y D4 (Edixon).
 3. **Oscar:** hacer B3 antes que B2. Los demás pueden usar el servicio de permisos cuando B3 esté integrado.
 4. **Mauricio:** hacer A1 antes que A2, A3 y E2. Acordar con Edixon el contrato de `/tenants/current/settings` (idioma por defecto).
