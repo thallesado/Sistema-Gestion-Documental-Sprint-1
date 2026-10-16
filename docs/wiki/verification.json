@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-16",
+  "localRevision": "a590a6d",
+  "remoteRevision": "a590a6d",
+  "pages": [
+    "01-arquitectura/convenciones-y-reglas.md",
+    "01-arquitectura/multi-tenancy-y-seguridad-rls.md",
+    "01-arquitectura/vision-general.md",
+    "02-backend/autenticacion-y-sesiones.md",
+    "02-backend/base-de-datos-y-migraciones.md",
+    "02-backend/estructura-spring-boot.md",
+    "03-frontend/arquitectura-angular.md",
+    "03-frontend/estado-y-comunicacion-api.md",
+    "04-dominio-y-negocio/digitalizacion-y-ocr.md",
+    "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+    "04-dominio-y-negocio/modulo-clinico.md",
+    "04-dominio-y-negocio/motor-de-workflows.md",
+    "04-dominio-y-negocio/nucleo-documental-y-tenants.md",
+    "05-guias-ia/como-promptear-en-nexodocs.md",
+    "05-guias-ia/estado-verificado-y-pendientes.md",
+    "05-guias-ia/pruebas-y-validacion.md",
+    "06-operacion/despliegue-y-recuperacion.md",
+    "README.md"
+  ],
+  "contracts": [
+    {
+      "page": "01-arquitectura/vision-general.md",
+      "path": "backend/pom.xml",
+      "includes": [
+        "<version>3.2.12</version>",
+        "<java.version>21</java.version>"
+      ]
+    },
+    {
+      "page": "01-arquitectura/vision-general.md",
+      "path": "database/init/003_seed.sql",
+      "includes": [
+        "20000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "page": "01-arquitectura/multi-tenancy-y-seguridad-rls.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/AuthenticatedUserContext.java",
+      "includes": [
+        "SET LOCAL ROLE nexodocs_app",
+        "set_config('app.tenant_id'",
+        "set_config('app.user_id'"
+      ]
+    },
+    {
+      "page": "01-arquitectura/multi-tenancy-y-seguridad-rls.md",
+      "path": "database/init/004_saas_hardening.sql",
+      "includes": [
+        "CREATE POLICY tenant_context",
+        "AS RESTRICTIVE TO nexodocs_app",
+        "CREATE POLICY rbac_insert"
+      ]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AuthRequest.java",
+      "includes": [
+        "String usernameOrEmail",
+        "UUID tenantId",
+        "String tenantName"
+      ]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AuthResponse.java",
+      "includes": [
+        "String token;",
+        "String refreshToken;",
+        "long expiresIn;"
+      ]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/JwtService.java",
+      "includes": [
+        "claims.put(\"tenantId\"",
+        "claims.put(\"userId\"",
+        "claims.put(\"authorities\"",
+        "SignatureAlgorithm.HS256"
+      ]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "infrastructure/docker/migrate.sh",
+      "includes": [
+        "if [ \"$number\" -lt 4 ]",
+        "app.schema_migrations",
+        "${filename%.sql}"
+      ]
+    },
+    {
+      "page": "03-frontend/estado-y-comunicacion-api.md",
+      "path": "frontend/proxy.conf.json",
+      "includes": [
+        "http://localhost:8085"
+      ]
+    },
+    {
+      "page": "03-frontend/estado-y-comunicacion-api.md",
+      "path": "frontend/src/app/core/auth/auth.service.ts",
+      "includes": [
+        "sessionStorage.setItem(TOKEN_KEY, response.token)",
+        "nexodocs.access_token",
+        "nexodocs.refresh_token"
+      ]
+    },
+    {
+      "page": "03-frontend/arquitectura-angular.md",
+      "path": "frontend/src/app/features/clinico/clinico.routes.ts",
+      "includes": [
+        "path: 'clinical/history'",
+        "AntecedentesPage",
+        "path: 'expedients/clinical/history'",
+        "HistoriaClinicaPage"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentStorageService.java",
+      "includes": [
+        "Path.of(tenantId.toString(), documentId.toString(), versionId.toString())",
+        "MessageDigest.getInstance(\"SHA-256\")",
+        "reason == null || reason.isBlank()"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/motor-de-workflows.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/WorkflowEngineService.java",
+      "includes": [
+        "Set.of(\"DRAFT\",\"ACTIVE\",\"INACTIVE\")",
+        "workflow_template_stages",
+        "workflow_steps",
+        "workflow_approvals",
+        "workflow:approve"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/modulo-clinico.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/model/ClinicalHistory.java",
+      "includes": [
+        "private Long version",
+        "private String bloodType"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/modulo-clinico.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/MedicalNoteController.java",
+      "includes": [
+        "medical_note:read",
+        "medical_note:create",
+        "medical_note:update"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/digitalizacion-y-ocr.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/OcrController.java",
+      "includes": [
+        "@GetMapping(\"/jobs\")",
+        "@GetMapping(\"/stats\")",
+        "@PostMapping(\"/jobs/{id}/index\")",
+        "CAN_INDEX_OCR"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/digitalizacion-y-ocr.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/model/OcrJob.java",
+      "includes": [
+        "QUEUED, PROCESSING, REQUIRES_VALIDATION, VALIDATED, INDEXED, FAILED, REJECTED"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/digitalizacion-y-ocr.md",
+      "path": "database/init/035_ocr_job_persistence.sql",
+      "includes": [
+        "035_ocr_job_persistence",
+        "ck_ocr_indexed_has_document",
+        "ck_ocr_failed_has_reason"
+      ]
+    }
+  ],
+  "reviews": {
+    "01-arquitectura/convenciones-y-reglas.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "01-arquitectura/multi-tenancy-y-seguridad-rls.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "01-arquitectura/vision-general.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "02-backend/autenticacion-y-sesiones.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "02-backend/base-de-datos-y-migraciones.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "02-backend/estructura-spring-boot.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "03-frontend/arquitectura-angular.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "03-frontend/estado-y-comunicacion-api.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/digitalizacion-y-ocr.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/documentos-y-almacenamiento.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/modulo-clinico.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/motor-de-workflows.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/nucleo-documental-y-tenants.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "05-guias-ia/como-promptear-en-nexodocs.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "05-guias-ia/estado-verificado-y-pendientes.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "05-guias-ia/pruebas-y-validacion.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "06-operacion/despliegue-y-recuperacion.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "README.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    }
+  }
+}

@@ -1,5 +1,12 @@
 # NexoDocs - Sistema de Gestión Documental
 
+La [wiki de desarrollo y contexto para IA](docs/wiki/README.md) contiene el mapa de lectura,
+contratos verificados, diferencias entre revisiones y guías por área. Consulta su
+[estado verificado](docs/wiki/05-guias-ia/estado-verificado-y-pendientes.md) antes de
+tomar las descripciones históricas de este README como comportamiento actual.
+
+Para comprobar enlaces y contratos documentados: `node scripts/validate-wiki.mjs`.
+
 ## Workflow Module
 
 El módulo conecta workflows, tareas, revisión, aprobación y plantillas con datos
