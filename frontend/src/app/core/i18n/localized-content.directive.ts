@@ -9,7 +9,9 @@ export class LocalizedContentDirective implements AfterViewInit, DoCheck, OnDest
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly i18n = inject(I18nService);
   private readonly textSources = new WeakMap<Text, string>();
+  private readonly translatedTexts = new WeakMap<Text, string>();
   private readonly attributeSources = new WeakMap<Element, Map<string, string>>();
+  private readonly translatedAttributes = new WeakMap<Element, Map<string, string>>();
   private readonly valueSources = new WeakMap<HTMLInputElement | HTMLTextAreaElement, string>();
   private readonly translatedValues = new WeakMap<HTMLInputElement | HTMLTextAreaElement, string>();
   private readonly editedValues = new WeakSet<HTMLInputElement | HTMLTextAreaElement>();
@@ -54,9 +56,12 @@ export class LocalizedContentDirective implements AfterViewInit, DoCheck, OnDest
   }
 
   private translateText(node: Text, language: ReturnType<I18nService['language']>): void {
-    const source = this.textSources.get(node) ?? node.data;
+    // Si Angular cambió el texto desde nuestra última traducción, el nuevo valor es la fuente.
+    const priorSource = this.textSources.get(node);
+    const source = priorSource !== undefined && node.data === this.translatedTexts.get(node) ? priorSource : node.data;
     this.textSources.set(node, source);
     const translated = this.translatePreservingWhitespace(source, language);
+    this.translatedTexts.set(node, translated);
     if (node.data !== translated) node.data = translated;
   }
 
@@ -66,9 +71,13 @@ export class LocalizedContentDirective implements AfterViewInit, DoCheck, OnDest
       if (!current) continue;
       const sources = this.attributeSources.get(element) ?? new Map<string, string>();
       if (!this.attributeSources.has(element)) this.attributeSources.set(element, sources);
-      const source = sources.get(attribute) ?? current;
+      const written = this.translatedAttributes.get(element) ?? new Map<string, string>();
+      if (!this.translatedAttributes.has(element)) this.translatedAttributes.set(element, written);
+      const priorSource = sources.get(attribute);
+      const source = priorSource !== undefined && current === written.get(attribute) ? priorSource : current;
       sources.set(attribute, source);
       const translated = this.translatePreservingWhitespace(source, language);
+      written.set(attribute, translated);
       if (current !== translated) element.setAttribute(attribute, translated);
     }
   }

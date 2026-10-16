@@ -1,4 +1,5 @@
 import { LanguageCode } from './translations';
+import { PAGE_TEXT, TEXT_PATTERNS } from './page-translations';
 
 type LanguageLabels = Record<LanguageCode, Record<string, string>>;
 
@@ -192,7 +193,81 @@ export function roleLabel(language: LanguageCode, role: string): string {
 }
 
 export function featureText(language: LanguageCode, source: string): string {
-  return FEATURE_TEXT[language][source] ?? source;
+  if (language === 'es') return source;
+  const cache = resolvedText[language];
+  let value = cache.get(source);
+  if (value === undefined) {
+    value = resolveText(language, source, 0) ?? source;
+    cache.set(source, value);
+  }
+  return value;
+}
+
+/*
+ * Resolución tolerante: además de la coincidencia exacta, acepta diferencias de
+ * mayúsculas/tildes, símbolos decorativos ("+ ", " →", ":", "*"), textos
+ * compuestos con " · " y frases con datos variables (TEXT_PATTERNS).
+ */
+const resolvedText: Record<LanguageCode, Map<string, string>> = { es: new Map(), en: new Map(), fr: new Map(), zh: new Map() };
+const normalizedIndexes: Partial<Record<LanguageCode, Map<string, string>>> = {};
+const DECORATION = /^([+＋←✕⚡•●✓·⏸▽▦☷▷▣↓]\s*)?(.*?)(\s*(?:→|\*|:|\.\.\.|…))?$/su;
+
+function normalizeKey(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function normalizedIndex(language: LanguageCode): Map<string, string> {
+  let index = normalizedIndexes[language];
+  if (!index) {
+    index = new Map();
+    for (const table of [NAVIGATION_LABELS, ROLE_LABELS, FEATURE_TEXT]) {
+      for (const [key, value] of Object.entries(table[language])) index.set(normalizeKey(key), value);
+    }
+    normalizedIndexes[language] = index;
+  }
+  return index;
+}
+
+function matchCase(source: string, value: string): string {
+  const isUpper = source === source.toUpperCase() && source !== source.toLowerCase() && source.length > 1;
+  return isUpper ? value.toUpperCase() : value;
+}
+
+function resolveText(language: LanguageCode, text: string, depth: number): string | undefined {
+  if (depth > 4 || !text.trim()) return undefined;
+  const exact = FEATURE_TEXT[language][text];
+  if (exact !== undefined) return exact;
+  const normalized = normalizedIndex(language).get(normalizeKey(text));
+  if (normalized !== undefined) return matchCase(text, normalized);
+
+  for (const pattern of TEXT_PATTERNS) {
+    const match = pattern.re.exec(text);
+    if (!match) continue;
+    return pattern.t[language].replace(/\{(\d)\}/g, (_, index: string) => {
+      const part = match[Number(index)] ?? '';
+      return resolveText(language, part, depth + 1) ?? part;
+    });
+  }
+
+  // Separadores conservados: "Inicio · Actividad", "DEFAULT → ¿Aprobado?".
+  const segments = text.split(/( · | → )/);
+  if (segments.length > 1) {
+    let changed = false;
+    const translated = segments.map((segment, index) => {
+      if (index % 2 === 1) return segment;
+      const value = resolveText(language, segment, depth + 1);
+      if (value !== undefined) changed = true;
+      return value ?? segment;
+    });
+    if (changed) return translated.join('');
+  }
+
+  const decorated = DECORATION.exec(text);
+  if (decorated && (decorated[1] || decorated[3]) && decorated[2]) {
+    const core = resolveText(language, decorated[2], depth + 1);
+    if (core !== undefined) return `${decorated[1] ?? ''}${core}${decorated[3] ?? ''}`;
+  }
+  return undefined;
 }
 
 Object.assign(NAVIGATION_LABELS.en, { 'Facturacion e ingresos': 'Billing and revenue' });
@@ -221,3 +296,7 @@ const SHELL_PROFILE_ACTIVITY_TEXT: LanguageLabels = {
   zh: { 'Mi actividad de workflows': '我的工作流活动', 'Tareas asignadas': '已分配任务', 'No tienes tareas pendientes.': '您没有待处理任务。', 'Workflows activos': '活动工作流', 'No tienes workflows activos asignados.': '您没有被分配的活动工作流。', 'Historial de aprobaciones': '审批历史', 'Aún no hay decisiones registradas.': '尚未记录任何决定。', 'Accesos asignados': '已分配访问权限', 'Estos datos provienen de tu cuenta autenticada y no pueden modificarse desde el perfil.': '这些数据来自您的已验证账户，无法在个人资料中修改。', 'Roles': '角色', 'Estado': '状态' }
 };
 for (const language of Object.keys(SHELL_PROFILE_ACTIVITY_TEXT) as LanguageCode[]) Object.assign(FEATURE_TEXT[language], SHELL_PROFILE_ACTIVITY_TEXT[language]);
+
+for (const language of Object.keys(PAGE_TEXT) as LanguageCode[]) {
+  for (const [key, value] of Object.entries(PAGE_TEXT[language])) FEATURE_TEXT[language][key] ??= value;
+}

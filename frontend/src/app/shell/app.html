@@ -1,5 +1,5 @@
 @if (!isWorkspace()) {
-  <router-outlet></router-outlet>
+  <div class="public-outlet" i18nContent><router-outlet></router-outlet></div>
 } @else {
   <main class="shell" i18nContent [class.sidebar-collapsed]="isCollapsed()">
     <aside class="sidebar" [class.open]="mobileNavOpen()" [class.collapsed]="isCollapsed()" id="sidebar-nav">
@@ -78,12 +78,12 @@
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
                       </svg>
                     }
-                    @case ('Usuarios y organizaciones') {
+                    @case ('Usuarios y equipos') {
                       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                       </svg>
                     }
-                    @case ('Auditoría') {
+                    @case ('Auditoria') {
                       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                       </svg>
@@ -101,6 +101,21 @@
                     @case ('Módulo Clínico') {
                       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                      </svg>
+                    }
+                    @case ('Digitalizacion') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/>
+                      </svg>
+                    }
+                    @case ('Workflows') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6"/><polyline points="13 12 16 15 13 18"/>
+                      </svg>
+                    }
+                    @case ('Facturacion e ingresos') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
                       </svg>
                     }
                     @default {
@@ -137,15 +152,6 @@
                     [routerLinkActiveOptions]="{ exact: true }"
                     (click)="openNav(item.label)"
                   >
-                    @if (child.label === 'Resumen') {
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-                      </svg>
-                    } @else if (child.label === 'Actividad reciente') {
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                      </svg>
-                    }
                     <span>{{ navLabel(child.label) }}</span>
                   </a>
                 }

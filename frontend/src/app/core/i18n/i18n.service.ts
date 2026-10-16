@@ -1,14 +1,20 @@
 import { DOCUMENT } from '@angular/common';
-import { Injectable, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { LanguageCode, TRANSLATIONS, TranslationTree } from './translations';
 
 const STORAGE_KEY = 'nexodocs_lang';
 const SUPPORTED: LanguageCode[] = ['es', 'en', 'fr', 'zh'];
+const LOCALES: Record<LanguageCode, string> = { es: 'es-BO', en: 'en-US', fr: 'fr-FR', zh: 'zh-CN' };
+let currentLocale = LOCALES.es;
+
+/** Locale BCP 47 del idioma activo, para Intl/toLocale* fuera de los templates. */
+export function activeLocale(): string { return currentLocale; }
 
 @Injectable({ providedIn: 'root' })
 export class I18nService {
   private readonly document = inject(DOCUMENT);
   readonly language = signal<LanguageCode>(this.initialLanguage());
+  readonly locale = computed(() => LOCALES[this.language()]);
   readonly languages: ReadonlyArray<{ code: LanguageCode; label: string }> = [
     { code: 'es', label: 'Español' },
     { code: 'en', label: 'English' },
@@ -20,6 +26,7 @@ export class I18nService {
     effect(() => {
       const language = this.language();
       this.document.documentElement.lang = language;
+      currentLocale = LOCALES[language];
       try { localStorage.setItem(STORAGE_KEY, language); } catch { /* storage unavailable */ }
     });
   }

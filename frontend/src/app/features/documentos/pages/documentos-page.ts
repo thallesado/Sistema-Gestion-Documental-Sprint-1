@@ -17,6 +17,7 @@ import { UserSelectorComponent } from '../../../shared';
 import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
 import { WorkflowApi } from '../../workflows/workflow-api.service';
 import { WorkflowStart } from '../../workflows/components/workflow-start';
+import { activeLocale } from '../../../core/i18n/i18n.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 
@@ -601,6 +602,9 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
     .status-pill.archived { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
     .status-pill.voided { background: #fee2e2; color: #7f1d1d; border: 1px solid #fca5a5; }
     .status-pill.trashed { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+    .form-grid > label { min-width: 0; }
+    .form-grid input, .form-grid select, .form-grid textarea { min-width: 0; width: 100%; }
+    @media (max-width: 680px) { .form-grid { grid-template-columns: minmax(0, 1fr); } .form-grid .full-width { grid-column: auto; } }
   `],
 })
 export class DocumentPage implements OnInit, OnDestroy {
@@ -1136,7 +1140,7 @@ export class DocumentPage implements OnInit, OnDestroy {
       department: doc.departmentName || '',
       specialty: doc.specialty || '',
       responsible: doc.responsibleName || '',
-      createdAt: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('es-ES') : '',
+      createdAt: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString(activeLocale()) : '',
     }));
 
     const cols: ExportColumn[] = [

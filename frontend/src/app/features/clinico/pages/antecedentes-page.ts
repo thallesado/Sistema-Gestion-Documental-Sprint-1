@@ -473,6 +473,8 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalHistoryPayload
       #printable-history, #printable-history * { visibility: visible; }
       #printable-history { position: absolute; left: 0; top: 0; width: 100%; }
     }
+    .content-grid > * { min-width: 0; }
+    @media (max-width: 900px) { .content-grid { grid-template-columns: minmax(0, 1fr); } }
   `]
 })
 export class AntecedentesPage implements OnInit {

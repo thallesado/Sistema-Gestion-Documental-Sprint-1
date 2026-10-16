@@ -890,3 +890,6 @@
 @media (max-width: 1024px) {
   .sidebar-toggle { display: none; }
 }
+
+/* Contenedor neutro para traducir las pantallas públicas (login, recuperación). */
+.public-outlet { display: contents; }

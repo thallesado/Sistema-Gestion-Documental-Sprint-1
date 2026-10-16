@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { ApiAuditEvent, AuditApiService, AuditEventsFilter } from '../../../core/api/audit-api.service';
+import { activeLocale } from '../../../core/i18n/i18n.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RouteInfo } from '../../../core/data/nexodocs-data';
 import { AuditDrawerDetail, AuditEventDrawer } from '../components/audit-event-drawer';
@@ -440,7 +441,7 @@ export class AuditPage {
   formatDate(value: string): string {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
-    return new Intl.DateTimeFormat('es', {
+    return new Intl.DateTimeFormat(activeLocale(), {
       dateStyle: 'medium',
       timeStyle: 'medium',
     }).format(date);
