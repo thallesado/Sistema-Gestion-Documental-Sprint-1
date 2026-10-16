@@ -7,15 +7,19 @@ import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '.
 import { AuthService } from '../core/auth/auth.service';
 import { ChatbotService } from '../core/chatbot/chatbot.service';
 import { WorkflowApi } from '../features/workflows/workflow-api.service';
+import { AssistantContextService } from '../core/assistant/assistant-context.service';
+import { AssistantWidget } from '../features/assistant/components/assistant-widget';
+import { HelpDrawer } from '../features/help/components/help-drawer';
+import { HelpService } from '../features/help/help.service';
 
 /** Pantallas públicas: siempre a pantalla completa, sin sidebar ni topbar, aunque haya sesión. */
-const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
+const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/planes'];
 
 type ProfileTab = 'profile' | 'security' | 'notifications' | 'access' | 'workflows';
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, RouterOutlet, HelpDrawer, AssistantWidget],
   templateUrl: './app.html',
   styleUrl: './app.css',
   encapsulation: ViewEncapsulation.None,
@@ -24,6 +28,9 @@ export class App {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly chatbot = inject(ChatbotService);
+  /** Instantiated here so it listens to navigation from the very first route. */
+  private readonly assistantContext = inject(AssistantContextService);
+  readonly help = inject(HelpService);
   private readonly workflowApi = inject(WorkflowApi);
   readonly profileWorkflowTasks = signal<any[]>([]);
   readonly profileActiveWorkflows = signal<any[]>([]);
