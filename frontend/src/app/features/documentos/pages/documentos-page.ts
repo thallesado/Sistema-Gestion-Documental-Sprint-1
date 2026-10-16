@@ -18,13 +18,14 @@ import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../.
 import { WorkflowApi } from '../../workflows/workflow-api.service';
 import { WorkflowStart } from '../../workflows/components/workflow-start';
 import { AuthService } from '../../../core/auth/auth.service';
+import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 
 @Component({
   selector: 'app-document-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, UserSelectorComponent, WorkflowStart],
+  imports: [CommonModule, FormsModule, RouterLink, UserSelectorComponent, WorkflowStart, LocalizedContentDirective],
   template: `
-    <section class="page document-page">
+    <section class="page document-page" i18nContent>
       <!-- HERO BANNER -->
       <section class="module-hero-banner">
         <div class="module-hero-left">

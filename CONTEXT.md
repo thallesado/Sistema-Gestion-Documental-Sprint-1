@@ -8,7 +8,7 @@
 
 **NexoDocs** es una plataforma SaaS multi-tenant de gestión documental clínica/organizacional: control y trazabilidad de documentos, expedientes, historias clínicas, usuarios, auditoría y reportes. Es un monorepo con:
 
-- **Backend**: Spring Boot 3.2.4 / Java 21 (Maven multi-módulo, pero ver advertencia abajo).
+- **Backend**: Spring Boot 3.2.12 / Java 21 (reactor Maven con `shared` y `bootstrap`).
 - **Frontend**: Angular 20.3, standalone components.
 - **Mobile**: Flutter (MVP simple, ver advertencia abajo).
 - **Base de datos**: PostgreSQL 17 con Row-Level Security (RLS) multi-tenant.
@@ -19,8 +19,8 @@
 
 ### ⚠️ Discrepancias importantes entre README y código real
 
-1. **Backend "hexagonal multi-módulo" es en gran parte scaffold vacío.** `backend/pom.xml` declara módulos Maven (`autenticacion`, `usuarios`, `documentos`, `expedientes`, `clinico`, `auditoria`, `tablero`, `reportes`) con paquetes `application/{dto,mapper,usecase}`, `domain/{model,repository,service}`, `infrastructure/persistence`, `presentation/controller` — pero **todas esas carpetas solo contienen `.gitkeep`, sin código real**. Toda la implementación de Sprint 1 vive de forma plana en `backend/bootstrap/src/main/java/com/lta/gestdocum/backend/` con paquetes clásicos por capa (`controller/`, `service/`, `model/`, `repository/`, `dto/`, `exception/`, `config/`, `security/`). Es decir: hoy es un **monolito Spring Boot por capas**, no una arquitectura hexagonal modular real. El scaffold está preparado para una futura migración.
-2. **Mobile "Clean Architecture + BLoC + GetIt" tampoco está implementado.** `mobile/lib/features/{auditoria,auth,clinico,documentos,expedientes,reportes,tablero,user}/{data,domain,presentation}` son carpetas vacías (`.gitkeep`). `pubspec.yaml` **no** declara `flutter_bloc`, `get_it`, `dio` ni `equatable`. `injection/injection_container.dart` es un stub vacío. La app real y funcional vive en `mobile/lib/screens/*` (estructura plana, sin separación de capas) más `mobile/lib/core/api/auth_api.dart` para las llamadas HTTP.
+1. **Backend por capas, no hexagonal modular.** Los módulos Maven vacíos se eliminaron. Toda la implementación de Sprint 1 vive en `backend/bootstrap/src/main/java/com/lta/gestdocum/backend/` con paquetes `controller/`, `service/`, `model/`, `repository/`, `dto/`, `exception/`, `config/` y `security/`; `backend/shared` contiene utilidades y contratos comunes.
+2. **Mobile sin Clean Architecture/BLoC.** Los esqueletos vacíos de `mobile/lib/features` se eliminaron. `pubspec.yaml` no declara `flutter_bloc`, `get_it`, `dio` ni `equatable`; `injection/injection_container.dart` sigue siendo un stub. La app funcional vive en `mobile/lib/screens/*` y `mobile/lib/core/api/auth_api.dart`.
 3. **El tenant demo "Acme" fue renombrado a "FinoCode"** en la migración SQL 016, aunque las credenciales `@acme.com` del README siguen funcionando (el slug/id no cambió, solo el nombre visible).
 4. El README dice Angular 19+; el código usa **Angular 20.3**.
 5. `application.yml` del backend apunta a `jdbc:postgresql://127.0.0.1:5434/nexodocs` (puerto 5434) mientras `docker-compose.yml` usa el 5432 estándar internamente — revisar mapeo de puertos si hay problemas de conexión en desarrollo local.
@@ -32,7 +32,7 @@
 ### Estructura real
 - `backend/bootstrap/` — **aquí vive todo el código real**: `controller/`, `service/`, `model/`, `repository/`, `dto/`, `exception/`, `config/`, `security/`. Punto de entrada Spring Boot.
 - `backend/shared/` — utilidades comunes: `JwtUtils` (HMAC-SHA, claims, expiración), excepciones y DTOs compartidos.
-- `backend/modules/*` — scaffold vacío (ver advertencia arriba), preparado para una futura migración a hexagonal real por módulo.
+- El reactor Maven solo contiene `backend/shared/` y `backend/bootstrap/`; no hay módulos de dominio separados.
 - Sin Flyway/Liquibase: `hibernate.ddl-auto: update` + esquema gestionado a mano vía `database/init/*.sql`.
 - Documentación interactiva: Swagger/OpenAPI (springdoc 2.5.0) en la raíz (`/`).
 
@@ -259,8 +259,8 @@ flutter run
 
 ## 11. Puntos a tener en cuenta para próximas sesiones
 
-- Si se va a implementar la migración real a arquitectura hexagonal, el trabajo consiste en **mover código de `backend/bootstrap` a los módulos vacíos de `backend/modules/*`**, no en crear módulos nuevos.
-- Lo mismo aplica a mobile: si se va a adoptar Clean Architecture + BLoC, hay que **poblar `mobile/lib/features/*`** y añadir las dependencias (`flutter_bloc`, `get_it`, `dio`, `equatable`) a `pubspec.yaml`, migrando la lógica actual de `mobile/lib/screens/`.
+- Si se adopta una arquitectura hexagonal real, habrá que definir y crear módulos con responsabilidad y código concretos, extrayendo gradualmente la lógica de `backend/bootstrap`.
+- Si se adopta Clean Architecture + BLoC en mobile, habrá que crear la estructura feature-first y añadir las dependencias necesarias (`flutter_bloc`, `get_it`, `dio`, `equatable`), migrando la lógica actual de `mobile/lib/screens/`.
 - Verificar el desajuste de puerto Postgres (5434 en `application.yml` vs 5432 en compose) antes de depurar problemas de conexión local.
 - El README usa "Acme" como nombre del tenant demo; en la base de datos actual se llama "FinoCode" desde la migración 016 — mantener esto en mente al hablar con el usuario sobre datos demo.
 - Reportes y Tablero son las áreas con más deuda de mock data pendiente de conectar a la API real.

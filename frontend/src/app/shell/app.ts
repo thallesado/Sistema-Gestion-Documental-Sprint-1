@@ -7,15 +7,24 @@ import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '.
 import { AuthService } from '../core/auth/auth.service';
 import { ChatbotService } from '../core/chatbot/chatbot.service';
 import { WorkflowApi } from '../features/workflows/workflow-api.service';
+import { SubscriptionService } from '../core/subscription/subscription.service';
+import { UpgradePlanModalComponent } from '../shared/components/upgrade-plan-modal/upgrade-plan-modal';
+import { I18nService } from '../core/i18n/i18n.service';
+import { LanguageCode } from '../core/i18n/translations';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { LocalizedContentDirective } from '../core/i18n/localized-content.directive';
+import { navigationLabel, roleLabel } from '../core/i18n/ui-translations';
 
 /** Pantallas públicas: siempre a pantalla completa, sin sidebar ni topbar, aunque haya sesión. */
-const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
+// These routes own a full-screen layout. Contact Sales remains authenticated so
+// its form can use the active organization, but intentionally bypasses the shell.
+const PUBLIC_PATHS = ['/welcome', '/register', '/login', '/forgot-password', '/reset-password', '/plans/contact-sales'];
 
 type ProfileTab = 'profile' | 'security' | 'notifications' | 'access' | 'workflows';
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, RouterOutlet, UpgradePlanModalComponent, TranslatePipe, LocalizedContentDirective],
   templateUrl: './app.html',
   styleUrl: './app.css',
   encapsulation: ViewEncapsulation.None,
@@ -25,6 +34,8 @@ export class App {
   private readonly auth = inject(AuthService);
   private readonly chatbot = inject(ChatbotService);
   private readonly workflowApi = inject(WorkflowApi);
+  readonly subscription = inject(SubscriptionService);
+  readonly i18n = inject(I18nService);
   readonly profileWorkflowTasks = signal<any[]>([]);
   readonly profileActiveWorkflows = signal<any[]>([]);
   readonly profileApprovalHistory = signal<any[]>([]);
@@ -43,13 +54,56 @@ export class App {
   readonly avatarUrl = this.auth.avatarUrl;
   readonly displayName = computed(() => {
     const user = this.currentUser();
-    return user ? `${user.firstName} ${user.lastName}`.trim() : 'Usuario';
+    if (!user) return 'Usuario';
+    return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+      || user.username?.trim()
+      || user.email?.trim()
+      || 'Usuario';
+  });
+  readonly userSubtitle = computed(() => {
+    const user = this.currentUser();
+    if (!user) return '';
+    const hasPersonalName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim().length > 0;
+    return hasPersonalName ? (user.username?.trim() || user.email?.trim() || '') : (user.email?.trim() || '');
   });
   readonly initials = computed(() => this.displayName().split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || 'U');
-  readonly tenantName = computed(() => this.currentUser()?.tenantName || (this.currentUser()?.platformAdmin ? 'Todos los tenants' : 'Organización autenticada'));
+  readonly tenantName = computed(() => {
+    const user = this.currentUser();
+    return user?.tenantName?.trim()
+      || (user?.platformAdmin ? 'Todos los tenants' : user?.tenantId ? `Organización · ${user.tenantId.slice(0, 8)}` : 'Organización sin asignar');
+  });
+  readonly tenantLogoUrl = computed(() => this.currentUser()?.tenantLogoUrl?.trim() || null);
+  readonly failedTenantLogoUrl = signal<string | null>(null);
+  readonly hasTenantLogo = computed(() => {
+    const logoUrl = this.tenantLogoUrl();
+    return !!logoUrl && this.failedTenantLogoUrl() !== logoUrl;
+  });
+  onTenantLogoError(): void {
+    const logoUrl = this.tenantLogoUrl();
+    if (logoUrl) this.failedTenantLogoUrl.set(logoUrl);
+  }
   /** El módulo «Usuarios y equipos» (/users, /users/...) ya trae su propio buscador: se oculta el global. */
   readonly hideGlobalSearch = computed(() => this.currentUrl().split(/[?#]/)[0].split('/')[1] === 'users');
   readonly globalSearchTerm = signal('');
+
+  navLabel(label: string): string { return navigationLabel(this.i18n.language(), label); }
+  roleText(role: Role): string { return roleLabel(this.i18n.language(), role); }
+  readonly subscriptionPlanName = computed(() => {
+    const plan = this.subscription.currentSubscription()?.plan;
+    return plan ? this.i18n.t(`subscription.plans.${plan.code}.name`) : this.i18n.t('subscription.upgrade');
+  });
+  readonly storageUsagePercent = computed(() => {
+    const value = this.subscription.currentSubscription();
+    if (!value || value.maxStorageBytes < 0 || value.maxStorageBytes === 0) return 0;
+    return Math.min(100, Math.round((value.usedStorageBytes / value.maxStorageBytes) * 100));
+  });
+  readonly usersUsageLabel = computed(() => {
+    const value = this.subscription.currentSubscription();
+    if (!value) return 'Uso de usuarios';
+    return value.maxUsers < 0
+      ? this.i18n.t('shell.unlimitedUsers', { count: value.activeUsersCount })
+      : this.i18n.t('shell.usersUsage', { count: value.activeUsersCount, max: value.maxUsers });
+  });
 
   onGlobalSearch(event?: Event): void {
     if (event) event.preventDefault();
@@ -75,11 +129,16 @@ export class App {
     try { localStorage.setItem('sidebarCollapsed', String(this.isCollapsed())); } catch { /* almacenamiento no disponible */ }
   }
 
+  openUpgrade(reason?: string): void {
+    this.subscription.openUpgrade(reason);
+  }
+
   private readCollapsed(): boolean {
     try { return localStorage.getItem('sidebarCollapsed') === 'true'; } catch { return false; }
   }
   readonly sidebarUserMenuOpen = signal(false);
   readonly headerUserMenuOpen = signal(false);
+  readonly languageMenuOpen = signal(false);
   readonly profileOpen = signal(false);
   readonly profileSaving = signal(false);
   readonly profileError = signal('');
@@ -119,6 +178,7 @@ export class App {
     // El chatbot solo existe dentro del layout autenticado: se carga al entrar y se retira al salir
     // (logout, sesión expirada o pantallas públicas como /login).
     effect(() => (this.isWorkspace() ? this.chatbot.load() : this.chatbot.unload()));
+    effect(() => { if (this.isWorkspace()) this.subscription.load(); });
     const activityEvents = ['pointerdown', 'keydown', 'mousemove', 'touchstart', 'scroll'];
     const resetIdleTimer = () => this.resetIdleTimer();
     activityEvents.forEach((eventName) => window.addEventListener(eventName, resetIdleTimer, { passive: true }));
@@ -205,9 +265,26 @@ export class App {
     this.sidebarUserMenuOpen.set(false);
   }
 
+  toggleLanguageMenu(): void {
+    this.languageMenuOpen.update((open) => !open);
+  }
+
+  selectLanguage(language: LanguageCode): void {
+    this.i18n.setLanguage(language);
+    this.languageMenuOpen.set(false);
+  }
+
   accountAction(action: string): void {
     this.sidebarUserMenuOpen.set(false);
     this.headerUserMenuOpen.set(false);
+    if (action === 'Perfil') {
+      this.openProfile();
+      return;
+    }
+    if (action === 'Configuración') {
+      void this.router.navigate(['/settings/general']);
+      return;
+    }
     this.notify(`${action}: operación preparada para la API`);
   }
 

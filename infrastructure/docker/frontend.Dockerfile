@@ -6,6 +6,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ ./packages/
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
+# Frontend source tests inspect the production reverse-proxy contract.
+COPY infrastructure/docker/nginx.conf ./infrastructure/docker/nginx.conf
 RUN pnpm install --frozen-lockfile
 RUN cd frontend && pnpm test && pnpm run build
 

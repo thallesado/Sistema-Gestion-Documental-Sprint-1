@@ -9,6 +9,7 @@ import { ApiPatient, ClinicalApiService } from '../../../core/api/clinical-api.s
 import { WorkflowApi } from '../../workflows/workflow-api.service';
 import { WorkflowStart } from '../../workflows/components/workflow-start';
 import { AuthService } from '../../../core/auth/auth.service';
+import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 
 type ExpedientView = 'all' | 'active' | 'closed' | 'archived' | 'new';
 type ExpedientForm = {
@@ -33,7 +34,7 @@ type ExpedientParticipant = { key: string; source: 'USER' | 'PATIENT' | 'CUSTOM'
 @Component({
   selector: 'app-expedients-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, WorkflowStart],
+  imports: [CommonModule, FormsModule, RouterLink, WorkflowStart, LocalizedContentDirective],
   templateUrl: './expedientes-page.html',
   styleUrl: './expedientes-page.css',
 })

@@ -15,6 +15,7 @@ public class UserResponse {
     private String lastName;
     private String status;
     private String tenantName;
+    private String tenantLogoUrl;
     private boolean platformAdmin;
     private String staffType;
     private String specialty;

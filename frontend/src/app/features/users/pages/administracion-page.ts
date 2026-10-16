@@ -10,12 +10,13 @@ import { CreateUserModal } from '../components/create-user-modal';
 import { RolePermissionsModal } from '../components/role-permissions-modal';
 import { ExportColumn, exportToCsv, exportToJson, exportToPrintView } from '../../../core/utils/export-utils';
 import { Pagination } from '../../../shared/components/pagination/pagination.component';
+import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 
 @Component({
   selector: 'app-administration-page',
-  imports: [CommonModule, FormsModule, RouterLink, CreateUserModal, RolePermissionsModal, Pagination],
+  imports: [CommonModule, FormsModule, RouterLink, CreateUserModal, RolePermissionsModal, Pagination, LocalizedContentDirective],
   template: `
-    <section class="admin-page">
+    <section class="admin-page" i18nContent>
       @if (isTenantArea) {
         @if (isSuperadmin()) {
           @if (isCreate) {
@@ -292,8 +293,6 @@ export class AdministrationPage {
     this.changeUserStatus(user, 'ACTIVE', 'Usuario reactivado.', 'No se pudo reactivar el usuario.');
   }
 
-  // Cambia solo el estado (PUT, no DELETE: DELETE es un borrado lógico que saca al usuario del listado)
-  // y actualiza el usuario en su sitio; los filtros vigentes se reaplican solos vía visibleUsers().
   private changeUserStatus(user: ApiUser, status: 'ACTIVE' | 'INACTIVE', okMessage: string, errorMessage: string): void {
     this.api.updateUser(user.id, { firstName: user.firstName, lastName: user.lastName, email: user.email, status, roleIds: user.roleIds ?? [] }).subscribe({
       next: updated => {

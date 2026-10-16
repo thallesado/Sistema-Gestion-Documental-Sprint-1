@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalLinkedDocument, ClinicalHistoryRevisionItem } from '../../../core/api/clinical-api.service';
 import { DocumentApiService, MedicalNote, ApiDocument } from '../../../core/api/document-api.service';
+import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 
 export interface SignosVitales {
   peso?: number | null;
@@ -112,9 +113,9 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
 @Component({
   selector: 'app-historia-clinica-page',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, CommonModule],
+  imports: [ReactiveFormsModule, FormsModule, CommonModule, LocalizedContentDirective],
   template: `
-    <div class="page" style="max-width: 1400px; margin: auto; padding: 24px 32px 48px; font-family: system-ui, -apple-system, sans-serif;">
+    <div class="page" i18nContent style="max-width: 1400px; margin: auto; padding: 24px 32px 48px; font-family: system-ui, -apple-system, sans-serif;">
       
       <!-- Encabezado superior -->
       <header style="margin-bottom: 20px;">

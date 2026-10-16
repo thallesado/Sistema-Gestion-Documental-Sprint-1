@@ -36,15 +36,18 @@ public class DocumentStorageService {
     private final DocumentRepository documentRepository;
     private final DocumentVersionRepository versionRepository;
     private final AuthenticatedUserContext context;
+    private final PlanEnforcementService planEnforcementService;
 
     public DocumentStorageService(@Value("${app.storage.local-path:./data/storage}") String storagePath,
                                   DocumentRepository documentRepository,
                                   DocumentVersionRepository versionRepository,
-                                  AuthenticatedUserContext context) {
+                                  AuthenticatedUserContext context,
+                                  PlanEnforcementService planEnforcementService) {
         this.storageRoot = Path.of(storagePath).toAbsolutePath().normalize();
         this.documentRepository = documentRepository;
         this.versionRepository = versionRepository;
         this.context = context;
+        this.planEnforcementService = planEnforcementService;
     }
 
     @Transactional
@@ -54,6 +57,7 @@ public class DocumentStorageService {
         documentRepository.findByIdAndTenantIdAndDeletedAtIsNull(documentId, tenantId)
                 .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
         validate(file, reason);
+        planEnforcementService.validateStorageLimit(tenantId, file.getSize());
         UUID versionId = UUID.randomUUID();
         Path relative = Path.of(tenantId.toString(), documentId.toString(), versionId.toString());
         Path target = safePath(relative);
@@ -105,6 +109,8 @@ public class DocumentStorageService {
         Path target = safePath(relative);
         Path temporary = target.resolveSibling(target.getFileName() + ".uploading");
         try {
+            long sourceSize = Files.size(source);
+            planEnforcementService.validateStorageLimit(tenantId, sourceSize);
             Files.createDirectories(target.getParent());
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             long size;

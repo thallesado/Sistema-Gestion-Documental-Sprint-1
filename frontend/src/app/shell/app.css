@@ -97,6 +97,13 @@
   flex-shrink: 0;
 }
 
+.tenant-logo {
+  border-radius: 7px;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
 .tenant-info {
   display: flex;
   flex-direction: column;
@@ -179,6 +186,12 @@
 .nav-item:hover {
   background: rgba(255, 255, 255, 0.04);
   color: #ffffff;
+}
+
+.nav-item:focus-visible,
+.nav-children-list a:focus-visible {
+  outline: 2px solid #2dd4bf;
+  outline-offset: 2px;
 }
 
 .nav-item.active {
@@ -290,6 +303,19 @@
   align-items: center;
   gap: 10px;
   margin: 12px 0 10px;
+}
+
+.subscription-usage {
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.subscription-usage:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .18);
+  transform: translateY(-1px);
 }
 
 .storage-gauge {
@@ -534,6 +560,37 @@
   margin-left: auto;
 }
 
+.upgrade-pill {
+  align-items: center;
+  background: #eafffc;
+  border: 1px solid #b9dfd9;
+  border-radius: 999px;
+  color: var(--teal-strong);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 5px;
+  padding: 8px 12px;
+  transition: background-color .15s, border-color .15s, box-shadow .15s, transform .15s;
+  white-space: nowrap;
+}
+
+.upgrade-pill:hover {
+  background: #dff7f3;
+  border-color: #88c8c0;
+  box-shadow: 0 4px 12px rgba(14, 107, 102, .14);
+  transform: translateY(-1px);
+}
+
+.language-switcher { position: relative; }
+.language-trigger { background: #f2f7f6; color: var(--teal-strong); font-size: 11px; font-weight: 800; }
+.language-options { right: 0; top: 45px; }
+.language-options button { align-items: center; display: flex; justify-content: space-between; width: 100%; }
+.language-options button.selected { background: #eef8f6; color: var(--teal); }
+.language-options b { font-size: 10px; }
+
 .topbar-btn {
   align-items: center;
   background: transparent;
@@ -744,6 +801,22 @@
   .topbar-search {
     display: none;
   }
+  .topbar-actions {
+    gap: 6px;
+    min-width: 0;
+  }
+  .upgrade-pill {
+    max-width: 86px;
+    overflow: hidden;
+    padding: 7px 8px;
+    text-overflow: ellipsis;
+  }
+  .language-trigger { height: 34px; width: 34px; }
+  .user-pill-btn {
+    gap: 5px;
+    min-width: 0;
+    padding-right: 8px;
+  }
   .pill-name {
     display: none;
   }
@@ -805,6 +878,12 @@
   .sidebar.collapsed .nav-item { padding-left: 0; padding-right: 0; }
   .sidebar.collapsed .nav-section-title + .nav-group,
   .sidebar.collapsed .nav-group { margin-top: 2px; }
+
+  .sidebar:not(.collapsed) .tenant-info,
+  .sidebar:not(.collapsed) .user-details {
+    display: flex;
+    visibility: visible;
+  }
 }
 
 /* En móvil/tablet el sidebar es un panel off-canvas completo: no aplica el modo colapsado. */

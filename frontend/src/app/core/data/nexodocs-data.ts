@@ -149,6 +149,12 @@ export const navSections: NavSection[] = [
         ],
       },
       {
+        label: 'Facturacion e ingresos',
+        icon: 'FI',
+        roles: ['Administrador de tenant', 'Superadministrador'],
+        children: [{ label: 'Facturacion e ingresos', href: '/billing' }],
+      },
+      {
         label: 'Reportes',
         icon: 'RP',
         sprintEnabled: false,

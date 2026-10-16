@@ -13,9 +13,10 @@ import { ExpedientApiService } from '../../core/api/expedient-api.service';
 import { exportToPrintView, ExportColumn } from '../../core/utils/export-utils';
 import { Subject, debounceTime, takeUntil } from 'rxjs';
 import { App } from '../../shell/app';
+import { LocalizedContentDirective } from '../../core/i18n/localized-content.directive';
 
 @Component({selector:'app-workflows-page',standalone:true,
- imports:[CommonModule,FormsModule,RouterLink,Pagination,WorkflowPreview,WorkflowStart,WorkflowDesigner],
+ imports:[CommonModule,FormsModule,RouterLink,Pagination,WorkflowPreview,WorkflowStart,WorkflowDesigner,LocalizedContentDirective],
  templateUrl:'./workflows-page.html',styleUrls:['./workflows-page.css','./workflows-overview.css','./workflows-tasks.css','./workflows-review.css','./workflows-active.css','./workflows-finished.css','./workflows-templates.css','./workflows-designer.css'],encapsulation:ViewEncapsulation.None})
 export class WorkflowsPage implements OnInit, OnDestroy {
  readonly api=inject(WorkflowApi);readonly auth=inject(AuthService);private readonly shell=inject(App);private readonly route=inject(ActivatedRoute);private readonly router=inject(Router);

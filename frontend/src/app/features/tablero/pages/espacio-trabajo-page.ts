@@ -29,16 +29,18 @@ import {
   openCameraStream,
   stopStream,
 } from '../../../core/utils/camera-capture';
+import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 
 type PageStat = { icon: string; label: string; value: string; detail: string; tone: string };
 type OcrStatus = 'QUEUED' | 'PROCESSING' | 'REQUIRES_VALIDATION' | 'VALIDATED' | 'INDEXED';
 type TabLink = { label: string; href: string };
+const DEFAULT_ROUTE_INFO: RouteInfo = { module: 'Inicio', subcategory: 'Resumen', href: '/' };
 
 @Component({
   selector: 'app-workspace-page',
-  imports: [CommonModule, RouterLink, Pagination, PermissionsCatalog, RoleFormModal, RolePermissionsModal],
+  imports: [CommonModule, RouterLink, Pagination, PermissionsCatalog, RoleFormModal, RolePermissionsModal, LocalizedContentDirective],
   template: `
-    <section class="page">
+    <section class="page" i18nContent>
       @if (isHome) {
         <section class="dashboard-welcome">
           <div class="welcome-left">
@@ -1354,7 +1356,9 @@ export class WorkspacePage implements OnDestroy {
   });
 
   get routeInfo(): RouteInfo {
-    return (this.routeData()?.['routeInfo'] as RouteInfo) ?? (this.route.snapshot.data['routeInfo'] as RouteInfo);
+    return (this.routeData()?.['routeInfo'] as RouteInfo | undefined)
+      ?? (this.route.snapshot.data['routeInfo'] as RouteInfo | undefined)
+      ?? DEFAULT_ROUTE_INFO;
   }
 
   get copy() {
@@ -1510,7 +1514,11 @@ export class WorkspacePage implements OnDestroy {
   readonly todayLabel = new Intl.DateTimeFormat('es-BO', { dateStyle: 'long' }).format(new Date());
   readonly displayName = computed(() => {
     const user = this.auth.user();
-    return user ? `${user.firstName} ${user.lastName}`.trim() : 'Usuario';
+    if (!user) return 'Usuario';
+    return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+      || user.username?.trim()
+      || user.email?.trim()
+      || 'Usuario';
   });
   readonly highPriorityTasks = computed(() => this.tasks().filter((task) => {
     const p = String(task.priority ?? '').toLowerCase();

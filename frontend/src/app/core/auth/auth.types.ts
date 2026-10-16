@@ -9,6 +9,7 @@ export interface AuthUser {
   id: string;
   tenantId: string | null;
   tenantName: string | null;
+  tenantLogoUrl: string | null;
   platformAdmin: boolean;
   roleNames: string[];
   username: string;

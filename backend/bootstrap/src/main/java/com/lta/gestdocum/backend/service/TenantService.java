@@ -23,7 +23,9 @@ public class TenantService {
                 .map(t -> new TenantPublicResponse(t.getId(), t.getName())).toList();
     }
     @Transactional public TenantResponse create(TenantCreateRequest r) {
-        Tenant t = new Tenant(UUID.randomUUID(), r.name(), r.code(), r.slug(), r.email(), Tenant.Status.TRIAL);
+        Tenant t = new Tenant();
+        t.setId(UUID.randomUUID()); t.setName(r.name()); t.setCode(r.code()); t.setSlug(r.slug());
+        t.setEmail(r.email()); t.setStatus(Tenant.Status.TRIAL);
         return map(repository.save(t));
     }
     @Transactional public TenantResponse changeStatus(UUID id, String value) {

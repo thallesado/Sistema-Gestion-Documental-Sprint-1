@@ -20,6 +20,7 @@ public class HttpAuditInterceptor implements HandlerInterceptor {
         this.auditService = auditService;
     }
 
+    @SuppressWarnings("null")
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
                                 Object handler, Exception exception) {
