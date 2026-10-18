@@ -28,11 +28,11 @@ public class AuditController {
     public Page<AuditEventResponse> list(
             @RequestParam(required = false)
             @Size(max = 80)
-            @Pattern(regexp = "^[A-Za-z0-9:_-]+$", message = "Formato de acción inválido")
+            @Pattern(regexp = "^[A-Za-z0-9:,_-]+$", message = "Formato de acción inválido")
             String action,
             @RequestParam(required = false, name = "type")
             @Size(max = 60)
-            @Pattern(regexp = "^[A-Za-z0-9:_-]+$", message = "Formato de tipo inválido")
+            @Pattern(regexp = "^[A-Za-z0-9:,_-]+$", message = "Formato de tipo inválido")
             String type,
             @RequestParam(required = false)
             @Pattern(regexp = "^(SUCCESS|FAILURE)$", message = "Resultado inválido")

@@ -25,6 +25,7 @@ public class OcrService {
             Set.of("application/pdf", "image/jpeg", "image/png", "image/webp");
     public static final Set<String> DOCUMENT_TYPES =
             Set.of("LABORATORIO", "RECETA", "CONSENTIMIENTO", "INFORME_MEDICO", "OTRO");
+    public static final String DEFAULT_MODEL = "gemini-3.8-flash";
 
     private static final Logger log = LoggerFactory.getLogger(OcrService.class);
 

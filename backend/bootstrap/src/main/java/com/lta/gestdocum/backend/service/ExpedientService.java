@@ -27,11 +27,17 @@ public class ExpedientService {
     private final ExpedientRepository repository;
     private final AuthenticatedUserContext userContext;
     private final JdbcTemplate jdbc;
+    private AuditRecorder auditRecorder;
 
     public ExpedientService(ExpedientRepository repository, AuthenticatedUserContext userContext, JdbcTemplate jdbc) {
         this.repository = repository;
         this.userContext = userContext;
         this.jdbc = jdbc;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAuditRecorder(AuditRecorder auditRecorder) {
+        this.auditRecorder = auditRecorder;
     }
 
     @Transactional(readOnly = true)
@@ -62,6 +68,7 @@ public class ExpedientService {
         Expedient expedient = repository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new NotFoundException("Expediente no encontrado"));
 
+        Expedient.ExpedientStatus oldStatus = expedient.getStatus();
         OffsetDateTime now = OffsetDateTime.now();
         expedient.setStatus(targetStatus);
         expedient.setUpdatedAt(now);
@@ -83,7 +90,13 @@ public class ExpedientService {
             }
         }
 
-        return toResponse(repository.save(expedient));
+        Expedient saved = repository.save(expedient);
+        if (auditRecorder != null) {
+            auditRecorder.record("UPDATE_STATUS", "EXPEDIENTS", saved.getId(),
+                    java.util.Map.of("status", String.valueOf(oldStatus)),
+                    java.util.Map.of("status", String.valueOf(saved.getStatus())));
+        }
+        return toResponse(saved);
     }
 
     @Transactional
@@ -133,7 +146,12 @@ public class ExpedientService {
                 .updatedAt(now)
                 .build();
         try {
-            return toResponse(repository.save(expedient));
+            Expedient saved = repository.save(expedient);
+            if (auditRecorder != null) {
+                auditRecorder.record("CREATE", "EXPEDIENTS", saved.getId(), null,
+                        java.util.Map.of("code", saved.getCode(), "name", saved.getName(), "status", String.valueOf(saved.getStatus())));
+            }
+            return toResponse(saved);
         } catch (DataIntegrityViolationException exception) {
             throw new DuplicateResourceException(
                     "El código de expediente ya existe o referencia datos inválidos");

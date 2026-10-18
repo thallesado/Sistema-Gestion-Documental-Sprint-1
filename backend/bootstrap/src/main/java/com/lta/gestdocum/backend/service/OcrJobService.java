@@ -62,6 +62,12 @@ public class OcrJobService {
     private final DocumentStorageService documentStorage;
     private final DocumentRepository documentRepository;
     private final TransactionOperations tx;
+    private AuditRecorder auditRecorder;
+
+    @Autowired(required = false)
+    public void setAuditRecorder(AuditRecorder auditRecorder) {
+        this.auditRecorder = auditRecorder;
+    }
 
     @Autowired
     public OcrJobService(OcrService ocrService, OcrJobRepository repository, OcrFileStore fileStore,
@@ -185,7 +191,12 @@ public class OcrJobService {
         job.getFinalMetadata().putAll(changes);
         job.setStatus(Status.VALIDATED);
         stampReview(job);
-        return toResponse(repository.save(job));
+        OcrJob saved = repository.save(job);
+        if (auditRecorder != null) {
+            auditRecorder.record("VALIDATE", "OCR_JOBS", saved.getId(),
+                    Map.of("status", "REQUIRES_VALIDATION"), Map.of("status", "VALIDATED"));
+        }
+        return toResponse(saved);
     }
 
     /** El revisor descarta la extracción. Un documento ya indexado no se puede rechazar desde aquí. */
@@ -199,7 +210,12 @@ public class OcrJobService {
         job.setStatus(Status.REJECTED);
         job.setErrorMessage(reason);
         stampReview(job);
-        return toResponse(repository.save(job));
+        OcrJob saved = repository.save(job);
+        if (auditRecorder != null) {
+            auditRecorder.record("REJECT", "OCR_JOBS", saved.getId(),
+                    Map.of("status", "REQUIRES_VALIDATION"), Map.of("status", "REJECTED", "reason", reason));
+        }
+        return toResponse(saved);
     }
 
     /**
@@ -234,7 +250,12 @@ public class OcrJobService {
         job.setDocumentId(created.id());
         job.setStatus(Status.INDEXED);
         job.setUpdatedAt(OffsetDateTime.now());
-        return toResponse(repository.save(job));
+        OcrJob saved = repository.save(job);
+        if (auditRecorder != null) {
+            auditRecorder.record("INDEX", "OCR_JOBS", saved.getId(),
+                    Map.of("status", "VALIDATED"), Map.of("status", "INDEXED", "documentId", String.valueOf(created.id())));
+        }
+        return toResponse(saved);
     }
 
     /** Corrección final de metadatos; si el documento ya existe y sigue en borrador, se actualiza también. */

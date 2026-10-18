@@ -10,7 +10,7 @@ public record AuditEventFilter(
         OffsetDateTime from,
         OffsetDateTime to
 ) {
-    private static final String FILTER_PATTERN = "[A-Za-z0-9:_-]+";
+    private static final String FILTER_PATTERN = "[A-Za-z0-9:,_-]+";
     private static final Set<String> RESULTS = Set.of("SUCCESS", "FAILURE");
 
     public AuditEventFilter {

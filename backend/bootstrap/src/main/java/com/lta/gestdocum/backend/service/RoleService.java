@@ -26,12 +26,18 @@ public class RoleService {
     private final RoleRepository repository;
     private final PermissionRepository permissionRepository;
     private final AuthenticatedUserContext context;
+    private AuditRecorder auditRecorder;
 
     public RoleService(RoleRepository repository, PermissionRepository permissionRepository,
                        AuthenticatedUserContext context) {
         this.repository = repository;
         this.permissionRepository = permissionRepository;
         this.context = context;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAuditRecorder(AuditRecorder auditRecorder) {
+        this.auditRecorder = auditRecorder;
     }
 
     @Transactional(readOnly = true)
@@ -52,6 +58,10 @@ public class RoleService {
         Role role = repository.save(Role.builder().tenantId(tenantId).name(name)
                 .description(request.description()).build());
         grantPermissions(tenantId, role.getId(), request.permissionIds());
+        if (auditRecorder != null) {
+            auditRecorder.record("CREATE", "ROLES", role.getId(), null,
+                    java.util.Map.of("name", role.getName(), "description", String.valueOf(role.getDescription())));
+        }
         return toResponse(tenantId, role);
     }
 
@@ -60,10 +70,16 @@ public class RoleService {
         UUID tenantId = context.requireTenantId();
         context.establishDatabaseContext();
         Role role = editableRole(id, tenantId);
+        String oldName = role.getName();
         role.setName(uniqueName(tenantId, request.name(), id));
         role.setDescription(request.description());
-        repository.save(role);
+        Role saved = repository.save(role);
         grantPermissions(tenantId, id, request.permissionIds());
+        if (auditRecorder != null) {
+            auditRecorder.record("UPDATE", "ROLES", saved.getId(),
+                    java.util.Map.of("name", oldName),
+                    java.util.Map.of("name", saved.getName(), "description", String.valueOf(saved.getDescription())));
+        }
         return toResponse(tenantId, role);
     }
 
@@ -86,6 +102,10 @@ public class RoleService {
                     + "Reasigna a los usuarios antes de continuar.");
         }
         repository.delete(role); // role_permissions se elimina en cascada (FK ON DELETE CASCADE)
+        if (auditRecorder != null) {
+            auditRecorder.record("DELETE", "ROLES", role.getId(),
+                    java.util.Map.of("name", role.getName()), null);
+        }
     }
 
     /** Rol del tenant autenticado. */

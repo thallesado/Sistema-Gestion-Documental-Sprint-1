@@ -53,11 +53,39 @@ public class AuditQueryService implements AuditQueryUseCase {
         return (root, query, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (tenantId != null) predicates.add(builder.equal(root.get("tenantId"), tenantId));
-            if (filters.action() != null) {
-                predicates.add(builder.equal(root.get("action"), filters.action()));
+            if (filters.action() != null && !filters.action().isBlank()) {
+                String actionVal = filters.action().trim();
+                if (actionVal.contains(",")) {
+                    String[] parts = actionVal.split(",");
+                    List<Predicate> orPreds = new ArrayList<>();
+                    for (String part : parts) {
+                        if (!part.isBlank()) {
+                            orPreds.add(builder.equal(root.get("action"), part.trim()));
+                        }
+                    }
+                    if (!orPreds.isEmpty()) {
+                        predicates.add(builder.or(orPreds.toArray(Predicate[]::new)));
+                    }
+                } else {
+                    predicates.add(builder.equal(root.get("action"), actionVal));
+                }
             }
-            if (filters.entityType() != null) {
-                predicates.add(builder.equal(root.get("entityType"), filters.entityType()));
+            if (filters.entityType() != null && !filters.entityType().isBlank()) {
+                String typeVal = filters.entityType().trim();
+                if (typeVal.contains(",")) {
+                    String[] parts = typeVal.split(",");
+                    List<Predicate> orPreds = new ArrayList<>();
+                    for (String part : parts) {
+                        if (!part.isBlank()) {
+                            orPreds.add(builder.equal(root.get("entityType"), part.trim()));
+                        }
+                    }
+                    if (!orPreds.isEmpty()) {
+                        predicates.add(builder.or(orPreds.toArray(Predicate[]::new)));
+                    }
+                } else {
+                    predicates.add(builder.equal(root.get("entityType"), typeVal));
+                }
             }
             if (filters.result() != null) {
                 predicates.add(builder.equal(root.get("result"), filters.result()));

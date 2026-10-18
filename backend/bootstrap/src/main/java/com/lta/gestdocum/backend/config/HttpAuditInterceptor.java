@@ -29,9 +29,12 @@ public class HttpAuditInterceptor implements HandlerInterceptor {
         if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUser user)) return;
         try {
             String forwarded = request.getHeader("X-Forwarded-For");
+            String clientTimestamp = request.getHeader("X-Client-Timestamp");
+            String clientTimezone = request.getHeader("X-Client-Timezone");
             auditService.record(user, request.getMethod(), request.getRequestURI(), response.getStatus(),
                     forwarded == null ? request.getRemoteAddr() : forwarded,
-                    request.getHeader("User-Agent"));
+                    request.getHeader("User-Agent"),
+                    clientTimestamp, clientTimezone);
         } catch (RuntimeException auditException) {
             LOGGER.warn("No se pudo persistir la auditoría HTTP method={} path={} status={} failure={}",
                     request.getMethod(), request.getRequestURI(), response.getStatus(),

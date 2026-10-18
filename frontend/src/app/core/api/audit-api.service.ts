@@ -13,10 +13,13 @@ export interface ApiAuditEvent {
   entityType: string;
   entityId: string | null;
   occurredAt: string;
+  clientTimestamp?: string | null;
+  clientTimezone?: string | null;
   result: string;
   ipAddress: string | null;
   userAgent: string | null;
   actor: ApiAuditActor | null;
+  details?: Record<string, unknown> | null;
 }
 
 export interface ApiAuditActor {
