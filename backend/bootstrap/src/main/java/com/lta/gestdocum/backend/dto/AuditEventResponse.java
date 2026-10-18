@@ -23,7 +23,10 @@ public record AuditEventResponse(
         String userAgent,
         AuditActorResponse actor,
         AuditResourceResponse resource,
-        @JsonRawValue String details
+        @JsonRawValue String details,
+        Long chainSeq,
+        String previousHash,
+        String recordHash
 ) {
     public static AuditEventResponse from(AuditEvent event) {
         AuditActorResponse actor = event.getPlatformActorId() != null
@@ -38,6 +41,9 @@ public record AuditEventResponse(
                 event.getIpAddress() == null ? null : event.getIpAddress().getHostAddress(),
                 event.getUserAgent(), actor,
                 new AuditResourceResponse(event.getEntityType(), event.getEntityId()),
-                detailsRaw);
+                detailsRaw,
+                event.getChainSeq(),
+                event.getPreviousHash(),
+                event.getRecordHash());
     }
 }

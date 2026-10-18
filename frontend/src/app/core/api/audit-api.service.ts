@@ -20,6 +20,9 @@ export interface ApiAuditEvent {
   userAgent: string | null;
   actor: ApiAuditActor | null;
   details?: Record<string, unknown> | null;
+  chainSeq?: number | null;
+  previousHash?: string | null;
+  recordHash?: string | null;
 }
 
 export interface ApiAuditActor {
@@ -43,6 +46,27 @@ export interface AuditEventsPage {
   size: number;
 }
 
+export interface ApiAuditVerificationResult {
+  valid: boolean;
+  tenantId: string | null;
+  totalVerified: number;
+  brokenChainSeq: number | null;
+  brokenRecordId: number | null;
+  failureReason: string | null;
+  expectedHash: string | null;
+  actualHash: string | null;
+  externalAnchorStatus: {
+    anchored: boolean;
+    anchoredChainSeq: number | null;
+    anchoredRecordHash: string | null;
+    anchorMatchesChain: boolean;
+    anchorType: string | null;
+    anchorReference: string | null;
+    anchoredAt: string | null;
+  } | null;
+  verifiedAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuditApiService {
   private readonly http = inject(HttpClient);
@@ -58,5 +82,11 @@ export class AuditApiService {
     }
 
     return this.http.get<AuditEventsPage>(`${API_URL}/audit`, { params });
+  }
+
+  verifyChain(tenantId?: string): Observable<ApiAuditVerificationResult> {
+    let params = new HttpParams();
+    if (tenantId) params = params.set('tenantId', tenantId);
+    return this.http.get<ApiAuditVerificationResult>(`${API_URL}/audit/verify`, { params });
   }
 }

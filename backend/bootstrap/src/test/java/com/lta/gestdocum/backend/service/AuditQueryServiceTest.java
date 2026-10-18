@@ -40,13 +40,15 @@ class AuditQueryServiceTest {
     private AuditQueryService service;
 
     @Test
-    @DisplayName("AuditEventResponse mapea correctamente details, clientTimestamp y clientTimezone")
+    @DisplayName("AuditEventResponse mapea correctamente details, clientTimestamp, clientTimezone y hashes criptográficos")
     void testAuditEventResponseFrom() throws Exception {
         UUID tenantId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         UUID entityId = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime clientTs = now.minusSeconds(10);
+        String prevHash = "0000000000000000000000000000000000000000000000000000000000000000";
+        String recHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
         AuditEvent event = AuditEvent.builder()
                 .id(123L)
@@ -62,6 +64,9 @@ class AuditQueryServiceTest {
                 .ipAddress(InetAddress.getByName("127.0.0.1"))
                 .userAgent("Chrome")
                 .details("{\"before\":null,\"after\":{\"code\":\"DOC-1\"}}")
+                .chainSeq(1L)
+                .previousHash(prevHash)
+                .recordHash(recHash)
                 .build();
 
         AuditEventResponse response = AuditEventResponse.from(event);
@@ -74,6 +79,9 @@ class AuditQueryServiceTest {
         assertEquals("America/La_Paz", response.clientTimezone());
         assertEquals("{\"before\":null,\"after\":{\"code\":\"DOC-1\"}}", response.details());
         assertEquals("127.0.0.1", response.ipAddress());
+        assertEquals(1L, response.chainSeq());
+        assertEquals(prevHash, response.previousHash());
+        assertEquals(recHash, response.recordHash());
     }
 
     @Test
@@ -86,21 +94,21 @@ class AuditQueryServiceTest {
         AuditEvent event = AuditEvent.builder()
                 .id(1L)
                 .tenantId(tenantId)
-                .action("HTTP_POST")
+                .action("CREATE")
                 .entityType("DOCUMENTS")
                 .occurredAt(OffsetDateTime.now())
                 .result("SUCCESS")
                 .details("{}")
                 .build();
 
-        when(repository.findAll(any(Specification.class), any(PageRequest.class)))
-                .thenReturn(new PageImpl<>(List.of(event)));
+        Page<AuditEvent> page = new PageImpl<>(List.of(event));
+        when(repository.findAll(any(Specification.class), any(PageRequest.class))).thenReturn(page);
 
-        AuditEventFilter filter = new AuditEventFilter("HTTP_POST,CREATE", "DOCUMENTS", "SUCCESS", null, null);
+        AuditEventFilter filter = new AuditEventFilter("CREATE", "DOCUMENTS", "SUCCESS", null, null);
         Page<AuditEventResponse> result = service.list(filter, PageRequest.of(0, 10));
 
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
-        assertEquals("HTTP_POST", result.getContent().get(0).action());
+        assertEquals("CREATE", result.getContent().get(0).action());
     }
 }
