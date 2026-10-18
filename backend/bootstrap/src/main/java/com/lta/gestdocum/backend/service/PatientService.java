@@ -24,6 +24,7 @@ public class PatientService {
     private final PatientRepository repository;
     private final ClinicalHistoryRepository clinicalHistoryRepository;
     private final AuthenticatedUserContext userContext;
+    private AuditRecorder auditRecorder;
 
     public PatientService(PatientRepository repository,
                           ClinicalHistoryRepository clinicalHistoryRepository,
@@ -31,6 +32,11 @@ public class PatientService {
         this.repository = repository;
         this.clinicalHistoryRepository = clinicalHistoryRepository;
         this.userContext = userContext;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAuditRecorder(AuditRecorder auditRecorder) {
+        this.auditRecorder = auditRecorder;
     }
 
     @Transactional(readOnly = true)
@@ -55,9 +61,16 @@ public class PatientService {
         if (!status.equals("ACTIVE") && !status.equals("INACTIVE")) {
             throw new IllegalArgumentException("El estado del paciente debe ser ACTIVE o INACTIVE");
         }
+        String oldStatus = patient.getStatus();
         patient.setStatus(status);
         patient.setUpdatedAt(OffsetDateTime.now());
-        return toResponse(repository.saveAndFlush(patient));
+        Patient saved = repository.saveAndFlush(patient);
+        if (auditRecorder != null) {
+            auditRecorder.record("UPDATE_STATUS", "PATIENTS", saved.getId(),
+                    java.util.Map.of("status", oldStatus),
+                    java.util.Map.of("status", saved.getStatus()));
+        }
+        return toResponse(saved);
     }
 
     @Transactional
@@ -81,6 +94,10 @@ public class PatientService {
                 .email(normalize(request.getEmail())).address(normalize(request.getAddress()))
                 .createdAt(now).updatedAt(now).build();
         patient = repository.saveAndFlush(patient);
+        if (auditRecorder != null) {
+            auditRecorder.record("CREATE", "PATIENTS", patient.getId(), null,
+                    java.util.Map.of("documentNumber", patient.getDocumentNumber(), "firstName", patient.getFirstName(), "lastName", patient.getLastName()));
+        }
         clinicalHistoryRepository.save(ClinicalHistory.builder()
                 .tenantId(tenantId)
                 .patientId(patient.getId())

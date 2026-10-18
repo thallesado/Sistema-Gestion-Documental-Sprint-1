@@ -58,4 +58,10 @@ public class AuditEvent {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "details", columnDefinition = "jsonb")
     private String details;
+
+    @Column(name = "client_timestamp")
+    private OffsetDateTime clientTimestamp;
+
+    @Column(name = "client_timezone")
+    private String clientTimezone;
 }

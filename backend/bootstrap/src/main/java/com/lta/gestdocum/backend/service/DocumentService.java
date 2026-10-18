@@ -39,6 +39,7 @@ public class DocumentService {
     private final PatientRepository patientRepository;
     private final ExpedientRepository expedientRepository;
     private final AuthenticatedUserContext userContext;
+    private AuditRecorder auditRecorder;
 
     public DocumentService(DocumentRepository repository,
                            DocumentTypeRepository documentTypeRepository,
@@ -56,6 +57,11 @@ public class DocumentService {
         this.patientRepository = patientRepository;
         this.expedientRepository = expedientRepository;
         this.userContext = userContext;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAuditRecorder(AuditRecorder auditRecorder) {
+        this.auditRecorder = auditRecorder;
     }
 
     @Transactional(readOnly = true)
@@ -124,7 +130,12 @@ public class DocumentService {
         document.setCreatedAt(now);
         document.setUpdatedAt(now);
         try {
-            return toResponse(repository.save(document));
+            Document saved = repository.save(document);
+            if (auditRecorder != null) {
+                auditRecorder.record("CREATE", "DOCUMENTS", saved.getId(), null,
+                        java.util.Map.of("code", saved.getCode(), "name", saved.getName(), "status", String.valueOf(saved.getStatus())));
+            }
+            return toResponse(saved);
         } catch (DataIntegrityViolationException exception) {
             throw new DuplicateResourceException("El código de documento ya existe o referencia datos inválidos");
         }
@@ -141,9 +152,16 @@ public class DocumentService {
             throw new IllegalArgumentException("Transición documental no permitida: "
                     + document.getStatus() + " -> " + request.status());
         }
+        Document.DocumentStatus oldStatus = document.getStatus();
         document.setStatus(request.status());
         document.setUpdatedAt(OffsetDateTime.now());
-        return toResponse(repository.save(document));
+        Document saved = repository.save(document);
+        if (auditRecorder != null) {
+            auditRecorder.record("UPDATE_STATUS", "DOCUMENTS", saved.getId(),
+                    java.util.Map.of("status", String.valueOf(oldStatus)),
+                    java.util.Map.of("status", String.valueOf(saved.getStatus())));
+        }
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)

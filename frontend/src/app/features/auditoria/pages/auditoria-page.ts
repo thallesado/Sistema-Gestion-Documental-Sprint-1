@@ -5,7 +5,7 @@ import { ApiAuditEvent, AuditApiService, AuditEventsFilter } from '../../../core
 import { activeLocale } from '../../../core/i18n/i18n.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RouteInfo } from '../../../core/data/nexodocs-data';
-import { AuditDrawerDetail, AuditEventDrawer } from '../components/audit-event-drawer';
+import { AuditDrawerDetail, AuditDrawerField, AuditEventDrawer } from '../components/audit-event-drawer';
 import { AuditFilterField, AuditFilters } from '../components/audit-filters';
 import { AuditPagination } from '../components/audit-pagination';
 
@@ -27,27 +27,50 @@ const auditPageCopy: Record<string, AuditPageCopy> = {
   },
   '/audit/document-creation': {
     title: 'Creación de documentos',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Historial de altas y digitalizaciones de documentos en el tenant.',
   },
   '/audit/modifications': {
     title: 'Modificaciones',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Historial de actualizaciones, cambios de estado y metadatos con valores antes y después.',
   },
   '/audit/downloads': {
     title: 'Descargas',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Registro de accesos a descargas y lecturas de archivos de documentos.',
   },
   '/audit/approvals': {
     title: 'Aprobaciones',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Historial de resoluciones, transiciones y aprobaciones en flujos de trabajo.',
   },
   '/audit/deletions': {
     title: 'Eliminaciones',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Registro de borrados lógicos y desvinculaciones de recursos en el sistema.',
   },
   '/audit/permissions': {
     title: 'Cambios de permisos',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Trazabilidad de asignaciones de roles, privilegios y modificaciones de usuarios.',
+  },
+};
+
+const routePresetFilters: Record<string, AuditEventsFilter> = {
+  '/audit/document-creation': {
+    action: 'HTTP_POST,CREATE',
+    type: 'DOCUMENTS',
+  },
+  '/audit/modifications': {
+    action: 'HTTP_PUT,HTTP_PATCH,UPDATE,UPDATE_STATUS',
+  },
+  '/audit/downloads': {
+    action: 'HTTP_GET,DOWNLOAD',
+    type: 'DOCUMENTS',
+  },
+  '/audit/approvals': {
+    type: 'WORKFLOW',
+  },
+  '/audit/deletions': {
+    action: 'HTTP_DELETE,DELETE',
+  },
+  '/audit/permissions': {
+    type: 'ROLES,USERS',
   },
 };
 
@@ -99,12 +122,6 @@ const generalFilters: AuditFilterField[] = [
           <span class="section-kicker">ACCESO RESTRINGIDO</span>
           <h2 id="audit-access-title">No tienes acceso a la auditoría</h2>
           <p>Esta consulta está disponible para Administrador de tenant y Superadministrador.</p>
-        </section>
-      } @else if (view === 'historical') {
-        <section class="audit-feed-card" aria-labelledby="audit-history-title">
-          <span class="section-kicker">HISTORIAL NO DISPONIBLE</span>
-          <h2 id="audit-history-title">Esta consulta aún no está expuesta por la API</h2>
-          <p>La ruta se mantiene por compatibilidad, pero no muestra registros simulados.</p>
         </section>
       } @else {
         <div class="audit-searchbar">
@@ -274,11 +291,9 @@ export class AuditPage {
   private readonly routePath = this.routeInfo?.href ?? '/audit';
 
   readonly pageCopy = auditPageCopy[this.routePath] ?? auditPageCopy['/audit'];
-  readonly view: AuditView = this.routePath === '/audit'
-    ? 'general'
-    : this.routePath === '/audit/access'
-      ? 'access'
-      : 'historical';
+  readonly view: AuditView = this.routePath === '/audit/access'
+    ? 'access'
+    : 'general';
   readonly filters = generalFilters;
   readonly currentUser = this.auth.user;
   readonly canReadAudit = computed(() => {
@@ -310,7 +325,7 @@ export class AuditPage {
 
   constructor() {
     effect((onCleanup) => {
-      if (this.view === 'historical' || !this.canReadAudit()) {
+      if (!this.canReadAudit()) {
         this.events.set([]);
         this.totalEvents.set(0);
         return;
@@ -363,22 +378,61 @@ export class AuditPage {
   }
 
   openEvent(event: ApiAuditEvent): void {
+    const detailsObj = event.details as Record<string, any> | undefined;
+
+    let beforeMap: Record<string, string> | undefined = undefined;
+    if (detailsObj?.['before'] && typeof detailsObj['before'] === 'object') {
+      beforeMap = Object.entries(detailsObj['before'] as Record<string, unknown>).reduce((acc, [k, v]) => {
+        acc[k] = v === null || v === undefined ? 'null' : String(v);
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    let afterMap: Record<string, string> | undefined = undefined;
+    if (detailsObj?.['after'] && typeof detailsObj['after'] === 'object') {
+      afterMap = Object.entries(detailsObj['after'] as Record<string, unknown>).reduce((acc, [k, v]) => {
+        acc[k] = v === null || v === undefined ? 'null' : String(v);
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    const fields: AuditDrawerField[] = [
+      { label: 'Identificador', value: String(event.id) },
+      { label: 'Actor', value: this.actorLabel(event) },
+      { label: 'Alcance', value: event.actor?.scope || 'No informado' },
+      { label: 'Tipo de recurso', value: event.entityType },
+      { label: 'Recurso', value: event.entityId || 'Sin identificador asociado' },
+      { label: 'Fecha servidor', value: this.formatDate(event.occurredAt) },
+    ];
+
+    if (event.clientTimestamp) {
+      const tzStr = event.clientTimezone ? ` (${event.clientTimezone})` : '';
+      fields.push({
+        label: 'Fecha cliente',
+        value: `${this.formatDate(event.clientTimestamp)}${tzStr}`,
+      });
+    }
+
+    fields.push(
+      { label: 'Dirección IP', value: event.ipAddress || 'No registrada' },
+      { label: 'Agente de usuario', value: event.userAgent || 'No registrado' },
+    );
+
+    let detailsText: string | undefined = undefined;
+    if (detailsObj?.['path']) {
+      detailsText = `${detailsObj['method'] ?? ''} ${detailsObj['path']} (HTTP ${detailsObj['status'] ?? ''})`.trim();
+    }
+
     this.drawerDetail.set({
       eyebrow: 'EVENTO PERSISTIDO',
       title: this.actionLabel(event.action),
       subtitle: this.resourceLabel(event),
       status: this.resultLabel(event.result),
       statusClass: this.resultClass(event.result),
-      fields: [
-        { label: 'Identificador', value: String(event.id) },
-        { label: 'Actor', value: this.actorLabel(event) },
-        { label: 'Alcance', value: event.actor?.scope || 'No informado' },
-        { label: 'Tipo de recurso', value: event.entityType },
-        { label: 'Recurso', value: event.entityId || 'Sin identificador asociado' },
-        { label: 'Fecha', value: this.formatDate(event.occurredAt) },
-        { label: 'Dirección IP', value: event.ipAddress || 'No registrada' },
-        { label: 'Agente de usuario', value: event.userAgent || 'No registrado' },
-      ],
+      fields,
+      details: detailsText,
+      before: beforeMap,
+      after: afterMap,
     });
   }
 
@@ -448,12 +502,13 @@ export class AuditPage {
   }
 
   private apiFilters(values: Record<string, string>): AuditEventsFilter {
+    const preset = routePresetFilters[this.routePath] ?? {};
     return {
-      action: values['action'] || undefined,
-      type: values['type'] || undefined,
-      result: values['result'] as AuditEventsFilter['result'] || undefined,
-      from: values['dateFrom'] ? `${values['dateFrom']}T00:00:00.000Z` : undefined,
-      to: values['dateTo'] ? `${values['dateTo']}T23:59:59.999Z` : undefined,
+      action: values['action'] || preset.action || undefined,
+      type: values['type'] || preset.type || undefined,
+      result: (values['result'] as AuditEventsFilter['result']) || preset.result || undefined,
+      from: values['dateFrom'] ? `${values['dateFrom']}T00:00:00.000Z` : preset.from,
+      to: values['dateTo'] ? `${values['dateTo']}T23:59:59.999Z` : preset.to,
     };
   }
 

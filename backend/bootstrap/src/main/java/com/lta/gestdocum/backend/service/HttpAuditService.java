@@ -29,6 +29,13 @@ public class HttpAuditService implements HttpAuditRecorder {
     @Override
     public void record(AuthenticatedUser user, String method, String path, int status,
                        String ipAddress, String userAgent) {
+        record(user, method, path, status, ipAddress, userAgent, null, null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Override
+    public void record(AuthenticatedUser user, String method, String path, int status,
+                       String ipAddress, String userAgent, String clientTimestamp, String clientTimezone) {
         String[] segments = path.split("/");
         String entityType = segments.length > 3 && !segments[3].isBlank()
                 ? segments[3].toUpperCase() : "API";
@@ -37,13 +44,16 @@ public class HttpAuditService implements HttpAuditRecorder {
         String result = status < 400 ? "SUCCESS" : "FAILURE";
         String ip = normalizeIp(ipAddress);
         String agent = userAgent == null ? "" : userAgent;
+        java.time.OffsetDateTime parsedClientTs = parseClientTimestamp(clientTimestamp);
+        String clientTz = (clientTimezone != null && !clientTimezone.isBlank()) ? clientTimezone.trim() : null;
+
         if (user.tenantId() != null) {
             userContext.establishDatabaseContext(user);
             entityManager.createNativeQuery("""
                     select app.record_http_access(
                       cast(:action as text), cast(:entityType as text), cast(:entityId as uuid),
                       cast(:result as text), cast(:ip as inet), cast(:userAgent as text),
-                      cast(:details as jsonb))
+                      cast(:details as jsonb), cast(:clientTimestamp as timestamptz), cast(:clientTimezone as text))
                     """)
                     .setParameter("action", "HTTP_" + method)
                     .setParameter("entityType", entityType)
@@ -52,14 +62,17 @@ public class HttpAuditService implements HttpAuditRecorder {
                     .setParameter("ip", ip)
                     .setParameter("userAgent", agent)
                     .setParameter("details", details)
+                    .setParameter("clientTimestamp", parsedClientTs)
+                    .setParameter("clientTimezone", clientTz)
                     .getSingleResult();
             return;
         }
         entityManager.createNativeQuery("""
                 insert into audit_events(platform_actor_id, action, entity_type, entity_id,
-                  result, ip_address, user_agent, details)
+                  result, ip_address, user_agent, details, client_timestamp, client_timezone)
                 values (:actorId, cast(:action as text), cast(:entityType as text), cast(:entityId as uuid),
-                  cast(:result as text), cast(:ip as inet), cast(:userAgent as text), cast(:details as jsonb))
+                  cast(:result as text), cast(:ip as inet), cast(:userAgent as text), cast(:details as jsonb),
+                  cast(:clientTimestamp as timestamptz), cast(:clientTimezone as text))
                 """)
                 .setParameter("actorId", user.userId())
                 .setParameter("action", "HTTP_" + method)
@@ -69,6 +82,8 @@ public class HttpAuditService implements HttpAuditRecorder {
                 .setParameter("ip", ip)
                 .setParameter("userAgent", agent)
                 .setParameter("details", details)
+                .setParameter("clientTimestamp", parsedClientTs)
+                .setParameter("clientTimezone", clientTz)
                 .executeUpdate();
     }
 
@@ -89,5 +104,18 @@ public class HttpAuditService implements HttpAuditRecorder {
     private String json(Map<String, Object> details) {
         try { return objectMapper.writeValueAsString(details); }
         catch (JsonProcessingException exception) { return "{}"; }
+    }
+
+    private java.time.OffsetDateTime parseClientTimestamp(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return java.time.OffsetDateTime.parse(raw.trim());
+        } catch (Exception ignored) {
+            try {
+                return java.time.Instant.parse(raw.trim()).atOffset(java.time.ZoneOffset.UTC);
+            } catch (Exception e) {
+                return null;
+            }
+        }
     }
 }
