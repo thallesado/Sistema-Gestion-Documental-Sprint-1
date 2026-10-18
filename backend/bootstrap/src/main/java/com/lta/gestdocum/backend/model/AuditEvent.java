@@ -64,4 +64,13 @@ public class AuditEvent {
 
     @Column(name = "client_timezone")
     private String clientTimezone;
+
+    @Column(name = "chain_seq")
+    private Long chainSeq;
+
+    @Column(name = "previous_hash", length = 64)
+    private String previousHash;
+
+    @Column(name = "record_hash", length = 64)
+    private String recordHash;
 }

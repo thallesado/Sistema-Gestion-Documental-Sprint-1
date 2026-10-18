@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { ApiAuditEvent, AuditApiService, AuditEventsFilter } from '../../../core/api/audit-api.service';
+import { ApiAuditEvent, ApiAuditVerificationResult, AuditApiService, AuditEventsFilter } from '../../../core/api/audit-api.service';
 import { activeLocale } from '../../../core/i18n/i18n.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RouteInfo } from '../../../core/data/nexodocs-data';
@@ -217,6 +217,27 @@ const generalFilters: AuditFilterField[] = [
                   </div>
                 </div>
               }
+              <div class="control-status" style="margin-top: 12px; border-top: 1px solid var(--border-color, #e2e8f0); padding-top: 12px;">
+                @if (verifyingChain()) {
+                  <div><strong>Verificando integridad...</strong><small>Comprobando cadena SHA-256 y ancla externa.</small></div>
+                } @else if (verificationResult()) {
+                  @if (verificationResult()?.valid) {
+                    <span class="control-check" style="background:#10b981;color:#fff;">✓</span>
+                    <div>
+                      <strong>Cadena íntegra ({{ verificationResult()?.totalVerified }} ev.)</strong>
+                      <small>Sin alteraciones · Ancla externa verificada</small>
+                    </div>
+                  } @else {
+                    <span class="control-check" style="background:#ef4444;color:#fff;">!</span>
+                    <div>
+                      <strong style="color:#ef4444;">Alteración detectada</strong>
+                      <small>Eslabón #{{ verificationResult()?.brokenChainSeq }} manipulado</small>
+                    </div>
+                  }
+                } @else {
+                  <button type="button" class="audit-reset" style="width:100%;margin-top:6px;" (click)="verifyIntegrity()">Verificar integridad</button>
+                }
+              </div>
               <div class="control-list">
                 <div><span>En esta página</span><b>{{ events().length }}</b></div>
                 <div><span>Resultados visibles</span><b>{{ filteredEvents().length }}</b></div>
@@ -322,6 +343,8 @@ export class AuditPage {
   readonly pageSize = signal(10);
   readonly reloadVersion = signal(0);
   readonly drawerDetail = signal<AuditDrawerDetail | null>(null);
+  readonly verifyingChain = signal(false);
+  readonly verificationResult = signal<ApiAuditVerificationResult | null>(null);
 
   constructor() {
     effect((onCleanup) => {
@@ -418,6 +441,16 @@ export class AuditPage {
       { label: 'Agente de usuario', value: event.userAgent || 'No registrado' },
     );
 
+    if (event.chainSeq !== undefined && event.chainSeq !== null) {
+      fields.push({ label: 'Secuencia criptográfica', value: `#${event.chainSeq}` });
+    }
+    if (event.recordHash) {
+      fields.push({ label: 'Hash del registro (SHA-256)', value: event.recordHash });
+    }
+    if (event.previousHash) {
+      fields.push({ label: 'Hash anterior', value: event.previousHash });
+    }
+
     let detailsText: string | undefined = undefined;
     if (detailsObj?.['path']) {
       detailsText = `${detailsObj['method'] ?? ''} ${detailsObj['path']} (HTTP ${detailsObj['status'] ?? ''})`.trim();
@@ -438,6 +471,19 @@ export class AuditPage {
 
   closeDrawer(): void {
     this.drawerDetail.set(null);
+  }
+
+  verifyIntegrity(): void {
+    this.verifyingChain.set(true);
+    this.auditApi.verifyChain().subscribe({
+      next: (res) => {
+        this.verificationResult.set(res);
+        this.verifyingChain.set(false);
+      },
+      error: () => {
+        this.verifyingChain.set(false);
+      },
+    });
   }
 
   readonly filteredEvents = computed(() => {
