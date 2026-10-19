@@ -1,5 +1,20 @@
 import 'package:flutter/material.dart';
+
 import '../../core/api/auth_api.dart';
+import '../../core/errors/api_exception.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/utils/format.dart';
+import '../../core/widgets/state_views.dart';
+import 'task_detail_page.dart';
+
+/// Pestañas de "Mis tareas" de la web: Pendientes, En progreso, Completadas, Vencidas.
+const taskFilters = <String, Map<String, dynamic>>{
+  'Pendientes': {'status': 'PENDING'},
+  'En progreso': {'status': 'IN_PROGRESS'},
+  'Vencidas': {'overdue': true},
+  'Completadas': {'status': 'COMPLETED'},
+  'Todas': {},
+};
 
 class TasksTab extends StatefulWidget {
   const TasksTab({super.key, required this.api});
@@ -11,11 +26,10 @@ class TasksTab extends StatefulWidget {
 }
 
 class _TasksTabState extends State<TasksTab> {
-  List<Map<String, dynamic>> allTasks = [];
+  List<Map<String, dynamic>> tasks = [];
   bool loading = true;
-  String selectedFilter = 'Todas';
-
-  final filters = ['Todas', 'Pendientes', 'En revisión', 'Completadas'];
+  String? error;
+  String selectedFilter = 'Pendientes';
 
   @override
   void initState() {
@@ -24,238 +38,139 @@ class _TasksTabState extends State<TasksTab> {
   }
 
   Future<void> loadTasks() async {
-    setState(() => loading = true);
+    setState(() {
+      loading = true;
+      error = null;
+    });
     try {
-      final data = await widget.api.dashboard();
-      final tasks = (data['tasks'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
-      if (mounted) setState(() => allTasks = tasks);
-    } catch (_) {
-      // Default sample tasks if offline
-      if (mounted) {
-        setState(() {
-          allTasks = [
-            {
-              'id': '1',
-              'title': 'Revisión técnica de contrato marco',
-              'status': 'PENDING',
-              'priority': 1,
-              'dueAt': '2026-09-30T18:00:00Z',
-              'area': 'Legal',
-            },
-            {
-              'id': '2',
-              'title': 'Aprobación de orden de compra #892',
-              'status': 'IN_REVIEW',
-              'priority': 2,
-              'dueAt': '2026-10-02T12:00:00Z',
-              'area': 'Compras',
-            },
-            {
-              'id': '3',
-              'title': 'Firma digital de acta de entrega',
-              'status': 'COMPLETED',
-              'priority': 3,
-              'dueAt': '2026-09-24T17:00:00Z',
-              'area': 'Operaciones',
-            },
-          ];
-        });
-      }
+      final page = await widget.api.workflows.tasks(filters: taskFilters[selectedFilter]!);
+      if (mounted) setState(() => tasks = (page['content'] as List<dynamic>).cast<Map<String, dynamic>>());
+    } on ApiException catch (exception) {
+      if (mounted) setState(() => error = exception.message);
     } finally {
       if (mounted) setState(() => loading = false);
     }
   }
 
-  void toggleTask(String id) {
-    setState(() {
-      for (final t in allTasks) {
-        if (t['id'] == id) {
-          final current = t['status'] as String? ?? 'PENDING';
-          t['status'] = current == 'COMPLETED' ? 'PENDING' : 'COMPLETED';
-        }
-      }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Estado de la tarea actualizado'),
-        duration: Duration(seconds: 2),
-      ),
+  Future<void> openTask(Map<String, dynamic> task) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => TaskDetailPage(api: widget.api, taskId: task['id'] as String)),
     );
-  }
-
-  List<Map<String, dynamic>> get filteredTasks {
-    if (selectedFilter == 'Pendientes') {
-      return allTasks.where((t) => t['status'] == 'PENDING').toList();
-    }
-    if (selectedFilter == 'En revisión') {
-      return allTasks.where((t) => t['status'] == 'IN_REVIEW').toList();
-    }
-    if (selectedFilter == 'Completadas') {
-      return allTasks.where((t) => t['status'] == 'COMPLETED').toList();
-    }
-    return allTasks;
+    if (changed == true) loadTasks();
   }
 
   @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      Container(
+        color: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: taskFilters.keys.map((filter) {
+              final selected = selectedFilter == filter;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text(filter),
+                  selected: selected,
+                  onSelected: (_) {
+                    setState(() => selectedFilter = filter);
+                    loadTasks();
+                  },
+                  selectedColor: AppTheme.mint,
+                  checkmarkColor: AppTheme.teal,
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                    color: selected ? AppTheme.teal : const Color(0xff374151),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+      if (loading) const LinearProgressIndicator(color: AppTheme.teal),
+      Expanded(
+        child: RefreshIndicator(
+          onRefresh: loadTasks,
+          color: AppTheme.teal,
+          child: error != null
+              ? ErrorStateView(message: error!, onRetry: loadTasks)
+              : tasks.isEmpty && !loading
+              ? const EmptyStateView(message: 'No tienes tareas en esta selección.', icon: Icons.task_alt)
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: tasks.length,
+                  itemBuilder: (context, index) => _TaskCard(task: tasks[index], onTap: () => openTask(tasks[index])),
+                ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _TaskCard extends StatelessWidget {
+  const _TaskCard({required this.task, required this.onTap});
+
+  final Map<String, dynamic> task;
+  final VoidCallback onTap;
+
+  @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Filter chips bar
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: filters.map((f) {
-                final selected = selectedFilter == f;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(f),
-                    selected: selected,
-                    onSelected: (_) => setState(() => selectedFilter = f),
-                    selectedColor: const Color(0xffd4ece7),
-                    checkmarkColor: const Color(0xff087f7b),
-                    labelStyle: TextStyle(
-                      fontSize: 12,
-                      fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                      color: selected ? const Color(0xff087f7b) : const Color(0xff374151),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-
-        if (loading) const LinearProgressIndicator(color: Color(0xff087f7b)),
-
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: loadTasks,
-            color: const Color(0xff087f7b),
-            child: filteredTasks.isEmpty && !loading
-                ? Center(
+    final status = task['status'] as String?;
+    final overdue = status != 'COMPLETED' && isPast(task['due_at']);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
                     child: Text(
-                      'No hay tareas en esta categoría.',
-                      style: TextStyle(color: Colors.grey.shade500),
+                      task['title'] as String? ?? 'Tarea',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.ink),
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filteredTasks.length,
-                    itemBuilder: (context, index) {
-                      final task = filteredTasks[index];
-                      final id = task['id'] as String? ?? '$index';
-                      final title = task['title'] as String? ?? 'Tarea';
-                      final status = task['status'] as String? ?? 'PENDING';
-                      final isDone = status == 'COMPLETED';
-                      final isReview = status == 'IN_REVIEW';
-                      final priority = task['priority'] as int? ?? 2;
-                      final priorityLabel = priority == 1 ? 'Alta' : priority == 2 ? 'Media' : 'Baja';
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey.shade200),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    icon: Icon(
-                                      isDone ? Icons.check_circle : Icons.radio_button_unchecked,
-                                      color: isDone ? const Color(0xff10b981) : const Color(0xffd97706),
-                                      size: 24,
-                                    ),
-                                    onPressed: () => toggleTask(id),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          title,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            decoration: isDone ? TextDecoration.lineThrough : null,
-                                            color: isDone ? Colors.grey : const Color(0xff1f2937),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: priority == 1
-                                                    ? const Color(0xfffee2e2)
-                                                    : const Color(0xfffef3c7),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                'Prioridad $priorityLabel',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: priority == 1
-                                                      ? const Color(0xff991b1b)
-                                                      : const Color(0xff92400e),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: isDone
-                                                    ? const Color(0xffd1fae5)
-                                                    : isReview
-                                                        ? const Color(0xffe0f2fe)
-                                                        : const Color(0xfff3f4f6),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                isDone ? 'Completada' : isReview ? 'En revisión' : 'Pendiente',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: isDone
-                                                      ? const Color(0xff065f46)
-                                                      : isReview
-                                                          ? const Color(0xff0369a1)
-                                                          : const Color(0xff4b5563),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
                   ),
+                  const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${task['workflow_title'] ?? ''} · ${task['workflow_code'] ?? ''}',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  StatusBadge(taskStatusLabel(status), tone: taskStatusTone(status)),
+                  StatusBadge(stageTypeLabel(task['stage_type'] as String?), tone: BadgeTone.brand),
+                  StatusBadge('Prioridad ${priorityLabel(task['priority'])}', tone: (task['priority'] as int? ?? 4) <= 2 ? BadgeTone.danger : BadgeTone.warning),
+                ],
+              ),
+              if (task['due_at'] != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Vence: ${formatDate(task['due_at'], withTime: true)}',
+                  style: TextStyle(fontSize: 12, color: overdue ? const Color(0xffb73838) : Colors.grey.shade700, fontWeight: overdue ? FontWeight.w600 : null),
+                ),
+              ],
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

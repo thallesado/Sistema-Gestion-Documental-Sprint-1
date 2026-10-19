@@ -1,12 +1,22 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
 import '../../core/api/auth_api.dart';
 import '../../core/constants/api_constants.dart';
-import '../../core/errors/auth_exception.dart';
+import '../../core/errors/api_exception.dart';
+import '../../core/theme/app_theme.dart';
 import '../shell/main_shell_page.dart';
 
+/// Valor del selector para el administrador de plataforma (sin organización), como en la web.
+const platformTenant = '';
+
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.authApi});
+  const LoginPage({super.key, required this.authApi, this.notice});
+
   final AuthApi authApi;
+
+  /// Aviso informativo, p. ej. cuando la sesión expiró.
+  final String? notice;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -14,18 +24,46 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final formKey = GlobalKey<FormState>();
-  final tenantController = TextEditingController();
   final userController = TextEditingController();
   final passwordController = TextEditingController();
+  List<PublicTenant> tenants = [];
+  String? tenantId;
+  bool tenantsLoading = true;
+  String? tenantsError;
   bool submitting = false;
+  bool showPassword = false;
   String? error;
 
   @override
+  void initState() {
+    super.initState();
+    loadTenants();
+  }
+
+  @override
   void dispose() {
-    tenantController.dispose();
     userController.dispose();
     passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> loadTenants() async {
+    setState(() {
+      tenantsLoading = true;
+      tenantsError = null;
+    });
+    try {
+      final result = await widget.authApi.publicTenants();
+      if (!mounted) return;
+      setState(() {
+        tenants = result;
+        if (tenantId != null && tenantId != platformTenant && !result.any((t) => t.id == tenantId)) tenantId = null;
+      });
+    } on ApiException catch (exception) {
+      if (mounted) setState(() => tenantsError = 'No se pudo cargar la lista de organizaciones. ${exception.message}');
+    } finally {
+      if (mounted) setState(() => tenantsLoading = false);
+    }
   }
 
   void showServerDialog() {
@@ -33,56 +71,33 @@ class _LoginPageState extends State<LoginPage> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Servidor Backend'),
+        title: const Text('Servidor'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Selecciona o ingresa la URL de la API de Spring Boot:',
+              'URL de la API de NexoDocs. Desde un teléfono usa la IP del equipo que ejecuta el backend.',
               style: TextStyle(fontSize: 12),
             ),
             const SizedBox(height: 10),
             TextField(
+              key: const Key('server-url'),
               controller: serverController,
-              decoration: const InputDecoration(
-                labelText: 'URL del servidor',
-                hintText: 'http://127.0.0.1:8080/api/v1',
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                ActionChip(
-                  avatar: const Icon(Icons.usb, size: 16),
-                  label: const Text('USB (127.0.0.1)'),
-                  onPressed: () => serverController.text = 'http://127.0.0.1:8080/api/v1',
-                ),
-                ActionChip(
-                  avatar: const Icon(Icons.wifi, size: 16),
-                  label: const Text('Wi-Fi (192.168.100.37)'),
-                  onPressed: () => serverController.text = 'http://192.168.100.37:8080/api/v1',
-                ),
-              ],
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(labelText: 'URL del servidor', hintText: defaultApiBaseUrl),
             ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           FilledButton(
-            onPressed: () {
-              setState(() {
-                apiBaseUrl = serverController.text.trim();
-              });
+            onPressed: () async {
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Servidor actualizado a $apiBaseUrl')),
-              );
+              await widget.authApi.client.saveServerUrl(serverController.text);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Servidor: $apiBaseUrl')));
+              loadTenants();
             },
             child: const Text('Guardar'),
           ),
@@ -99,24 +114,26 @@ class _LoginPageState extends State<LoginPage> {
     });
     try {
       await widget.authApi.login(
-        tenantId: tenantController.text.trim(),
+        tenantId: tenantId ?? platformTenant,
         username: userController.text.trim(),
         password: passwordController.text,
       );
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => MainShellPage(api: widget.authApi),
-        ),
-      );
-    } on AuthException catch (exception) {
+      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => MainShellPage(api: widget.authApi)));
+    } on ApiException catch (exception) {
       if (mounted) setState(() => error = exception.message);
-    } catch (e) {
-      if (mounted) setState(() => error = 'Error de conexión: $e');
     } finally {
       if (mounted) setState(() => submitting = false);
     }
   }
+
+  /// Rellena credenciales de demostración; solo en compilaciones de depuración.
+  void fillDemo(String email, String? tenant) => setState(() {
+    tenantId = tenant;
+    userController.text = email;
+    passwordController.text = 'DemoPass123!';
+    error = null;
+  });
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -142,61 +159,58 @@ class _LoginPageState extends State<LoginPage> {
                           onPressed: showServerDialog,
                         ),
                       ),
-                      const Icon(
-                        Icons.folder_shared_outlined,
-                        size: 52,
-                        color: Color(0xff087f7b),
-                      ),
+                      const Icon(Icons.folder_shared_outlined, size: 52, color: AppTheme.teal),
                       const SizedBox(height: 12),
-                      Text(
-                        'NexoDocs',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const Text(
-                        'Acceso clínico móvil',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 20),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          ActionChip(
-                            avatar: const Icon(Icons.business, size: 14),
-                            label: const Text('Admin (Laura)', style: TextStyle(fontSize: 12)),
-                            onPressed: () {
-                              setState(() {
-                                tenantController.text = '20000000-0000-0000-0000-000000000001';
-                                userController.text = 'laura@acme.com';
-                                passwordController.text = 'DemoPass123!';
-                                error = null;
-                              });
-                            },
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.shield_outlined, size: 14),
-                            label: const Text('SuperAdmin (Carlos)', style: TextStyle(fontSize: 12)),
-                            onPressed: () {
-                              setState(() {
-                                tenantController.text = '';
-                                userController.text = 'carlos@nexodocs.com';
-                                passwordController.text = 'DemoPass123!';
-                                error = null;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        key: const Key('tenant'),
-                        controller: tenantController,
-                        decoration: const InputDecoration(
-                          labelText: 'Organización (Tenant ID)',
+                      Text('NexoDocs', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
+                      const Text('Inicia sesión en tu organización', textAlign: TextAlign.center),
+                      if (widget.notice != null) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: const Color(0xfffef3c7), borderRadius: BorderRadius.circular(8)),
+                          child: Text(widget.notice!, key: const Key('login-notice'), style: const TextStyle(fontSize: 13)),
                         ),
-                        validator: requiredField,
+                      ],
+                      if (kDebugMode) ...[
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            ActionChip(
+                              avatar: const Icon(Icons.business, size: 14),
+                              label: const Text('Demo: Laura (admin)', style: TextStyle(fontSize: 12)),
+                              onPressed: () => fillDemo('laura@acme.com', '20000000-0000-0000-0000-000000000001'),
+                            ),
+                            ActionChip(
+                              avatar: const Icon(Icons.shield_outlined, size: 14),
+                              label: const Text('Demo: Carlos (plataforma)', style: TextStyle(fontSize: 12)),
+                              onPressed: () => fillDemo('carlos@nexodocs.com', platformTenant),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        key: const Key('tenant'),
+                        initialValue: tenantId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'Organización',
+                          helperText: tenantsLoading ? 'Cargando organizaciones…' : null,
+                          errorText: tenantsError,
+                          errorMaxLines: 3,
+                          suffixIcon: tenantsError != null
+                              ? IconButton(icon: const Icon(Icons.refresh), tooltip: 'Reintentar', onPressed: loadTenants)
+                              : null,
+                        ),
+                        items: [
+                          const DropdownMenuItem(value: platformTenant, child: Text('[ Plataforma / Administración global ]')),
+                          ...tenants.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name, overflow: TextOverflow.ellipsis))),
+                        ],
+                        onChanged: tenantsLoading ? null : (value) => setState(() => tenantId = value),
+                        validator: (value) => value == null ? 'Selecciona tu organización' : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -204,40 +218,36 @@ class _LoginPageState extends State<LoginPage> {
                         controller: userController,
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const [AutofillHints.username],
-                        decoration: const InputDecoration(
-                          labelText: 'Correo o usuario',
-                        ),
+                        decoration: const InputDecoration(labelText: 'Correo o usuario'),
                         validator: requiredField,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         key: const Key('password'),
                         controller: passwordController,
-                        obscureText: true,
+                        obscureText: !showPassword,
                         autofillHints: const [AutofillHints.password],
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Contraseña',
+                          suffixIcon: IconButton(
+                            icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
+                            tooltip: showPassword ? 'Ocultar contraseña' : 'Ver contraseña',
+                            onPressed: () => setState(() => showPassword = !showPassword),
+                          ),
                         ),
                         validator: requiredField,
+                        onFieldSubmitted: (_) => submitting ? null : submit(),
                       ),
                       if (error != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 12),
-                          child: Text(
-                            error!,
-                            key: const Key('login-error'),
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
+                          child: Text(error!, key: const Key('login-error'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
                         ),
                       const SizedBox(height: 18),
                       FilledButton(
                         key: const Key('login-submit'),
                         onPressed: submitting ? null : submit,
-                        child: Text(
-                          submitting ? 'Validando…' : 'Iniciar sesión',
-                        ),
+                        child: Text(submitting ? 'Validando…' : 'Iniciar sesión'),
                       ),
                     ],
                   ),
@@ -250,6 +260,5 @@ class _LoginPageState extends State<LoginPage> {
     ),
   );
 
-  static String? requiredField(String? value) =>
-      value == null || value.trim().isEmpty ? 'Campo obligatorio' : null;
+  static String? requiredField(String? value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null;
 }

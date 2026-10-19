@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+
 import '../../core/api/auth_api.dart';
+import '../../core/errors/api_exception.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/utils/format.dart';
+import '../../core/widgets/state_views.dart';
+import '../documents/document_detail_sheet.dart';
+import '../tasks/task_detail_page.dart';
 
 class DashboardTab extends StatefulWidget {
-  const DashboardTab({
-    super.key,
-    required this.api,
-    required this.onNavigateToTab,
-  });
+  const DashboardTab({super.key, required this.api, required this.onNavigateToTab});
 
   final AuthApi api;
   final void Function(int tabIndex) onNavigateToTab;
@@ -17,9 +20,10 @@ class DashboardTab extends StatefulWidget {
 
 class _DashboardTabState extends State<DashboardTab> {
   Map<String, dynamic>? data;
+  List<Map<String, dynamic>> pendingTasks = [];
+  int pendingTotal = 0;
   bool loading = true;
   String? error;
-  String tenantId = '';
 
   @override
   void initState() {
@@ -33,432 +37,244 @@ class _DashboardTabState extends State<DashboardTab> {
       error = null;
     });
     try {
-      final tId = await widget.api.getTenantId() ?? 'Tenant';
-      final res = await widget.api.dashboard();
-      if (mounted) {
-        setState(() {
-          tenantId = tId;
-          data = res;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => error = 'Error al cargar los datos del dashboard');
-      }
+      final results = await Future.wait([
+        widget.api.dashboard(),
+        widget.api.workflows.tasks(filters: {'status': 'PENDING'}, size: 5),
+      ]);
+      if (!mounted) return;
+      final tasksPage = results[1];
+      setState(() {
+        data = results[0];
+        pendingTasks = (tasksPage['content'] as List<dynamic>).cast<Map<String, dynamic>>();
+        pendingTotal = tasksPage['totalElements'] as int? ?? pendingTasks.length;
+      });
+    } on ApiException catch (exception) {
+      if (mounted) setState(() => error = exception.message);
     } finally {
       if (mounted) setState(() => loading = false);
     }
   }
 
+  /// Mismo saludo que la web según la hora local.
+  String get greeting {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Buenos días';
+    if (hour < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+  }
+
+  Future<void> openTask(Map<String, dynamic> task) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => TaskDetailPage(api: widget.api, taskId: task['id'] as String)),
+    );
+    if (changed == true) loadData();
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xff087f7b)),
-      );
+    if (loading && data == null) return const Center(child: CircularProgressIndicator(color: AppTheme.teal));
+    if (error != null && data == null) {
+      return RefreshIndicator(onRefresh: loadData, child: ErrorStateView(message: error!, onRetry: loadData));
     }
 
     final user = data?['currentUser'] as Map<String, dynamic>? ?? {};
-    final firstName = user['firstName'] as String? ?? 'Usuario';
-    final lastName = user['lastName'] as String? ?? '';
-    final tasks = (data?['tasks'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+    final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+    final tenantName = user['tenantName'] as String? ?? 'Plataforma';
     final docs = (data?['recentDocuments'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
     final activities = (data?['recentActivity'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
 
-    final pendingTasks = tasks.where((t) => t['status'] != 'COMPLETED').length;
-
     return RefreshIndicator(
       onRefresh: loadData,
-      color: const Color(0xff087f7b),
+      color: AppTheme.teal,
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          // Hero Welcome Card
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text('No se pudo actualizar: $error', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ),
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xff087f7b), Color(0xff0f4c47)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: const LinearGradient(colors: [AppTheme.teal, AppTheme.tealDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xff087f7b).withValues(alpha: 0.25),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.domain, color: Colors.white, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            tenantId.length > 12 ? '${tenantId.substring(0, 8)}...' : tenantId,
-                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.folder_shared_outlined, color: Colors.white, size: 28),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Buenos días, $firstName $lastName',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Resumen móvil de gestión documental y tareas.',
-                  style: TextStyle(color: Color(0xffd4ece7), fontSize: 13),
-                ),
-              ],
-            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.domain, color: Colors.white, size: 14),
+                  const SizedBox(width: 4),
+                  Text(tenantName, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                name.isEmpty ? greeting : '$greeting, $name',
+                key: const Key('dashboard-greeting'),
+                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Aquí tienes un resumen de lo que está ocurriendo en tu organización.',
+                style: TextStyle(color: AppTheme.mint, fontSize: 13),
+              ),
+            ]),
           ),
           const SizedBox(height: 16),
-
-          // KPI Cards Row
-          Row(
-            children: [
-              Expanded(
-                child: _buildKpiCard(
-                  title: 'Tareas pendientes',
-                  value: '$pendingTasks',
-                  subtitle: 'Requieren atención',
-                  icon: Icons.check_circle_outline,
-                  color: const Color(0xffd97706),
-                  onTap: () => widget.onNavigateToTab(2), // Tareas tab
-                ),
+          Row(children: [
+            Expanded(
+              child: _KpiCard(
+                title: 'Tareas pendientes',
+                value: '$pendingTotal',
+                subtitle: 'Requieren tu atención',
+                icon: Icons.check_circle_outline,
+                color: const Color(0xffd97706),
+                onTap: () => widget.onNavigateToTab(2),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildKpiCard(
-                  title: 'Documentos',
-                  value: '${docs.length}',
-                  subtitle: 'Recientes',
-                  icon: Icons.description_outlined,
-                  color: const Color(0xff087f7b),
-                  onTap: () => widget.onNavigateToTab(1), // Documentos tab
-                ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _KpiCard(
+                title: 'Documentos',
+                value: '${docs.length}',
+                subtitle: 'Con actividad reciente',
+                icon: Icons.description_outlined,
+                color: AppTheme.teal,
+                onTap: () => widget.onNavigateToTab(1),
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // Section: Mis Tareas Prioritarias
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Mis tareas prioritarias',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1f2937)),
-              ),
-              TextButton(
-                onPressed: () => widget.onNavigateToTab(2),
-                child: const Text('Ver todas →', style: TextStyle(color: Color(0xff087f7b), fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          if (tasks.isEmpty)
-            _buildEmptyCard('No tienes tareas pendientes.')
+            ),
+          ]),
+          _SectionHeader(title: 'Mis tareas pendientes', action: 'Ver todas →', onAction: () => widget.onNavigateToTab(2)),
+          if (pendingTasks.isEmpty)
+            const _EmptyCard('No tienes tareas pendientes.')
           else
-            ...tasks.take(3).map((task) => _buildTaskItem(task)),
-
-          const SizedBox(height: 20),
-
-          // Section: Documentos Recientes
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Documentos recientes',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1f2937)),
-              ),
-              TextButton(
-                onPressed: () => widget.onNavigateToTab(1),
-                child: const Text('Ver todos →', style: TextStyle(color: Color(0xff087f7b), fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
+            ...pendingTasks.take(3).map((task) => _Item(
+              icon: Icons.radio_button_unchecked,
+              iconColor: const Color(0xffd97706),
+              title: task['title'] as String? ?? 'Tarea',
+              subtitle: '${task['workflow_title'] ?? ''} · vence ${formatDate(task['due_at'])}',
+              trailing: StatusBadge(stageTypeLabel(task['stage_type'] as String?), tone: BadgeTone.brand),
+              onTap: () => openTask(task),
+            )),
+          _SectionHeader(title: 'Documentos recientes', action: 'Ver todos →', onAction: () => widget.onNavigateToTab(1)),
           if (docs.isEmpty)
-            _buildEmptyCard('No hay documentos recientes.')
+            const _EmptyCard('No hay documentos recientes.')
           else
-            ...docs.take(3).map((doc) => _buildDocumentItem(doc)),
-
-          const SizedBox(height: 20),
-
-          // Section: Actividad Reciente
-          const Text(
-            'Actividad reciente',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff1f2937)),
-          ),
-          const SizedBox(height: 8),
+            ...docs.take(3).map((doc) => _Item(
+              icon: Icons.description_outlined,
+              iconColor: AppTheme.teal,
+              title: doc['name'] as String? ?? 'Documento',
+              subtitle: '${doc['code'] ?? ''} · ${formatDate(doc['updatedAt'])}',
+              trailing: StatusBadge(documentStatusLabel(doc['status'] as String?), tone: documentStatusTone(doc['status'] as String?)),
+              onTap: () => showDocumentDetail(context, widget.api, doc['id'] as String),
+            )),
+          const _SectionHeader(title: 'Actividad reciente'),
           if (activities.isEmpty)
-            _buildEmptyCard('No hay registros de actividad recientes.')
+            const _EmptyCard('No hay registros de actividad recientes.')
           else
-            ...activities.take(3).map((act) => _buildActivityItem(act)),
-
+            ...activities.take(5).map((act) => _Item(
+              icon: Icons.history,
+              iconColor: Colors.grey,
+              title: '${act['action'] ?? 'Acción'} · ${act['entityType'] ?? ''}',
+              subtitle: '${act['actorName'] ?? 'Sistema'} · ${formatDate(act['occurredAt'], withTime: true)}',
+            )),
           const SizedBox(height: 24),
         ],
       ),
     );
   }
+}
 
-  Widget _buildKpiCard({
-    required String title,
-    required String value,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, this.action, this.onAction});
+  final String title;
+  final String? action;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 20, bottom: 6),
+    child: Row(children: [
+      // Flexible: con letra grande (accesibilidad) el título no empuja el botón fuera de pantalla.
+      Expanded(
+        child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink)),
+      ),
+      if (action != null)
+        TextButton(onPressed: onAction, child: Text(action!, style: const TextStyle(color: AppTheme.teal, fontWeight: FontWeight.w600))),
+    ]),
+  );
+}
+
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({required this.title, required this.value, required this.subtitle, required this.icon, required this.color, required this.onTap});
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.line)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 18),
+        ]),
+        const SizedBox(height: 10),
+        Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 2),
+        Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xff374151))),
+        Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+      ]),
+    ),
+  );
+}
+
+class _Item extends StatelessWidget {
+  const _Item({required this.icon, required this.iconColor, required this.title, required this.subtitle, this.trailing, this.onTap});
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppTheme.line)),
+    child: ListTile(
+      dense: true,
+      leading: Icon(icon, color: iconColor, size: 20),
+      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink)),
+      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+      trailing: trailing,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xffe5e7eb)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: color, size: 20),
-                ),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 18),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xff374151)),
-            ),
-            Text(
-              subtitle,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildTaskItem(Map<String, dynamic> task) {
-    final title = task['title'] as String? ?? 'Tarea';
-    final status = task['status'] as String? ?? 'PENDING';
-    final isDone = status == 'COMPLETED';
+class _EmptyCard extends StatelessWidget {
+  const _EmptyCard(this.message);
+  final String message;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xffe5e7eb)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isDone ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: isDone ? const Color(0xff10b981) : const Color(0xffd97706),
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    decoration: isDone ? TextDecoration.lineThrough : null,
-                    color: isDone ? Colors.grey : const Color(0xff1f2937),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isDone ? 'Completada' : 'Pendiente de revisión',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: isDone
-                  ? const Color(0xffd1fae5)
-                  : const Color(0xfffef3c7),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              isDone ? 'Hecha' : 'Pendiente',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: isDone ? const Color(0xff065f46) : const Color(0xff92400e),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDocumentItem(Map<String, dynamic> doc) {
-    final name = doc['name'] as String? ?? 'Documento';
-    final code = doc['code'] as String? ?? 'DOC';
-    final status = doc['status'] as String? ?? 'Aprobado';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xffe5e7eb)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xff087f7b).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.description, color: Color(0xff087f7b), size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xff1f2937)),
-                ),
-                const SizedBox(height: 2),
-                Text(code, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: status == 'Aprobado'
-                  ? const Color(0xffd1fae5)
-                  : const Color(0xffe0f2fe),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: status == 'Aprobado' ? const Color(0xff065f46) : const Color(0xff0369a1),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivityItem(Map<String, dynamic> act) {
-    final actor = act['actorName'] as String? ?? 'Usuario';
-    final action = act['action'] as String? ?? 'Acción';
-    final entity = act['entityType'] as String? ?? 'Registro';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xffe5e7eb)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: const Color(0xffd4ece7),
-            child: Text(
-              actor.isNotEmpty ? actor[0].toUpperCase() : 'U',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xff087f7b)),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              '$actor ejecutó $action en $entity',
-              style: const TextStyle(fontSize: 12, color: Color(0xff374151)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyCard(String msg) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xffe5e7eb)),
-      ),
-      child: Center(
-        child: Text(msg, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-      ),
-    );
-  }
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppTheme.line)),
+    child: Center(child: Text(message, style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
+  );
 }

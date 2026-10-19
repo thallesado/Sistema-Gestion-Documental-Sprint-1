@@ -23,7 +23,7 @@ del tenant tiene la excepción de autoaprobación. Para completar una devolució
 documental, primero sube una versión corregida: la aprobación queda vinculada a
 la versión exacta revisada.
 
-Plataforma integral y modularizada para la gestión, control y trazabilidad de documentos clínicos y organizacionales. Diseñada bajo principios de **Arquitectura Limpia / Hexagonal**, **Frontend Angular Modular (Feature-Driven)**, **Flutter Clean Architecture** y orquestación con **Docker**.
+Plataforma integral y modularizada para la gestión, control y trazabilidad de documentos clínicos y organizacionales. Diseñada bajo principios de **Arquitectura Limpia / Hexagonal**, **Frontend Angular Modular (Feature-Driven)**, **Flutter** y orquestación con **Docker**.
 
 ---
 
@@ -56,11 +56,10 @@ Sistema-Gestion-Documental-Sprint-1/
 │   ├── src/app/shell/          # Layout maestro (Sidebar Dark Forest, Topbar, User Menu)
 │   ├── src/app/shared/         # Componentes, directivas y pipes reutilizables
 │   └── src/app/features/       # Módulos de negocio (Auth, Tablero, Documentos, Expedientes, etc.)
-├── mobile/                     # Flutter (Feature-First + Clean Architecture + BLoC)
+├── mobile/                     # Flutter: cliente móvil sobre la misma API (ver mobile/README.md)
 │   └── lib/
-│       ├── injection/          # Contenedor de inyección de dependencias (GetIt)
-│       ├── core/               # Configuración, cliente HTTP (Dio), temas y router
-│       └── features/           # Funcionalidades por capas (Data, Domain, Presentation)
+│       ├── core/               # Cliente HTTP con renovación de sesión, servicios por módulo, tema y utilidades
+│       └── screens/            # Pantallas: login, inicio, documentos, tareas, notificaciones, pacientes, perfil
 ├── database/                   # Scripts SQL, esquemas modulares y semillas PostgreSQL
 └── packages/
     └── shared/                 # Modelos, DTOs y utilidades TypeScript compartidas

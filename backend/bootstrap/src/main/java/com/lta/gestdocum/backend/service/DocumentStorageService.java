@@ -157,6 +157,8 @@ public class DocumentStorageService {
         DocumentVersion version = versionRepository.findByIdAndTenantId(versionId, tenantId)
                 .filter(item -> item.getDocumentId().equals(documentId))
                 .orElseThrow(() -> new NotFoundException("Versión no encontrada"));
+        // Versiones registradas sin archivo físico (p. ej. datos semilla): 404, no un NPE con 500.
+        if (version.getFilePath() == null || version.getFilePath().isBlank()) throw new NotFoundException("Archivo no disponible");
         try {
             Resource resource = new UrlResource(safePath(Path.of(version.getFilePath())).toUri());
             if (!resource.exists() || !resource.isReadable()) throw new NotFoundException("Archivo no disponible");
