@@ -9,6 +9,7 @@ import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -102,7 +103,7 @@ class AuditQueryServiceTest {
                 .build();
 
         Page<AuditEvent> page = new PageImpl<>(List.of(event));
-        when(repository.findAll(any(Specification.class), any(PageRequest.class))).thenReturn(page);
+        when(repository.findAll(ArgumentMatchers.<Specification<AuditEvent>>any(), any(PageRequest.class))).thenReturn(page);
 
         AuditEventFilter filter = new AuditEventFilter("CREATE", "DOCUMENTS", "SUCCESS", null, null);
         Page<AuditEventResponse> result = service.list(filter, PageRequest.of(0, 10));
