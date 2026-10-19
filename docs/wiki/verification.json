@@ -147,7 +147,21 @@
     },
     {
       "page": "02-backend/base-de-datos-y-migraciones.md",
-      "path": "database/init/042_current_role_names.sql",
+      "path": "database/init/045_audit_chain_select_grant.sql",
+      "includes": [
+        "GRANT SELECT (tenant_id, chain_seq, record_hash) ON public.audit_events TO nexodocs_security;"
+      ]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DefaultAuditRecorder.java",
+      "includes": [
+        "public void afterCommit()"
+      ]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "database/init/044_current_role_names.sql",
       "includes": [
         "CREATE OR REPLACE FUNCTION app.current_role_names() RETURNS SETOF text",
         "GRANT EXECUTE ON FUNCTION app.current_role_names() TO nexodocs_app"
@@ -239,7 +253,7 @@
     },
     {
       "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
-      "path": "database/init/040_component_permissions.sql",
+      "path": "database/init/042_component_permissions.sql",
       "includes": [
         "CREATE TABLE IF NOT EXISTS component_permissions",
         "CREATE POLICY tenant_context ON component_permissions AS RESTRICTIVE TO nexodocs_app",

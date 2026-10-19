@@ -26,11 +26,11 @@ Reglas de B1:
 
 Cada componente de un formulario tiene, por grupo, uno de tres estados: `VISIBLE_EDITABLE`, `VISIBLE_READONLY` o `HIDDEN`. Se configura sobre el mismo formulario para todos los grupos.
 
-- **Datos:** migración `040_component_permissions.sql`. Tabla `component_permissions(tenant_id, role_id, form_key, component_key, state)` con PK compuesta, FK `(tenant_id, role_id)` a `roles`, RLS (`tenant_context` restrictiva, lectura para cualquier usuario válido del tenant, escritura con `component_permission:manage`) y auditoría `trg_audit_change`. La función `app.current_role_ids()` (SECURITY DEFINER) devuelve los grupos activos del usuario del contexto.
+- **Datos:** migración `042_component_permissions.sql`. Tabla `component_permissions(tenant_id, role_id, form_key, component_key, state)` con PK compuesta, FK `(tenant_id, role_id)` a `roles`, RLS (`tenant_context` restrictiva, lectura para cualquier usuario válido del tenant, escritura con `component_permission:manage`) y auditoría `trg_audit_change`. La función `app.current_role_ids()` (SECURITY DEFINER) devuelve los grupos activos del usuario del contexto.
 - **Regla:** sin fila, `VISIBLE_EDITABLE`. Con varios grupos gana el estado más permisivo; un grupo sin fila aporta `VISIBLE_EDITABLE`. Implementada en `ComponentFormAccess.resolve`.
 - **Catálogo:** `ComponentFormCatalog.java` (allowlist del servidor) y `frontend/src/app/core/auth/form-registry.ts` deben coincidir; `frontend/tests/component-permissions.test.mjs` lo comprueba.
 - **API** (`ComponentPermissionController`): `GET /api/v1/component-permissions/me?form=` (autenticado); `GET /forms`, `GET /roles/{roleId}?form=` y `PUT /roles/{roleId}?form=` con `component_permission:manage`.
-- **Interfaz:** directiva `[appField]="'documento.nuevo.codigo'"` y pantalla `/users/form-privileges`.
+- **Interfaz:** directiva `[appField]="'documento.nuevo.codigo'"` y pantalla `/users/form-permissions` (`form-permissions-page.ts`, el hueco que dejó el PR 0 de andamiaje).
 
 ### Aplicación en el servidor
 
@@ -48,4 +48,4 @@ El rechazo es `AccessDeniedException` (403) con el nombre del componente. Un com
 - Otros caminos que devuelven documentos (dashboard, búsqueda, expedientes, workflows) no aplican la ocultación por componente.
 - Los permisos y estados se recalculan al iniciar sesión; un cambio de grupo afecta a la sesión abierta en el siguiente login o refresh.
 
-Fuentes: [ComponentFormAccess.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ComponentFormAccess.java), [ComponentFormCatalog.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ComponentFormCatalog.java), [UserFormPolicy.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/UserFormPolicy.java), [040_component_permissions.sql](../../../database/init/040_component_permissions.sql), [form-registry.ts](../../../frontend/src/app/core/auth/form-registry.ts), [field-permission.directive.ts](../../../frontend/src/app/core/auth/field-permission.directive.ts).
+Fuentes: [ComponentFormAccess.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ComponentFormAccess.java), [ComponentFormCatalog.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ComponentFormCatalog.java), [UserFormPolicy.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/UserFormPolicy.java), [042_component_permissions.sql](../../../database/init/042_component_permissions.sql), [form-registry.ts](../../../frontend/src/app/core/auth/form-registry.ts), [field-permission.directive.ts](../../../frontend/src/app/core/auth/field-permission.directive.ts).

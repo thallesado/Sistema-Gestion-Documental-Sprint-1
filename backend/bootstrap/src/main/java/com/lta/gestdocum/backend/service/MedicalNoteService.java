@@ -28,6 +28,7 @@ public class MedicalNoteService {
 
     /** Tipo que se asigna cuando el perfil no puede elegirlo (privilegios B2). */
     static final String DEFAULT_NOTE_TYPE = "EVOLUTION";
+    private AuditRecorder auditRecorder;
 
     public MedicalNoteService(MedicalNoteRepository repository, ClinicalHistoryRepository historyRepository,
                               AuthenticatedUserContext userContext, HtmlSanitizerService sanitizer,
@@ -37,6 +38,11 @@ public class MedicalNoteService {
         this.userContext = userContext;
         this.sanitizer = sanitizer;
         this.componentPermissions = componentPermissions;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAuditRecorder(AuditRecorder auditRecorder) {
+        this.auditRecorder = auditRecorder;
     }
 
     @Transactional(readOnly = true)
@@ -83,7 +89,12 @@ public class MedicalNoteService {
                 .status(initialStatus)
                 .createdAt(OffsetDateTime.now())
                 .build();
-        return toResponse(repository.save(note), access);
+        MedicalNote saved = repository.save(note);
+        if (auditRecorder != null) {
+            auditRecorder.record("CREATE", "CLINICAL_HISTORIES", saved.getId(), null,
+                    java.util.Map.of("noteType", saved.getNoteType(), "status", String.valueOf(saved.getStatus())));
+        }
+        return toResponse(saved, access);
     }
 
     @Transactional
@@ -109,7 +120,13 @@ public class MedicalNoteService {
         }
 
         note.setStatus(targetStatus);
-        return toResponse(repository.save(note), access);
+        MedicalNote saved = repository.save(note);
+        if (auditRecorder != null) {
+            auditRecorder.record("UPDATE_STATUS", "CLINICAL_HISTORIES", saved.getId(),
+                    java.util.Map.of("status", String.valueOf(currentStatus)),
+                    java.util.Map.of("status", String.valueOf(saved.getStatus())));
+        }
+        return toResponse(saved, access);
     }
 
     private ClinicalHistory requireHistory(UUID id, UUID tenantId) {

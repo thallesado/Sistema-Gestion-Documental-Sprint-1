@@ -9,8 +9,8 @@ export const administracionRoutes: Routes = [
     canActivate: [authGuard, userAdminGuard],
   },
   {
-    path: 'users/form-privileges',
-    loadComponent: () => import('./pages/privilegios-formulario-page').then((m) => m.FormPrivilegesPage),
+    path: 'users/form-permissions',
+    loadComponent: () => import('./pages/form-permissions-page').then((m) => m.FormPermissionsPage),
     title: 'Privilegios por formulario - NexoDocs',
     canActivate: [authGuard, hasPermissionGuard('component_permission:manage')],
   },

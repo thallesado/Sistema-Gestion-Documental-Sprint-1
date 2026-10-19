@@ -40,6 +40,12 @@ public class UserService {
     private final AuthSessionService authSessionService;
     private final PlanEnforcementService planEnforcementService;
     private final UserFormPolicy userFormPolicy;
+    private AuditRecorder auditRecorder;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAuditRecorder(AuditRecorder auditRecorder) {
+        this.auditRecorder = auditRecorder;
+    }
 
     @org.springframework.beans.factory.annotation.Autowired
     public UserService(UserRepository userRepository,
@@ -97,6 +103,10 @@ public class UserService {
                 tenantId, user.getUsername(), user.getPasswordHash() != null && user.getPasswordHash().startsWith("$2"));
         User savedUser = userRepository.save(user);
         userRepository.flush(); // fuerza el INSERT aquí para que cualquier error de BD se vea en este punto
+        if (auditRecorder != null) {
+            auditRecorder.record("CREATE", "USERS", savedUser.getId(), null,
+                    java.util.Map.of("username", savedUser.getUsername(), "email", savedUser.getEmail(), "status", String.valueOf(savedUser.getStatus())));
+        }
         log.info("[CREATE-USER] Usuario guardado id={}; asignando roleIds={}", savedUser.getId(), request.getRoleIds());
         assignRoles(tenantId, savedUser.getId(), request.getRoleIds());
 
@@ -139,6 +149,11 @@ public class UserService {
     }
 
     User updatedUser = userRepository.save(user);
+    if (auditRecorder != null) {
+        auditRecorder.record("UPDATE", "USERS", updatedUser.getId(),
+                java.util.Map.of("status", String.valueOf(previousStatus)),
+                java.util.Map.of("status", String.valueOf(updatedUser.getStatus()), "email", updatedUser.getEmail()));
+    }
     if (updatedUser.getStatus() != previousStatus) authSessionService.revokeAll(id);
     if (request.getRoleIds() != null) {
     requireRoleAssignmentPermission();
@@ -174,7 +189,12 @@ public class UserService {
                 .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
         user.setDeletedAt(OffsetDateTime.now());
         user.setStatus(UserStatus.INACTIVE);
-        userRepository.save(user);
+        User deleted = userRepository.save(user);
+        if (auditRecorder != null) {
+            auditRecorder.record("DELETE", "USERS", deleted.getId(),
+                    java.util.Map.of("status", "ACTIVE", "username", deleted.getUsername()),
+                    java.util.Map.of("status", "INACTIVE", "deleted", true));
+        }
     }
 
     @Transactional(readOnly = true)

@@ -1,0 +1,31 @@
+# Code owners for the special sprint. They are asked to review any pull request that touches
+# these paths, which backs up the "hot files" rules in docs/sprint-especial/README.md.
+# The last matching pattern wins.
+#
+#   Andres  -> @thallesado     Diego -> @wdiegow        Oscar    -> @OscarArancibia
+#   Mauricio -> @MauricioD98   Cruz  -> @DenilCruz      Edixon   -> @ELkin2624
+
+# Infrastructure, CI and repository settings
+/.github/                                  @thallesado
+/infrastructure/                           @thallesado
+
+# Integration of the sprint: plan, shell and the files everyone touches
+/docs/sprint-especial/                     @wdiegow
+/frontend/src/app/shell/                   @wdiegow
+/frontend/src/app/core/routes/             @wdiegow
+/frontend/src/app/core/data/nexodocs-data.ts  @wdiegow
+/frontend/src/app/features/tablero/pages/espacio-trabajo-page.ts  @wdiegow
+/frontend/src/styles.css                   @wdiegow
+
+# Audit trail (tasks C1 and C3) and the OCR module
+/backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/HttpAuditService.java  @wdiegow
+/backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/AuditController.java  @wdiegow
+/backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/Ocr*.java  @wdiegow
+/backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/OcrController.java  @wdiegow
+
+# Users, roles and privileges (tasks B1 to B3)
+/frontend/src/app/features/users/          @OscarArancibia
+/frontend/src/app/core/auth/permission*    @OscarArancibia
+
+# Mobile app (tasks G1 and G2)
+/mobile/                                   @DenilCruz

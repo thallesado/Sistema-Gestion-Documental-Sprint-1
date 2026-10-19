@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 BEGIN;
 SET LOCAL lock_timeout = '10s';
-SELECT pg_advisory_xact_lock(726394, 40);
+SELECT pg_advisory_xact_lock(726394, 42);
 
 CREATE TABLE IF NOT EXISTS app.schema_migrations (
   version text PRIMARY KEY,
@@ -9,11 +9,13 @@ CREATE TABLE IF NOT EXISTS app.schema_migrations (
 );
 
 SELECT EXISTS (
-  SELECT 1 FROM app.schema_migrations WHERE version = '040_component_permissions'
+  -- '040_component_permissions' es el nombre que tuvo en la rama oscar antes de renumerarse tras 040/041 de auditoría.
+  SELECT 1 FROM app.schema_migrations WHERE version IN ('042_component_permissions', '040_component_permissions')
 ) AS already_applied \gset
 
 \if :already_applied
-  \echo '040_component_permissions ya aplicada'
+  INSERT INTO app.schema_migrations(version) VALUES ('042_component_permissions') ON CONFLICT (version) DO NOTHING;
+  \echo '042_component_permissions ya aplicada'
 \else
   -- Privilegios por componente de formulario (B2). Cada fila restringe un componente
   -- para un grupo (rol del tenant). Sin fila, el estado es VISIBLE_EDITABLE. Si un
@@ -92,8 +94,8 @@ SELECT EXISTS (
   WHERE r.name = 'Administrador de tenant'
   ON CONFLICT DO NOTHING;
 
-  INSERT INTO app.schema_migrations(version) VALUES ('040_component_permissions');
-  \echo '040_component_permissions aplicada exitosamente'
+  INSERT INTO app.schema_migrations(version) VALUES ('042_component_permissions');
+  \echo '042_component_permissions aplicada exitosamente'
 \endif
 
 COMMIT;

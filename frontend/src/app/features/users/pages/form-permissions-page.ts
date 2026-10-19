@@ -11,7 +11,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
  * de componentes de ese mismo formulario, si cada uno es editable, de solo lectura o no visible.
  */
 @Component({
-  selector: 'app-form-privileges-page',
+  selector: 'app-form-permissions-page',
   imports: [FormsModule, LocalizedContentDirective],
   template: `
     <section class="admin-page privileges-page" i18nContent>
@@ -111,7 +111,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
     }
   `],
 })
-export class FormPrivilegesPage {
+export class FormPermissionsPage {
   private readonly adminApi = inject(AdministrationApiService);
   private readonly permissions = inject(ComponentPermissionService);
 

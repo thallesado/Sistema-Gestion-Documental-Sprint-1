@@ -20,7 +20,7 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
     Set<Long> findIds(@Param("tenantId") UUID tenantId, @Param("userId") UUID userId);
     @Query(value="select r.name from roles r join user_roles ur on ur.role_id=r.id and ur.tenant_id=r.tenant_id where ur.tenant_id=:tenantId and ur.user_id=:userId and r.is_active=true order by r.name", nativeQuery=true)
     Set<String> findNames(@Param("tenantId") UUID tenantId, @Param("userId") UUID userId);
-    /** Grupos del usuario del contexto RLS, legibles sin role:read (funciones SECURITY DEFINER de 040 y 042). */
+    /** Grupos del usuario del contexto RLS, legibles sin role:read (funciones SECURITY DEFINER de 042 y 044). */
     @Query(value="select id from app.current_role_ids() id", nativeQuery=true)
     Set<Long> findCurrentIds();
     @Query(value="select name from app.current_role_names() name order by name", nativeQuery=true)

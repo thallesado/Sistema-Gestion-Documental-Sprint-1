@@ -58,4 +58,22 @@ public class AuditEvent {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "details", columnDefinition = "jsonb")
     private String details;
+
+    @Column(name = "client_timestamp")
+    private OffsetDateTime clientTimestamp;
+
+    @Column(name = "client_timezone")
+    private String clientTimezone;
+
+    @Column(name = "chain_seq")
+    private Long chainSeq;
+
+    // 041_audit_tamper_proof crea el hash como character(64); sin CHAR, ddl-auto=validate impide arrancar.
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "previous_hash", length = 64)
+    private String previousHash;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "record_hash", length = 64)
+    private String recordHash;
 }

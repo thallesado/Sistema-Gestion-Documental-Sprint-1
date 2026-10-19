@@ -1,11 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { ApiAuditEvent, AuditApiService, AuditEventsFilter } from '../../../core/api/audit-api.service';
+import { ApiAuditEvent, ApiAuditVerificationResult, AuditApiService, AuditEventsFilter } from '../../../core/api/audit-api.service';
 import { activeLocale } from '../../../core/i18n/i18n.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RouteInfo } from '../../../core/data/nexodocs-data';
-import { AuditDrawerDetail, AuditEventDrawer } from '../components/audit-event-drawer';
+import { AuditDrawerDetail, AuditDrawerField, AuditEventDrawer } from '../components/audit-event-drawer';
 import { AuditFilterField, AuditFilters } from '../components/audit-filters';
 import { AuditPagination } from '../components/audit-pagination';
 
@@ -27,27 +27,50 @@ const auditPageCopy: Record<string, AuditPageCopy> = {
   },
   '/audit/document-creation': {
     title: 'Creación de documentos',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Historial de altas y digitalizaciones de documentos en el tenant.',
   },
   '/audit/modifications': {
     title: 'Modificaciones',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Historial de actualizaciones, cambios de estado y metadatos con valores antes y después.',
   },
   '/audit/downloads': {
     title: 'Descargas',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Registro de accesos a descargas y lecturas de archivos de documentos.',
   },
   '/audit/approvals': {
     title: 'Aprobaciones',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Historial de resoluciones, transiciones y aprobaciones en flujos de trabajo.',
   },
   '/audit/deletions': {
     title: 'Eliminaciones',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Registro de borrados lógicos y desvinculaciones de recursos en el sistema.',
   },
   '/audit/permissions': {
     title: 'Cambios de permisos',
-    description: 'Este historial se conserva en su ruta histórica, sin registros de demostración.',
+    description: 'Trazabilidad de asignaciones de roles, privilegios y modificaciones de usuarios.',
+  },
+};
+
+const routePresetFilters: Record<string, AuditEventsFilter> = {
+  '/audit/document-creation': {
+    action: 'HTTP_POST,CREATE',
+    type: 'DOCUMENTS',
+  },
+  '/audit/modifications': {
+    action: 'HTTP_PUT,HTTP_PATCH,UPDATE,UPDATE_STATUS',
+  },
+  '/audit/downloads': {
+    action: 'HTTP_GET,DOWNLOAD',
+    type: 'DOCUMENTS',
+  },
+  '/audit/approvals': {
+    type: 'WORKFLOW',
+  },
+  '/audit/deletions': {
+    action: 'HTTP_DELETE,DELETE',
+  },
+  '/audit/permissions': {
+    type: 'ROLES,USERS',
   },
 };
 
@@ -99,12 +122,6 @@ const generalFilters: AuditFilterField[] = [
           <span class="section-kicker">ACCESO RESTRINGIDO</span>
           <h2 id="audit-access-title">No tienes acceso a la auditoría</h2>
           <p>Esta consulta está disponible para Administrador de tenant y Superadministrador.</p>
-        </section>
-      } @else if (view === 'historical') {
-        <section class="audit-feed-card" aria-labelledby="audit-history-title">
-          <span class="section-kicker">HISTORIAL NO DISPONIBLE</span>
-          <h2 id="audit-history-title">Esta consulta aún no está expuesta por la API</h2>
-          <p>La ruta se mantiene por compatibilidad, pero no muestra registros simulados.</p>
         </section>
       } @else {
         <div class="audit-searchbar">
@@ -200,6 +217,27 @@ const generalFilters: AuditFilterField[] = [
                   </div>
                 </div>
               }
+              <div class="control-status" style="margin-top: 12px; border-top: 1px solid var(--border-color, #e2e8f0); padding-top: 12px;">
+                @if (verifyingChain()) {
+                  <div><strong>Verificando integridad...</strong><small>Comprobando cadena SHA-256 y ancla externa.</small></div>
+                } @else if (verificationResult()) {
+                  @if (verificationResult()?.valid) {
+                    <span class="control-check" style="background:#10b981;color:#fff;">✓</span>
+                    <div>
+                      <strong>Cadena íntegra ({{ verificationResult()?.totalVerified }} ev.)</strong>
+                      <small>Sin alteraciones · Ancla externa verificada</small>
+                    </div>
+                  } @else {
+                    <span class="control-check" style="background:#ef4444;color:#fff;">!</span>
+                    <div>
+                      <strong style="color:#ef4444;">Alteración detectada</strong>
+                      <small>Eslabón #{{ verificationResult()?.brokenChainSeq }} manipulado</small>
+                    </div>
+                  }
+                } @else {
+                  <button type="button" class="audit-reset" style="width:100%;margin-top:6px;" (click)="verifyIntegrity()">Verificar integridad</button>
+                }
+              </div>
               <div class="control-list">
                 <div><span>En esta página</span><b>{{ events().length }}</b></div>
                 <div><span>Resultados visibles</span><b>{{ filteredEvents().length }}</b></div>
@@ -274,11 +312,9 @@ export class AuditPage {
   private readonly routePath = this.routeInfo?.href ?? '/audit';
 
   readonly pageCopy = auditPageCopy[this.routePath] ?? auditPageCopy['/audit'];
-  readonly view: AuditView = this.routePath === '/audit'
-    ? 'general'
-    : this.routePath === '/audit/access'
-      ? 'access'
-      : 'historical';
+  readonly view: AuditView = this.routePath === '/audit/access'
+    ? 'access'
+    : 'general';
   readonly filters = generalFilters;
   readonly currentUser = this.auth.user;
   readonly canReadAudit = computed(() => {
@@ -307,10 +343,12 @@ export class AuditPage {
   readonly pageSize = signal(10);
   readonly reloadVersion = signal(0);
   readonly drawerDetail = signal<AuditDrawerDetail | null>(null);
+  readonly verifyingChain = signal(false);
+  readonly verificationResult = signal<ApiAuditVerificationResult | null>(null);
 
   constructor() {
     effect((onCleanup) => {
-      if (this.view === 'historical' || !this.canReadAudit()) {
+      if (!this.canReadAudit()) {
         this.events.set([]);
         this.totalEvents.set(0);
         return;
@@ -363,27 +401,89 @@ export class AuditPage {
   }
 
   openEvent(event: ApiAuditEvent): void {
+    const detailsObj = event.details as Record<string, any> | undefined;
+
+    let beforeMap: Record<string, string> | undefined = undefined;
+    if (detailsObj?.['before'] && typeof detailsObj['before'] === 'object') {
+      beforeMap = Object.entries(detailsObj['before'] as Record<string, unknown>).reduce((acc, [k, v]) => {
+        acc[k] = v === null || v === undefined ? 'null' : String(v);
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    let afterMap: Record<string, string> | undefined = undefined;
+    if (detailsObj?.['after'] && typeof detailsObj['after'] === 'object') {
+      afterMap = Object.entries(detailsObj['after'] as Record<string, unknown>).reduce((acc, [k, v]) => {
+        acc[k] = v === null || v === undefined ? 'null' : String(v);
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    const fields: AuditDrawerField[] = [
+      { label: 'Identificador', value: String(event.id) },
+      { label: 'Actor', value: this.actorLabel(event) },
+      { label: 'Alcance', value: event.actor?.scope || 'No informado' },
+      { label: 'Tipo de recurso', value: event.entityType },
+      { label: 'Recurso', value: event.entityId || 'Sin identificador asociado' },
+      { label: 'Fecha servidor', value: this.formatDate(event.occurredAt) },
+    ];
+
+    if (event.clientTimestamp) {
+      const tzStr = event.clientTimezone ? ` (${event.clientTimezone})` : '';
+      fields.push({
+        label: 'Fecha cliente',
+        value: `${this.formatDate(event.clientTimestamp)}${tzStr}`,
+      });
+    }
+
+    fields.push(
+      { label: 'Dirección IP', value: event.ipAddress || 'No registrada' },
+      { label: 'Agente de usuario', value: event.userAgent || 'No registrado' },
+    );
+
+    if (event.chainSeq !== undefined && event.chainSeq !== null) {
+      fields.push({ label: 'Secuencia criptográfica', value: `#${event.chainSeq}` });
+    }
+    if (event.recordHash) {
+      fields.push({ label: 'Hash del registro (SHA-256)', value: event.recordHash });
+    }
+    if (event.previousHash) {
+      fields.push({ label: 'Hash anterior', value: event.previousHash });
+    }
+
+    let detailsText: string | undefined = undefined;
+    if (detailsObj?.['path']) {
+      detailsText = `${detailsObj['method'] ?? ''} ${detailsObj['path']} (HTTP ${detailsObj['status'] ?? ''})`.trim();
+    }
+
     this.drawerDetail.set({
       eyebrow: 'EVENTO PERSISTIDO',
       title: this.actionLabel(event.action),
       subtitle: this.resourceLabel(event),
       status: this.resultLabel(event.result),
       statusClass: this.resultClass(event.result),
-      fields: [
-        { label: 'Identificador', value: String(event.id) },
-        { label: 'Actor', value: this.actorLabel(event) },
-        { label: 'Alcance', value: event.actor?.scope || 'No informado' },
-        { label: 'Tipo de recurso', value: event.entityType },
-        { label: 'Recurso', value: event.entityId || 'Sin identificador asociado' },
-        { label: 'Fecha', value: this.formatDate(event.occurredAt) },
-        { label: 'Dirección IP', value: event.ipAddress || 'No registrada' },
-        { label: 'Agente de usuario', value: event.userAgent || 'No registrado' },
-      ],
+      fields,
+      details: detailsText,
+      before: beforeMap,
+      after: afterMap,
     });
   }
 
   closeDrawer(): void {
     this.drawerDetail.set(null);
+  }
+
+  verifyIntegrity(): void {
+    this.verifyingChain.set(true);
+    this.auditApi.verifyChain().subscribe({
+      next: (res) => {
+        this.verificationResult.set(res);
+        this.verifyingChain.set(false);
+      },
+      error: () => {
+        this.verifyingChain.set(false);
+      },
+    });
   }
 
   readonly filteredEvents = computed(() => {
@@ -448,12 +548,13 @@ export class AuditPage {
   }
 
   private apiFilters(values: Record<string, string>): AuditEventsFilter {
+    const preset = routePresetFilters[this.routePath] ?? {};
     return {
-      action: values['action'] || undefined,
-      type: values['type'] || undefined,
-      result: values['result'] as AuditEventsFilter['result'] || undefined,
-      from: values['dateFrom'] ? `${values['dateFrom']}T00:00:00.000Z` : undefined,
-      to: values['dateTo'] ? `${values['dateTo']}T23:59:59.999Z` : undefined,
+      action: values['action'] || preset.action || undefined,
+      type: values['type'] || preset.type || undefined,
+      result: (values['result'] as AuditEventsFilter['result']) || preset.result || undefined,
+      from: values['dateFrom'] ? `${values['dateFrom']}T00:00:00.000Z` : preset.from,
+      to: values['dateTo'] ? `${values['dateTo']}T23:59:59.999Z` : preset.to,
     };
   }
 

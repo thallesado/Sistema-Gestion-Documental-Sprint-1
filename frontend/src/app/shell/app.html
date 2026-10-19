@@ -281,7 +281,7 @@
             <i class="unread-dot"></i>
           </a>
 
-          <button type="button" class="topbar-btn help-btn" aria-label="Ayuda" (click)="notify('Centro de ayuda')">
+          <button type="button" class="topbar-btn help-btn" aria-label="Ayuda" (click)="help.toggle()">
             <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8">
               <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
@@ -378,6 +378,9 @@
         </section>
       </div>
     }
+
+    <app-help-drawer />
+    <app-assistant-widget />
 
     @if (toast()) {
       <div class="toast-notification" role="status">{{ toast() }}</div>
