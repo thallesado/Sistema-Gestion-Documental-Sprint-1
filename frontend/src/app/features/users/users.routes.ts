@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, platformAdminGuard, userAdminGuard } from '../../core/auth/auth.guard';
+import { authGuard, hasPermissionGuard, platformAdminGuard, userAdminGuard } from '../../core/auth/auth.guard';
 
 export const administracionRoutes: Routes = [
   {
@@ -7,6 +7,12 @@ export const administracionRoutes: Routes = [
     loadComponent: () => import('./pages/administracion-page').then((m) => m.AdministrationPage),
     title: 'Usuarios del tenant - NexoDocs',
     canActivate: [authGuard, userAdminGuard],
+  },
+  {
+    path: 'users/form-privileges',
+    loadComponent: () => import('./pages/privilegios-formulario-page').then((m) => m.FormPrivilegesPage),
+    title: 'Privilegios por formulario - NexoDocs',
+    canActivate: [authGuard, hasPermissionGuard('component_permission:manage')],
   },
   {
     path: 'access-denied',

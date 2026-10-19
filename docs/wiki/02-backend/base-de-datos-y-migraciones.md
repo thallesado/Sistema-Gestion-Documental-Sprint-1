@@ -4,7 +4,7 @@
 
 ## Estado y ejecución
 
-PostgreSQL 17, pgcrypto, esquema compartido con RLS. Código a590a6d: SQL hasta `035_ocr_job_persistence.sql`. Elegir el siguiente número revisando las ramas compartidas, no copiando un ejemplo fijo.
+PostgreSQL 17, pgcrypto, esquema compartido con RLS. Código a590a6d: SQL hasta `035_ocr_job_persistence.sql`. Elegir el siguiente número revisando las ramas compartidas, no copiando un ejemplo fijo. La rama `oscar` añade `040_component_permissions.sql` (privilegios por componente; ver [usuarios y privilegios](../04-dominio-y-negocio/usuarios-grupos-y-privilegios.md)); 036 a 039 ya los ocupaba la facturación. `041_user_profile_insert_grants.sql` concede a `nexodocs_app` el INSERT que faltaba sobre las columnas de perfil de `users` creadas en 018 (sin él, `POST /users` fallaba con *permission denied for table users*). `042_current_role_names.sql` crea `app.current_role_names()` para que `/auth/me` muestre el grupo real a perfiles sin `role:read`. **Conflicto de numeración:** `origin/main` ya tiene `040_audit_client_timestamp.sql` y `041_audit_tamper_proof.sql`; las versiones se registran por nombre de archivo, así que ambas parejas se aplican, pero hay que acordar la renumeración antes de fusionar. Tampoco usar `FOR UPDATE` sobre `tenants` desde `nexodocs_app`: bajo RLS exige la política de UPDATE (`configuration:update`) y devuelve cero filas al resto de perfiles; `PlanRepository.findPlanIdByTenantIdForUpdate` usa un `pg_advisory_xact_lock` por tenant.
 
 El historial es `app.schema_migrations.version` con nombre completo sin extensión. Hay prefijos repetidos (018/020); no son colisiones automáticas. El runner no comprueba checksum del contenido aplicado.
 

@@ -116,8 +116,8 @@ export interface DocumentCreatePayload {
   specialty?: string;
   institutionalProcess?: string;
   metadata?: Record<string, any>;
-  code: string;
-  name: string;
+  code?: string;
+  name?: string;
   description?: string;
   issueDate?: string;
   expiryDate?: string;

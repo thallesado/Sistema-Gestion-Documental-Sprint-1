@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+import '../auth/user_permissions.dart';
 import '../errors/api_exception.dart';
+import '../notifications/workflow_notifications.dart';
 import 'api_client.dart';
 import 'clinical_api.dart';
 import 'documents_api.dart';
@@ -24,6 +27,9 @@ class AuthApi {
   late final documents = DocumentsApi(client);
   late final workflows = WorkflowsApi(client);
   late final clinical = ClinicalApi(client);
+
+  /// Permisos por función del usuario actual; el shell y las pantallas se redibujan al cambiar.
+  final ValueNotifier<UserPermissions> permissions = ValueNotifier(UserPermissions.unknown);
 
   Future<List<PublicTenant>> publicTenants() async {
     final list = await client.getPublic('/tenants/public') as List<dynamic>;
@@ -50,6 +56,18 @@ class AuthApi {
     final refreshToken = body['refreshToken'] as String?;
     if (token == null || refreshToken == null) throw const ApiException('Respuesta de sesión incompleta.');
     await client.saveTokens(token, refreshToken);
+    permissions.value = UserPermissions.fromJson(body);
+  }
+
+  /// Recarga los permisos desde `/auth/me` (sesión restaurada al abrir la app).
+  /// Si falla se mantienen los actuales: ocultar menús nunca sustituye la autorización del servidor.
+  Future<UserPermissions> loadPermissions() async {
+    try {
+      permissions.value = UserPermissions.fromJson(await me());
+    } on ApiException {
+      // Sin conexión o servidor antiguo: se conservan los permisos conocidos.
+    }
+    return permissions.value;
   }
 
   /// Cierra la sesión también en el servidor (revoca el refresh token), como la web.
@@ -63,6 +81,8 @@ class AuthApi {
       }
     }
     await client.clearSession();
+    permissions.value = UserPermissions.unknown;
+    await WorkflowNotifications.instance.stop();
   }
 
   Future<Map<String, dynamic>> me() async => await client.get('/auth/me') as Map<String, dynamic>;

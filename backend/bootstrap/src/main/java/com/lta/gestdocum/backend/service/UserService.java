@@ -39,6 +39,7 @@ public class UserService {
     private final com.lta.gestdocum.backend.repository.TenantRepository tenantRepository;
     private final AuthSessionService authSessionService;
     private final PlanEnforcementService planEnforcementService;
+    private final UserFormPolicy userFormPolicy;
 
     @org.springframework.beans.factory.annotation.Autowired
     public UserService(UserRepository userRepository,
@@ -48,7 +49,8 @@ public class UserService {
                        com.lta.gestdocum.backend.repository.RoleRepository roleRepository,
                        com.lta.gestdocum.backend.repository.TenantRepository tenantRepository,
                        AuthSessionService authSessionService,
-                       PlanEnforcementService planEnforcementService) {
+                       PlanEnforcementService planEnforcementService,
+                       UserFormPolicy userFormPolicy) {
         this.userRepository = userRepository;
         this.clinicalStaffRepository = clinicalStaffRepository;
         this.passwordEncoder = passwordEncoder;
@@ -57,9 +59,10 @@ public class UserService {
         this.tenantRepository = tenantRepository;
         this.authSessionService = authSessionService;
         this.planEnforcementService = planEnforcementService;
+        this.userFormPolicy = userFormPolicy;
     }
     public UserService(UserRepository u, ClinicalStaffRepository c, PasswordEncoder p, AuthenticatedUserContext a) {
-        this(u,c,p,a,null,null,null,null);
+        this(u,c,p,a,null,null,null,null,new UserFormPolicy());
     }
 
     @Transactional
@@ -70,6 +73,7 @@ public class UserService {
         if (request.getTenantId() != null && !tenantId.equals(request.getTenantId())) {
             throw new TenantMismatchException();
         }
+        userFormPolicy.validateCreate(request);
         planEnforcementService.validateUserLimit(tenantId);
         if (userRepository.existsByTenantIdAndUsernameIgnoreCase(tenantId, request.getUsername())) {
             throw new com.lta.gestdocum.backend.exception.DuplicateResourceException(
@@ -121,6 +125,7 @@ public class UserService {
     authenticatedUserContext.establishDatabaseContext();
     User user = userRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
             .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
+    userFormPolicy.validateUpdate(user, request);
 
     UserStatus previousStatus = user.getStatus();
     user.setFirstName(request.getFirstName());
@@ -177,7 +182,7 @@ public class UserService {
         UUID tenantId = authenticatedUserContext.requireTenantId();
         authenticatedUserContext.establishDatabaseContext();
         String normalizedFilter = filter == null || filter.isBlank() ? null : filter.trim();
-        return userRepository.findActiveByTenant(tenantId, normalizedFilter, pageable)
+        return userFormPolicy.hideComponents(userRepository.findActiveByTenant(tenantId, normalizedFilter, pageable)
                 .map(user -> {
                     Optional<ClinicalStaff> staff = clinicalStaffRepository
                             .findByUserIdAndTenantId(user.getId(), tenantId);
@@ -185,7 +190,7 @@ public class UserService {
                             user,
                             staff.map(value -> value.getStaffType().name()).orElse(null),
                             staff.map(ClinicalStaff::getSpecialty).orElse(null));
-                });
+                }));
     }
 
     @Transactional(readOnly = true)
@@ -217,10 +222,22 @@ public class UserService {
         Optional<ClinicalStaff> staff = tenantId == null
                 ? clinicalStaffRepository.findByUserIdAndTenantIdIsNull(userId)
                 : clinicalStaffRepository.findByUserIdAndTenantId(userId, tenantId);
-        return mapToResponse(
+        UserResponse response = mapToResponse(
                 user,
                 staff.map(value -> value.getStaffType().name()).orElse(null),
                 staff.map(ClinicalStaff::getSpecialty).orElse(null));
+        // Los permisos se toman del JWT de la sesión, que son los que autorizan cada petición.
+        // No se vuelven a consultar con el contexto RLS: user_roles y role_permissions solo son
+        // legibles con role:read y un perfil sin ese permiso recibiría una lista vacía.
+        response.setPermissions(user.isPlatformAdmin()
+                ? com.lta.gestdocum.backend.security.PlatformAuthorities.CODES
+                : tenantId == null ? java.util.List.of() : sessionPermissions());
+        if (tenantId != null && roleRepository != null) {
+            // Igual que los permisos: los grupos propios se leen sin depender de role:read.
+            response.setRoleIds(roleRepository.findCurrentIds());
+            response.setRoleNames(roleRepository.findCurrentNames());
+        }
+        return response;
     }
 
     @Transactional
@@ -304,6 +321,14 @@ public class UserService {
 
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /** Códigos de permiso del JWT actual, sin las authorities ROLE_* de emisores antiguos. */
+    private java.util.List<String> sessionPermissions() {
+        return authenticatedUserContext.require().authorities().stream()
+                .filter(code -> !code.startsWith("ROLE_"))
+                .sorted()
+                .toList();
     }
 
     private UserResponse mapToResponse(User user, String staffType, String specialty) {

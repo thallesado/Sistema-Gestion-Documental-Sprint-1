@@ -11,9 +11,11 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
         <span>{{ startResult }}–{{ endResult }} de <strong>{{ total }}</strong> resultados</span>
         <label>
           <span>Por página</span>
-          <select [value]="pageSize" (change)="changePageSize($event)" [attr.aria-label]="'Resultados por página'">
-            @for (size of pageSizes; track size) {
-              <option [value]="size">{{ size }}</option>
+          <!-- [selected] en cada opción: [value] en el select se aplica antes de que existan las opciones
+               y dejaba visible la primera (5) aunque el tamaño real fuera otro. -->
+          <select (change)="changePageSize($event)" [attr.aria-label]="'Resultados por página'">
+            @for (size of sizeOptions; track size) {
+              <option [value]="size" [selected]="size === pageSize">{{ size }}</option>
             }
           </select>
         </label>
@@ -38,6 +40,13 @@ export class Pagination {
   @Output() pageSizeChange = new EventEmitter<number>();
 
   readonly pageSizes = [5, 10, 25, 50, 100];
+
+  /** Incluye el tamaño actual aunque no esté en la lista, para que el selector nunca muestre otro valor. */
+  get sizeOptions(): number[] {
+    return this.pageSizes.includes(this.pageSize)
+      ? this.pageSizes
+      : [...this.pageSizes, this.pageSize].sort((a, b) => a - b);
+  }
 
   get visiblePages(): number[] {
     const start = Math.max(1, Math.min(this.page - 2, this.totalPages - 4));

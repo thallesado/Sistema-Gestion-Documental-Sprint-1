@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/auth_api.dart';
+import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
@@ -65,7 +66,14 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       ((source?['checklist_items'] as List<dynamic>?) ?? []).cast<Map<String, dynamic>>();
 
   bool get isOpen => !['COMPLETED', 'REJECTED', 'CANCELED'].contains(task?['status']);
-  bool get canAct => task?['can_act'] == true && isOpen;
+  UserPermissions get permissions => widget.api.permissions.value;
+
+  /// La tarea está asignada al usuario y sigue abierta (lo decide el servidor con `can_act`).
+  bool get assignedAndOpen => task?['can_act'] == true && isOpen;
+
+  /// Resolver y comentar exigen además `task:update`, como `WorkflowEngineService`.
+  bool get canAct => assignedAndOpen && permissions.can(Permissions.taskUpdate);
+  bool get canComment => permissions.can(Permissions.taskUpdate);
   bool get isCorrection => task?['correction'] == true;
   String get stageType => task?['stage_type'] as String? ?? 'TASK';
   Map<String, dynamic> get rules => (task?['rules'] as Map?)?.cast<String, dynamic>() ?? const {};
@@ -80,8 +88,20 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     };
   }
 
-  bool get canReject => !isCorrection && (stageType == 'APPROVAL' || stageType == 'REVIEW') && rules['allowReject'] != false;
-  bool get canReturn => !isCorrection && (stageType == 'APPROVAL' || stageType == 'REVIEW') && returnStages.isNotEmpty;
+  /// Permiso que exige la acción principal en el servidor (`null`: basta con `task:update`).
+  String? get primaryPermission => isCorrection
+      ? null
+      : switch (stageType) {
+          'APPROVAL' => Permissions.workflowApprove,
+          'REVIEW' => Permissions.workflowReview,
+          _ => null,
+        };
+  bool get canPrimary => primaryPermission == null || permissions.can(primaryPermission!);
+
+  bool get canReject => !isCorrection && (stageType == 'APPROVAL' || stageType == 'REVIEW') && rules['allowReject'] != false
+      && permissions.can(Permissions.workflowReject);
+  bool get canReturn => !isCorrection && (stageType == 'APPROVAL' || stageType == 'REVIEW') && returnStages.isNotEmpty
+      && permissions.can(Permissions.workflowReturn);
 
   /// Etapas a las que se puede devolver: la actual o anteriores.
   List<Map<String, dynamic>> get returnStages {
@@ -168,7 +188,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
           : error != null && task == null
           ? ErrorStateView(message: error!, onRetry: load)
           : RefreshIndicator(onRefresh: load, color: AppTheme.teal, child: _body()),
-      bottomNavigationBar: task == null || !canAct ? null : _actionBar(),
+      bottomNavigationBar: task == null || !canAct || !(canPrimary || canReject || canReturn) ? null : _actionBar(),
     ),
   );
 
@@ -190,9 +210,15 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
           StatusBadge(stageTypeLabel(stageType), tone: BadgeTone.brand),
           if (isCorrection) const StatusBadge('Corrección', tone: BadgeTone.warning),
         ]),
-        if (!canAct && isOpen) ...[
+        if (!assignedAndOpen && isOpen) ...[
           const SizedBox(height: 12),
           const _Notice('Esta tarea no está asignada a ti: puedes consultarla, pero no resolverla.'),
+        ] else if (assignedAndOpen && !canAct) ...[
+          const SizedBox(height: 12),
+          const _Notice('Tu perfil no tiene permiso para resolver tareas. Pide al administrador el permiso task:update.'),
+        ] else if (canAct && !canPrimary) ...[
+          const SizedBox(height: 12),
+          _Notice('Tu perfil no puede ${actionLabel(primaryAction).toLowerCase()} en esta etapa.'),
         ],
         const SizedBox(height: 16),
         _Section(title: 'Información', children: [
@@ -237,7 +263,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
               title: Text(c['comment'] as String? ?? ''),
               subtitle: Text('${c['author_name'] ?? ''} · ${formatDate(c['created_at'], withTime: true)}'),
             ),
-          Row(children: [
+          if (canComment) Row(children: [
             Expanded(
               child: TextField(
                 key: const Key('task-comment'),
@@ -287,7 +313,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
         Expanded(
           child: FilledButton(
             key: const Key('task-primary-action'),
-            onPressed: busy ? null : () => runAction(primaryAction),
+            onPressed: busy || !canPrimary ? null : () => runAction(primaryAction),
             style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, padding: const EdgeInsets.symmetric(vertical: 14)),
             child: Text(actionLabel(primaryAction)),
           ),

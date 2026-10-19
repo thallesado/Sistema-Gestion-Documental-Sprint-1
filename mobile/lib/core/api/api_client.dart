@@ -73,6 +73,17 @@ class ApiClient {
   Future<dynamic> patch(String path, [Object? body]) async =>
       _decode(await _send(() => _client.patch(uri(path), headers: _jsonHeaders, body: jsonEncode(body ?? {}))));
 
+  /// Envío `multipart/form-data` con la misma renovación de sesión que el resto de peticiones.
+  /// La petición se reconstruye en cada intento porque un `MultipartRequest` solo se puede enviar una vez.
+  Future<dynamic> postMultipart(String path, {Map<String, String> fields = const {}, required List<http.MultipartFile> Function() files}) async =>
+      _decode(await _send(() async {
+        final request = http.MultipartRequest('POST', uri(path))
+          ..headers.addAll(_headers)
+          ..fields.addAll(fields)
+          ..files.addAll(files());
+        return http.Response.fromStream(await _client.send(request));
+      }));
+
   Future<Uint8List> getBytes(String path) async =>
       (await _send(() => _client.get(uri(path), headers: _headers))).bodyBytes;
 

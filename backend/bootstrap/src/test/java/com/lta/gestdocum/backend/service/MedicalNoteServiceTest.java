@@ -40,6 +40,9 @@ class MedicalNoteServiceTest {
     @Mock
     private HtmlSanitizerService sanitizer;
 
+    @Mock
+    private ComponentPermissionService componentPermissions;
+
     @InjectMocks
     private MedicalNoteService service;
 
@@ -53,6 +56,8 @@ class MedicalNoteServiceTest {
         lenient().when(userContext.requireTenantId()).thenReturn(tenantId);
         lenient().when(userContext.requireUserId()).thenReturn(userId);
         lenient().when(sanitizer.sanitize(anyString())).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(componentPermissions.current(ComponentFormCatalog.MEDICAL_NOTE_FORM))
+                .thenReturn(ComponentFormAccess.unrestricted(ComponentFormCatalog.require(ComponentFormCatalog.MEDICAL_NOTE_FORM)));
     }
 
     @Test

@@ -24,13 +24,19 @@ public class MedicalNoteService {
     private final ClinicalHistoryRepository historyRepository;
     private final AuthenticatedUserContext userContext;
     private final HtmlSanitizerService sanitizer;
+    private final ComponentPermissionService componentPermissions;
+
+    /** Tipo que se asigna cuando el perfil no puede elegirlo (privilegios B2). */
+    static final String DEFAULT_NOTE_TYPE = "EVOLUTION";
 
     public MedicalNoteService(MedicalNoteRepository repository, ClinicalHistoryRepository historyRepository,
-                              AuthenticatedUserContext userContext, HtmlSanitizerService sanitizer) {
+                              AuthenticatedUserContext userContext, HtmlSanitizerService sanitizer,
+                              ComponentPermissionService componentPermissions) {
         this.repository = repository;
         this.historyRepository = historyRepository;
         this.userContext = userContext;
         this.sanitizer = sanitizer;
+        this.componentPermissions = componentPermissions;
     }
 
     @Transactional(readOnly = true)
@@ -43,12 +49,13 @@ public class MedicalNoteService {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
         requireHistory(clinicalHistoryId, tenantId);
+        ComponentFormAccess access = noteAccess();
         if (status != null) {
             return repository.findByTenantIdAndClinicalHistoryIdAndStatusOrderByCreatedAtDesc(tenantId, clinicalHistoryId, status, pageable)
-                    .map(this::toResponse);
+                    .map(note -> toResponse(note, access));
         }
         return repository.findByTenantIdAndClinicalHistoryIdOrderByCreatedAtDesc(tenantId, clinicalHistoryId, pageable)
-                .map(this::toResponse);
+                .map(note -> toResponse(note, access));
     }
 
     @Transactional
@@ -56,6 +63,10 @@ public class MedicalNoteService {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
         requireHistory(request.clinicalHistoryId(), tenantId);
+        ComponentFormAccess access = noteAccess();
+        access.requireUnchanged("tipo", DEFAULT_NOTE_TYPE, request.noteType());
+        access.requireUnchanged("estado", DocumentStatus.DRAFT, request.status());
+        access.requireEditableIfProvided("contenido", request.content());
         DocumentStatus initialStatus = request.status() != null ? request.status() : DocumentStatus.DRAFT;
         String rawContent = request.content() != null ? request.content().trim() : "";
         String cleanContent = sanitizer.sanitize(rawContent);
@@ -67,12 +78,12 @@ public class MedicalNoteService {
                 .clinicalHistoryId(request.clinicalHistoryId())
                 .episodeId(request.episodeId())
                 .authorId(userContext.requireUserId())
-                .noteType(request.noteType().trim())
+                .noteType(access.editable("tipo") ? request.noteType().trim() : DEFAULT_NOTE_TYPE)
                 .content(cleanContent)
                 .status(initialStatus)
                 .createdAt(OffsetDateTime.now())
                 .build();
-        return toResponse(repository.save(note));
+        return toResponse(repository.save(note), access);
     }
 
     @Transactional
@@ -86,6 +97,8 @@ public class MedicalNoteService {
                 .orElseThrow(() -> new NotFoundException("Nota médica no encontrada"));
 
         DocumentStatus currentStatus = note.getStatus() != null ? note.getStatus() : DocumentStatus.DRAFT;
+        ComponentFormAccess access = noteAccess();
+        access.requireUnchanged("estado", currentStatus, targetStatus);
 
         // Regla HU-09: Solo transiciones desde DRAFT a APPROVED o VOIDED
         if (currentStatus != DocumentStatus.DRAFT ||
@@ -96,7 +109,7 @@ public class MedicalNoteService {
         }
 
         note.setStatus(targetStatus);
-        return toResponse(repository.save(note));
+        return toResponse(repository.save(note), access);
     }
 
     private ClinicalHistory requireHistory(UUID id, UUID tenantId) {
@@ -104,9 +117,15 @@ public class MedicalNoteService {
                 .orElseThrow(() -> new NotFoundException("Historia clínica no encontrada"));
     }
 
-    private MedicalNoteResponse toResponse(MedicalNote note) {
+    private ComponentFormAccess noteAccess() {
+        return componentPermissions.current(ComponentFormCatalog.MEDICAL_NOTE_FORM);
+    }
+
+    /** Los componentes ocultos para el perfil no se devuelven (privilegios B2). */
+    private MedicalNoteResponse toResponse(MedicalNote note, ComponentFormAccess access) {
         DocumentStatus status = note.getStatus() != null ? note.getStatus() : DocumentStatus.DRAFT;
         return new MedicalNoteResponse(note.getId(), note.getClinicalHistoryId(), note.getEpisodeId(),
-                note.getAuthorId(), note.getNoteType(), note.getContent(), status, note.getCreatedAt());
+                note.getAuthorId(), access.reveal("tipo", note.getNoteType()), access.reveal("contenido", note.getContent()),
+                access.reveal("estado", status), note.getCreatedAt());
     }
 }

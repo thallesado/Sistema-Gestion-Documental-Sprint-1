@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>NexoDocs usa la cámara para fotografiar documentos y subirlos como nueva versión.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>NexoDocs accede a tus fotos para subir una imagen como nueva versión de un documento.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

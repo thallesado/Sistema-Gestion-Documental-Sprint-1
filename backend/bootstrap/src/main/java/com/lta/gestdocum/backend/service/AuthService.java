@@ -73,7 +73,7 @@ public class AuthService {
         }
 
         List<String> authorities = user.isPlatformAdmin()
-                ? List.of("platform:tenant:manage", "audit:read_global")
+                ? com.lta.gestdocum.backend.security.PlatformAuthorities.CODES
                 : userRepository.findAuthorityCodes(user.getId(), user.getTenantId());
         if (authorities.isEmpty()) {
             throw new org.springframework.security.access.AccessDeniedException(
@@ -84,7 +84,7 @@ public class AuthService {
         String refreshToken = jwtService.generateRefreshToken(
                 user.getId(), user.getTenantId(), user.getUsername());
         authSessionService.issue(user, refreshToken, jwtService.getRefreshExpiration());
-        return new AuthResponse(token, "Bearer", refreshToken, jwtService.getExpiration());
+        return new AuthResponse(token, "Bearer", refreshToken, jwtService.getExpiration(), authorities);
     }
 
     public AuthResponse refresh(RefreshTokenRequest request) {
@@ -99,7 +99,7 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
         List<String> authorities = user.isPlatformAdmin()
-                ? List.of("platform:tenant:manage", "audit:read_global")
+                ? com.lta.gestdocum.backend.security.PlatformAuthorities.CODES
                 : userRepository.findAuthorityCodes(user.getId(), user.getTenantId());
         if (authorities.isEmpty()) {
             throw new org.springframework.security.access.AccessDeniedException(
@@ -111,7 +111,7 @@ public class AuthService {
                 user.getId(), user.getTenantId(), user.getUsername());
         authSessionService.rotate(user, request.getRefreshToken(), replacementRefreshToken,
                 jwtService.getRefreshExpiration());
-        return new AuthResponse(token, "Bearer", replacementRefreshToken, jwtService.getExpiration());
+        return new AuthResponse(token, "Bearer", replacementRefreshToken, jwtService.getExpiration(), authorities);
     }
 
     public void logout(AuthenticatedUser authenticatedUser, String token, String refreshToken) {

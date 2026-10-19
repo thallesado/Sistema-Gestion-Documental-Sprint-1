@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../core/api/auth_api.dart';
+import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/state_views.dart';
+import 'upload_version_sheet.dart';
 
 /// Abre el detalle de un documento (metadatos + versiones descargables).
 Future<void> showDocumentDetail(BuildContext context, AuthApi api, String documentId) => showModalBottomSheet<void>(
@@ -21,11 +23,14 @@ Future<void> showDocumentDetail(BuildContext context, AuthApi api, String docume
 );
 
 class DocumentDetailSheet extends StatefulWidget {
-  const DocumentDetailSheet({super.key, required this.api, required this.documentId, this.scrollController});
+  const DocumentDetailSheet({super.key, required this.api, required this.documentId, this.scrollController, this.picker = pickWithDevice});
 
   final AuthApi api;
   final String documentId;
   final ScrollController? scrollController;
+
+  /// Origen de archivos para "Nueva versión" (cámara, galería o archivo); sustituible en pruebas.
+  final UploadPicker picker;
 
   @override
   State<DocumentDetailSheet> createState() => _DocumentDetailSheetState();
@@ -85,6 +90,11 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
     }
   }
 
+  Future<void> uploadVersion() async {
+    final uploaded = await showUploadVersionSheet(context, widget.api, widget.documentId, picker: widget.picker);
+    if (uploaded) await load();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator(color: AppTheme.teal));
@@ -128,7 +138,22 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
         _row('Fecha de vencimiento', formatDate(doc['expiryDate'])),
         _row('Última actualización', formatDate(doc['updatedAt'], withTime: true)),
         const SizedBox(height: 16),
-        Text('Versiones (${versions.length})', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.ink)),
+        Row(children: [
+          Expanded(child: Text('Versiones (${versions.length})', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.ink))),
+          // Subir una versión exige document:update, igual que POST /documents/{id}/versions.
+          ValueListenableBuilder<UserPermissions>(
+            valueListenable: widget.api.permissions,
+            builder: (context, permissions, _) => permissions.can(Permissions.documentUpdate)
+                ? TextButton.icon(
+                    key: const Key('upload-version'),
+                    onPressed: uploadVersion,
+                    icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                    label: const Text('Nueva versión'),
+                    style: TextButton.styleFrom(foregroundColor: AppTheme.teal),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ]),
         const SizedBox(height: 6),
         if (versions.isEmpty) Text('Este documento aún no tiene archivos.', style: TextStyle(color: Colors.grey.shade600)),
         for (final version in versions)

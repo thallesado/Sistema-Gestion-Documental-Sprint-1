@@ -20,7 +20,17 @@ No crear automáticamente core/services, interceptors o guards por una estructur
 
 Componentes standalone, imports explícitos, servicios por inyección y signals/computed para estado de UI. RxJS para solicitudes, errores y cancelación. Reutilizar formularios y componentes existentes; no agregar NgModule ni un store externo sin necesidad.
 
-Rutas por feature con loadComponent. El menú viene de datos y aplica roles/banderas; no es la autoridad del backend ni un gate uniforme de capacidades tenant.
+Rutas por feature con loadComponent. El menú viene de datos y aplica permisos de función y banderas (`sprintEnabled`, `visible`); no es la autoridad del backend ni un gate uniforme de capacidades tenant.
+
+## Permisos por función en la interfaz
+
+- `AuthUser.permissions` llega de `/auth/me`. `PermissionService.can('document:create')` acepta un código o una lista (basta cualquiera, como `hasAnyAuthority`).
+- Las reglas puras están en `core/auth/permission-rules.ts` para probarlas con `node --test` (`frontend/tests/permissions.test.mjs`).
+- Entradas de menú (`core/data/nexodocs-data.ts`): campo opcional `permission`; los hijos heredan el del padre. Debe copiar el `@PreAuthorize` del endpoint que usa la pantalla. Ya no hay filtro por los cuatro nombres de rol fijos.
+- Rutas: `hasPermissionGuard('codigo')`; `userAdminGuard` equivale a `hasPermissionGuard('user:read')`.
+- Plantillas: `*appHasPermission="'role:create'"` (`HasPermissionDirective`).
+- Privilegios por componente: `[appField]="'documento.nuevo.codigo'"` (`FieldPermissionDirective`) oculta o deshabilita el control según `ComponentPermissionService`; catálogo en `core/auth/form-registry.ts`. Ver [usuarios y privilegios](../04-dominio-y-negocio/usuarios-grupos-y-privilegios.md).
+- La etiqueta de rol del encabezado todavía se calcula con los cuatro textos de `Role`; es solo informativa.
 
 ## Rutas que no deben confundirse
 

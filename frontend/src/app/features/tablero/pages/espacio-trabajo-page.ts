@@ -270,8 +270,8 @@ const DEFAULT_ROUTE_INFO: RouteInfo = { module: 'Inicio', subcategory: 'Resumen'
               }
             </span>
             <div class="module-hero-text">
-              <p class="eyebrow">{{ isRolesView ? 'USUARIOS Y EQUIPOS · ROLES' : isPermissionsView ? 'USUARIOS Y EQUIPOS · PERMISOS' : isNotificationsView ? ('NOTIFICACIONES · ' + (routeInfo.subcategory || 'Todas') | uppercase) : isTasksView ? 'INICIO · MIS TAREAS' : 'INICIO · ACTIVIDAD RECIENTE' }}</p>
-              <h1>{{ isRolesView ? 'Roles del sistema' : isPermissionsView ? 'Permisos del sistema' : isNotificationsView ? (routeInfo.subcategory === 'Todas' ? 'Centro de notificaciones' : routeInfo.subcategory === 'No leidas' ? 'Notificaciones no leídas' : routeInfo.subcategory === 'Tareas' ? 'Notificaciones de tareas' : routeInfo.subcategory === 'Aprobaciones' ? 'Solicitudes de aprobación' : routeInfo.subcategory === 'Menciones' ? 'Menciones y comentarios' : routeInfo.subcategory) : isTasksView ? 'Mis tareas' : 'Actividad reciente' }}</h1>
+              <p class="eyebrow">{{ isRolesView ? 'USUARIOS Y EQUIPOS · GRUPOS DE USUARIOS' : isPermissionsView ? 'USUARIOS Y EQUIPOS · PERMISOS' : isNotificationsView ? ('NOTIFICACIONES · ' + (routeInfo.subcategory || 'Todas') | uppercase) : isTasksView ? 'INICIO · MIS TAREAS' : 'INICIO · ACTIVIDAD RECIENTE' }}</p>
+              <h1>{{ isRolesView ? 'Grupos de usuarios (perfiles)' : isPermissionsView ? 'Permisos del sistema' : isNotificationsView ? (routeInfo.subcategory === 'Todas' ? 'Centro de notificaciones' : routeInfo.subcategory === 'No leidas' ? 'Notificaciones no leídas' : routeInfo.subcategory === 'Tareas' ? 'Notificaciones de tareas' : routeInfo.subcategory === 'Aprobaciones' ? 'Solicitudes de aprobación' : routeInfo.subcategory === 'Menciones' ? 'Menciones y comentarios' : routeInfo.subcategory) : isTasksView ? 'Mis tareas' : 'Actividad reciente' }}</h1>
               <p>{{ isRolesView ? 'Define y administra los perfiles de acceso y responsabilidades de los usuarios en el tenant.' : isPermissionsView ? 'Controla qué acciones y operaciones puede realizar cada rol sobre los módulos de NexoDocs.' : isNotificationsView ? copy.description : isTasksView ? 'Prioriza revisiones, aprobaciones y validaciones asignadas a tu usuario.' : 'Consulta los últimos movimientos realizados dentro de la organización.' }}</p>
             </div>
           </div>
@@ -296,7 +296,7 @@ const DEFAULT_ROUTE_INFO: RouteInfo = { module: 'Inicio', subcategory: 'Resumen'
                 <span>Marcar todo leído</span>
               } @else if (isRolesView || isPermissionsView) {
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>{{ isRolesView ? 'Nuevo rol' : 'Crear permiso' }}</span>
+                <span>{{ isRolesView ? 'Nuevo grupo' : 'Crear permiso' }}</span>
               } @else if (isTasksView) {
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
                   <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -547,7 +547,7 @@ const DEFAULT_ROUTE_INFO: RouteInfo = { module: 'Inicio', subcategory: 'Resumen'
           }
 
           <div class="module-card-header">
-            <h2>{{ isNotificationsView ? 'Bandeja de notificaciones' : isRolesView ? 'Roles configurados' : isPermissionsView ? 'Matriz de permisos' : 'Inicio recientes' }}</h2>
+            <h2>{{ isNotificationsView ? 'Bandeja de notificaciones' : isRolesView ? 'Grupos configurados' : isPermissionsView ? 'Matriz de permisos' : 'Inicio recientes' }}</h2>
             <p>{{ isNotificationsView ? 'Avisos, asignaciones y eventos en tiempo real del tenant activo.' : isRolesView ? 'Perfiles de acceso y responsabilidades definidos en el tenant.' : isPermissionsView ? 'Operaciones autorizables en la plataforma documental.' : 'Datos del tenant autenticado.' }}</p>
           </div>
 
@@ -1294,7 +1294,7 @@ const DEFAULT_ROUTE_INFO: RouteInfo = { module: 'Inicio', subcategory: 'Resumen'
       @if (!isTasksView && !isActivityView && !isRolesView && !isPermissionsView && !isNotificationsView && !isScanPage && !isOcrFlow) {
         <footer class="demo-note"><span>ⓘ</span> Las operaciones disponibles dependen de la API y los permisos de la sesión autenticada.</footer>
       }
-      @if (roleFormOpen()) { <app-role-form-modal [role]="editingRole()" (closed)="closeRoleForm()" (saved)="loadRoles(); actionMessage = editingRole() ? 'Rol actualizado correctamente' : 'Rol creado correctamente'" /> }
+      @if (roleFormOpen()) { <app-role-form-modal [role]="editingRole()" (closed)="closeRoleForm()" (saved)="loadRoles(); actionMessage = editingRole() ? 'Grupo actualizado correctamente' : 'Grupo creado correctamente'" /> }
       <app-role-permissions-modal [roleId]="rolePermissionsId()" (closed)="rolePermissionsId.set(null)" (saved)="loadRoles()" />
     </section>
   `,

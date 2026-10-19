@@ -3,6 +3,7 @@ export interface AuthResponse {
   tokenType: string;
   refreshToken: string;
   expiresIn: number;
+  permissions?: string[];
 }
 
 export interface AuthUser {
@@ -12,6 +13,8 @@ export interface AuthUser {
   tenantLogoUrl: string | null;
   platformAdmin: boolean;
   roleNames: string[];
+  /** Permisos efectivos del usuario (códigos `modulo:accion`) devueltos por /auth/me. */
+  permissions: string[];
   username: string;
   email: string;
   firstName: string;

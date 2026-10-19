@@ -1,6 +1,8 @@
 import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
 import { AuthService } from './auth.service';
+import { PermissionRequirement } from './permission-rules';
+import { PermissionService } from './permission.service';
 
 export const authGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);
@@ -27,17 +29,19 @@ export const platformAdminGuard: CanActivateFn = (_route, state) => {
   return router.createUrlTree(['/access-denied'], { queryParams: { returnUrl: state.url } });
 };
 
-/** Administración de usuarios/roles: superadministrador de plataforma o administrador de tenant. */
-export const userAdminGuard: CanActivateFn = (_route, state) => {
-  const auth = inject(AuthService);
+/**
+ * Acceso por permiso de función: `canActivate: [authGuard, hasPermissionGuard('document:create')]`.
+ * Con una lista basta cualquiera de los permisos. No sustituye a @PreAuthorize en el backend.
+ */
+export const hasPermissionGuard = (required: PermissionRequirement): CanActivateFn => (_route, state) => {
+  const permissions = inject(PermissionService);
   const router = inject(Router);
-  const user = auth.user();
-  const allowed = !!user && (user.platformAdmin === true || (user.roleNames ?? []).some((name) => {
-    const role = name.toUpperCase();
-    return role === 'SUPER_ADMIN' || role === 'TENANT_ADMIN' || role === 'ADMINISTRADOR DE TENANT';
-  }));
-  return allowed || router.createUrlTree(['/access-denied'], { queryParams: { returnUrl: state.url } });
+  return permissions.can(required)
+    || router.createUrlTree(['/access-denied'], { queryParams: { returnUrl: state.url } });
 };
+
+/** Administración de usuarios y grupos: cualquier rol con `user:read`, no un nombre de rol fijo. */
+export const userAdminGuard: CanActivateFn = hasPermissionGuard('user:read');
 
 /** Rutas públicas (login, recuperar contraseña): un usuario ya autenticado va directo al dashboard. */
 export const publicGuard: CanActivateFn = () => {

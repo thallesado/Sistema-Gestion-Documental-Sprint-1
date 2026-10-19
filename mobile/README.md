@@ -37,9 +37,12 @@ lib/
 │   │   ├── documents_api.dart
 │   │   ├── workflows_api.dart
 │   │   └── clinical_api.dart
+│   ├── auth/user_permissions.dart   # Permisos por función de /auth/me (menú y botones)
+│   ├── notifications/        # Avisos del sistema: comprobación en primer y segundo plano
 │   ├── errors/api_exception.dart
 │   ├── theme/app_theme.dart  # Paleta compartida con la web
 │   ├── utils/format.dart     # Fechas y etiquetas de estado (mismos textos que la web)
+│   ├── utils/upload_rules.dart  # Formatos y límites de POST /documents/{id}/versions
 │   └── widgets/state_views.dart
 └── screens/                  # auth, dashboard, documents, tasks, notifications, patients, profile, shell
 ```
@@ -53,10 +56,41 @@ La app nunca muestra datos de ejemplo en su lugar.
 |---|---|
 | Login con selector de organización, renovación y cierre de sesión | ✅ |
 | Inicio (resumen, tareas pendientes, documentos y actividad) | ✅ |
-| Documentos: listado, filtros, detalle, versiones y descarga | ✅ (crear y subir versiones: pendiente) |
+| Documentos: listado, filtros, detalle, versiones y descarga | ✅ |
+| Subir nueva versión con la cámara, la galería o un archivo | ✅ (crear documentos: pendiente) |
+| Permisos por función: pestañas, campana y acciones según `/auth/me` | ✅ |
+| Avisos de workflow como notificaciones del sistema | ✅ Android (iOS: solo con la app abierta) |
 | Workflows: mis tareas, detalle, aprobar/revisar/completar/rechazar/devolver, checklist y comentarios | ✅ (diseñador e inicio de workflows: pendiente) |
 | Notificaciones | ✅ |
 | Pacientes y resumen clínico | ⚠️ parcial (antecedentes y notas médicas: pendiente) |
 | Perfil | ✅ consulta (edición, contraseña y foto: pendiente) |
 | Expedientes, Digitalización/OCR, Auditoría, Usuarios y roles, Reportes, Facturación | ❌ pendiente |
 | Idiomas (es/en/fr/zh) | ❌ pendiente (solo castellano) |
+
+## Permisos, nueva versión y avisos
+
+**Permisos.** El login y `GET /auth/me` devuelven `permissions`. La app oculta lo que el perfil no
+puede usar, con los mismos códigos que el backend:
+
+| Elemento | Permiso |
+|---|---|
+| Pestaña Documentos / Tareas / Clínico | `document:read` / `task:read` / `patient:read` |
+| Campana y avisos | `notification:read` |
+| Resolver y comentar tareas | `task:update` (+ `workflow:approve`, `workflow:review`, `workflow:reject` o `workflow:return` según la acción) |
+| Nueva versión de un documento | `document:update` |
+
+Si el servidor no informa `permissions` no se oculta nada; el backend sigue rechazando con 403.
+
+**Nueva versión.** Detalle del documento → **Nueva versión** → Cámara, Galería o Archivo, y un
+motivo obligatorio. Formatos PDF, JPG, PNG o DOCX hasta 25 MB (las mismas reglas que
+`DocumentStorageService`); el servidor calcula el SHA-256.
+
+**Avisos.** No usa Firebase. Con la app abierta consulta `/workflows/notifications` cada minuto y
+al volver a primer plano; en Android, WorkManager lo hace con la app cerrada (como mínimo cada
+15 minutos y solo con red). Los avisos ya vistos no se repiten y, al iniciar sesión, los antiguos
+no se notifican. En segundo plano solo se usa el token de acceso: nunca se renueva la sesión,
+para no invalidar el refresh token que usa la app. Al tocar el aviso se abre la tarea.
+
+Para probarlo con el APK: `flutter build apk --release`, instalar `build/app/outputs/flutter-apk/app-release.apk`,
+configurar la URL del servidor en el login (⚙), aceptar el permiso de notificaciones y asignar
+una tarea a ese usuario desde la web. Con la app abierta llega en menos de un minuto.

@@ -219,6 +219,9 @@ export class AuthService {
         roleNames: Array.isArray(user.roleNames)
           ? user.roleNames.filter((role): role is string => typeof role === 'string')
           : [],
+        permissions: Array.isArray(user.permissions)
+          ? user.permissions.filter((code): code is string => typeof code === 'string')
+          : [],
         username: user.username,
         email: user.email,
         firstName: typeof user.firstName === 'string' ? user.firstName : '',
@@ -236,7 +239,12 @@ export class AuthService {
     }
   }
 
-  private setCurrentUser(user: AuthUser): void {
+  private setCurrentUser(response: AuthUser): void {
+    // Solo GET /auth/me informa los permisos; las respuestas de edición del perfil
+    // conservan los que ya se conocían en lugar de vaciar el menú.
+    const user: AuthUser = Array.isArray(response.permissions)
+      ? response
+      : { ...response, permissions: this.user()?.permissions ?? [] };
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
     this.user.set(user);
   }

@@ -9,12 +9,12 @@ import { AdministrationApiService, ApiPermission, ApiRole } from '../../../core/
   template: `
     <div class="modal-backdrop" role="presentation">
       <form class="admin-modal permissions-modal" [formGroup]="form" (ngSubmit)="save()" role="dialog" aria-modal="true" aria-labelledby="role-form-title" novalidate>
-        <h2 id="role-form-title">{{ role ? 'Editar rol' : 'Nuevo rol' }}</h2>
-        <p class="form-note">{{ role ? 'Actualiza el nombre, la descripción y los permisos del rol.' : 'Define el nombre del rol y los permisos que concede a sus usuarios.' }}</p>
+        <h2 id="role-form-title">{{ role ? 'Editar grupo' : 'Nuevo grupo' }}</h2>
+        <p class="form-note">{{ role ? 'Actualiza el nombre, la descripción y los permisos del grupo.' : 'Define el nombre del grupo (perfil) y las funciones que concede a sus usuarios.' }}</p>
         @if (error()) { <div class="admin-state error" role="alert">{{ error() }}</div> }
         <div class="form-grid">
           <label>Nombre<input formControlName="name" maxlength="80" />
-            @if (form.controls.name.touched && form.controls.name.invalid) { <small class="field-error">Ingresa el nombre del rol.</small> }
+            @if (form.controls.name.touched && form.controls.name.invalid) { <small class="field-error">Ingresa el nombre del grupo.</small> }
           </label>
           <label>Descripción<input formControlName="description" maxlength="255" /></label>
         </div>
@@ -40,7 +40,7 @@ import { AdministrationApiService, ApiPermission, ApiRole } from '../../../core/
         </div>
         <div class="form-actions">
           <button class="admin-secondary" type="button" (click)="closed.emit()">Cancelar</button>
-          <button class="admin-primary" type="submit" [disabled]="saving() || loading()">{{ saving() ? 'Guardando…' : role ? 'Guardar cambios' : 'Crear rol' }}</button>
+          <button class="admin-primary" type="submit" [disabled]="saving() || loading()">{{ saving() ? 'Guardando…' : role ? 'Guardar cambios' : 'Crear grupo' }}</button>
         </div>
       </form>
     </div>
@@ -95,7 +95,7 @@ export class RoleFormModal implements OnInit {
     if (err.status === 0) return 'No se pudo conectar con el servidor. Inténtalo de nuevo.';
     const body = err.error;
     const serverMessage = typeof body === 'string' ? body : body?.message ?? body?.details;
-    return serverMessage || 'No se pudo guardar el rol.';
+    return serverMessage || 'No se pudo guardar el grupo.';
   }
 
   save(): void {

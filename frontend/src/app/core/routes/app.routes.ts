@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { navigationRoutes, RouteInfo } from '../data/nexodocs-data';
-import { authGuard, rootEntryGuard, userAdminGuard } from '../auth/auth.guard';
+import { authGuard, hasPermissionGuard, rootEntryGuard, userAdminGuard } from '../auth/auth.guard';
+import { TENANT_PLAN_ADMIN } from '../auth/permission-rules';
 import { autenticacionRoutes } from '../../features/auth/auth.routes';
 import { clinicoRoutes } from '../../features/clinico/clinico.routes';
 import { administracionRoutes } from '../../features/users/users.routes';
@@ -62,7 +63,8 @@ export const routes: Routes = [
   {
     path: 'billing',
     loadComponent: () => import('../../features/billing/pages/billing-page').then((m) => m.BillingPage),
-    title: 'Facturación e ingresos - NexoDocs', canActivate: [authGuard],
+    title: 'Facturación e ingresos - NexoDocs',
+    canActivate: [authGuard, hasPermissionGuard([...TENANT_PLAN_ADMIN, 'platform:tenant:manage'])],
   },
   {
     path: 'plans/contact-sales',

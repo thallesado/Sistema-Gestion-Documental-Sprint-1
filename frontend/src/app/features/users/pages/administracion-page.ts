@@ -8,13 +8,18 @@ import { AdministrationApiService, ApiRole, ApiTenant, ApiUser } from '../../../
 import { AuthService } from '../../../core/auth/auth.service';
 import { CreateUserModal } from '../components/create-user-modal';
 import { RolePermissionsModal } from '../components/role-permissions-modal';
+import { RoleFormModal } from '../components/role-form-modal';
+import { PermissionService } from '../../../core/auth/permission.service';
+import { HasPermissionDirective } from '../../../core/auth/has-permission.directive';
+import { FieldPermissionDirective } from '../../../core/auth/field-permission.directive';
+import { ComponentPermissionService } from '../../../core/auth/component-permission.service';
 import { ExportColumn, exportToCsv, exportToJson, exportToPrintView } from '../../../core/utils/export-utils';
 import { Pagination } from '../../../shared/components/pagination/pagination.component';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 
 @Component({
   selector: 'app-administration-page',
-  imports: [CommonModule, FormsModule, RouterLink, CreateUserModal, RolePermissionsModal, Pagination, LocalizedContentDirective],
+  imports: [CommonModule, FormsModule, RouterLink, CreateUserModal, RolePermissionsModal, RoleFormModal, HasPermissionDirective, FieldPermissionDirective, Pagination, LocalizedContentDirective],
   template: `
     <section class="admin-page" i18nContent>
       @if (isTenantArea) {
@@ -39,23 +44,27 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
           <div class="admin-state forbidden" role="alert"><b>Acceso restringido</b><span>La vista global de tenants solo está disponible para Superadministrador.</span></div>
         }
       } @else if (!canManageUsers()) {
-        <div class="admin-state forbidden" role="alert"><b>Acceso restringido</b><span>Solo un Administrador de tenant o Superadministrador puede gestionar usuarios.</span></div>
+        <div class="admin-state forbidden" role="alert"><b>Acceso restringido</b><span>Tu perfil no tiene el permiso para consultar usuarios (user:read).</span></div>
       } @else {
         <header class="admin-header">
           <div><p class="eyebrow">Gestión · Usuarios y equipos</p><h1>Usuarios del tenant</h1><p>Administra las cuentas de {{ tenantName() }} sin salir del tenant autenticado.</p></div>
-          <button class="admin-primary" type="button" (click)="openCreateUserModal()">＋ Crear usuario</button>
+          @if (activeTab() === 'roles') {
+            <button *appHasPermission="'role:create'" class="admin-primary" type="button" (click)="roleFormOpen.set(true)">＋ Crear grupo</button>
+          } @else {
+            <button *appHasPermission="'user:create'" class="admin-primary" type="button" (click)="openCreateUserModal()">＋ Crear usuario</button>
+          }
         </header>
           <div class="admin-tabs" role="tablist">
             <button type="button" role="tab" class="admin-tab" [class.active]="activeTab() === 'users'" (click)="activeTab.set('users')">Usuarios</button>
-            <button type="button" role="tab" class="admin-tab" [class.active]="activeTab() === 'roles'" (click)="activeTab.set('roles')">Roles y permisos</button>
+            <button type="button" role="tab" class="admin-tab" [class.active]="activeTab() === 'roles'" (click)="activeTab.set('roles')">Grupos de usuarios (perfiles)</button>
           </div>
           @if (activeTab() === 'roles') {
             <section class="admin-table-wrap">
-              @if (rolesLoading()) { <p class="admin-empty">Cargando roles…</p> }
+              @if (rolesLoading()) { <p class="admin-empty">Cargando grupos…</p> }
               @else if (rolesError()) { <div class="admin-state error" role="alert">{{ rolesError() }}</div> }
               @else {
-                <table><thead><tr><th>Rol</th><th>Descripción</th><th>Tipo</th><th><span class="sr-only">Acciones</span></th></tr></thead>
-                <tbody>@for (role of roles(); track role.id) { <tr><td><b>{{ role.name }}</b></td><td>{{ role.description || '—' }}</td><td><span class="admin-status" [class.inactive]="role.system">{{ role.system ? 'Sistema' : 'Personalizado' }}</span></td><td><button class="link-button" type="button" (click)="permissionsRoleId.set(role.id)">Permisos</button></td></tr> }</tbody></table>
+                <table><thead><tr><th>Grupo</th><th>Descripción</th><th>Tipo</th><th><span class="sr-only">Acciones</span></th></tr></thead>
+                <tbody>@for (role of roles(); track role.id) { <tr><td><b>{{ role.name }}</b></td><td>{{ role.description || '—' }}</td><td><span class="admin-status" [class.inactive]="role.system">{{ role.system ? 'Sistema' : 'Personalizado' }}</span></td><td><button *appHasPermission="'role:read'" class="link-button" type="button" (click)="permissionsRoleId.set(role.id)">Permisos</button></td></tr> }</tbody></table>
               }
             </section>
           } @else {
@@ -94,9 +103,9 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
             }
             @if (editUser()) {
               <div class="modal-backdrop" role="presentation"><section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
-                <h2 id="edit-user-title">Editar usuario</h2><p class="form-note">Actualiza los datos y roles permitidos para este usuario.</p>@if (editError()) { <div class="admin-state error" role="alert">{{ editError() }}</div> } @if (rolesLoading()) { <p class="admin-empty">Cargando roles…</p> } @else if (rolesError()) { <div class="admin-state error" role="alert">{{ rolesError() }}</div> }
-                <div class="form-grid"><label>Nombre<input [(ngModel)]="editForm.firstName" /></label><label>Apellido<input [(ngModel)]="editForm.lastName" /></label><label>Correo<input type="email" [(ngModel)]="editForm.email" /></label><label>Estado<select [(ngModel)]="editForm.status"><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option></select></label><label class="chip-field">Roles permitidos
-                <div class="role-chip-list" role="group" aria-label="Roles permitidos">
+                <h2 id="edit-user-title">Editar usuario</h2><p class="form-note">Actualiza los datos y los grupos del usuario. Debe pertenecer al menos a uno.</p>@if (editError()) { <div class="admin-state error" role="alert">{{ editError() }}</div> } @if (rolesLoading()) { <p class="admin-empty">Cargando grupos…</p> } @else if (rolesError()) { <div class="admin-state error" role="alert">{{ rolesError() }}</div> }
+                <div class="form-grid"><label [appField]="'usuario.nombre'">Nombre<input [(ngModel)]="editForm.firstName" /></label><label [appField]="'usuario.apellido'">Apellido<input [(ngModel)]="editForm.lastName" /></label><label [appField]="'usuario.correo'">Correo<input type="email" [(ngModel)]="editForm.email" /></label><label [appField]="'usuario.estado'">Estado<select [(ngModel)]="editForm.status"><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option></select></label><label class="chip-field" [appField]="'usuario.grupos'">Grupos del usuario
+                <div class="role-chip-list" role="group" aria-label="Grupos del usuario">
                   @for (role of roles(); track role.id) {
                     <button type="button" class="role-chip" [class.selected]="editForm.roleIds.includes(role.id)" (click)="toggleEditRole(role.id)">{{ role.name }}</button>
                   }
@@ -112,19 +121,24 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
               <app-pagination [total]="visibleTotal()" [page]="userPage() + 1" [pageSize]="userPageSize()" label="Paginación de usuarios" (pageChange)="changeUserPage($event)" (pageSizeChange)="changeUserPageSize($event)" />
             }
           </section>
-          <p class="api-note">Los roles se asignan en creación y edición mediante roleIds. Activar/desactivar utiliza la actualización del usuario.</p>
+          <p class="api-note">Cada usuario pertenece al menos a un grupo (perfil); los grupos definen sus permisos. Activar/desactivar utiliza la actualización del usuario.</p>
           }
       }
       @if (showCreateModal()) {
         <app-create-user-modal [roles]="roles()" (closed)="showCreateModal.set(false)" (saved)="onUserCreated()" />
       }
       <app-role-permissions-modal [roleId]="permissionsRoleId()" (closed)="permissionsRoleId.set(null)" (saved)="loadRoles()" />
+      @if (roleFormOpen()) {
+        <app-role-form-modal (closed)="roleFormOpen.set(false)" (saved)="loadRoles()" />
+      }
     </section>
   `,
 })
 export class AdministrationPage {
   readonly api = inject(AdministrationApiService);
   private readonly auth = inject(AuthService);
+  private readonly permissions = inject(PermissionService);
+  private readonly fields = inject(ComponentPermissionService);
   private readonly route = inject(ActivatedRoute);
   readonly users = signal<ApiUser[]>([]);
   readonly tenants = signal<ApiTenant[]>([]);
@@ -157,6 +171,7 @@ export class AdministrationPage {
   tenantForm = { name: '', code: '', slug: '', email: '' };
   readonly activeTab = signal<'users' | 'roles'>('users');
   readonly permissionsRoleId = signal<number | null>(null);
+  readonly roleFormOpen = signal(false);
   readonly editUser = signal<ApiUser | null>(null);
   readonly confirmation = signal<{ title: string; message: string; action: () => void } | null>(null);
   editForm = { firstName: '', lastName: '', email: '', status: 'ACTIVE', roleIds: [] as number[] };
@@ -171,11 +186,8 @@ export class AdministrationPage {
         return normalized === 'SUPER_ADMIN' || normalized === 'SUPERADMINISTRADOR';
       });
   });
-  readonly canManageUsers = computed(() => this.isSuperadmin()
-    || (this.currentUser()?.roleNames ?? []).some((role) => {
-      const normalized = role.toUpperCase();
-      return normalized === 'ADMINISTRADOR DE TENANT' || normalized === 'TENANT_ADMIN';
-    }));
+  /** Basta el permiso de función, no un nombre de rol fijo: un rol personalizado con user:read también entra. */
+  readonly canManageUsers = computed(() => this.permissions.can('user:read'));
   readonly tenantName = computed(() => this.currentUser()?.tenantName || 'la organización del usuario autenticado');
 
   private readonly searchInput$ = new Subject<string>();
@@ -198,7 +210,7 @@ export class AdministrationPage {
 
   loadRoles(): void {
     this.rolesLoading.set(true); this.rolesError.set('');
-    this.api.roles().subscribe({ next: roles => { this.roles.set(roles); this.rolesLoading.set(false); }, error: err => { this.rolesLoading.set(false); this.rolesError.set(this.apiError(err, 'No se pudieron cargar los roles.')); } });
+    this.api.roles().subscribe({ next: roles => { this.roles.set(roles); this.rolesLoading.set(false); }, error: err => { this.rolesLoading.set(false); this.rolesError.set(this.apiError(err, 'No se pudieron cargar los grupos.')); } });
   }
 
   private applyFilters(list: ApiUser[]): ApiUser[] {
@@ -283,7 +295,7 @@ export class AdministrationPage {
     this.editUser.set(user);
   }
   closeEdit(): void { this.editUser.set(null); this.editError.set(''); }
-  saveEdit(): void { const user = this.editUser(); if (!user) return; this.saving.set(true); this.editError.set(''); this.api.updateUser(user.id, this.editForm).subscribe({ next: () => { this.saving.set(false); this.closeEdit(); this.message.set('Usuario actualizado.'); this.loadUsers(); }, error: err => { this.saving.set(false); this.editError.set(this.apiError(err, 'No se pudo actualizar el usuario.')); } }); }
+  saveEdit(): void { const user = this.editUser(); if (!user) return; const canEditGroups = this.fields.editable('usuario.grupos'); if (canEditGroups && !this.editForm.roleIds.length) { this.editError.set('Debe seleccionar al menos un grupo para el usuario.'); return; } this.saving.set(true); this.editError.set(''); this.api.updateUser(user.id, { ...this.editForm, roleIds: canEditGroups ? this.editForm.roleIds : undefined }).subscribe({ next: () => { this.saving.set(false); this.closeEdit(); this.message.set('Usuario actualizado.'); this.loadUsers(); }, error: err => { this.saving.set(false); this.editError.set(this.apiError(err, 'No se pudo actualizar el usuario.')); } }); }
 
   deactivate(user: ApiUser): void {
     this.confirmation.set({ title: 'Desactivar usuario', message: `¿Quieres desactivar a ${user.firstName} ${user.lastName}?`, action: () => this.changeUserStatus(user, 'INACTIVE', 'Usuario desactivado.', 'No se pudo desactivar el usuario.') });
@@ -294,7 +306,7 @@ export class AdministrationPage {
   }
 
   private changeUserStatus(user: ApiUser, status: 'ACTIVE' | 'INACTIVE', okMessage: string, errorMessage: string): void {
-    this.api.updateUser(user.id, { firstName: user.firstName, lastName: user.lastName, email: user.email, status, roleIds: user.roleIds ?? [] }).subscribe({
+    this.api.updateUser(user.id, { firstName: user.firstName, lastName: user.lastName, email: user.email, status, roleIds: user.roleIds?.length ? user.roleIds : undefined }).subscribe({
       next: updated => {
         this.users.update(list => list.map(u => u.id === user.id ? { ...u, status: updated?.status ?? status } : u));
         this.message.set(okMessage);

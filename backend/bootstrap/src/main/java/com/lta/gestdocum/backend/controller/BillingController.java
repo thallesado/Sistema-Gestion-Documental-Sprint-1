@@ -6,6 +6,7 @@ import com.lta.gestdocum.backend.billing.StripeWebhookVerifier;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/billing")
@@ -16,8 +17,11 @@ public class BillingController {
         this.billing = billing;
         this.stripeWebhookVerifier = stripeWebhookVerifier;
     }
+    @PreAuthorize(PlanController.TENANT_PLAN_ADMIN)
     @PostMapping("/checkout/initiate") public BillingCheckoutResponse initiate(@Valid @RequestBody BillingCheckoutRequest request) { return billing.initiate(request); }
+    @PreAuthorize(PlanController.TENANT_PLAN_ADMIN)
     @PostMapping("/checkout/confirm") public BillingOverviewResponse confirm(@Valid @RequestBody BillingConfirmRequest request) { return billing.confirm(request); }
+    @PreAuthorize(PlanController.TENANT_PLAN_ADMIN)
     @GetMapping("/my-invoices") public BillingOverviewResponse invoices() { return billing.overviewForCurrentTenant(); }
     @GetMapping("/revenue-dashboard") public RevenueDashboardResponse revenue() { return billing.revenueDashboard(); }
     @PostMapping("/webhooks/stripe")

@@ -1,6 +1,5 @@
 package com.lta.gestdocum.backend.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import com.fasterxml.jackson.annotation.JsonAlias;
@@ -20,8 +19,9 @@ public record DocumentCreateRequest(
         String specialty,
         String institutionalProcess,
         java.util.Map<String, Object> metadata,
-        @NotBlank @Size(max = 60) String code,
-        @NotBlank @Size(max = 255) String name,
+        // Obligatorios cuando el perfil puede editarlos; si no, DocumentService asigna el valor (privilegios B2).
+        @Size(max = 60) String code,
+        @Size(max = 255) String name,
         @Size(max = 10000) String description,
         LocalDate issueDate,
         @JsonAlias("expirationDate") LocalDate expiryDate,

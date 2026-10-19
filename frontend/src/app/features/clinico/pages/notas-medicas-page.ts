@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, SecurityContext } from '@angular/core';
+import { Component, effect, inject, OnInit, signal, SecurityContext } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -7,11 +7,13 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ApiPatient, ClinicalApiService, ClinicalHistory, MedicalNoteItem, MedicalNoteStatus } from '../../../core/api/clinical-api.service';
 import { RichTextEditorComponent } from '../../../shared';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
+import { FieldPermissionDirective } from '../../../core/auth/field-permission.directive';
+import { ComponentPermissionService } from '../../../core/auth/component-permission.service';
 
 @Component({
   selector: 'app-notas-medicas-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, RichTextEditorComponent, LocalizedContentDirective],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, RichTextEditorComponent, LocalizedContentDirective, FieldPermissionDirective],
   template: `
     <div class="page" i18nContent>
       <!-- Encabezado Corporativo NexoDocs -->
@@ -132,7 +134,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
                 <h2>Registrar Nota Médica / Receta</h2>
                 <small>Evolución clínica estructurada vinculada inalterablemente al expediente</small>
               </div>
-              <div class="status-selector">
+              <div class="status-selector" [appField]="'nota_medica.estado'">
                 <button
                   type="button"
                   class="status-btn"
@@ -153,7 +155,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
             </div>
 
             <!-- Selector de Tipo de Nota -->
-            <div class="type-tabs">
+            <div class="type-tabs" [appField]="'nota_medica.tipo'">
               <button
                 type="button"
                 class="tab-btn"
@@ -190,7 +192,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
             <form [formGroup]="noteForm" (ngSubmit)="saveNote()">
               
               <!-- Título / Motivo Principal -->
-              <div class="form-group">
+              <div class="form-group" [appField]="'nota_medica.contenido'">
                 <label>
                   <span>Motivo de Consulta o Título de la Nota *</span>
                   <input
@@ -201,7 +203,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
               </div>
 
               <!-- Estructura Clínica SOAP con Editor Enriquecido TipTap (HU-10) -->
-              <div class="soap-fields">
+              <div class="soap-fields" [appField]="'nota_medica.contenido'">
                 <label>
                   <span class="soap-label">S - SUBJETIVO (Síntomas y relato del paciente)</span>
                   <app-rich-text-editor
@@ -301,10 +303,10 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
                       <small>✍️ Médico Tratante: <strong>Laura Martínez</strong></small>
                       <div class="note-actions">
                         @if (note.status === 'DRAFT') {
-                          <button type="button" class="action-btn approve-btn" [disabled]="isUpdatingStatus()" (click)="changeStatus(note, 'APPROVED')">
+                          <button type="button" class="action-btn approve-btn" [appField]="'nota_medica.estado'" [disabled]="isUpdatingStatus()" (click)="changeStatus(note, 'APPROVED')">
                             ✓ Emitir
                           </button>
-                          <button type="button" class="action-btn void-btn" [disabled]="isUpdatingStatus()" (click)="changeStatus(note, 'VOIDED')">
+                          <button type="button" class="action-btn void-btn" [appField]="'nota_medica.estado'" [disabled]="isUpdatingStatus()" (click)="changeStatus(note, 'VOIDED')">
                             ✕ Anular
                           </button>
                         }
@@ -545,6 +547,7 @@ export class NotasMedicasPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly fields = inject(ComponentPermissionService);
 
   readonly patients = signal<ApiPatient[]>([]);
   readonly searchQuery = signal<string>('');
@@ -559,6 +562,11 @@ export class NotasMedicasPage implements OnInit {
 
   readonly noteType = signal<'EVOLUTION' | 'PRESCRIPTION' | 'CONSULTATION'>('EVOLUTION');
   readonly noteStatus = signal<MedicalNoteStatus>('APPROVED');
+  /** Privilegios por componente: si el perfil no puede elegir tipo o estado, se fijan los valores que acepta el servidor. */
+  private readonly lockedDefaults = effect(() => {
+    if (!this.fields.editable('nota_medica.tipo')) this.noteType.set('EVOLUTION');
+    if (!this.fields.editable('nota_medica.estado')) this.noteStatus.set('DRAFT');
+  });
   readonly isUpdatingStatus = signal<boolean>(false);
   readonly errorMessage = signal<string>('');
   readonly successMessage = signal<string>('');

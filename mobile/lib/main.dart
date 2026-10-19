@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 
 import 'core/api/auth_api.dart';
+import 'core/notifications/workflow_notifications.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/auth/login_page.dart';
 import 'screens/shell/main_shell_page.dart';
 
-void main() => runApp(const NexoDocsApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Registra el canal de avisos y detecta si la app se abrió tocando una notificación.
+  await WorkflowNotifications.instance.init();
+  runApp(const NexoDocsApp());
+}
 
 class NexoDocsApp extends StatefulWidget {
   const NexoDocsApp({super.key, this.authApi});
@@ -34,6 +40,7 @@ class _NexoDocsAppState extends State<NexoDocsApp> {
 
   /// Sesión vencida sin posibilidad de renovarla: volver al login desde cualquier pantalla.
   void _onSessionExpired() {
+    WorkflowNotifications.instance.stop();
     final navigator = navigatorKey.currentState;
     if (navigator == null) return;
     navigator.pushAndRemoveUntil(

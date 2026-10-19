@@ -39,6 +39,7 @@ public class DocumentService {
     private final PatientRepository patientRepository;
     private final ExpedientRepository expedientRepository;
     private final AuthenticatedUserContext userContext;
+    private final ComponentPermissionService componentPermissions;
 
     public DocumentService(DocumentRepository repository,
                            DocumentTypeRepository documentTypeRepository,
@@ -47,7 +48,8 @@ public class DocumentService {
                            UserRepository userRepository,
                            PatientRepository patientRepository,
                            ExpedientRepository expedientRepository,
-                           AuthenticatedUserContext userContext) {
+                           AuthenticatedUserContext userContext,
+                           ComponentPermissionService componentPermissions) {
         this.repository = repository;
         this.documentTypeRepository = documentTypeRepository;
         this.categoryRepository = categoryRepository;
@@ -56,6 +58,7 @@ public class DocumentService {
         this.patientRepository = patientRepository;
         this.expedientRepository = expedientRepository;
         this.userContext = userContext;
+        this.componentPermissions = componentPermissions;
     }
 
     @Transactional(readOnly = true)
@@ -63,10 +66,11 @@ public class DocumentService {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
         String value = filter == null ? "" : filter.trim();
+        ComponentFormAccess access = documentAccess();
         if (status != null) {
-            return repository.searchByTenantAndStatus(tenantId, value, status, pageable).map(this::toResponse);
+            return repository.searchByTenantAndStatus(tenantId, value, status, pageable).map(document -> toResponse(document, access));
         }
-        return repository.searchByTenant(tenantId, value, pageable).map(this::toResponse);
+        return repository.searchByTenant(tenantId, value, pageable).map(document -> toResponse(document, access));
     }
 
     @Transactional(readOnly = true)
@@ -75,10 +79,11 @@ public class DocumentService {
         UUID userId = userContext.requireUserId();
         userContext.establishDatabaseContext();
         String value = filter == null ? "" : filter.trim();
+        ComponentFormAccess access = documentAccess();
         if (status != null) {
-            return repository.searchMineAndStatus(tenantId, userId, value, status, pageable).map(this::toResponse);
+            return repository.searchMineAndStatus(tenantId, userId, value, status, pageable).map(document -> toResponse(document, access));
         }
-        return repository.searchMine(tenantId, userId, value, pageable).map(this::toResponse);
+        return repository.searchMine(tenantId, userId, value, pageable).map(document -> toResponse(document, access));
     }
 
     @Transactional(readOnly = true)
@@ -87,10 +92,11 @@ public class DocumentService {
         UUID userId = userContext.requireUserId();
         userContext.establishDatabaseContext();
         String value = filter == null ? "" : filter.trim();
+        ComponentFormAccess access = documentAccess();
         if (status != null) {
-            return repository.searchSharedAndStatus(tenantId, userId, value, status, pageable).map(this::toResponse);
+            return repository.searchSharedAndStatus(tenantId, userId, value, status, pageable).map(document -> toResponse(document, access));
         }
-        return repository.searchShared(tenantId, userId, value, pageable).map(this::toResponse);
+        return repository.searchShared(tenantId, userId, value, pageable).map(document -> toResponse(document, access));
     }
 
     @Transactional(readOnly = true)
@@ -103,8 +109,18 @@ public class DocumentService {
     public DocumentResponse create(DocumentCreateRequest request) {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
+        ComponentFormAccess access = documentAccess();
+        requireEditableComponents(access, request);
+        String code = access.editable("codigo")
+                ? requiredText(request.code(), "El código del documento es obligatorio")
+                : generatedCode();
+        String name = access.editable("nombre")
+                ? requiredText(request.name(), "El nombre del documento es obligatorio")
+                : documentTypeRepository.findByIdAndTenantId(request.documentTypeId(), tenantId)
+                    .map(DocumentType::getName)
+                    .orElseThrow(() -> new NotFoundException("Tipo documental no encontrado"));
         Document document = new Document(tenantId, request.documentTypeId(),
-                userContext.requireUserId(), request.code().trim(), request.name().trim());
+                userContext.requireUserId(), code, name);
         document.setId(UUID.randomUUID());
         document.setExpedientId(request.expedientId());
         document.setResponsibleId(request.responsibleId());
@@ -124,7 +140,7 @@ public class DocumentService {
         document.setCreatedAt(now);
         document.setUpdatedAt(now);
         try {
-            return toResponse(repository.save(document));
+            return toResponse(repository.save(document), access);
         } catch (DataIntegrityViolationException exception) {
             throw new DuplicateResourceException("El código de documento ya existe o referencia datos inválidos");
         }
@@ -194,7 +210,42 @@ public class DocumentService {
                 .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
     }
 
+    private ComponentFormAccess documentAccess() {
+        return componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM);
+    }
+
+    /** Privilegios B2 en el alta: un componente de solo lectura u oculto no puede llegar informado. */
+    private void requireEditableComponents(ComponentFormAccess access, DocumentCreateRequest request) {
+        access.requireEditableIfProvided("nombre", request.name());
+        access.requireEditableIfProvided("codigo", request.code());
+        access.requireEditableIfProvided("departamento", request.departmentId());
+        access.requireEditableIfProvided("especialidad", request.specialty());
+        access.requireEditableIfProvided("proceso", request.institutionalProcess());
+        access.requireEditableIfProvided("paciente", request.patientId());
+        access.requireEditableIfProvided("expediente", request.expedientId());
+        access.requireEditableIfProvided("emision", request.issueDate());
+        access.requireEditableIfProvided("vencimiento", request.expiryDate());
+        access.requireEditableIfProvided("responsable", request.responsibleId());
+        access.requireEditableIfProvided("descripcion", request.description());
+    }
+
+    private static String requiredText(String value, String message) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(message);
+        return value.trim();
+    }
+
+    /** Código asignado por el servidor cuando el perfil no puede escribirlo. */
+    private static String generatedCode() {
+        return "DOC-" + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+                + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(java.util.Locale.ROOT);
+    }
+
     private DocumentResponse toResponse(Document document) {
+        return toResponse(document, documentAccess());
+    }
+
+    /** Los componentes ocultos para el perfil no se devuelven (privilegios B2). */
+    private DocumentResponse toResponse(Document document, ComponentFormAccess access) {
         UUID tenantId = document.getTenantId();
         String docTypeName = null;
         String docTypeCode = null;
@@ -246,21 +297,21 @@ public class DocumentService {
         return new DocumentResponse(
                 document.getId(),
                 document.getDocumentTypeId(),
-                document.getExpedientId(),
+                access.reveal("expediente", document.getExpedientId()),
                 document.getAuthorId(),
-                document.getResponsibleId(),
-                document.getDepartmentId(),
-                document.getPatientId(),
-                document.getSpecialty(),
-                document.getInstitutionalProcess(),
+                access.reveal("responsable", document.getResponsibleId()),
+                access.reveal("departamento", document.getDepartmentId()),
+                access.reveal("paciente", document.getPatientId()),
+                access.reveal("especialidad", document.getSpecialty()),
+                access.reveal("proceso", document.getInstitutionalProcess()),
                 document.getMetadata(),
-                document.getCode(),
-                document.getName(),
-                document.getDescription(),
+                access.reveal("codigo", document.getCode()),
+                access.reveal("nombre", document.getName()),
+                access.reveal("descripcion", document.getDescription()),
                 document.getStatus(),
                 document.getCurrentVersion(),
-                document.getIssueDate(),
-                document.getExpiryDate(),
+                access.reveal("emision", document.getIssueDate()),
+                access.reveal("vencimiento", document.getExpiryDate()),
                 document.getIsExternalSource(),
                 document.getSource(),
                 document.getCreatedAt(),
@@ -268,11 +319,11 @@ public class DocumentService {
                 docTypeName,
                 docTypeCode,
                 categoryName,
-                deptName,
+                access.reveal("departamento", deptName),
                 authorName,
-                respName,
-                patName,
-                expCode
+                access.reveal("responsable", respName),
+                access.reveal("paciente", patName),
+                access.reveal("expediente", expCode)
         );
     }
 

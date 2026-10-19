@@ -24,6 +24,7 @@ Base `/api/v1`. Ver controladores para métodos, DTOs y permisos exactos:
 |---|---|
 | AuthController / PasswordRecoveryController | /auth/login, refresh, logout, me; forgot/reset-password |
 | UserController / RoleController / PermissionController | /users, /roles, /permissions |
+| ComponentPermissionController | /component-permissions (privilegios por componente) |
 | TenantController / TenantDepartmentController | /tenants, /departments |
 | DocumentController / DocumentTypeController / TagController | /documents, /document-types, /tags |
 | ExpedientController / ExpedientTypeController | /expedients, /expedient-types |

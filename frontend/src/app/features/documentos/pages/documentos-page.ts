@@ -20,11 +20,13 @@ import { WorkflowStart } from '../../workflows/components/workflow-start';
 import { activeLocale } from '../../../core/i18n/i18n.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
+import { FieldPermissionDirective } from '../../../core/auth/field-permission.directive';
+import { ComponentPermissionService } from '../../../core/auth/component-permission.service';
 
 @Component({
   selector: 'app-document-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, UserSelectorComponent, WorkflowStart, LocalizedContentDirective],
+  imports: [CommonModule, FormsModule, RouterLink, UserSelectorComponent, WorkflowStart, LocalizedContentDirective, FieldPermissionDirective],
   template: `
     <section class="page document-page" i18nContent>
       <!-- HERO BANNER -->
@@ -104,11 +106,11 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
             @if (actionMessage()) { <div class="notice" role="status">{{ actionMessage() }}</div> }
 
             <div class="form-grid">
-              <label>Nombre del documento *
+              <label [appField]="'documento.nuevo.nombre'">Nombre del documento *
                 <input name="documentName" [(ngModel)]="createForm.name" required maxlength="255" placeholder="Ej: Contrato Marco de Adquisición" />
               </label>
 
-              <label>Código institucional *
+              <label [appField]="'documento.nuevo.codigo'">Código institucional *
                 <input name="documentCode" [(ngModel)]="createForm.code" required maxlength="60" placeholder="Ej: DOC-2026-001" />
               </label>
 
@@ -121,7 +123,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
                 </select>
               </label>
 
-              <label>Servicio / Departamento
+              <label [appField]="'documento.nuevo.departamento'">Servicio / Departamento
                 <select name="departmentId" [(ngModel)]="createForm.departmentId">
                   <option value="">Selecciona servicio o área</option>
                   @for (dept of departments(); track dept.id) {
@@ -130,7 +132,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
                 </select>
               </label>
 
-              <label>Especialidad
+              <label [appField]="'documento.nuevo.especialidad'">Especialidad
                 <select name="specialty" [(ngModel)]="createForm.specialty">
                   <option value="">Selecciona especialidad</option>
                   @for (spec of specialties(); track spec) {
@@ -139,7 +141,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
                 </select>
               </label>
 
-              <label>Proceso institucional
+              <label [appField]="'documento.nuevo.proceso'">Proceso institucional
                 <select name="institutionalProcess" [(ngModel)]="createForm.institutionalProcess">
                   <option value="">Selecciona proceso</option>
                   @for (proc of processes(); track proc) {
@@ -148,7 +150,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
                 </select>
               </label>
 
-              <label>Paciente asociado (si aplica)
+              <label [appField]="'documento.nuevo.paciente'">Paciente asociado (si aplica)
                 <select name="patientId" [(ngModel)]="createForm.patientId">
                   <option value="">Sin paciente asociado</option>
                   @for (pat of patients(); track pat.id) {
@@ -157,21 +159,21 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
                 </select>
               </label>
 
-              <label>Expediente vinculado (opcional)
+              <label [appField]="'documento.nuevo.expediente'">Expediente vinculado (opcional)
                 <input name="expedientId" [(ngModel)]="createForm.expedientId" placeholder="UUID del expediente" />
               </label>
 
-              <label>Fecha de emisión
+              <label [appField]="'documento.nuevo.emision'">Fecha de emisión
                 <input type="date" name="issueDate" [(ngModel)]="createForm.issueDate" />
               </label>
 
-              <label>Fecha de vencimiento
+              <label [appField]="'documento.nuevo.vencimiento'">Fecha de vencimiento
                 <input type="date" name="expiryDate" [(ngModel)]="createForm.expiryDate" />
               </label>
 
-              <app-user-selector label="Responsable asignado" [(value)]="createForm.responsibleUserId" />
+              <div [appField]="'documento.nuevo.responsable'"><app-user-selector label="Responsable asignado" [(value)]="createForm.responsibleUserId" /></div>
 
-              <label class="full-width">Descripción / Resumen
+              <label [appField]="'documento.nuevo.descripcion'" class="full-width">Descripción / Resumen
                 <textarea name="description" rows="3" [(ngModel)]="createForm.description" maxlength="10000" placeholder="Breve descripción del contenido y alcance documental..."></textarea>
               </label>
 
@@ -186,7 +188,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
 
             <div class="form-actions" style="margin-top: 20px;">
               <a routerLink="/documents" class="secondary-action">Cancelar</a>
-              <button class="primary-action" type="submit" [disabled]="creating() || !createForm.name.trim() || !createForm.code.trim() || !createForm.documentTypeId || (isUploadRoute() && !initialFile)">
+              <button class="primary-action" type="submit" [disabled]="creating() || !requiredFieldsFilled() || !createForm.documentTypeId || (isUploadRoute() && !initialFile)">
                 {{ creating() ? 'Procesando…' : (isUploadRoute() ? 'Crear y subir versión v1' : 'Crear documento') }}
               </button>
             </div>
@@ -614,6 +616,7 @@ export class DocumentPage implements OnInit, OnDestroy {
   readonly router = inject(Router);
   private readonly workflowApi = inject(WorkflowApi);
   private readonly auth = inject(AuthService);
+  private readonly fields = inject(ComponentPermissionService);
 
   private routerSub?: Subscription;
   private lastLinkedDocumentId = '';
@@ -628,7 +631,7 @@ export class DocumentPage implements OnInit, OnDestroy {
   // Formulario de creación
   readonly createError = signal('');
   readonly creating = signal(false);
-  createForm: DocumentCreatePayload & { responsibleUserId: string } = {
+  createForm: DocumentCreatePayload & { code: string; name: string; responsibleUserId: string } = {
     documentTypeId: '',
     code: '',
     name: '',
@@ -881,9 +884,15 @@ export class DocumentPage implements OnInit, OnDestroy {
     this.createError.set(error);
   }
 
+  /** Nombre y código son obligatorios solo si el perfil puede escribirlos; si no, los asigna el servidor. */
+  requiredFieldsFilled(): boolean {
+    return (!this.fields.editable('documento.nuevo.nombre') || !!this.createForm.name.trim())
+      && (!this.fields.editable('documento.nuevo.codigo') || !!this.createForm.code.trim());
+  }
+
   createDocument(): void {
     this.createError.set('');
-    if (!this.createForm.documentTypeId || !this.createForm.name.trim() || !this.createForm.code.trim()) {
+    if (!this.createForm.documentTypeId || !this.requiredFieldsFilled()) {
       this.createError.set('Por favor completa el nombre, código y tipo documental.');
       return;
     }
@@ -892,21 +901,21 @@ export class DocumentPage implements OnInit, OnDestroy {
       return;
     }
 
-    const payload: DocumentCreatePayload = {
-      documentTypeId: this.createForm.documentTypeId,
-      code: this.createForm.code.trim(),
-      name: this.createForm.name.trim(),
-    };
+    // Privilegios por componente: los campos no editables no se envían (el servidor los rechazaría).
+    const editable = (component: string) => this.fields.editable('documento.nuevo.' + component);
+    const payload: DocumentCreatePayload = { documentTypeId: this.createForm.documentTypeId };
+    if (editable('codigo')) payload.code = this.createForm.code.trim();
+    if (editable('nombre')) payload.name = this.createForm.name.trim();
 
-    if (this.createForm.description?.trim()) payload.description = this.createForm.description.trim();
-    if (this.createForm.expedientId?.trim()) payload.expedientId = this.createForm.expedientId.trim();
-    if (this.createForm.responsibleUserId?.trim()) payload.responsibleUserId = this.createForm.responsibleUserId.trim();
-    if (this.createForm.departmentId?.trim()) payload.departmentId = this.createForm.departmentId.trim();
-    if (this.createForm.patientId?.trim()) payload.patientId = this.createForm.patientId.trim();
-    if (this.createForm.specialty?.trim()) payload.specialty = this.createForm.specialty.trim();
-    if (this.createForm.institutionalProcess?.trim()) payload.institutionalProcess = this.createForm.institutionalProcess.trim();
-    if (this.createForm.issueDate?.trim()) payload.issueDate = this.createForm.issueDate.trim();
-    if (this.createForm.expiryDate?.trim()) payload.expiryDate = this.createForm.expiryDate.trim();
+    if (editable('descripcion') && this.createForm.description?.trim()) payload.description = this.createForm.description.trim();
+    if (editable('expediente') && this.createForm.expedientId?.trim()) payload.expedientId = this.createForm.expedientId.trim();
+    if (editable('responsable') && this.createForm.responsibleUserId?.trim()) payload.responsibleUserId = this.createForm.responsibleUserId.trim();
+    if (editable('departamento') && this.createForm.departmentId?.trim()) payload.departmentId = this.createForm.departmentId.trim();
+    if (editable('paciente') && this.createForm.patientId?.trim()) payload.patientId = this.createForm.patientId.trim();
+    if (editable('especialidad') && this.createForm.specialty?.trim()) payload.specialty = this.createForm.specialty.trim();
+    if (editable('proceso') && this.createForm.institutionalProcess?.trim()) payload.institutionalProcess = this.createForm.institutionalProcess.trim();
+    if (editable('emision') && this.createForm.issueDate?.trim()) payload.issueDate = this.createForm.issueDate.trim();
+    if (editable('vencimiento') && this.createForm.expiryDate?.trim()) payload.expiryDate = this.createForm.expiryDate.trim();
 
     this.creating.set(true);
     this.api.createDocument(payload).subscribe({

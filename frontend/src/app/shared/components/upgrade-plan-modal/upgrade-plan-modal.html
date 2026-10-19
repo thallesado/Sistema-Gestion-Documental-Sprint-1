@@ -1,4 +1,4 @@
-@if (isOpen()) {
+@if (isOpen() && subscription.canManage()) {
   <div class="upgrade-backdrop" role="presentation" (click)="close()">
     <section class="upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="upgrade-title" (click)="$event.stopPropagation()">
       <button class="upgrade-close" type="button" [attr.aria-label]="'common.close' | translate" (click)="close()">×</button>

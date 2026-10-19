@@ -26,4 +26,6 @@ public class UserResponse {
     private boolean pushNotifications;
     private java.util.Set<Long> roleIds;
     private java.util.Set<String> roleNames;
+    /** Solo se informa en /auth/me: permisos efectivos calculados desde user_roles y role_permissions. */
+    private java.util.List<String> permissions;
 }

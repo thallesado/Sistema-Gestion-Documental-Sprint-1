@@ -19,7 +19,10 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
 
   return next(authorizedRequest).pipe(
     catchError((error) => {
+      // Las respuestas de /plans no abren el modal: el propio modal recarga la suscripción y un
+      // error ahí lo reabriría en bucle sin poder cerrarlo.
       const planLimitExceeded = error?.status === 403
+        && !request.url.includes('/api/v1/plans')
         && (error?.error?.code === 'PLAN_LIMIT_EXCEEDED'
           || JSON.stringify(error?.error ?? '').includes('PLAN_LIMIT_EXCEEDED'));
       if (planLimitExceeded) {

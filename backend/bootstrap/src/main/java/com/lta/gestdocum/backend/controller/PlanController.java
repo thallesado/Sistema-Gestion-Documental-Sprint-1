@@ -20,6 +20,11 @@ import java.util.List;
 @RequestMapping("/api/v1/plans")
 @PreAuthorize("isAuthenticated()")
 public class PlanController {
+    /**
+     * Suscripción, cambio de plan y contacto comercial: solo el administrador del tenant.
+     * El catálogo público ({@code GET /plans}) sigue abierto para la página de bienvenida.
+     */
+    static final String TENANT_PLAN_ADMIN = "hasAnyAuthority('tenant:update', 'tenant:manage')";
 
     private final PlanEnforcementService planEnforcementService;
 
@@ -34,16 +39,19 @@ public class PlanController {
     }
 
     @GetMapping("/my-subscription")
+    @PreAuthorize(TENANT_PLAN_ADMIN)
     public MySubscriptionResponse mySubscription() {
         return planEnforcementService.getCurrentSubscription();
     }
 
     @PostMapping("/change")
+    @PreAuthorize(TENANT_PLAN_ADMIN)
     public MySubscriptionResponse changePlan(@Valid @RequestBody PlanChangeRequest request) {
         return planEnforcementService.changeCurrentPlan(request);
     }
 
     @PostMapping("/enterprise-inquiry")
+    @PreAuthorize(TENANT_PLAN_ADMIN)
     public EnterpriseInquiryResponse enterpriseInquiry(@Valid @RequestBody EnterpriseInquiryRequest request) {
         return planEnforcementService.submitEnterpriseInquiry(request);
     }

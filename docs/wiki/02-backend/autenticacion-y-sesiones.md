@@ -5,7 +5,8 @@
 ## Contratos exactos
 
 - Login API: `POST /api/v1/auth/login`; DTO con `usernameOrEmail`, `password` y organización por `tenantId` o `tenantName`. Son nombres de campos, no valores a guardar en documentación.
-- Respuesta: `token`, `tokenType`, `refreshToken`, `expiresIn`. No existe un campo de respuesta llamado accessToken.
+- Respuesta: `token`, `tokenType`, `refreshToken`, `expiresIn` y `permissions` (los mismos códigos que las authorities del JWT). No existe un campo de respuesta llamado accessToken.
+- `GET /auth/me` devuelve también `permissions`: las authorities del JWT de la sesión (`UserService.sessionPermissions`, sin `ROLE_*`), las mismas que aplican `@PreAuthorize`. No se recalculan con `findAuthorityCodes` bajo el contexto RLS porque `user_roles`, `roles` y `role_permissions` solo son legibles con `role:read`: un perfil como *Médico Especialista* recibía una lista vacía y la web le ocultaba todo el menú salvo Inicio. `roleIds` y `roleNames` del usuario actual se leen con `app.current_role_ids()` y `app.current_role_names()` (SECURITY DEFINER, 040 y 042). Las cuentas de plataforma reciben las authorities fijas de `PlatformAuthorities`. Las respuestas de `PUT /auth/me` y sus variantes no lo informan.
 - JWT de acceso: `userId`, `tenantId` cuando corresponde, `authorities`, `tokenType=access`; `sub` contiene username; jti, emisión, expiración y firma HS256.
 - Refresh: tipo refresh, hash en auth_sessions y rotación con bloqueo pesimista.
 - Valores predeterminados configurables: acceso 8 h y refresh 7 días. No equivalen al cierre UI por inactividad.
@@ -26,7 +27,7 @@
 | Plantillas | workflow_template:read/create/update/delete |
 | Administración global | platform:tenant:manage |
 
-Los nombres visibles de roles no sustituyen permisos; revisar los catálogos/migraciones y controladores. No inventar `clinical:history:read` o `workflow:task:approve`.
+El frontend usa `permissions` solo para decidir qué mostrar (menú, botones y guards); la autorización sigue en `@PreAuthorize` y RLS. Los nombres visibles de roles no sustituyen permisos; revisar los catálogos/migraciones y controladores. No inventar `clinical:history:read` o `workflow:task:approve`.
 
 ## Límites conocidos
 

@@ -34,8 +34,16 @@ public interface PlanRepository extends JpaRepository<Plan, UUID> {
     /**
      * Lee y bloquea la asignación del plan del tenant dentro de la transacción.
      * El bloqueo serializa comprobación y alta de recursos para el mismo tenant.
+     * Es un bloqueo consultivo y no {@code FOR UPDATE}: con RLS, bloquear la fila de tenants
+     * exige la política de UPDATE (configuration:update) y para cualquier otro perfil la
+     * consulta no devolvía filas, lo que se traducía en un falso PLAN_LIMIT_EXCEEDED.
      */
-    @Query(value = "select plan_id from tenants where id = :tenantId for update", nativeQuery = true)
+    @Query(value = """
+            with tenant_lock as (
+              select pg_advisory_xact_lock(hashtextextended('plan:' || cast(:tenantId as text), 0))
+            )
+            select t.plan_id from tenant_lock, tenants t where t.id = :tenantId
+            """, nativeQuery = true)
     Optional<UUID> findPlanIdByTenantIdForUpdate(@Param("tenantId") UUID tenantId);
 
     @Query(value = """

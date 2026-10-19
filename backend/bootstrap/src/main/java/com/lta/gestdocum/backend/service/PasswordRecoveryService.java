@@ -91,7 +91,7 @@ public class PasswordRecoveryService {
         authSessionService.revokeAll(user.getId());
 
         var authorities = user.isPlatformAdmin()
-                ? java.util.List.of("platform:tenant:manage", "audit:read_global")
+                ? com.lta.gestdocum.backend.security.PlatformAuthorities.CODES
                 : userRepository.findAuthorityCodes(user.getId(), user.getTenantId());
         if (authorities.isEmpty()) {
             throw new InvalidCredentialsException();
@@ -101,7 +101,7 @@ public class PasswordRecoveryService {
         String refreshToken = jwtService.generateRefreshToken(
                 user.getId(), user.getTenantId(), user.getUsername());
         authSessionService.issue(user, refreshToken, jwtService.getRefreshExpiration());
-        return new AuthResponse(accessToken, "Bearer", refreshToken, jwtService.getExpiration());
+        return new AuthResponse(accessToken, "Bearer", refreshToken, jwtService.getExpiration(), authorities);
     }
 
     private void createAndSend(User user) {

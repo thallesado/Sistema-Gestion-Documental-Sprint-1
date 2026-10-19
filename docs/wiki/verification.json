@@ -17,6 +17,7 @@
     "04-dominio-y-negocio/modulo-clinico.md",
     "04-dominio-y-negocio/motor-de-workflows.md",
     "04-dominio-y-negocio/nucleo-documental-y-tenants.md",
+    "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
     "05-guias-ia/como-promptear-en-nexodocs.md",
     "05-guias-ia/estado-verificado-y-pendientes.md",
     "05-guias-ia/pruebas-y-validacion.md",
@@ -72,7 +73,8 @@
       "includes": [
         "String token;",
         "String refreshToken;",
-        "long expiresIn;"
+        "long expiresIn;",
+        "List<String> permissions;"
       ]
     },
     {
@@ -118,6 +120,58 @@
         "AntecedentesPage",
         "path: 'expedients/clinical/history'",
         "HistoriaClinicaPage"
+      ]
+    },
+    {
+      "page": "03-frontend/arquitectura-angular.md",
+      "path": "frontend/src/app/core/auth/auth.guard.ts",
+      "includes": [
+        "export const hasPermissionGuard",
+        "export const userAdminGuard: CanActivateFn = hasPermissionGuard('user:read');"
+      ]
+    },
+    {
+      "page": "03-frontend/arquitectura-angular.md",
+      "path": "frontend/src/app/core/data/nexodocs-data.ts",
+      "includes": [
+        "permission?: PermissionRequirement"
+      ]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/UserService.java",
+      "includes": [
+        "sessionPermissions()",
+        "roleRepository.findCurrentNames()"
+      ]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "database/init/042_current_role_names.sql",
+      "includes": [
+        "CREATE OR REPLACE FUNCTION app.current_role_names() RETURNS SETOF text",
+        "GRANT EXECUTE ON FUNCTION app.current_role_names() TO nexodocs_app"
+      ]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/repository/PlanRepository.java",
+      "includes": [
+        "pg_advisory_xact_lock(hashtextextended('plan:' || cast(:tenantId as text), 0))"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/nucleo-documental-y-tenants.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PlanController.java",
+      "includes": [
+        "static final String TENANT_PLAN_ADMIN = \"hasAnyAuthority('tenant:update', 'tenant:manage')\";"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/nucleo-documental-y-tenants.md",
+      "path": "frontend/src/app/core/auth/auth.interceptor.ts",
+      "includes": [
+        "!request.url.includes('/api/v1/plans')"
       ]
     },
     {
@@ -182,6 +236,47 @@
         "ck_ocr_indexed_has_document",
         "ck_ocr_failed_has_reason"
       ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "database/init/040_component_permissions.sql",
+      "includes": [
+        "CREATE TABLE IF NOT EXISTS component_permissions",
+        "CREATE POLICY tenant_context ON component_permissions AS RESTRICTIVE TO nexodocs_app",
+        "app.has_permission('component_permission:manage')",
+        "CREATE OR REPLACE FUNCTION app.current_role_ids()"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ComponentFormAccess.java",
+      "includes": [
+        "ComponentState.mostPermissive(state, roleState)",
+        "getOrDefault(component.key(), ComponentState.DEFAULT)"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/ComponentPermissionController.java",
+      "includes": [
+        "@RequestMapping(\"/api/v1/component-permissions\")",
+        "@GetMapping(\"/me\")",
+        "hasAuthority('component_permission:manage')"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/UserFormPolicy.java",
+      "includes": [
+        "El usuario debe pertenecer al menos a un grupo (perfil)"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "frontend/src/app/core/auth/field-permission.directive.ts",
+      "includes": [
+        "selector: '[appField]'"
+      ]
     }
   ],
   "reviews": {
@@ -236,6 +331,10 @@
     "04-dominio-y-negocio/nucleo-documental-y-tenants.md": {
       "reviewedAt": "2026-10-16",
       "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md": {
+      "reviewedAt": "2026-10-18",
+      "revision": "855ffff"
     },
     "05-guias-ia/como-promptear-en-nexodocs.md": {
       "reviewedAt": "2026-10-16",

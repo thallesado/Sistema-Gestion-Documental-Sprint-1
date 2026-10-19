@@ -1,6 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { finalize, tap } from 'rxjs';
+import { PermissionService } from '../auth/permission.service';
+import { TENANT_PLAN_ADMIN } from '../auth/permission-rules';
 
 const API_URL = '/api/v1/plans';
 
@@ -26,6 +28,7 @@ export interface EnterpriseInquiryResponse { inquiryId: string; accepted: boolea
 @Injectable({ providedIn: 'root' })
 export class SubscriptionService {
   private readonly http = inject(HttpClient);
+  private readonly permissions = inject(PermissionService);
   private catalogRequested = false;
   private subscriptionRequested = false;
 
@@ -38,8 +41,14 @@ export class SubscriptionService {
   readonly planChangeError = signal<string | null>(null);
   readonly planChangeSuccess = signal<string | null>(null);
   readonly isBasicPlan = computed(() => this.currentSubscription()?.plan.code === 'BASIC');
+  /** Solo el administrador del tenant ve el plan, el uso, los precios y la mejora de plan. */
+  readonly canManage = computed(() => this.permissions.can(TENANT_PLAN_ADMIN));
 
-  load(): void { this.loadPlans(); this.loadCurrentSubscription(); }
+  load(): void {
+    if (!this.canManage()) return;
+    this.loadPlans();
+    this.loadCurrentSubscription();
+  }
 
   loadPlans(force = false): void {
     if (this.catalogRequested && !force) return;
@@ -62,6 +71,7 @@ export class SubscriptionService {
   }
 
   openUpgrade(reason?: string | null): void {
+    if (!this.canManage()) return;
     this.upgradeReason.set(reason?.trim() || null);
     this.upgradeOpen.set(true);
     this.loadPlans();

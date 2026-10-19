@@ -42,6 +42,9 @@ class DocumentServiceTest {
     @Mock
     private AuthenticatedUserContext userContext;
 
+    @Mock
+    private ComponentPermissionService componentPermissions;
+
     @InjectMocks
     private DocumentService service;
 
@@ -53,6 +56,8 @@ class DocumentServiceTest {
     void setUp() {
         lenient().when(userContext.requireTenantId()).thenReturn(tenantId);
         lenient().when(userContext.requireUserId()).thenReturn(userId);
+        lenient().when(componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM))
+                .thenReturn(ComponentFormAccess.unrestricted(ComponentFormCatalog.require(ComponentFormCatalog.DOCUMENT_FORM)));
     }
 
     private Document createSampleDocument() {

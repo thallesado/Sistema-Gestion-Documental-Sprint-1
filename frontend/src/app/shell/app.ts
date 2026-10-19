@@ -5,6 +5,8 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { filter } from 'rxjs';
 import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
 import { AuthService } from '../core/auth/auth.service';
+import { PermissionService } from '../core/auth/permission.service';
+import { permittedChildren } from '../core/auth/permission-rules';
 import { ChatbotService } from '../core/chatbot/chatbot.service';
 import { WorkflowApi } from '../features/workflows/workflow-api.service';
 import { SubscriptionService } from '../core/subscription/subscription.service';
@@ -32,6 +34,7 @@ type ProfileTab = 'profile' | 'security' | 'notifications' | 'access' | 'workflo
 export class App {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+  private readonly permissions = inject(PermissionService);
   private readonly chatbot = inject(ChatbotService);
   private readonly workflowApi = inject(WorkflowApi);
   readonly subscription = inject(SubscriptionService);
@@ -49,6 +52,14 @@ export class App {
     if (user?.roleNames?.some((name) => name.toUpperCase() === 'ADMINISTRADOR DE TENANT' || name.toUpperCase() === 'TENANT_ADMIN')) return 'Administrador de tenant';
     if (user?.roleNames?.some((name) => name.toUpperCase() === 'SUPERVISOR')) return 'Supervisor';
     return 'Usuario basico';
+  });
+  /** Nombre real de los grupos del usuario (p. ej. "Médico Especialista"), no solo los cuatro roles fijos. */
+  readonly roleDisplay = computed(() => {
+    const user = this.currentUser();
+    const names = user?.platformAdmin ? [] : (user?.roleNames ?? []).filter((name) => name.trim());
+    return names.length
+      ? names.map((name) => roleLabel(this.i18n.language(), name)).join(', ')
+      : this.roleText(this.role());
   });
   readonly currentUser = this.auth.user;
   readonly avatarUrl = this.auth.avatarUrl;
@@ -167,7 +178,6 @@ export class App {
         ...section,
         items: section.items.filter((item) =>
           item.sprintEnabled !== false
-          && (!item.roles || item.roles.includes(this.role()))
           && this.visibleChildren(item).length > 0,
         ),
       }))
@@ -441,7 +451,9 @@ export class App {
     return navigationRoutes.find((route) => route.href === href)?.subcategory ?? 'Resumen';
   }
 
+  /** Hijos visibles: activos en el sprint y permitidos por los permisos de función del usuario. */
   visibleChildren(item: NavItem): NavChild[] {
-    return item.children.filter((child) => child.visible !== false && child.sprintEnabled !== false);
+    return permittedChildren(item, this.permissions.permissions())
+      .filter((child) => child.visible !== false && child.sprintEnabled !== false);
   }
 }

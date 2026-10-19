@@ -1,11 +1,18 @@
+import type { PermissionRequirement } from '../auth/permission-rules';
+
 export type Role =
   | 'Usuario basico'
   | 'Supervisor'
   | 'Administrador de tenant'
   | 'Superadministrador';
 
-export type NavChild = { label: string; href: string; visible?: boolean; sprintEnabled?: boolean };
-export type NavItem = { label: string; icon: string; children: NavChild[]; roles?: Role[]; sprintEnabled?: boolean };
+/**
+ * `permission`: código (o lista, basta cualquiera) que habilita la entrada; los hijos heredan el del padre.
+ * Debe coincidir con el `@PreAuthorize` del endpoint que usa la pantalla. Sin `permission` la entrada es visible
+ * para cualquier usuario autenticado.
+ */
+export type NavChild = { label: string; href: string; visible?: boolean; sprintEnabled?: boolean; permission?: PermissionRequirement };
+export type NavItem = { label: string; icon: string; children: NavChild[]; permission?: PermissionRequirement; sprintEnabled?: boolean };
 export type NavSection = { title: string; items: NavItem[] };
 export type RouteInfo = { module: string; subcategory: string; href: string };
 export type ScreenCopy = { description: string; action: string };
@@ -43,33 +50,36 @@ export const navSections: NavSection[] = [
       {
         label: 'Expedientes',
         icon: 'EX',
+        permission: ['expedient:read', 'patient:read', 'medical_note:read'],
         children: [
-          { label: 'Todos los expedientes', href: '/expedients' },
-          { label: 'Crear expediente', href: '/expedients/new' },
-          { label: 'Activos', href: '/expedients/active', sprintEnabled: false },
-          { label: 'Cerrados', href: '/expedients/closed', sprintEnabled: false },
-          { label: 'Archivados', href: '/expedients/archived', sprintEnabled: false },
-          { label: 'Expediente clínico', href: '/expedients/clinical' },
-          { label: 'Historia clínica', href: '/expedients/clinical/history' },
-          { label: 'Notas médicas', href: '/expedients/clinical/notes' },
+          { label: 'Todos los expedientes', href: '/expedients', permission: 'expedient:read' },
+          { label: 'Crear expediente', href: '/expedients/new', permission: 'expedient:create' },
+          { label: 'Activos', href: '/expedients/active', sprintEnabled: false, permission: 'expedient:read' },
+          { label: 'Cerrados', href: '/expedients/closed', sprintEnabled: false, permission: 'expedient:read' },
+          { label: 'Archivados', href: '/expedients/archived', sprintEnabled: false, permission: 'expedient:read' },
+          { label: 'Expediente clínico', href: '/expedients/clinical', permission: 'patient:read' },
+          { label: 'Historia clínica', href: '/expedients/clinical/history', permission: 'patient:read' },
+          { label: 'Notas médicas', href: '/expedients/clinical/notes', permission: 'medical_note:read' },
         ],
       },
       {
         label: 'Módulo Clínico',
         icon: 'MC',
+        permission: ['patient:read', 'medical_note:read'],
         children: [
-          { label: 'Pacientes', href: '/clinical/patients' },
-          { label: 'Antecedentes', href: '/clinical/history' },
-          { label: 'Notas Médicas', href: '/clinical/notes' },
+          { label: 'Pacientes', href: '/clinical/patients', permission: 'patient:read' },
+          { label: 'Antecedentes', href: '/clinical/history', permission: 'patient:read' },
+          { label: 'Notas Médicas', href: '/clinical/notes', permission: 'medical_note:read' },
         ],
       },
       {
         label: 'Documentos',
         icon: 'DO',
+        permission: 'document:read',
         children: [
           { label: 'Todos los documentos', href: '/documents' },
-          { label: 'Nuevo documento', href: '/documents/new' },
-          { label: 'Subir archivo', href: '/documents/upload' },
+          { label: 'Nuevo documento', href: '/documents/new', permission: 'document:create' },
+          { label: 'Subir archivo', href: '/documents/upload', permission: 'document:create' },
           { label: 'Mis documentos', href: '/documents/mine' },
           { label: 'Compartidos conmigo', href: '/documents/shared', sprintEnabled: false },
           { label: 'Recientes', href: '/documents/recent', visible: false },
@@ -83,7 +93,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Digitalizacion',
         icon: 'DG',
-        roles: ['Administrador de tenant', 'Superadministrador'],
+        permission: ['ocr:create', 'document:create', 'document:update', 'patient:create'],
         sprintEnabled: true,
         children: [
           { label: 'Escanear documento', href: '/digitization' },
@@ -102,6 +112,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Workflows',
         icon: 'WF',
+        permission: 'workflow:read',
         sprintEnabled: true,
         children: [
           { label: 'Todos los workflows', href: '/workflows' },
@@ -111,7 +122,7 @@ export const navSections: NavSection[] = [
           { label: 'Activos', href: '/workflows/active' },
           { label: 'Finalizados', href: '/workflows/completed' },
           { label: 'Plantillas', href: '/workflows/templates' },
-          { label: 'Diseñador', href: '/workflows/designer' },
+          { label: 'Diseñador', href: '/workflows/designer', permission: 'workflow:designer' },
         ],
       },
     ],
@@ -122,13 +133,14 @@ export const navSections: NavSection[] = [
       {
         label: 'Usuarios y equipos',
         icon: 'US',
-        roles: ['Administrador de tenant', 'Superadministrador'],
+        permission: 'user:read',
         children: [
           { label: 'Todos los usuarios', href: '/users' },
           { label: 'Activos', href: '/users/active', sprintEnabled: false },
           { label: 'Bloqueados', href: '/users/blocked', sprintEnabled: false },
-          { label: 'Roles', href: '/users/roles' },
-          { label: 'Permisos', href: '/users/permissions' },
+          { label: 'Grupos de usuarios (perfiles)', href: '/users/roles', permission: 'role:read' },
+          { label: 'Permisos', href: '/users/permissions', permission: 'permission:read' },
+          { label: 'Privilegios por formulario', href: '/users/form-privileges', permission: 'component_permission:manage' },
           { label: 'Areas', href: '/users/areas', sprintEnabled: false },
           { label: 'Grupos', href: '/users/groups', sprintEnabled: false },
         ],
@@ -136,7 +148,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Auditoria',
         icon: 'AU',
-        roles: ['Administrador de tenant', 'Superadministrador'],
+        permission: ['audit:read_tenant', 'audit:read_global'],
         children: [
           { label: 'Registro general', href: '/audit' },
           { label: 'Accesos', href: '/audit/access' },
@@ -151,7 +163,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Facturacion e ingresos',
         icon: 'FI',
-        roles: ['Administrador de tenant', 'Superadministrador'],
+        permission: ['tenant:update', 'tenant:manage', 'platform:tenant:manage'],
         children: [{ label: 'Facturacion e ingresos', href: '/billing' }],
       },
       {
@@ -188,7 +200,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Configuracion',
         icon: 'CF',
-        roles: ['Administrador de tenant', 'Superadministrador'],
+        permission: 'configuration:read',
         sprintEnabled: false,
         children: [
           { label: 'General', href: '/settings' },
@@ -210,7 +222,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Tenants',
         icon: 'TN',
-        roles: ['Superadministrador'],
+        permission: 'platform:tenant:manage',
         sprintEnabled: false,
         children: [
           { label: 'Todos los tenants', href: '/tenants' },
@@ -311,8 +323,8 @@ export function screenCopy(route: RouteInfo): ScreenCopy {
     ? route.subcategory
     : route.subcategory.includes('Subir')
       ? 'Seleccionar archivo'
-      : route.subcategory === 'Roles'
-        ? 'Nuevo rol'
+      : route.subcategory === 'Grupos de usuarios (perfiles)'
+        ? 'Nuevo grupo'
         : route.subcategory === 'Permisos'
           ? 'Crear permiso'
           : route.module === 'Notificaciones'
@@ -331,7 +343,7 @@ export function screenCopy(route: RouteInfo): ScreenCopy {
 }
 
 export function demoList(module: string, subcategory?: string): DemoItem[] {
-  if (subcategory === 'Roles' || subcategory?.toLowerCase().includes('roles')) return rolesItems;
+  if (subcategory === 'Grupos de usuarios (perfiles)' || subcategory?.toLowerCase().includes('roles')) return rolesItems;
   if (subcategory === 'Permisos' || subcategory?.toLowerCase().includes('permis') || subcategory?.toLowerCase().includes('permission')) return permissionsItems;
   if (module === 'Notificaciones') {
     if (subcategory === 'No leidas' || subcategory?.toLowerCase().includes('no leida') || subcategory?.toLowerCase().includes('unread')) {

@@ -10,8 +10,8 @@ import { PermissionDetailModal } from './permission-detail-modal';
     @if (roleId != null) {
       <div class="modal-backdrop" role="presentation">
         <section class="admin-modal permissions-modal" role="dialog" aria-modal="true" aria-labelledby="role-permissions-title">
-          <h2 id="role-permissions-title">Permisos de {{ data()?.roleName || 'rol' }}</h2>
-          <p class="form-note">Marca los permisos que este rol debe conceder, agrupados por módulo.</p>
+          <h2 id="role-permissions-title">Permisos de {{ data()?.roleName || 'grupo' }}</h2>
+          <p class="form-note">Marca las funciones que este grupo debe conceder, agrupadas por módulo.</p>
           @if (loading()) { <p class="admin-empty">Cargando permisos…</p> }
           @else if (error()) { <div class="admin-state error" role="alert">{{ error() }}</div> }
           @else {
@@ -74,7 +74,7 @@ export class RolePermissionsModal implements OnChanges {
         this.selected.set(granted);
         this.loading.set(false);
       },
-      error: () => { this.loading.set(false); this.error.set('No se pudieron cargar los permisos del rol.'); },
+      error: () => { this.loading.set(false); this.error.set('No se pudieron cargar los permisos del grupo.'); },
     });
   }
 

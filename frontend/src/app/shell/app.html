@@ -38,7 +38,7 @@
         <div class="tenant-info">
           <small>{{ 'shell.organization' | translate }}</small>
           <b>{{ tenantName() }}</b>
-          <span class="tenant-role-badge">{{ 'shell.role' | translate }}: {{ roleText(role()) | uppercase }}</span>
+          <span class="tenant-role-badge">{{ 'shell.role' | translate }}: {{ roleDisplay() | uppercase }}</span>
         </div>
         <span class="tenant-chevron">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -161,7 +161,8 @@
         }
       </nav>
 
-      <!-- Widget de cuota del tenant -->
+      <!-- Widget de cuota del tenant (solo administrador del tenant) -->
+      @if (subscription.canManage()) {
       <button type="button" class="storage-widget subscription-usage" (click)="openUpgrade('Consulta el uso actual de tu suscripción')" aria-label="Consultar uso y mejorar plan">
         <div class="storage-gauge">
           <svg viewBox="0 0 36 36" class="circular-chart">
@@ -178,6 +179,7 @@
           <div class="storage-track"><div class="storage-progress" [style.width.%]="storageUsagePercent()"></div></div>
         </div>
       </button>
+      }
 
       <!-- Footer Perfil Usuario -->
       <div class="user-profile-footer">
@@ -264,11 +266,13 @@
               </div>
             }
           </div>
-          <button type="button" class="upgrade-pill" (click)="openUpgrade()" [attr.aria-label]="'subscription.upgrade' | translate">
-            <span>✨</span>{{ subscription.isBasicPlan() ? ('subscription.upgrade' | translate) : subscriptionPlanName() }}
-          </button>
-          @if (subscription.currentSubscription()?.subscriptionStatus === 'TRIAL') {
-            <button type="button" class="upgrade-pill" (click)="openUpgrade()">⏳ {{ 'billing.trialBadge' | translate:{ days: subscription.currentSubscription()?.trialDaysRemaining ?? 0 } }}</button>
+          @if (subscription.canManage()) {
+            <button type="button" class="upgrade-pill" (click)="openUpgrade()" [attr.aria-label]="'subscription.upgrade' | translate">
+              <span>✨</span>{{ subscription.isBasicPlan() ? ('subscription.upgrade' | translate) : subscriptionPlanName() }}
+            </button>
+            @if (subscription.currentSubscription()?.subscriptionStatus === 'TRIAL') {
+              <button type="button" class="upgrade-pill" (click)="openUpgrade()">⏳ {{ 'billing.trialBadge' | translate:{ days: subscription.currentSubscription()?.trialDaysRemaining ?? 0 } }}</button>
+            }
           }
           <a routerLink="/notifications/unread" class="topbar-btn bell-btn" aria-label="Notificaciones">
             <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -321,7 +325,7 @@
                 <label class="profile-photo-action" title="Cambiar foto"><input type="file" accept="image/jpeg,image/png,image/webp" (change)="uploadAvatar($event)" [disabled]="avatarUploading()" />{{ avatarUploading() ? '…' : '⌑' }}</label>
               </div>
               <h2>{{ displayName() }}</h2>
-              <span class="profile-role">{{ role() }}</span>
+              <span class="profile-role">{{ roleDisplay() }}</span>
               <dl><div><dt>Organización</dt><dd>{{ tenantName() }}</dd></div><div><dt>Usuario</dt><dd>{{ currentUser()?.username }}</dd></div></dl>
               <small>JPG, PNG o WEBP · máximo 2 MB</small>
             </aside>
@@ -341,7 +345,7 @@
                     <label>Apellidos *<input name="profileLastName" [(ngModel)]="profileLastName" required maxlength="100" /></label>
                     <label>Correo electrónico *<input type="email" name="profileEmail" [(ngModel)]="profileEmail" required maxlength="150" /></label>
                     <label>Teléfono<input type="tel" name="profilePhone" [(ngModel)]="profilePhone" maxlength="30" /></label>
-                    <label>Cargo / rol<input [value]="role()" readonly /></label>
+                    <label>Cargo / rol<input [value]="roleDisplay()" readonly /></label>
                     <label>Organización<input [value]="tenantName()" readonly /></label>
                     <label class="profile-wide">Biografía / descripción<textarea name="profileBiography" [(ngModel)]="profileBiography" maxlength="500" placeholder="Cuéntanos brevemente sobre tu función."></textarea><small>{{ profileBiography.length }}/500</small></label>
                   </div>
