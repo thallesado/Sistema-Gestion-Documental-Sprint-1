@@ -71,7 +71,14 @@ public class User {
     @Builder.Default
     private boolean isPlatformAdmin = false;
 
+    @Column(name = "preferred_language", length = 10)
+    @Builder.Default
+    private String preferredLanguage = "es";
+
+    @Column(name = "must_change_password")
+    @Builder.Default
+    private boolean mustChangePassword = false;
+
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
-
 }

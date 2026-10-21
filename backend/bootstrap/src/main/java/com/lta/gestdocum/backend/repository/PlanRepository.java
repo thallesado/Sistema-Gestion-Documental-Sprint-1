@@ -79,4 +79,21 @@ public interface PlanRepository extends JpaRepository<Plan, UUID> {
             order by feature_key
             """, nativeQuery = true)
     List<PlanFeatureProjection> findFeaturesByPlanId(@Param("planId") UUID planId);
+
+    @Query(value = """
+            select pf.feature_key
+            from tenants t
+            join plan_features pf on pf.plan_id = t.plan_id
+            where t.id = :tenantId and pf.is_enabled = true
+            """, nativeQuery = true)
+    List<String> findEnabledFeatureKeysByTenantId(@Param("tenantId") UUID tenantId);
+
+    @Query(value = """
+            select p.code
+            from tenants t
+            join plans p on p.id = t.plan_id
+            where t.id = :tenantId
+            """, nativeQuery = true)
+    Optional<String> findPlanCodeByTenantId(@Param("tenantId") UUID tenantId);
 }
+

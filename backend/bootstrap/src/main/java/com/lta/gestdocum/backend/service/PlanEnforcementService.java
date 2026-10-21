@@ -46,6 +46,11 @@ public class PlanEnforcementService {
     private final AuthenticatedUserContext authenticatedUserContext;
     private final MessageSource messageSource;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.lta.gestdocum.backend.repository.RoleRepository roleRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.lta.gestdocum.backend.repository.PermissionRepository permissionRepository;
+
     public PlanEnforcementService(PlanRepository planRepository,
                                   UserRepository userRepository,
                                   DocumentVersionRepository documentVersionRepository,
@@ -170,8 +175,30 @@ public class PlanEnforcementService {
         if (planRepository.updateTenantPlan(tenantId, target.getId()) != 1) {
             throw new IllegalStateException(message("plan.subscription.missing"));
         }
+        grantNewPlanPermissionsToAdminRole(tenantId, target.getId());
         return getCurrentSubscription();
     }
+
+    private void grantNewPlanPermissionsToAdminRole(UUID tenantId, UUID planId) {
+        if (roleRepository == null || permissionRepository == null) return;
+        try {
+            com.lta.gestdocum.backend.model.Role adminRole = roleRepository.findByTenantIdAndNameIgnoreCase(tenantId, "Administrador de tenant")
+                    .orElse(null);
+            if (adminRole == null) return;
+            java.util.List<String> enabledFeatures = planRepository.findFeaturesByPlanId(planId).stream()
+                    .filter(f -> Boolean.TRUE.equals(f.getEnabled()))
+                    .map(com.lta.gestdocum.backend.repository.PlanFeatureProjection::getFeatureKey)
+                    .toList();
+            java.util.Set<String> featureSet = new java.util.HashSet<>(enabledFeatures);
+            java.util.Set<Long> existingPermissionIds = roleRepository.findPermissionIds(tenantId, adminRole.getId());
+            permissionRepository.findByIsActiveTrueOrderByModuleAscActionAsc().stream()
+                    .filter(perm -> PlanFeatureMatrix.isPermissionAllowed(perm.getModule(), perm.getCode(), featureSet))
+                    .filter(perm -> !existingPermissionIds.contains(perm.getId()))
+                    .forEach(perm -> roleRepository.grantPermission(tenantId, adminRole.getId(), perm.getId()));
+        } catch (Exception ignored) {
+        }
+    }
+
 
     /** Persists an Enterprise commercial lead for the authenticated organization. */
     @Transactional

@@ -63,10 +63,16 @@ public class OcrJobService {
     private final DocumentRepository documentRepository;
     private final TransactionOperations tx;
     private AuditRecorder auditRecorder;
+    private PlanLimitService planLimitService;
 
     @Autowired(required = false)
     public void setAuditRecorder(AuditRecorder auditRecorder) {
         this.auditRecorder = auditRecorder;
+    }
+
+    @Autowired(required = false)
+    public void setPlanLimitService(PlanLimitService planLimitService) {
+        this.planLimitService = planLimitService;
     }
 
     @Autowired
@@ -95,6 +101,9 @@ public class OcrJobService {
     public OcrJobResponse process(MultipartFile file) {
         UUID tenantId = context.requireTenantId();
         UUID userId = context.requireUserId();
+        if (planLimitService != null) {
+            planLimitService.validateOcrLimit(tenantId, 1);
+        }
         ocrService.validateFile(file);
 
         byte[] bytes;
@@ -137,6 +146,9 @@ public class OcrJobService {
                 OcrJob job = repository.findByIdAndTenantId(jobId, tenantId)
                         .orElseThrow(() -> new NotFoundException("Digitalización no encontrada"));
                 applyExtraction(job, extraction, mimeType);
+                if (planLimitService != null) {
+                    planLimitService.recordOcrUsage(tenantId, 1);
+                }
                 return toResponse(repository.save(job));
             });
         } catch (RuntimeException exception) {

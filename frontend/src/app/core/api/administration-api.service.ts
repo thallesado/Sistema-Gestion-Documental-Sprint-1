@@ -44,7 +44,15 @@ export interface UpdateUserPayload {
 export interface ApiTenant { id: string; name: string; code: string; slug: string; status: string; }
 export interface ApiRole { id: number; name: string; description: string | null; system: boolean; permissionCount: number; userCount: number; active?: boolean; }
 export interface CreateRolePayload { name: string; description: string; permissionIds: number[]; }
-export interface CreateTenantPayload { name: string; code: string; slug: string; email: string; }
+export interface CreateTenantPayload {
+  name: string;
+  code: string;
+  slug: string;
+  email: string;
+  planId?: string;
+  adminEmail?: string;
+  adminName?: string;
+}
 
 export interface ApiPermission {
   id: number;

@@ -114,23 +114,31 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                 <input name="documentCode" [(ngModel)]="createForm.code" required maxlength="60" placeholder="Ej: DOC-2026-001" />
               </label>
 
-              <label>Tipo documental *
-                <select name="documentTypeId" [(ngModel)]="createForm.documentTypeId" required>
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                  <span style="font-size: 12px; font-weight: 700; color: #153a39;">Tipo documental *</span>
+                  <button type="button" (click)="openCreateTypeModal()" style="border: none; background: none; color: #087f7b; font-weight: 700; font-size: 11px; cursor: pointer; text-decoration: underline;">+ Nuevo tipo</button>
+                </div>
+                <select name="documentTypeId" [(ngModel)]="createForm.documentTypeId" required style="width: 100%;">
                   <option value="">Selecciona un tipo documental</option>
                   @for (type of types(); track type.id) {
                     <option [value]="type.id">{{ type.name }} · {{ type.code }}</option>
                   }
                 </select>
-              </label>
+              </div>
 
-              <label [appField]="'documento.nuevo.departamento'">Servicio / Departamento
-                <select name="departmentId" [(ngModel)]="createForm.departmentId">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                  <span [appField]="'documento.nuevo.departamento'" style="font-size: 12px; font-weight: 700; color: #153a39;">Servicio / Departamento</span>
+                  <button type="button" (click)="openCreateDeptModal()" style="border: none; background: none; color: #087f7b; font-weight: 700; font-size: 11px; cursor: pointer; text-decoration: underline;">+ Nueva área</button>
+                </div>
+                <select name="departmentId" [(ngModel)]="createForm.departmentId" style="width: 100%;">
                   <option value="">Selecciona servicio o área</option>
                   @for (dept of departments(); track dept.id) {
                     <option [value]="dept.id">{{ dept.name }} ({{ dept.code }})</option>
                   }
                 </select>
-              </label>
+              </div>
 
               <label [appField]="'documento.nuevo.especialidad'">Especialidad
                 <select name="specialty" [(ngModel)]="createForm.specialty">
@@ -537,6 +545,72 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
             </section>
           </div>
         }
+
+        <!-- MODAL CREACIÓN RÁPIDA DE TIPO DOCUMENTAL -->
+        @if (showNewTypeModal()) {
+          <div class="modal-backdrop" role="presentation" (click)="closeCreateTypeModal()">
+            <section class="modal" role="dialog" aria-modal="true" aria-labelledby="new-type-title" (click)="$event.stopPropagation()">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h2 id="new-type-title" style="margin: 0; font-size: 18px; color: #153a39;">Crear nuevo tipo documental</h2>
+                <button type="button" (click)="closeCreateTypeModal()" style="border: none; background: transparent; font-size: 20px; cursor: pointer; color: #6b8583;">✕</button>
+              </div>
+              @if (catalogError()) { <div class="notice error" role="alert" style="margin-bottom: 10px;">{{ catalogError() }}</div> }
+              <div style="display: grid; gap: 12px;">
+                <label>
+                  Nombre del tipo *
+                  <input [(ngModel)]="newTypeForm.name" placeholder="Ej: Certificado de Nacimiento, Acta, Peritaje" maxlength="120" />
+                </label>
+                <label>
+                  Código institucional *
+                  <input [(ngModel)]="newTypeForm.code" placeholder="Ej: CERT, ACTA, PER" maxlength="50" style="text-transform: uppercase;" />
+                </label>
+                <label>
+                  Descripción (opcional)
+                  <input [(ngModel)]="newTypeForm.description" placeholder="Breve descripción del alcance del tipo documental" maxlength="255" />
+                </label>
+              </div>
+              <div class="modal-actions" style="margin-top: 18px;">
+                <button type="button" (click)="closeCreateTypeModal()">Cancelar</button>
+                <button type="button" class="primary-action" (click)="saveNewType()" [disabled]="savingCatalogItem()">
+                  {{ savingCatalogItem() ? 'Guardando...' : 'Crear tipo' }}
+                </button>
+              </div>
+            </section>
+          </div>
+        }
+
+        <!-- MODAL CREACIÓN RÁPIDA DE ÁREA / DEPARTAMENTO -->
+        @if (showNewDeptModal()) {
+          <div class="modal-backdrop" role="presentation" (click)="closeCreateDeptModal()">
+            <section class="modal" role="dialog" aria-modal="true" aria-labelledby="new-dept-title" (click)="$event.stopPropagation()">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h2 id="new-dept-title" style="margin: 0; font-size: 18px; color: #153a39;">Crear nueva área / departamento</h2>
+                <button type="button" (click)="closeCreateDeptModal()" style="border: none; background: transparent; font-size: 20px; cursor: pointer; color: #6b8583;">✕</button>
+              </div>
+              @if (catalogError()) { <div class="notice error" role="alert" style="margin-bottom: 10px;">{{ catalogError() }}</div> }
+              <div style="display: grid; gap: 12px;">
+                <label>
+                  Nombre del área o servicio *
+                  <input [(ngModel)]="newDeptForm.name" placeholder="Ej: Cirugía, Pediatría, Auditoría" maxlength="120" />
+                </label>
+                <label>
+                  Código de área *
+                  <input [(ngModel)]="newDeptForm.code" placeholder="Ej: CIR, PED, AUD" maxlength="40" style="text-transform: uppercase;" />
+                </label>
+                <label>
+                  Descripción (opcional)
+                  <input [(ngModel)]="newDeptForm.description" placeholder="Breve descripción de funciones del área" maxlength="255" />
+                </label>
+              </div>
+              <div class="modal-actions" style="margin-top: 18px;">
+                <button type="button" (click)="closeCreateDeptModal()">Cancelar</button>
+                <button type="button" class="primary-action" (click)="saveNewDept()" [disabled]="savingCatalogItem()">
+                  {{ savingCatalogItem() ? 'Guardando...' : 'Crear área' }}
+                </button>
+              </div>
+            </section>
+          </div>
+        }
       }
     </section>
   `,
@@ -654,6 +728,15 @@ export class DocumentPage implements OnInit, OnDestroy {
   readonly specialties = signal<string[]>([]);
   readonly processes = signal<string[]>([]);
   readonly patients = signal<ApiPatient[]>([]);
+
+  // Modales de creación rápida de catálogo
+  readonly showNewTypeModal = signal(false);
+  readonly showNewDeptModal = signal(false);
+  readonly savingCatalogItem = signal(false);
+  readonly catalogError = signal('');
+
+  newTypeForm = { name: '', code: '', description: '' };
+  newDeptForm = { name: '', code: '', description: '' };
 
   // Listado de documentos y estado API
   readonly loading = signal(false);
@@ -817,6 +900,78 @@ export class DocumentPage implements OnInit, OnDestroy {
     this.clinicalApi.patients('', 0, 50).subscribe({
       next: res => this.patients.set(res.content || []),
       error: () => {},
+    });
+  }
+
+  openCreateTypeModal(): void {
+    this.newTypeForm = { name: '', code: '', description: '' };
+    this.catalogError.set('');
+    this.showNewTypeModal.set(true);
+  }
+
+  closeCreateTypeModal(): void {
+    this.showNewTypeModal.set(false);
+  }
+
+  saveNewType(): void {
+    if (!this.newTypeForm.name.trim() || !this.newTypeForm.code.trim()) {
+      this.catalogError.set('Nombre y código del tipo documental son requeridos');
+      return;
+    }
+    this.savingCatalogItem.set(true);
+    this.catalogError.set('');
+    this.api.createDocumentType({
+      name: this.newTypeForm.name.trim(),
+      code: this.newTypeForm.code.trim().toUpperCase(),
+      description: this.newTypeForm.description.trim() || undefined,
+    }).subscribe({
+      next: (created) => {
+        this.savingCatalogItem.set(false);
+        this.showNewTypeModal.set(false);
+        this.types.update(current => [...current, created]);
+        this.createForm.documentTypeId = created.id;
+        this.actionMessage.set(`Tipo documental '${created.name}' creado y seleccionado.`);
+      },
+      error: (err) => {
+        this.savingCatalogItem.set(false);
+        this.catalogError.set(err.error?.message || 'Error al crear el tipo documental');
+      }
+    });
+  }
+
+  openCreateDeptModal(): void {
+    this.newDeptForm = { name: '', code: '', description: '' };
+    this.catalogError.set('');
+    this.showNewDeptModal.set(true);
+  }
+
+  closeCreateDeptModal(): void {
+    this.showNewDeptModal.set(false);
+  }
+
+  saveNewDept(): void {
+    if (!this.newDeptForm.name.trim() || !this.newDeptForm.code.trim()) {
+      this.catalogError.set('Nombre y código del área/departamento son requeridos');
+      return;
+    }
+    this.savingCatalogItem.set(true);
+    this.catalogError.set('');
+    this.api.createDepartment({
+      name: this.newDeptForm.name.trim(),
+      code: this.newDeptForm.code.trim().toUpperCase(),
+      description: this.newDeptForm.description.trim() || undefined,
+    }).subscribe({
+      next: (created) => {
+        this.savingCatalogItem.set(false);
+        this.showNewDeptModal.set(false);
+        this.departments.update(current => [...current, created]);
+        this.createForm.departmentId = created.id;
+        this.actionMessage.set(`Área/departamento '${created.name}' creado y seleccionado.`);
+      },
+      error: (err) => {
+        this.savingCatalogItem.set(false);
+        this.catalogError.set(err.error?.message || 'Error al crear el área/departamento');
+      }
     });
   }
 

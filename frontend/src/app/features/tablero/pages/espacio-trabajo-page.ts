@@ -15,6 +15,7 @@ import { RoleFormModal } from '../../users/components/role-form-modal';
 import { RolePermissionsModal } from '../../users/components/role-permissions-modal';
 import { activeLocale } from '../../../core/i18n/i18n.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { PermissionService } from '../../../core/auth/permission.service';
 import { DocumentApiService, ApiDocument, ApiDocumentType, ApiDepartment } from '../../../core/api/document-api.service';
 import { WorkspaceApiService, ApiActivity, ApiTask } from '../../../core/api/workspace-api.service';
 import { exportToCsv, exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
@@ -1308,6 +1309,7 @@ export class WorkspacePage implements OnDestroy {
   private readonly adminApi = inject(AdministrationApiService);
   private readonly workflowApi = inject(WorkflowApi);
   private readonly ocrApi = inject(OcrApiService);
+  private readonly permissionService = inject(PermissionService);
   readonly workflowSummary = signal<any>(null);
   get ocrRawFile() { return this.ocrApi.rawFile; }
   get ocrLoading() { return this.ocrApi.ocrLoading; }
@@ -1530,7 +1532,11 @@ export class WorkspacePage implements OnDestroy {
     if (this.isHome || this.isTasksView || this.isActivityView) {
       this.loadDashboard();
     }
-    if(this.isHome)this.workflowApi.get('/summary').subscribe({next:summary=>this.workflowSummary.set(summary),error:()=>this.workflowSummary.set(null)});
+    if (this.isHome && this.permissionService.can('workflow:read')) {
+      this.workflowApi.get('/summary').subscribe({next:summary=>this.workflowSummary.set(summary),error:()=>this.workflowSummary.set(null)});
+    } else if (this.isHome) {
+      this.workflowSummary.set(null);
+    }
     this.route.data.subscribe(() => {
       this.page.set(1);
       this.searchTerm.set('');
@@ -1546,7 +1552,11 @@ export class WorkspacePage implements OnDestroy {
       if (this.isHome || this.isTasksView || this.isActivityView) {
         this.loadDashboard();
       }
-      if(this.isHome)this.workflowApi.get('/summary').subscribe({next:summary=>this.workflowSummary.set(summary),error:()=>this.workflowSummary.set(null)});
+      if (this.isHome && this.permissionService.can('workflow:read')) {
+        this.workflowApi.get('/summary').subscribe({next:summary=>this.workflowSummary.set(summary),error:()=>this.workflowSummary.set(null)});
+      } else if (this.isHome) {
+        this.workflowSummary.set(null);
+      }
     });
   }
 

@@ -111,4 +111,7 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
         order by d.created_at desc
         """, nativeQuery = true)
     List<Document> findLinkedToClinicalHistory(UUID tenantId, UUID historyId);
+
+    long countByTenantId(UUID tenantId);
+    long countByTenantIdAndDeletedAtIsNull(UUID tenantId);
 }

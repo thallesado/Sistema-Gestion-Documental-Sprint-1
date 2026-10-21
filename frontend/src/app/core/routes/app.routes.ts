@@ -49,7 +49,11 @@ const dynamicCatalogRoutes: Routes = navigationRoutes
     },
     title: `${route.subcategory} - NexoDocs`,
     data: { routeInfo: route },
-    canActivate: route.href.startsWith('/users') ? [authGuard, userAdminGuard] : [authGuard],
+    canActivate: route.permission
+      ? [authGuard, hasPermissionGuard(route.permission)]
+      : route.href.startsWith('/users')
+      ? [authGuard, userAdminGuard]
+      : [authGuard],
   }));
 
 export const routes: Routes = [

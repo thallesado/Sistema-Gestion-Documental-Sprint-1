@@ -41,6 +41,8 @@ public class UserService {
     private final PlanEnforcementService planEnforcementService;
     private final UserFormPolicy userFormPolicy;
     private AuditRecorder auditRecorder;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.lta.gestdocum.backend.repository.PlanRepository planRepository;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setAuditRecorder(AuditRecorder auditRecorder) {
@@ -256,6 +258,10 @@ public class UserService {
             // Igual que los permisos: los grupos propios se leen sin depender de role:read.
             response.setRoleIds(roleRepository.findCurrentIds());
             response.setRoleNames(roleRepository.findCurrentNames());
+        }
+        if (tenantId != null && planRepository != null) {
+            planRepository.findPlanCodeByTenantId(tenantId).ifPresent(response::setPlanCode);
+            response.setEnabledFeatures(planRepository.findEnabledFeatureKeysByTenantId(tenantId));
         }
         return response;
     }

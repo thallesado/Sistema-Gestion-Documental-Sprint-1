@@ -3,6 +3,8 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, catchError, finalize, shareReplay, tap, throwError } from 'rxjs';
 import { AuthResponse, AuthUser, LoginRequest, NotificationPreferencesRequest, ProfileUpdateRequest, PublicTenant } from './auth.types';
+import { ThemeService } from '../theme/theme.service';
+import { TenantSettings } from '../theme/theme-variables';
 
 const API_URL = '/api/v1';
 const TOKEN_KEY = 'nexodocs.access_token';
@@ -13,6 +15,7 @@ const USER_KEY = 'nexodocs.auth_user';
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly themeService = inject(ThemeService);
   readonly user = signal<AuthUser | null>(this.readUser());
   readonly avatarUrl = signal<string | null>(null);
   readonly isAuthenticated = signal(Boolean(this.readToken()));
@@ -79,6 +82,12 @@ export class AuthService {
       next: (user) => {
         this.setCurrentUser(user);
         this.loadAvatar(user.hasAvatar);
+        if (user.tenantId) {
+          this.http.get<TenantSettings>(`${API_URL}/tenants/current/settings`).subscribe({
+            next: (settings) => this.themeService.apply(settings),
+            error: () => {},
+          });
+        }
       },
       error: (error: HttpErrorResponse) => {
         if (error.status === 401 || error.status === 403) {
@@ -157,6 +166,7 @@ export class AuthService {
   }
 
   private clearSession(): void {
+    this.themeService.reset();
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(REFRESH_TOKEN_KEY);
     sessionStorage.removeItem(USER_KEY);

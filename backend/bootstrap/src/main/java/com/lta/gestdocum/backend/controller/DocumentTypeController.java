@@ -54,7 +54,7 @@ public class DocumentTypeController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('configuration:create')")
+    @PreAuthorize("hasAuthority('configuration:create') or hasAuthority('document:create')")
     @Operation(summary = "Crear tipo documental")
     public ResponseEntity<DocumentTypeResponse> create(
             @Valid @RequestBody DocumentTypeRequest request) {

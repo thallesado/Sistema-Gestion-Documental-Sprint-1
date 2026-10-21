@@ -1,0 +1,772 @@
+@startuml NexoDocs_Diagrama_Clases
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam classFontSize 12
+skinparam roundcorner 5
+
+package "1. Plataforma y Multi-Tenencia" {
+  class Plan {
+    - id : UUID
+    - code : String
+    - name : String
+    - description : String
+    - price_monthly : Decimal
+    - price_yearly : Decimal
+    - is_active : Boolean
+    - sort_order : Integer
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class PlanLimit {
+    - plan_id : UUID
+    - resource_key : String
+    - resource_value : Long
+    - unit : String
+  }
+  class PlanFeature {
+    - plan_id : UUID
+    - feature_key : String
+    - is_enabled : Boolean
+    - description : String
+  }
+  class Tenant {
+    - id : UUID
+    - plan_id : UUID
+    - name : String
+    - code : String
+    - slug : String
+    - email : String
+    - phone : String
+    - address : String
+    - logo_url : String
+    - primary_color : String
+    - settings : String
+    - subscription_status : String
+    - subscription_start_date : Date
+    - subscription_end_date : Date
+    - billing_cycle : String
+    - storage_limit_bytes : Long
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class TenantDepartment {
+    - id : UUID
+    - tenant_id : UUID
+    - name : String
+    - code : String
+    - description : String
+    - is_active : Boolean
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class User {
+    - id : UUID
+    - tenant_id : UUID
+    - department_id : UUID
+    - username : String
+    - email : String
+    - password_hash : String
+    - first_name : String
+    - last_name : String
+    - document_type : String
+    - document_number : String
+    - phone : String
+    - status : String
+    - is_platform_admin : Boolean
+    - biography : String
+    - avatar_data : byte[]
+    - avatar_content_type : String
+    - email_notifications : Boolean
+    - push_notifications : Boolean
+    - last_login_at : DateTime
+    - created_at : DateTime
+    - updated_at : DateTime
+    - deleted_at : DateTime
+  }
+  class Role {
+    - id : Long
+    - tenant_id : UUID
+    - name : String
+    - description : String
+    - is_system : Boolean
+    - is_active : Boolean
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class Permission {
+    - id : Long
+    - code : String
+    - module : String
+    - action : String
+    - description : String
+    - criticality : String
+    - is_active : Boolean
+    - created_at : DateTime
+  }
+  class RolePermission {
+    - tenant_id : UUID
+    - role_id : Long
+    - permission_id : Long
+    - granted_at : DateTime
+  }
+  class UserRole {
+    - tenant_id : UUID
+    - user_id : UUID
+    - role_id : Long
+    - assigned_at : DateTime
+  }
+  class UserGroup {
+    - id : UUID
+    - tenant_id : UUID
+    - name : String
+    - description : String
+    - is_active : Boolean
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class UserGroupMember {
+    - tenant_id : UUID
+    - group_id : UUID
+    - user_id : UUID
+    - joined_at : DateTime
+  }
+}
+
+package "2. Autenticacion y Seguridad" {
+  class AuthSession {
+    - id : UUID
+    - user_id : UUID
+    - tenant_id : UUID
+    - refresh_token_hash : String
+    - expires_at : DateTime
+    - revoked_at : DateTime
+    - replaced_by : UUID
+    - created_at : DateTime
+    - last_used_at : DateTime
+  }
+  class RevokedAccessToken {
+    - token_hash : String
+    - user_id : UUID
+    - tenant_id : UUID
+    - expires_at : DateTime
+    - revoked_at : DateTime
+  }
+  class PasswordRecoveryRequest {
+    - id : UUID
+    - user_id : UUID
+    - tenant_id : UUID
+    - token_hash : String
+    - expires_at : DateTime
+    - used_at : DateTime
+    - created_at : DateTime
+  }
+  class UserPushToken {
+    - id : UUID
+    - tenant_id : UUID
+    - user_id : UUID
+    - platform : String
+    - token : String
+    - is_active : Boolean
+    - created_at : DateTime
+    - last_used_at : DateTime
+  }
+}
+
+package "3. Gestion Documental y Expedientes" {
+  class RetentionPolicy {
+    - id : UUID
+    - tenant_id : UUID
+    - name : String
+    - retention_months : Integer
+    - disposition_action : String
+    - is_active : Boolean
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class DocumentCategory {
+    - id : UUID
+    - tenant_id : UUID
+    - parent_id : UUID
+    - name : String
+    - code : String
+    - description : String
+    - is_active : Boolean
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class DocumentType {
+    - id : UUID
+    - tenant_id : UUID
+    - category_id : UUID
+    - retention_policy_id : UUID
+    - workflow_template_id : UUID
+    - name : String
+    - code : String
+    - description : String
+    - metadata_schema : String
+    - is_active : Boolean
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class MetadataDefinition {
+    - id : UUID
+    - tenant_id : UUID
+    - document_type_id : UUID
+    - name : String
+    - code : String
+    - data_type : String
+    - options : String
+    - is_required : Boolean
+    - is_searchable : Boolean
+    - sort_order : Integer
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class ExpedientType {
+    - id : UUID
+    - tenant_id : UUID
+    - name : String
+    - code : String
+    - metadata_schema : String
+    - is_active : Boolean
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class Expedient {
+    - id : UUID
+    - tenant_id : UUID
+    - expedient_type_id : UUID
+    - responsible_id : UUID
+    - department_id : UUID
+    - code : String
+    - name : String
+    - description : String
+    - status : String
+    - metadata : String
+    - closed_at : DateTime
+    - archived_at : DateTime
+    - created_at : DateTime
+    - updated_at : DateTime
+    - deleted_at : DateTime
+  }
+  class ExpedientParticipant {
+    - tenant_id : UUID
+    - expedient_id : UUID
+    - user_id : UUID
+    - participant_role : String
+    - added_at : DateTime
+  }
+  class Document {
+    - id : UUID
+    - tenant_id : UUID
+    - expedient_id : UUID
+    - document_type_id : UUID
+    - author_id : UUID
+    - responsible_id : UUID
+    - department_id : UUID
+    - patient_id : UUID
+    - code : String
+    - name : String
+    - description : String
+    - status : String
+    - current_version : Integer
+    - is_external_source : Boolean
+    - source : String
+    - specialty : String
+    - institutional_process : String
+    - metadata : String
+    - issue_date : Date
+    - expiry_date : Date
+    - archived_at : DateTime
+    - voided_at : DateTime
+    - deleted_at : DateTime
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class DocumentVersion {
+    - id : UUID
+    - tenant_id : UUID
+    - document_id : UUID
+    - version_number : Integer
+    - author_id : UUID
+    - change_reason : String
+    - file_path : String
+    - file_name : String
+    - mime_type : String
+    - file_size_bytes : Long
+    - checksum_sha256 : String
+    - content : String
+    - created_at : DateTime
+  }
+  class DocumentMetadataValue {
+    - tenant_id : UUID
+    - document_id : UUID
+    - metadata_definition_id : UUID
+    - value : String
+    - updated_by : UUID
+    - updated_at : DateTime
+  }
+  class Tag {
+    - id : UUID
+    - tenant_id : UUID
+    - name : String
+    - color : String
+    - created_at : DateTime
+  }
+  class DocumentTag {
+    - tenant_id : UUID
+    - document_id : UUID
+    - tag_id : UUID
+  }
+  class DocumentComment {
+    - id : UUID
+    - tenant_id : UUID
+    - document_id : UUID
+    - author_id : UUID
+    - parent_id : UUID
+    - comment_text : String
+    - created_at : DateTime
+    - updated_at : DateTime
+    - deleted_at : DateTime
+  }
+}
+
+package "4. Workflows y Tareas" {
+  class WorkflowTemplate {
+    - id : UUID
+    - tenant_id : UUID
+    - name : String
+    - description : String
+    - version : Integer
+    - is_active : Boolean
+    - created_by : UUID
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class WorkflowTemplateStage {
+    - id : UUID
+    - tenant_id : UUID
+    - workflow_template_id : UUID
+    - name : String
+    - stage_type : String
+    - sort_order : Integer
+    - assignment_type : String
+    - assignment_reference : String
+    - due_days : Integer
+    - rules : String
+  }
+  class WorkflowTemplateTransition {
+    - id : UUID
+    - tenant_id : UUID
+    - workflow_template_id : UUID
+    - from_stage_id : UUID
+    - to_stage_id : UUID
+    - name : String
+    - condition : String
+  }
+  class Workflow {
+    - id : UUID
+    - tenant_id : UUID
+    - workflow_template_id : UUID
+    - expedient_id : UUID
+    - title : String
+    - description : String
+    - status : String
+    - priority : Integer
+    - creator_id : UUID
+    - current_stage_id : UUID
+    - started_at : DateTime
+    - due_at : DateTime
+    - completed_at : DateTime
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class WorkflowDocument {
+    - tenant_id : UUID
+    - workflow_id : UUID
+    - document_id : UUID
+    - added_at : DateTime
+  }
+  class WorkflowTask {
+    - id : UUID
+    - tenant_id : UUID
+    - workflow_id : UUID
+    - stage_id : UUID
+    - document_id : UUID
+    - title : String
+    - description : String
+    - assigned_user_id : UUID
+    - assigned_role_id : Long
+    - assigned_department_id : UUID
+    - assigned_group_id : UUID
+    - status : String
+    - outcome : String
+    - priority : Integer
+    - document_version : Integer
+    - due_at : DateTime
+    - started_at : DateTime
+    - completed_at : DateTime
+    - completed_by : UUID
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class WorkflowEvent {
+    - id : UUID
+    - tenant_id : UUID
+    - workflow_id : UUID
+    - task_id : UUID
+    - document_id : UUID
+    - event_type : String
+    - performed_by : UUID
+    - result : String
+    - comment : String
+    - details : String
+    - performed_at : DateTime
+  }
+  class WorkflowComment {
+    - id : UUID
+    - tenant_id : UUID
+    - workflow_id : UUID
+    - task_id : UUID
+    - document_id : UUID
+    - author_id : UUID
+    - comment_text : String
+    - created_at : DateTime
+    - updated_at : DateTime
+    - deleted_at : DateTime
+  }
+  class TaskDelegation {
+    - id : UUID
+    - tenant_id : UUID
+    - delegator_id : UUID
+    - delegate_id : UUID
+    - starts_on : Date
+    - ends_on : Date
+    - is_active : Boolean
+    - created_at : DateTime
+  }
+}
+
+package "5. Operaciones y Auditoria" {
+  class OcrJob {
+    - id : UUID
+    - tenant_id : UUID
+    - document_id : UUID
+    - uploaded_by : UUID
+    - status : String
+    - original_file_path : String
+    - file_type : String
+    - pages_total : Integer
+    - pages_processed : Integer
+    - raw_text : String
+    - extracted_data : String
+    - suggested_metadata : String
+    - confidence_score : Decimal
+    - validated_by : UUID
+    - validated_at : DateTime
+    - error_message : String
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class Notification {
+    - id : UUID
+    - tenant_id : UUID
+    - user_id : UUID
+    - channel : String
+    - type : String
+    - title : String
+    - message : String
+    - related_entity_type : String
+    - related_entity_id : UUID
+    - is_read : Boolean
+    - read_at : DateTime
+    - archived_at : DateTime
+    - expires_at : DateTime
+    - created_at : DateTime
+  }
+  class AuditEvent {
+    - id : Long
+    - tenant_id : UUID
+    - user_id : UUID
+    - action : String
+    - entity_type : String
+    - entity_id : UUID
+    - occurred_at : DateTime
+    - ip_address : String
+    - user_agent : String
+    - result : String
+    - details : String
+  }
+  class ReportTemplate {
+    - id : UUID
+    - tenant_id : UUID
+    - owner_id : UUID
+    - name : String
+    - description : String
+    - report_type : String
+    - selected_fields : String
+    - filters : String
+    - sort_config : String
+    - is_shared : Boolean
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class TenantUsageMonthly {
+    - tenant_id : UUID
+    - year_month : Date
+    - api_calls : Long
+    - ocr_pages : Long
+    - documents_created : Long
+    - storage_bytes : Long
+    - updated_at : DateTime
+  }
+  class BackupHistory {
+    - id : UUID
+    - tenant_id : UUID
+    - backup_type : String
+    - status : String
+    - created_by : UUID
+    - file_path : String
+    - file_size_bytes : Long
+    - created_at : DateTime
+    - completed_at : DateTime
+    - updated_at : DateTime
+  }
+}
+
+package "6. Dominio Clinico y DICOM" {
+  class Patient {
+    - id : UUID
+    - tenant_id : UUID
+    - document_type : String
+    - document_number : String
+    - first_name : String
+    - last_name : String
+    - birth_date : Date
+    - gender : String
+    - phone : String
+    - email : String
+    - address : String
+    - status : String
+    - created_at : DateTime
+    - updated_at : DateTime
+    - deleted_at : DateTime
+  }
+  class ClinicalStaff {
+    - id : UUID
+    - tenant_id : UUID
+    - user_id : UUID
+    - staff_type : String
+    - specialty : String
+    - professional_license : String
+    - service_area : String
+    - shift : String
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class ClinicalHistory {
+    - id : UUID
+    - tenant_id : UUID
+    - patient_id : UUID
+    - code : String
+    - blood_type : String
+    - pathological_antecedents : String
+    - non_pathological_antecedents : String
+    - family_antecedents : String
+    - allergies : String
+    - chronic_conditions : String
+    - current_medications : String
+    - base_diagnoses : String
+    - observations : String
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class ClinicalEpisode {
+    - id : UUID
+    - tenant_id : UUID
+    - clinical_history_id : UUID
+    - code : String
+    - episode_type : String
+    - started_at : DateTime
+    - ended_at : DateTime
+    - status : String
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class ClinicalDocumentLink {
+    - tenant_id : UUID
+    - document_id : UUID
+    - patient_id : UUID
+    - clinical_history_id : UUID
+    - episode_id : UUID
+    - linked_at : DateTime
+  }
+  class MedicalNote {
+    - id : UUID
+    - tenant_id : UUID
+    - clinical_history_id : UUID
+    - episode_id : UUID
+    - author_id : UUID
+    - note_type : String
+    - content : String
+    - created_at : DateTime
+  }
+  class DicomStudy {
+    - id : UUID
+    - tenant_id : UUID
+    - patient_id : UUID
+    - uploader_id : UUID
+    - study_instance_uid : String
+    - study_date : Date
+    - study_description : String
+    - accession_number : String
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class DicomSeries {
+    - id : UUID
+    - tenant_id : UUID
+    - study_id : UUID
+    - series_instance_uid : String
+    - modality : String
+    - series_number : Integer
+    - series_description : String
+    - body_part : String
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+  class DicomInstance {
+    - id : UUID
+    - tenant_id : UUID
+    - series_id : UUID
+    - sop_instance_uid : String
+    - instance_number : Integer
+    - file_path : String
+    - file_size_bytes : Long
+    - rows_count : Integer
+    - columns_count : Integer
+    - bits_allocated : Integer
+    - window_center : Decimal
+    - window_width : Decimal
+    - pixel_spacing : String
+    - created_at : DateTime
+    - updated_at : DateTime
+  }
+}
+
+' Relaciones de Asociacion (Foreign Keys)
+PlanLimit ..> Plan : "plan_id"
+PlanFeature ..> Plan : "plan_id"
+Tenant ..> Plan : "plan_id"
+TenantDepartment ..> Tenant : "tenant_id"
+User ..> Tenant : "tenant_id"
+User ..> TenantDepartment : "department_id"
+Role ..> Tenant : "tenant_id"
+RolePermission ..> Role : "role_id"
+RolePermission ..> Permission : "permission_id"
+UserRole ..> User : "user_id"
+UserRole ..> Role : "role_id"
+UserGroup ..> Tenant : "tenant_id"
+UserGroupMember ..> UserGroup : "group_id"
+UserGroupMember ..> User : "user_id"
+AuthSession ..> User : "user_id"
+AuthSession ..> Tenant : "tenant_id"
+AuthSession ..> AuthSession : "replaced_by"
+RevokedAccessToken ..> User : "user_id"
+RevokedAccessToken ..> Tenant : "tenant_id"
+PasswordRecoveryRequest ..> User : "user_id"
+PasswordRecoveryRequest ..> Tenant : "tenant_id"
+UserPushToken ..> User : "user_id"
+RetentionPolicy ..> Tenant : "tenant_id"
+DocumentCategory ..> Tenant : "tenant_id"
+DocumentCategory ..> DocumentCategory : "parent_id"
+DocumentType ..> Tenant : "tenant_id"
+DocumentType ..> DocumentCategory : "category_id"
+DocumentType ..> RetentionPolicy : "retention_policy_id"
+DocumentType ..> WorkflowTemplate : "workflow_template_id"
+MetadataDefinition ..> Tenant : "tenant_id"
+MetadataDefinition ..> DocumentType : "document_type_id"
+ExpedientType ..> Tenant : "tenant_id"
+Expedient ..> Tenant : "tenant_id"
+Expedient ..> ExpedientType : "expedient_type_id"
+Expedient ..> User : "responsible_id"
+Expedient ..> TenantDepartment : "department_id"
+ExpedientParticipant ..> Expedient : "expedient_id"
+ExpedientParticipant ..> User : "user_id"
+Document ..> Tenant : "tenant_id"
+Document ..> Expedient : "expedient_id"
+Document ..> DocumentType : "document_type_id"
+Document ..> User : "author_id"
+Document ..> User : "responsible_id"
+Document ..> TenantDepartment : "department_id"
+Document ..> Patient : "patient_id"
+DocumentVersion ..> Document : "document_id"
+DocumentVersion ..> User : "author_id"
+DocumentMetadataValue ..> Document : "document_id"
+DocumentMetadataValue ..> MetadataDefinition : "metadata_definition_id"
+DocumentMetadataValue ..> User : "updated_by"
+Tag ..> Tenant : "tenant_id"
+DocumentTag ..> Document : "document_id"
+DocumentTag ..> Tag : "tag_id"
+DocumentComment ..> Document : "document_id"
+DocumentComment ..> User : "author_id"
+DocumentComment ..> DocumentComment : "parent_id"
+WorkflowTemplate ..> Tenant : "tenant_id"
+WorkflowTemplate ..> User : "created_by"
+WorkflowTemplateStage ..> WorkflowTemplate : "workflow_template_id"
+WorkflowTemplateTransition ..> WorkflowTemplate : "workflow_template_id"
+WorkflowTemplateTransition ..> WorkflowTemplateStage : "from_stage_id"
+WorkflowTemplateTransition ..> WorkflowTemplateStage : "to_stage_id"
+Workflow ..> Tenant : "tenant_id"
+Workflow ..> WorkflowTemplate : "workflow_template_id"
+Workflow ..> Expedient : "expedient_id"
+Workflow ..> User : "creator_id"
+Workflow ..> WorkflowTemplateStage : "current_stage_id"
+WorkflowDocument ..> Workflow : "workflow_id"
+WorkflowDocument ..> Document : "document_id"
+WorkflowTask ..> Workflow : "workflow_id"
+WorkflowTask ..> WorkflowTemplateStage : "stage_id"
+WorkflowTask ..> Document : "document_id"
+WorkflowTask ..> User : "assigned_user_id"
+WorkflowTask ..> Role : "assigned_role_id"
+WorkflowTask ..> TenantDepartment : "assigned_department_id"
+WorkflowTask ..> UserGroup : "assigned_group_id"
+WorkflowTask ..> User : "completed_by"
+WorkflowEvent ..> Workflow : "workflow_id"
+WorkflowEvent ..> WorkflowTask : "task_id"
+WorkflowEvent ..> Document : "document_id"
+WorkflowEvent ..> User : "performed_by"
+WorkflowComment ..> Workflow : "workflow_id"
+WorkflowComment ..> WorkflowTask : "task_id"
+WorkflowComment ..> Document : "document_id"
+WorkflowComment ..> User : "author_id"
+TaskDelegation ..> User : "delegator_id"
+TaskDelegation ..> User : "delegate_id"
+OcrJob ..> Document : "document_id"
+OcrJob ..> User : "uploaded_by"
+OcrJob ..> User : "validated_by"
+Notification ..> User : "user_id"
+AuditEvent ..> Tenant : "tenant_id"
+AuditEvent ..> User : "user_id"
+ReportTemplate ..> User : "owner_id"
+TenantUsageMonthly ..> Tenant : "tenant_id"
+BackupHistory ..> User : "created_by"
+Patient ..> Tenant : "tenant_id"
+ClinicalStaff ..> User : "user_id"
+ClinicalHistory ..> Patient : "patient_id"
+ClinicalEpisode ..> ClinicalHistory : "clinical_history_id"
+ClinicalDocumentLink ..> Document : "document_id"
+ClinicalDocumentLink ..> Patient : "patient_id"
+ClinicalDocumentLink ..> ClinicalHistory : "clinical_history_id"
+ClinicalDocumentLink ..> ClinicalEpisode : "episode_id"
+MedicalNote ..> ClinicalHistory : "clinical_history_id"
+MedicalNote ..> ClinicalEpisode : "episode_id"
+MedicalNote ..> User : "author_id"
+DicomStudy ..> Patient : "patient_id"
+DicomStudy ..> User : "uploader_id"
+DicomSeries ..> DicomStudy : "study_id"
+DicomInstance ..> DicomSeries : "series_id"
+
+@enduml
