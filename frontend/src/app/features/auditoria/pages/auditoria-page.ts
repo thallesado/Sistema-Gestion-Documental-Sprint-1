@@ -8,6 +8,7 @@ import { RouteInfo } from '../../../core/data/nexodocs-data';
 import { AuditDrawerDetail, AuditDrawerField, AuditEventDrawer } from '../components/audit-event-drawer';
 import { AuditFilterField, AuditFilters } from '../components/audit-filters';
 import { AuditPagination } from '../components/audit-pagination';
+import { canReadAuditLog } from '../audit-access';
 
 type AuditView = 'general' | 'access' | 'historical';
 
@@ -317,17 +318,7 @@ export class AuditPage {
     : 'general';
   readonly filters = generalFilters;
   readonly currentUser = this.auth.user;
-  readonly canReadAudit = computed(() => {
-    const user = this.currentUser();
-    return user?.platformAdmin === true
-      || (user?.roleNames ?? []).some((role) => {
-        const normalized = role.toUpperCase();
-        return normalized === 'SUPER_ADMIN'
-          || normalized === 'SUPERADMINISTRADOR'
-          || normalized === 'ADMINISTRADOR DE TENANT'
-          || normalized === 'TENANT_ADMIN';
-      });
-  });
+  readonly canReadAudit = computed(() => canReadAuditLog(this.currentUser()));
   readonly tenantName = computed(() => {
     const user = this.currentUser();
     if (user?.tenantName) return user.tenantName;

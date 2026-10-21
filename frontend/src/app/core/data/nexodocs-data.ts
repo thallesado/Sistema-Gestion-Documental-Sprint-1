@@ -152,12 +152,12 @@ export const navSections: NavSection[] = [
         children: [
           { label: 'Registro general', href: '/audit' },
           { label: 'Accesos', href: '/audit/access' },
-          { label: 'Creacion de documentos', href: '/audit/document-creation', sprintEnabled: false },
-          { label: 'Modificaciones', href: '/audit/modifications', sprintEnabled: false },
-          { label: 'Descargas', href: '/audit/downloads', sprintEnabled: false },
-          { label: 'Aprobaciones', href: '/audit/approvals', sprintEnabled: false },
-          { label: 'Eliminaciones', href: '/audit/deletions', sprintEnabled: false },
-          { label: 'Cambios de permisos', href: '/audit/permissions', sprintEnabled: false },
+          { label: 'Creacion de documentos', href: '/audit/document-creation' },
+          { label: 'Modificaciones', href: '/audit/modifications' },
+          { label: 'Descargas', href: '/audit/downloads' },
+          { label: 'Aprobaciones', href: '/audit/approvals' },
+          { label: 'Eliminaciones', href: '/audit/deletions' },
+          { label: 'Cambios de permisos', href: '/audit/permissions' },
         ],
       },
       {

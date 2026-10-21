@@ -98,3 +98,17 @@ test('planes, precios y facturación solo para el administrador del tenant', () 
   assert.equal(billing(['platform:tenant:manage']), true);
   assert.equal(billing(MEDICO_ESPECIALISTA), false);
 });
+
+test('audit read permission shows every audit entry in the menu', () => {
+  const audit = visibleMenu(new Set(['audit:read_tenant'])).find((item) => item.label === 'Auditoria');
+  assert.deepEqual(audit?.children, [
+    '/audit',
+    '/audit/access',
+    '/audit/document-creation',
+    '/audit/modifications',
+    '/audit/downloads',
+    '/audit/approvals',
+    '/audit/deletions',
+    '/audit/permissions',
+  ]);
+});
