@@ -125,7 +125,7 @@ En otra terminal, desde la **raíz del proyecto**:
    ```powershell
    pnpm dev
    ```
-   *(o `cd frontend && pnpm start`)*
+   *(o `cd frontend && pnpm dev`; `pnpm start` sirve el build de producción sin proxy a `/api`)*
 
 - **Acceso Web:** `http://localhost:4200`
 
@@ -147,8 +147,8 @@ flutter run
 | Rol | Usuario / Correo | Contraseña | Organización (Tenant ID) |
 | :--- | :--- | :--- | :--- |
 | **Administrador de Tenant** | `laura@acme.com` | `DemoPass123!` | `20000000-0000-0000-0000-000000000001` |
-| **Super Administrador** | `carlos@nexodocs.com` | `DemoPass123!` | *(Vacío / Global)* |
-| **Supervisor** | `marcos@acme.com` | `DemoPass123!` | `20000000-0000-0000-0000-000000000001` |
+| **Super Administrador** | `diego.superadmin@acme.example.invalid` (también `andres.`, `oscar.`, `edixon.`, `denilson.`, `mauricio.superadmin@acme.example.invalid`) | `DemoPass123!` | `[ Plataforma / Administración Global ]` |
+| **Supervisor** | `acme.supervisor.test@acme.example.invalid` | `DemoPass123!` | `20000000-0000-0000-0000-000000000001` |
 
 ---
 
