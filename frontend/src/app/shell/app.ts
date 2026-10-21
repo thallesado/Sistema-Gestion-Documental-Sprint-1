@@ -7,7 +7,6 @@ import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '.
 import { AuthService } from '../core/auth/auth.service';
 import { PermissionService } from '../core/auth/permission.service';
 import { permittedChildren } from '../core/auth/permission-rules';
-import { ChatbotService } from '../core/chatbot/chatbot.service';
 import { WorkflowApi } from '../features/workflows/workflow-api.service';
 import { SubscriptionService } from '../core/subscription/subscription.service';
 import { UpgradePlanModalComponent } from '../shared/components/upgrade-plan-modal/upgrade-plan-modal';
@@ -39,7 +38,6 @@ export class App {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly permissions = inject(PermissionService);
-  private readonly chatbot = inject(ChatbotService);
   /** Instantiated here so it listens to navigation from the very first route. */
   private readonly assistantContext = inject(AssistantContextService);
   readonly help = inject(HelpService);
@@ -192,16 +190,12 @@ export class App {
   );
 
   constructor() {
-    // El chatbot solo existe dentro del layout autenticado: se carga al entrar y se retira al salir
-    // (logout, sesión expirada o pantallas públicas como /login).
-    effect(() => (this.isWorkspace() ? this.chatbot.load() : this.chatbot.unload()));
     effect(() => { if (this.isWorkspace()) this.subscription.load(); });
     const activityEvents = ['pointerdown', 'keydown', 'mousemove', 'touchstart', 'scroll'];
     const resetIdleTimer = () => this.resetIdleTimer();
     activityEvents.forEach((eventName) => window.addEventListener(eventName, resetIdleTimer, { passive: true }));
     effect(() => this.isWorkspace() ? this.resetIdleTimer() : this.clearIdleTimer());
     inject(DestroyRef).onDestroy(() => {
-      this.chatbot.unload();
       this.clearIdleTimer();
       activityEvents.forEach((eventName) => window.removeEventListener(eventName, resetIdleTimer));
     });

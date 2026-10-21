@@ -8,7 +8,7 @@ Además eres el integrador: haces el PR 0, extraes el cliente Gemini compartido 
 
 Objetivo: que nadie tenga que editar los archivos calientes del frontend.
 
-Estado: hecho en la rama `feature/diego-pr0-andamiaje`, pendiente de revisión y de integrarse en `main`. Qué contiene:
+Estado: integrado en `main` (PR #2). Qué contiene:
 
 1. Rutas y entradas de menú ocultas (`sprintEnabled: false`) para respaldos, apariencia, privilegios por formulario, consultas dinámicas y reportes por voz, más la ruta pública `/planes`. Cada una tiene su página placeholder en `features/<área>/` y el catálogo genérico de `app.routes.ts` ya no las reclama.
 2. Servicios gancho con lógica pura testeada: `PermissionService`, `ThemeService`, `TranslationService` y `AssistantContextService`.

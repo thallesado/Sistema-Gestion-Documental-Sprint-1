@@ -20,6 +20,10 @@ Signals para carga/listas/selección; computed para derivados; RxJS para debounc
 
 Filtros locales sobre una página no equivalen a filtrado global del backend. Evitar conservar datos del paciente/documento anterior al cambiar selección.
 
+## Asistente contextual
+
+`AssistantWidget` (`features/assistant/`) reemplaza al widget externo de Botpress. Cada pregunta va a `POST /api/v1/assistant/chat` con un contexto mínimo: ruta actual y rutas recientes sin query string, último error HTTP (método, ruta y estado, registrado por `assistantErrorInterceptor`) y códigos de permiso del usuario. El backend (`AssistantService`) vuelve a sanear ese contexto (reemplaza identificadores por `:id`, descarta permisos mal formados), arma el mensaje de sistema con el manual `assistant/manual.md` y llama a `GeminiClient`. No lee datos del tenant ni de pacientes. Límite por usuario en memoria (`app.assistant.rate-limit.*`, 20 por minuto por defecto): 429 al exceder, 503 sin API key de Gemini, 502 si Gemini falla. Las sugerencias proactivas (`assistant-suggestions.ts`) son reglas locales sin llamada a Gemini: un fallo de OCR ofrece reintentar o revisar la imagen.
+
 ## Contratos TS/Java
 
 packages/shared contiene utilidades/tipos, pero las API también declaran interfaces locales. No hay sincronización automática con Java ni evidencia de que todos los clientes importen shared. Alinear campos/alias con DTO real y validar el comportamiento de HTTP, no solo compilación TS.

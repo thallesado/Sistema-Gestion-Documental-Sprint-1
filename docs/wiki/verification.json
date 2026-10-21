@@ -291,6 +291,30 @@
       "includes": [
         "selector: '[appField]'"
       ]
+    },
+    {
+      "page": "03-frontend/estado-y-comunicacion-api.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/AssistantController.java",
+      "includes": [
+        "@RequestMapping(\"/api/v1/assistant\")",
+        "@PostMapping(\"/chat\")"
+      ]
+    },
+    {
+      "page": "03-frontend/estado-y-comunicacion-api.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AssistantService.java",
+      "includes": [
+        "assistant/manual.md",
+        "app.assistant.rate-limit.max-requests:20",
+        "HttpStatus.TOO_MANY_REQUESTS"
+      ]
+    },
+    {
+      "page": "03-frontend/estado-y-comunicacion-api.md",
+      "path": "frontend/src/app/core/api/assistant-api.service.ts",
+      "includes": [
+        "/assistant/chat"
+      ]
     }
   ],
   "reviews": {

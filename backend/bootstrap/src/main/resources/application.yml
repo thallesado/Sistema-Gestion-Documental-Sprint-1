@@ -78,3 +78,7 @@ app:
     timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:35}
     base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
     retry-delay-ms: ${GEMINI_RETRY_DELAY_MS:1000}
+  assistant:
+    rate-limit:
+      max-requests: ${ASSISTANT_RATE_LIMIT_MAX_REQUESTS:20}
+      window-seconds: ${ASSISTANT_RATE_LIMIT_WINDOW_SECONDS:60}

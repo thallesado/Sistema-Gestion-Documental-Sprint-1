@@ -96,9 +96,9 @@ test('the help button opens the help panel instead of showing a toast', () => {
   assert.doesNotMatch(appHtml, /notify\('Centro de ayuda'\)/);
 });
 
-test('the shell instantiates the assistant context eagerly and keeps the Botpress widget until task H2 replaces it', () => {
+test('the shell instantiates the assistant context eagerly and no longer loads the Botpress widget (task H2)', () => {
   assert.match(appTs, /private readonly assistantContext = inject\(AssistantContextService\);/);
-  assert.match(appTs, /this\.chatbot\.load\(\)/);
+  assert.doesNotMatch(appTs, /chatbot|ChatbotService/i);
 });
 
 test('HTTP interceptors: the error recorder is outermost, the timestamp placeholder is innermost and passes requests through', async () => {
