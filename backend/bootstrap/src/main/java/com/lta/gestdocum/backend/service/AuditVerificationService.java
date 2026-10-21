@@ -7,6 +7,7 @@ import com.lta.gestdocum.backend.repository.AuditEventRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -35,7 +36,7 @@ public class AuditVerificationService {
                 ? "0"
                 : String.valueOf(event.getOccurredAt().toInstant().toEpochMilli());
 
-        String ip = event.getIpAddress() == null ? "" : event.getIpAddress().getHostAddress();
+        String ip = postgresHost(event.getIpAddress());
         String details = (event.getDetails() == null || event.getDetails().isBlank()) ? "{}" : event.getDetails();
 
         return String.join("|",
@@ -51,6 +52,57 @@ public class AuditVerificationService {
                 ip,
                 details
         );
+    }
+
+    /**
+     * Formats the IP exactly like PostgreSQL {@code host(inet)}, which the chain trigger hashes:
+     * IPv6 in lowercase with the first longest run (two or more) of zero groups compressed to "::".
+     * {@link InetAddress#getHostAddress()} never compresses, so "::1" would not match.
+     */
+    static String postgresHost(InetAddress address) {
+        if (address == null) {
+            return "";
+        }
+        if (!(address instanceof java.net.Inet6Address)) {
+            return address.getHostAddress();
+        }
+        byte[] bytes = address.getAddress();
+        int[] groups = new int[8];
+        for (int i = 0; i < 8; i++) {
+            groups[i] = ((bytes[2 * i] & 0xff) << 8) | (bytes[2 * i + 1] & 0xff);
+        }
+        int bestStart = -1;
+        int bestLength = 0;
+        for (int i = 0; i < 8; ) {
+            if (groups[i] != 0) {
+                i++;
+                continue;
+            }
+            int start = i;
+            while (i < 8 && groups[i] == 0) {
+                i++;
+            }
+            if (i - start > bestLength) {
+                bestStart = start;
+                bestLength = i - start;
+            }
+        }
+        if (bestLength < 2) {
+            bestStart = -1;
+        }
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < 8; i++) {
+            if (i == bestStart) {
+                out.append("::");
+                i += bestLength - 1;
+                continue;
+            }
+            if (out.length() > 0 && out.charAt(out.length() - 1) != ':') {
+                out.append(':');
+            }
+            out.append(Integer.toHexString(groups[i]));
+        }
+        return out.toString();
     }
 
     public String computeRecordHash(AuditEvent event) {

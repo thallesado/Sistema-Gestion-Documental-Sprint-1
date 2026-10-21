@@ -203,4 +203,25 @@ class AuditVerificationServiceTest {
         assertEquals(legitimateOriginalHash, result.expectedHash());
         assertEquals(e1.getRecordHash(), result.actualHash());
     }
+
+    @Test
+    @DisplayName("La IP del payload canónico usa el mismo formato que host() de PostgreSQL")
+    void canonicalPayload_formatsIpLikePostgresHost() throws Exception {
+        // Expected values were taken from PostgreSQL 17: SELECT host('<ip>'::inet).
+        String[][] cases = {
+                {"::1", "::1"},
+                {"0:0:0:0:0:0:0:1", "::1"},
+                {"2001:0DB8:0:0:1:0:0:1", "2001:db8::1:0:0:1"},
+                {"fe80:0:0:0:abcd:0:0:0", "fe80::abcd:0:0:0"},
+                {"2001:db8:0:1:1:1:1:1", "2001:db8:0:1:1:1:1:1"},
+                {"::", "::"},
+                {"127.0.0.1", "127.0.0.1"},
+        };
+        for (String[] c : cases) {
+            AuditEvent event = createEvent(1L, 1L, "0".repeat(64), "LOGIN", "AUTH", null, baseTime, "{}");
+            event.setIpAddress(InetAddress.getByName(c[0]));
+            String[] fields = verificationService.computeCanonicalPayload(event).split("\\|", -1);
+            assertEquals(c[1], fields[9], "ip " + c[0]);
+        }
+    }
 }
