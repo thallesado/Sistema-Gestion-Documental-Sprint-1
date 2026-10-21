@@ -4,7 +4,7 @@ import { authGuard, hasPermissionGuard, platformAdminGuard, userAdminGuard } fro
 export const administracionRoutes: Routes = [
   {
     path: 'users',
-    loadComponent: () => import('../../pages/users/administracion/administracion.page').then((m) => m.AdministracionPage),
+    loadComponent: () => import('./pages/administracion-page').then((m) => m.AdministrationPage),
     title: 'Usuarios del tenant - NexoDocs',
     canActivate: [authGuard, userAdminGuard],
   },
@@ -16,19 +16,19 @@ export const administracionRoutes: Routes = [
   },
   {
     path: 'access-denied',
-    loadComponent: () => import('../../pages/no-encontrado/access-denied/access-denied.page').then((m) => m.AccessDeniedPage),
+    loadComponent: () => import('../no-encontrado/pages/access-denied-page').then((m) => m.AccessDeniedPage),
     title: 'Acceso restringido - NexoDocs',
     canActivate: [authGuard],
   },
   {
     path: 'tenants',
-    loadComponent: () => import('../../pages/users/administracion/administracion.page').then((m) => m.AdministracionPage),
+    loadComponent: () => import('./pages/administracion-page').then((m) => m.AdministrationPage),
     title: 'Tenants - NexoDocs',
     canActivate: [platformAdminGuard],
   },
   {
     path: 'tenants/new',
-    loadComponent: () => import('../../pages/users/administracion/administracion.page').then((m) => m.AdministracionPage),
+    loadComponent: () => import('./pages/administracion-page').then((m) => m.AdministrationPage),
     title: 'Crear tenant - NexoDocs',
     canActivate: [platformAdminGuard],
   },

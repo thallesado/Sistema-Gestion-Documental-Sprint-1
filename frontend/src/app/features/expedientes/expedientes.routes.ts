@@ -11,7 +11,7 @@ const expedientViews: [string, string, string][] = [
 
 export const expedientesRoutes: Routes = expedientViews.map(([path, expedientView, title]) => ({
   path,
-  loadComponent: () => import('../../pages/expedientes/expedientes.page').then((m) => m.ExpedientsPage),
+  loadComponent: () => import('./pages/expedientes-page').then((m) => m.ExpedientsPage),
   title: `${title} - NexoDocs`,
   data: { expedientView },
   canActivate: [authGuard],
