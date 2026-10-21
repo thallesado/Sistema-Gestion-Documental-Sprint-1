@@ -1,0 +1,15 @@
+packages:
+  - frontend
+  - packages/*
+
+pmOnFail: ignore
+
+minimumReleaseAgeExclude:
+  - '@angular/*'
+
+allowBuilds:
+  '@parcel/watcher': true
+  core-js: false
+  esbuild: true
+  lmdb: true
+  msgpackr-extract: true
