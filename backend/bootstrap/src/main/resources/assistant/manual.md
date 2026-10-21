@@ -10,12 +10,12 @@ NexoDocs organiza los documentos clínicos y administrativos de cada organizaci�
 - Desde el detalle de un documento se puede subir una nueva versión ("Subir nueva versión") y ver su historial.
 
 ## Digitalización y OCR (cómo indexar un documento escaneado)
-1. Entra a Digitalizacion > Escanear documento (`/digitization`).
+1. Entra a Digitalización > Escanear documento (`/digitization`).
 2. Pulsa "Subir archivo o escaneo" o "Capturar documento" con la cámara. Usa una imagen nítida, bien iluminada y sin recortes.
-3. El sistema procesa la imagen con OCR por IA. Revisa el resultado en Digitalizacion > Procesamiento OCR (`/digitization/ocr`): el trabajo queda "Por validar".
+3. El sistema procesa la imagen con OCR por IA. Revisa el resultado en Digitalización > Procesamiento OCR (`/digitization/ocr`): el trabajo queda "Por validar".
 4. Corrige los campos extraídos si hace falta y pulsa "Confirmar extracción" para validarla, o "Rechazar resultado" si no sirve.
-5. Con la digitalización validada, en Indexacion (`/digitization/indexing`) pulsa "Indexar Documento": se crea el documento en el repositorio con su versión 1.
-6. Después de indexar, en Correccion de metadatos (`/digitization/metadata`) puedes ajustar los metadatos finales mientras el documento siga en borrador.
+5. Con la digitalización validada, en Indexación (`/digitization/indexing`) pulsa "Indexar Documento": se crea el documento en el repositorio con su versión 1.
+6. Después de indexar, en Corrección de metadatos (`/digitization/metadata`) puedes ajustar los metadatos finales mientras el documento siga en borrador.
 Permisos: procesar requiere ejecutar OCR; revisar/validar requiere revisar OCR; indexar requiere indexar OCR.
 El OCR solo reconoce texto de documentos (recetas, informes, formularios); no interpreta imágenes médicas como radiografías o tomografías.
 

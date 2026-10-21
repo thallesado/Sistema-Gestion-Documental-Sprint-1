@@ -8,7 +8,8 @@ export const assistantErrorInterceptor: HttpInterceptorFn = (request, next) => {
   const context = inject(AssistantContextService);
   return next(request).pipe(
     catchError((error: unknown) => {
-      if (error instanceof HttpErrorResponse) {
+      // The assistant's own failures are answered in its panel; recording them would hide the help offered for the real error.
+      if (error instanceof HttpErrorResponse && !request.url.includes('/assistant/')) {
         context.recordError({ status: error.status, method: request.method, url: request.url });
       }
       return throwError(() => error);

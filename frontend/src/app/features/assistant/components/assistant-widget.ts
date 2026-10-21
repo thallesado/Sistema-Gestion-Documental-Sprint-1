@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AssistantApiService } from '../../../core/api/assistant-api.service';
 import { AssistantContextService } from '../../../core/assistant/assistant-context.service';
+import { formatReply } from '../../../core/assistant/assistant-reply';
 import { AssistantSuggestion, suggestionFor } from '../../../core/assistant/assistant-suggestions';
 import { PermissionService } from '../../../core/auth/permission.service';
 
@@ -127,7 +128,7 @@ export class AssistantWidget {
     this.sending.set(true);
     const context = { ...this.context.snapshot(), permissions: [...this.permissions.permissions()] };
     this.api.chat(text.slice(0, MAX_MESSAGE_LENGTH), context).subscribe({
-      next: (response) => this.reply(response.reply || 'No tengo una respuesta para eso. Prueba con el centro de ayuda.'),
+      next: (response) => this.reply(formatReply(response.reply ?? '') || 'No tengo una respuesta para eso. Prueba con el centro de ayuda.'),
       error: (error: unknown) => this.reply(errorReply(error)),
     });
   }

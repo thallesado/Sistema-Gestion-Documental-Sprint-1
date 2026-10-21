@@ -29,3 +29,16 @@ test('no suggestion without error, for expired sessions or for the assistant its
   assert.equal(suggestionFor({ status: 401, method: 'GET', url: '/api/v1/documents', at }), null);
   assert.equal(suggestionFor({ status: 502, method: 'POST', url: '/api/v1/assistant/chat', at }), null);
 });
+
+test('replies are shown as plain text with one numbered step per line', async () => {
+  const { formatReply } = await import('../src/app/core/assistant/assistant-reply.ts');
+  const inline = 'Sigue estos pasos: 1. Entra a Digitalización (`/digitization`). 2. Pulsa **"Subir archivo"**. 3. Revisa la versión 1. Listo.';
+  assert.equal(
+    formatReply(inline),
+    'Sigue estos pasos:\n\n1. Entra a Digitalización.\n\n2. Pulsa "Subir archivo".\n\n3. Revisa la versión 1. Listo.',
+  );
+  assert.equal(formatReply('Pasos:\n1. Uno.\n2. Dos.'), 'Pasos:\n\n1. Uno.\n\n2. Dos.');
+  assert.equal(formatReply('Pasos:\u00a01.\u00a0Uno. 2.\u00a0Dos.'), 'Pasos:\n\n1. Uno.\n\n2. Dos.', 'non-breaking spaces');
+  assert.equal(formatReply('Pasos:\n\n\n1. Uno.\n\nFin.'), 'Pasos:\n\n1. Uno.\n\nFin.', 'at most one blank line');
+  assert.equal(formatReply('  Hola   '), 'Hola');
+});
