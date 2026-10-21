@@ -17,6 +17,10 @@ SELECT EXISTS (
   INSERT INTO app.schema_migrations(version) VALUES ('042_component_permissions') ON CONFLICT (version) DO NOTHING;
   \echo '042_component_permissions ya aplicada'
 \else
+  -- Databases that applied 041 before its SELECT grant existed: the audited inserts below
+  -- go through the audit chain trigger, which needs it (045 grants it again, idempotently).
+  GRANT SELECT (tenant_id, chain_seq, record_hash) ON public.audit_events TO nexodocs_security;
+
   -- Privilegios por componente de formulario (B2). Cada fila restringe un componente
   -- para un grupo (rol del tenant). Sin fila, el estado es VISIBLE_EDITABLE. Si un
   -- usuario tiene varios grupos gana el estado más permisivo (se resuelve en el backend).

@@ -224,6 +224,10 @@ SELECT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version = '041_audit_ta
 
   GRANT SELECT, INSERT ON public.audit_anchors TO nexodocs_app;
 
+  -- The chain trigger runs as nexodocs_security and reads the tenant's last link,
+  -- so it needs SELECT on those columns; without it every audited write fails.
+  GRANT SELECT (tenant_id, chain_seq, record_hash) ON public.audit_events TO nexodocs_security;
+
   INSERT INTO app.schema_migrations(version) VALUES ('041_audit_tamper_proof');
 \endif
 COMMIT;
