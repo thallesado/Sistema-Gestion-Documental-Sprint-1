@@ -21,7 +21,9 @@ public class BillingTransaction {
     @Column(name = "tenant_id", nullable = false) private UUID tenantId;
     @Column(name = "plan_id", nullable = false) private UUID planId;
     @Column(name = "amount_usd", nullable = false) private BigDecimal amountUsd;
-    @Column(nullable = false) private String currency = "USD";
+    // 036_billing_engine creates currency as char(3); without CHAR, ddl-auto=validate stops startup.
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(nullable = false, length = 3) private String currency = "USD";
     @Enumerated(EnumType.STRING) @Column(name = "payment_method", nullable = false) private PaymentMethod paymentMethod;
     @Enumerated(EnumType.STRING) @Column(nullable = false) private PaymentStatus status;
     @Column(name = "external_reference", nullable = false) private String externalReference;
