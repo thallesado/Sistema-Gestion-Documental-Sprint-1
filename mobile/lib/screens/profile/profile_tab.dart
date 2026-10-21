@@ -21,11 +21,45 @@ class _ProfileTabState extends State<ProfileTab> {
   Map<String, dynamic>? user;
   String? error;
   bool loading = true;
+  bool biometricAvailable = false;
+  bool biometricEnabled = false;
 
   @override
   void initState() {
     super.initState();
     loadProfile();
+    _checkBiometrics();
+  }
+
+  Future<void> _checkBiometrics() async {
+    final available = await widget.api.biometrics.isAvailable();
+    final enabled = await widget.api.biometrics.isEnabled();
+    if (mounted) {
+      setState(() {
+        biometricAvailable = available;
+        biometricEnabled = enabled;
+      });
+    }
+  }
+
+  Future<void> _toggleBiometrics(bool value) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (value) {
+      final success = await widget.api.biometrics.authenticate(
+        reason: 'Confirma tu identidad para activar el desbloqueo biométrico',
+      );
+      if (!success) {
+        messenger.showSnackBar(const SnackBar(content: Text('No se pudo verificar la identidad biométrica.')));
+        return;
+      }
+      await widget.api.biometrics.setEnabled(true);
+      if (mounted) setState(() => biometricEnabled = true);
+      messenger.showSnackBar(const SnackBar(content: Text('Desbloqueo biométrico activado.')));
+    } else {
+      await widget.api.biometrics.setEnabled(false);
+      if (mounted) setState(() => biometricEnabled = false);
+      messenger.showSnackBar(const SnackBar(content: Text('Desbloqueo biométrico desactivado.')));
+    }
   }
 
   Future<void> loadProfile() async {
@@ -112,6 +146,35 @@ class _ProfileTabState extends State<ProfileTab> {
               const Divider(height: 1),
               _tile(Icons.cloud_done_outlined, 'Servidor', apiBaseUrl),
             ]),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
+                  child: Text('Seguridad y Dispositivo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.teal)),
+                ),
+                SwitchListTile(
+                  key: const Key('biometrics-switch'),
+                  secondary: const Icon(Icons.fingerprint, color: AppTheme.teal),
+                  title: const Text('Desbloqueo biométrico', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  subtitle: Text(
+                    biometricAvailable
+                        ? 'Acceso rápido con huella o reconocimiento facial'
+                        : 'Biometría no disponible en este dispositivo',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  value: biometricEnabled,
+                  onChanged: biometricAvailable ? _toggleBiometrics : null,
+                  activeTrackColor: AppTheme.mint,
+                  activeThumbColor: AppTheme.teal,
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
           FilledButton.icon(

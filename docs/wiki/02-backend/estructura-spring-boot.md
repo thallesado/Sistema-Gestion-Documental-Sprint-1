@@ -32,6 +32,7 @@ Base `/api/v1`. Ver controladores para métodos, DTOs y permisos exactos:
 | PatientQuickSummaryController | /patients/{id}/quick-summary |
 | WorkflowController | /workflows |
 | AuditController / DashboardController | /audit, /dashboard |
+| ReportController | /reports (documentos, usuarios, workflows, expedientes, auditoría y exportación CSV) |
 | OcrController | /ocr/process, jobs, stats y decisiones persistidas |
 
 No interpretar la lista como CRUD completo. DocumentController no tiene edición general de metadatos en la base local.

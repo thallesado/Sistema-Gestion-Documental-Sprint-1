@@ -12,6 +12,7 @@ import '../documents/documents_tab.dart';
 import '../notifications/notifications_page.dart';
 import '../patients/patients_tab.dart';
 import '../profile/profile_tab.dart';
+import '../scan/scan_document_page.dart';
 import '../tasks/task_detail_page.dart';
 import '../tasks/tasks_tab.dart';
 
@@ -155,6 +156,14 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
         elevation: 0,
         scrolledUnderElevation: 1,
         actions: [
+          IconButton(
+            key: const Key('scan-button'),
+            tooltip: 'Escanear con cámara',
+            icon: const Icon(Icons.document_scanner_outlined, color: AppTheme.teal),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => ScanDocumentPage(api: widget.api)),
+            ),
+          ),
           if (canSeeNotifications)
             IconButton(
               key: const Key('notifications-button'),
@@ -169,6 +178,16 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
         ],
       ),
       body: IndexedStack(index: index, children: [for (final tab in tabs) _page(tab)]),
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('scan-fab'),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => ScanDocumentPage(api: widget.api)),
+        ),
+        backgroundColor: AppTheme.teal,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.camera_alt),
+        label: const Text('Escanear', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (selected) => setState(() => current = tabs[selected]),

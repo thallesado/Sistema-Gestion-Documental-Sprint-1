@@ -2,12 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+import '../auth/biometric_service.dart';
 import '../auth/user_permissions.dart';
 import '../errors/api_exception.dart';
 import '../notifications/workflow_notifications.dart';
 import 'api_client.dart';
 import 'clinical_api.dart';
 import 'documents_api.dart';
+import 'ocr_api.dart';
 import 'workflows_api.dart';
 
 /// Organización seleccionable en el login (GET /tenants/public).
@@ -19,14 +21,17 @@ class PublicTenant {
 
 /// Punto de entrada de la app: sesión y acceso a los servicios de cada módulo.
 class AuthApi {
-  AuthApi({http.Client? client, FlutterSecureStorage? storage})
-    : client = ApiClient(client: client, storage: storage);
+  AuthApi({http.Client? client, FlutterSecureStorage? storage, BiometricService? biometrics})
+    : client = ApiClient(client: client, storage: storage),
+      biometrics = biometrics ?? BiometricService(storage: storage);
 
   final ApiClient client;
+  final BiometricService biometrics;
 
   late final documents = DocumentsApi(client);
   late final workflows = WorkflowsApi(client);
   late final clinical = ClinicalApi(client);
+  late final ocr = OcrApi(client);
 
   /// Permisos por función del usuario actual; el shell y las pantallas se redibujan al cambiar.
   final ValueNotifier<UserPermissions> permissions = ValueNotifier(UserPermissions.unknown);

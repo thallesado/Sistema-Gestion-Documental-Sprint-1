@@ -29,7 +29,12 @@ class UserPermissions {
 /// Códigos usados por la app, copiados de los `@PreAuthorize` y de `WorkflowEngineService`.
 abstract final class Permissions {
   static const documentRead = 'document:read';
+  static const documentCreate = 'document:create';
   static const documentUpdate = 'document:update';
+  static const ocrCreate = 'ocr:create';
+  static const ocrRead = 'ocr:read';
+  static const ocrUpdate = 'ocr:update';
+  static const patientCreate = 'patient:create';
   static const patientRead = 'patient:read';
   static const taskRead = 'task:read';
   static const taskUpdate = 'task:update';
