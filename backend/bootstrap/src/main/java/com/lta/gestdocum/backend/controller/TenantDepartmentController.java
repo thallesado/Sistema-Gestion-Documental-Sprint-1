@@ -54,7 +54,7 @@ public class TenantDepartmentController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('configuration:create')")
+    @PreAuthorize("hasAuthority('configuration:create') or hasAuthority('document:create')")
     @Operation(summary = "Crear departamento")
     public ResponseEntity<TenantDepartmentResponse> create(
             @Valid @RequestBody TenantDepartmentRequest request) {

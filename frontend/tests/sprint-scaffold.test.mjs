@@ -34,7 +34,7 @@ const SCAFFOLD_SCREENS = [
 ];
 
 /** Pantallas del andamiaje que su responsable ya implementó (dejan de ser marcadores ocultos). */
-const IMPLEMENTED = new Set(['/users/form-permissions']);
+const IMPLEMENTED = new Set(['/users/form-permissions', '/settings/appearance']);
 
 test('every scaffold screen has its own route file, a placeholder page and a guard', async () => {
   for (const screen of SCAFFOLD_SCREENS) {

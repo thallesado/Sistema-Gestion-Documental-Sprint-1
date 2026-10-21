@@ -51,13 +51,19 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNAUTHORIZED, "Unauthorized", exception.getMessage(), request);
     }
 
+    @ExceptionHandler(PlanLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> handlePlanLimitExceeded(
+            PlanLimitExceededException exception, HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> response = error(HttpStatus.PAYMENT_REQUIRED, "Payment Required", exception.getMessage(), request);
+        response.getBody().put("code", "PLAN_LIMIT_EXCEEDED");
+        return response;
+    }
+
     @ExceptionHandler({AccessDeniedException.class, TenantMismatchException.class,
             TenantRequiredException.class})
     public ResponseEntity<Map<String, Object>> handleForbidden(
             Exception exception, HttpServletRequest request) {
-        ResponseEntity<Map<String, Object>> response = error(HttpStatus.FORBIDDEN, "Forbidden", exception.getMessage(), request);
-        if (exception instanceof PlanLimitExceededException) response.getBody().put("code", "PLAN_LIMIT_EXCEEDED");
-        return response;
+        return error(HttpStatus.FORBIDDEN, "Forbidden", exception.getMessage(), request);
     }
 
     @ExceptionHandler(NotFoundException.class)

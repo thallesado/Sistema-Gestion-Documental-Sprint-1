@@ -177,6 +177,10 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
             <button type="button" class="recovery-btn" (click)="requestRecovery()">
               {{ 'auth.forgot' | translate }}
             </button>
+            <div class="signup-prompt">
+              <span>¿Tu empresa aún no tiene cuenta?</span>
+              <a routerLink="/planes" class="signup-link">Crear cuenta de empresa</a>
+            </div>
             <a routerLink="/welcome" class="explore-plans">
               <strong>{{ 'marketing.backToHome' | translate }}</strong>
               <span>{{ 'marketing.loginExplore' | translate }}</span>
@@ -541,6 +545,28 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 
     .recovery-btn:hover {
       background: #eef8f6;
+    }
+    .signup-prompt {
+      margin-top: 4px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+      color: #166534;
+    }
+    .signup-link {
+      color: #087f7b;
+      font-weight: 700;
+      font-size: 13px;
+      text-decoration: none;
+    }
+    .signup-link:hover {
+      text-decoration: underline;
     }
     .explore-plans { color:#2c7167; display:grid; font-size:12px; gap:3px; line-height:1.45; text-align:center; text-decoration:none; }
     .explore-plans strong { font-size:13px; }

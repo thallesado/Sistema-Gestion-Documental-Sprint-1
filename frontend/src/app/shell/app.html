@@ -55,10 +55,10 @@
             <div class="nav-group" [class.active]="isActiveItem(item.label)">
               <a
                 class="nav-item"
-                [class.has-toggle]="item.children.length > 1"
+                [class.has-toggle]="visibleChildren(item).length > 1"
                 [attr.title]="isCollapsed() ? navLabel(item.label) : null"
                 [class.active]="isActiveItem(item.label)"
-                [routerLink]="item.children[0].href"
+                [routerLink]="visibleChildren(item)[0]?.href ?? item.children[0].href"
                 (click)="openNav(item.label)"
               >
                 <span class="nav-icon-wrap" aria-hidden="true">
@@ -127,7 +127,7 @@
                 </span>
                 <b>{{ navLabel(item.label) }}</b>
               </a>
-              @if (item.children.length > 1) {
+              @if (visibleChildren(item).length > 1) {
                 <button
                   type="button"
                   class="nav-arrow"
@@ -142,7 +142,7 @@
                 </button>
               }
             </div>
-            @if (item.children.length > 1) {
+            @if (visibleChildren(item).length > 1) {
               <div class="nav-children-list" [id]="navId(item.label)" [hidden]="!isExpanded(item.label)">
                 @for (child of visibleChildren(item); track child.href) {
                   <a

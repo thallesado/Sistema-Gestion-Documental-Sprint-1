@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -31,6 +32,16 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
               <label>Código<input name="tenantCode" [(ngModel)]="tenantForm.code" required /></label>
               <label>Slug<input name="tenantSlug" [(ngModel)]="tenantForm.slug" required /></label>
               <label>Correo de contacto<input type="email" name="tenantEmail" [(ngModel)]="tenantForm.email" required /></label>
+              <label>Plan de suscripción
+                <select name="tenantPlan" [(ngModel)]="tenantForm.planId">
+                  <option value="">Selecciona un plan (opcional)</option>
+                  @for (plan of plans(); track plan.id) {
+                    <option [value]="plan.id">{{ plan.name }} ({{ plan.code }})</option>
+                  }
+                </select>
+              </label>
+              <label>Nombre del administrador inicial<input name="adminName" [(ngModel)]="tenantForm.adminName" placeholder="Ej. Administrador Sistema" /></label>
+              <label>Correo del administrador inicial<input type="email" name="adminEmail" [(ngModel)]="tenantForm.adminEmail" placeholder="admin@empresa.com" /></label>
             </div><div class="form-actions"><a routerLink="/tenants" class="admin-secondary">Cancelar</a><button class="admin-primary" type="submit" [disabled]="saving()">Crear tenant</button></div></form>
           } @else {
           <header class="admin-header"><div><p class="eyebrow">Administración global · Tenants</p><h1>Organizaciones</h1><p>Gestiona el ciclo de vida de los tenants de NexoDocs.</p></div><a class="admin-primary" routerLink="/tenants/new">＋ Crear tenant</a></header>
@@ -140,6 +151,7 @@ export class AdministrationPage {
   private readonly permissions = inject(PermissionService);
   private readonly fields = inject(ComponentPermissionService);
   private readonly route = inject(ActivatedRoute);
+  private readonly http = inject(HttpClient);
   readonly users = signal<ApiUser[]>([]);
   readonly tenants = signal<ApiTenant[]>([]);
   readonly roles = signal<ApiRole[]>([]);
@@ -168,7 +180,8 @@ export class AdministrationPage {
   readonly userPage = signal(0); // base 0, como el backend
   readonly userPageSize = signal(10);
   readonly showCreateModal = signal(false);
-  tenantForm = { name: '', code: '', slug: '', email: '' };
+  readonly plans = signal<any[]>([]);
+  tenantForm = { name: '', code: '', slug: '', email: '', planId: '', adminEmail: '', adminName: '' };
   readonly activeTab = signal<'users' | 'roles'>('users');
   readonly permissionsRoleId = signal<number | null>(null);
   readonly roleFormOpen = signal(false);
@@ -199,7 +212,10 @@ export class AdministrationPage {
     });
     effect(() => {
       if (this.isTenantArea) {
-        if (this.isSuperadmin() && !this.isCreate) this.loadTenants();
+        if (this.isSuperadmin()) {
+          if (!this.isCreate) this.loadTenants();
+          else this.loadPlans();
+        }
         return;
       }
       if (!this.canManageUsers()) return;
@@ -281,7 +297,33 @@ export class AdministrationPage {
 
   createTenant(): void {
     this.saving.set(true); this.message.set('');
-    this.api.createTenant(this.tenantForm).subscribe({ next: () => { this.saving.set(false); this.message.set('Tenant creado correctamente.'); this.tenantForm = { name: '', code: '', slug: '', email: '' }; }, error: err => { this.saving.set(false); this.showError(this.apiError(err, 'No se pudo crear el tenant.')); } });
+    const payload = {
+      name: this.tenantForm.name,
+      code: this.tenantForm.code,
+      slug: this.tenantForm.slug,
+      email: this.tenantForm.email,
+      planId: this.tenantForm.planId || undefined,
+      adminEmail: this.tenantForm.adminEmail || undefined,
+      adminName: this.tenantForm.adminName || undefined,
+    };
+    this.api.createTenant(payload).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.message.set('Tenant creado correctamente.');
+        this.tenantForm = { name: '', code: '', slug: '', email: '', planId: '', adminEmail: '', adminName: '' };
+      },
+      error: err => {
+        this.saving.set(false);
+        this.showError(this.apiError(err, 'No se pudo crear el tenant.'));
+      }
+    });
+  }
+
+  loadPlans(): void {
+    this.http.get<any[]>('/api/v1/plans').subscribe({
+      next: plans => this.plans.set(plans || []),
+      error: () => {},
+    });
   }
 
   toggleEditRole(id: number): void {

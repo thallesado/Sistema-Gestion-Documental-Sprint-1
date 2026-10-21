@@ -27,13 +27,14 @@ import java.time.temporal.ChronoUnit;
 public class PublicOnboardingService {
     private final TenantRepository tenants; private final PlanRepository plans; private final UserRepository users;
     private final RoleRepository roles; private final PermissionRepository permissions; private final PasswordEncoder passwordEncoder;
-    private final AuthService authService;
+    private final AuthService authService; private final TenantService tenantService;
 
     public PublicOnboardingService(TenantRepository tenants, PlanRepository plans, UserRepository users,
                                    RoleRepository roles, PermissionRepository permissions, PasswordEncoder passwordEncoder,
-                                   AuthService authService) {
+                                   AuthService authService, TenantService tenantService) {
         this.tenants = tenants; this.plans = plans; this.users = users; this.roles = roles;
         this.permissions = permissions; this.passwordEncoder = passwordEncoder; this.authService = authService;
+        this.tenantService = tenantService;
     }
 
     @Transactional
@@ -61,12 +62,23 @@ public class PublicOnboardingService {
         Role administratorRole = roles.save(Role.builder().tenantId(tenant.getId()).name("Administrador de tenant")
                 .description("Administrador inicial creado durante el onboarding").isSystem(true).isActive(true).build());
         roles.assign(tenant.getId(), administrator.getId(), administratorRole.getId());
-        permissions.findByIsActiveTrueOrderByModuleAscActionAsc()
+
+        java.util.List<String> enabledFeatures = plans.findFeaturesByPlanId(plan.getId()).stream()
+                .filter(f -> Boolean.TRUE.equals(f.getEnabled()))
+                .map(com.lta.gestdocum.backend.repository.PlanFeatureProjection::getFeatureKey)
+                .toList();
+        java.util.Set<String> featureSet = new java.util.HashSet<>(enabledFeatures);
+
+        permissions.findByIsActiveTrueOrderByModuleAscActionAsc().stream()
+                .filter(permission -> PlanFeatureMatrix.isPermissionAllowed(permission.getModule(), permission.getCode(), featureSet))
                 .forEach(permission -> roles.grantPermission(tenant.getId(), administratorRole.getId(), permission.getId()));
+
+        tenantService.seedDefaultCatalogs(tenant.getId());
 
         AuthRequest login = new AuthRequest(); login.setTenantId(tenant.getId()); login.setUsernameOrEmail(request.email()); login.setPassword(request.password());
         return authService.login(login);
     }
+
 
     private String uniqueUsername(String email, String suffix) {
         String local = email.substring(0, email.indexOf('@')).replaceAll("[^A-Za-z0-9_.-]", "");

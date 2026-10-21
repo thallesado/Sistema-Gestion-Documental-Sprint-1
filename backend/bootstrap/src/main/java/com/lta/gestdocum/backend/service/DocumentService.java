@@ -62,9 +62,16 @@ public class DocumentService {
         this.componentPermissions = componentPermissions;
     }
 
+    private PlanLimitService planLimitService;
+
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setAuditRecorder(AuditRecorder auditRecorder) {
         this.auditRecorder = auditRecorder;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setPlanLimitService(PlanLimitService planLimitService) {
+        this.planLimitService = planLimitService;
     }
 
     @Transactional(readOnly = true)
@@ -115,6 +122,9 @@ public class DocumentService {
     public DocumentResponse create(DocumentCreateRequest request) {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
+        if (planLimitService != null) {
+            planLimitService.validateDocumentLimit(tenantId);
+        }
         ComponentFormAccess access = documentAccess();
         requireEditableComponents(access, request);
         String code = access.editable("codigo")
@@ -147,6 +157,9 @@ public class DocumentService {
         document.setUpdatedAt(now);
         try {
             Document saved = repository.save(document);
+            if (planLimitService != null) {
+                planLimitService.recordDocumentCreation(tenantId);
+            }
             if (auditRecorder != null) {
                 auditRecorder.record("CREATE", "DOCUMENTS", saved.getId(), null,
                         java.util.Map.of("code", saved.getCode(), "name", saved.getName(), "status", String.valueOf(saved.getStatus())));

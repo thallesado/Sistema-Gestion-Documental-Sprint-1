@@ -14,7 +14,7 @@ export type Role =
 export type NavChild = { label: string; href: string; visible?: boolean; sprintEnabled?: boolean; permission?: PermissionRequirement };
 export type NavItem = { label: string; icon: string; children: NavChild[]; permission?: PermissionRequirement; sprintEnabled?: boolean };
 export type NavSection = { title: string; items: NavItem[] };
-export type RouteInfo = { module: string; subcategory: string; href: string };
+export type RouteInfo = { module: string; subcategory: string; href: string; permission?: PermissionRequirement };
 export type ScreenCopy = { description: string; action: string };
 export type DemoItem = {
   title: string;
@@ -93,15 +93,15 @@ export const navSections: NavSection[] = [
       {
         label: 'Digitalizacion',
         icon: 'DG',
-        permission: ['ocr:create', 'document:create', 'document:update', 'patient:create'],
+        permission: ['ocr:create', 'ocr:read'],
         sprintEnabled: true,
         children: [
-          { label: 'Escanear documento', href: '/digitization' },
-          { label: 'Subir documento', href: '/digitization/upload', visible: false },
-          { label: 'Procesamiento OCR', href: '/digitization/ocr' },
-          { label: 'Validacion', href: '/digitization/validation', visible: false },
-          { label: 'Indexacion', href: '/digitization/indexing', visible: false },
-          { label: 'Correccion de metadatos', href: '/digitization/metadata', visible: false },
+          { label: 'Escanear documento', href: '/digitization', permission: 'ocr:create' },
+          { label: 'Subir documento', href: '/digitization/upload', visible: false, permission: 'ocr:create' },
+          { label: 'Procesamiento OCR', href: '/digitization/ocr', permission: 'ocr:read' },
+          { label: 'Validacion', href: '/digitization/validation', visible: false, permission: 'ocr:read' },
+          { label: 'Indexacion', href: '/digitization/indexing', visible: false, permission: 'ocr:read' },
+          { label: 'Correccion de metadatos', href: '/digitization/metadata', visible: false, permission: 'ocr:read' },
         ],
       },
     ],
@@ -226,7 +226,7 @@ export const navSections: NavSection[] = [
         label: 'Tenants',
         icon: 'TN',
         permission: 'platform:tenant:manage',
-        sprintEnabled: false,
+        sprintEnabled: true,
         children: [
           { label: 'Todos los tenants', href: '/tenants' },
           { label: 'Crear tenant', href: '/tenants/new' },
@@ -247,6 +247,7 @@ export const navigationRoutes: RouteInfo[] = navSections.flatMap((section) =>
       module: item.label,
       subcategory: child.label,
       href: child.href,
+      permission: child.permission ?? item.permission,
     })),
   ),
 );

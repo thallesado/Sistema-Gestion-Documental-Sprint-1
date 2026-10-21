@@ -185,6 +185,10 @@ export class DocumentApiService {
     return this.http.get<DocumentTypePage>(`${API_URL}/document-types`, { params });
   }
 
+  createDocumentType(payload: { name: string; code: string; description?: string }): Observable<ApiDocumentType> {
+    return this.http.post<ApiDocumentType>(`${API_URL}/document-types`, payload);
+  }
+
   categories(): Observable<ApiDocumentCategory[]> {
     return this.http.get<ApiDocumentCategory[]>(`${API_URL}/documents/categories`);
   }
@@ -202,6 +206,10 @@ export class DocumentApiService {
     return this.http.get<{ content: ApiDepartment[] }>(`${API_URL}/departments`, { params }).pipe(
       map(res => res.content || [])
     );
+  }
+
+  createDepartment(payload: { name: string; code: string; description?: string }): Observable<ApiDepartment> {
+    return this.http.post<ApiDepartment>(`${API_URL}/departments`, payload);
   }
 
   documents(filter = '', status?: string, page = 0, size = 20, scope?: 'mine' | 'shared'): Observable<{ content: ApiDocument[]; totalElements: number }> {

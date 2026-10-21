@@ -9,6 +9,7 @@ import com.lta.gestdocum.backend.model.Tenant;
 import com.lta.gestdocum.backend.repository.TenantRepository;
 import com.lta.gestdocum.backend.model.User;
 import com.lta.gestdocum.backend.model.UserStatus;
+import com.lta.gestdocum.backend.repository.PlanRepository;
 import com.lta.gestdocum.backend.repository.UserRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUser;
 import com.lta.gestdocum.backend.security.JwtService;
@@ -23,6 +24,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final TenantRepository tenantRepository;
+    private final PlanRepository planRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthSessionService authSessionService;
@@ -30,12 +32,14 @@ public class AuthService {
 
     public AuthService(UserRepository userRepository,
                        TenantRepository tenantRepository,
+                       PlanRepository planRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        AuthSessionService authSessionService,
                        AccessTokenRevocationService accessTokenRevocationService) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
+        this.planRepository = planRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authSessionService = authSessionService;
@@ -72,9 +76,7 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
 
-        List<String> authorities = user.isPlatformAdmin()
-                ? com.lta.gestdocum.backend.security.PlatformAuthorities.CODES
-                : userRepository.findAuthorityCodes(user.getId(), user.getTenantId());
+        List<String> authorities = resolveAuthorities(user);
         if (authorities.isEmpty()) {
             throw new org.springframework.security.access.AccessDeniedException(
                     "El usuario no tiene permisos activos asignados");
@@ -98,9 +100,7 @@ public class AuthService {
                 || user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException();
         }
-        List<String> authorities = user.isPlatformAdmin()
-                ? com.lta.gestdocum.backend.security.PlatformAuthorities.CODES
-                : userRepository.findAuthorityCodes(user.getId(), user.getTenantId());
+        List<String> authorities = resolveAuthorities(user);
         if (authorities.isEmpty()) {
             throw new org.springframework.security.access.AccessDeniedException(
                     "El usuario no tiene permisos activos asignados");
@@ -113,6 +113,22 @@ public class AuthService {
                 jwtService.getRefreshExpiration());
         return new AuthResponse(token, "Bearer", replacementRefreshToken, jwtService.getExpiration(), authorities);
     }
+
+    private List<String> resolveAuthorities(User user) {
+        if (user.isPlatformAdmin()) {
+            return com.lta.gestdocum.backend.security.PlatformAuthorities.CODES;
+        }
+        if (user.getTenantId() == null) {
+            return java.util.List.of();
+        }
+        List<String> rawCodes = userRepository.findAuthorityCodes(user.getId(), user.getTenantId());
+        List<String> enabledFeatures = planRepository.findEnabledFeatureKeysByTenantId(user.getTenantId());
+        java.util.Set<String> featureSet = new java.util.HashSet<>(enabledFeatures);
+        return rawCodes.stream()
+                .filter(code -> PlanFeatureMatrix.isPermissionAllowed(null, code, featureSet))
+                .toList();
+    }
+
 
     public void logout(AuthenticatedUser authenticatedUser, String token, String refreshToken) {
         accessTokenRevocationService.revoke(authenticatedUser, token);

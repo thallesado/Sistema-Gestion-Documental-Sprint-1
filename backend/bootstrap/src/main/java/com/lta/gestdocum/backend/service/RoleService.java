@@ -10,6 +10,7 @@ import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.model.Permission;
 import com.lta.gestdocum.backend.model.Role;
 import com.lta.gestdocum.backend.repository.PermissionRepository;
+import com.lta.gestdocum.backend.repository.PlanRepository;
 import com.lta.gestdocum.backend.repository.RoleRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
 import org.springframework.stereotype.Service;
@@ -25,13 +26,15 @@ import java.util.stream.Collectors;
 public class RoleService {
     private final RoleRepository repository;
     private final PermissionRepository permissionRepository;
+    private final PlanRepository planRepository;
     private final AuthenticatedUserContext context;
     private AuditRecorder auditRecorder;
 
     public RoleService(RoleRepository repository, PermissionRepository permissionRepository,
-                       AuthenticatedUserContext context) {
+                       PlanRepository planRepository, AuthenticatedUserContext context) {
         this.repository = repository;
         this.permissionRepository = permissionRepository;
+        this.planRepository = planRepository;
         this.context = context;
     }
 
@@ -130,10 +133,21 @@ public class RoleService {
     }
 
     private void grantPermissions(UUID tenantId, Long roleId, Set<Long> permissionIds) {
-        var validIds = permissionRepository.findAllById(permissionIds).stream()
+        var requestedPermissions = permissionRepository.findAllById(permissionIds);
+        var validIds = requestedPermissions.stream()
                 .filter(Permission::isActive).map(Permission::getId).collect(Collectors.toSet());
         if (!validIds.equals(permissionIds)) {
             throw new IllegalArgumentException("Contiene permisos inválidos o inactivos");
+        }
+        if (planRepository != null && tenantId != null) {
+            List<String> enabledFeatures = planRepository.findEnabledFeatureKeysByTenantId(tenantId);
+            Set<String> featureSet = new java.util.HashSet<>(enabledFeatures);
+            boolean hasForbidden = requestedPermissions.stream()
+                    .anyMatch(p -> !PlanFeatureMatrix.isPermissionAllowed(p.getModule(), p.getCode(), featureSet));
+            if (hasForbidden) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Tu plan actual no incluye los permisos seleccionados.");
+            }
         }
         repository.clearPermissions(tenantId, roleId);
         permissionIds.forEach(id -> repository.grantPermission(tenantId, roleId, id));
@@ -147,6 +161,13 @@ public class RoleService {
                 .orElseThrow(() -> new NotFoundException("Rol no encontrado"));
         Set<Long> granted = repository.findPermissionIds(tenantId, roleId);
         List<Permission> catalog = permissionRepository.findByIsActiveTrueOrderByModuleAscActionAsc();
+        if (planRepository != null && tenantId != null) {
+            List<String> enabledFeatures = planRepository.findEnabledFeatureKeysByTenantId(tenantId);
+            Set<String> featureSet = new java.util.HashSet<>(enabledFeatures);
+            catalog = catalog.stream()
+                    .filter(p -> PlanFeatureMatrix.isPermissionAllowed(p.getModule(), p.getCode(), featureSet))
+                    .toList();
+        }
         var byModule = catalog.stream().collect(
                 Collectors.groupingBy(Permission::getModule, LinkedHashMap::new, Collectors.toList()));
         List<PermissionModuleGroup> modules = byModule.entrySet().stream()
@@ -157,6 +178,7 @@ public class RoleService {
                 .toList();
         return new RolePermissionsResponse(role.getId(), role.getName(), modules);
     }
+
 
     @Transactional
     public RolePermissionsResponse updateRolePermissions(Long roleId, Set<Long> permissionIds) {

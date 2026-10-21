@@ -10,9 +10,9 @@ spring:
       write-dates-as-timestamps: false
 
   datasource:
-    url: jdbc:postgresql://127.0.0.1:5434/nexodocs
-    username: nexodocs
-    password: nexodocs_dev
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://ep-lucky-dream-b436bm6l-pooler.c-6.us-east-2.aws.neon.tech:5432/neondb?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:neondb_owner}
+    password: ${SPRING_DATASOURCE_PASSWORD:npg_k2zSxB3MPLEq}
     driver-class-name: org.postgresql.Driver
 
   jpa:
