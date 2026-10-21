@@ -42,18 +42,30 @@ test('every scaffold screen has its own route file, a placeholder page and a gua
     const routePath = screen.href.slice(1);
     assert.match(routes, new RegExp(`path: '${routePath}'`), screen.href);
     assert.match(routes, /canActivate: \[authGuard/, `${screen.href} must be guarded`);
-    if (!IMPLEMENTED.has(screen.href)) {
+    if (screen.href === '/settings/backups') {
+      const template = await read('src/app/features/backups/pages/backups-page.html');
+      assert.match(template, /Crear respaldo/);
+      assert.match(template, /verification\(\)\?\.compatible/);
+      assert.match(routes, /canActivate: \[authGuard\]/);
+    } else if (!IMPLEMENTED.has(screen.href)) {
       assert.match(await read(screen.page), /<app-under-construction title="[^"]+" \/>/, screen.page);
     }
   }
 });
 
 test('the new menu entries exist but stay hidden until their owner enables them', () => {
-  for (const screen of SCAFFOLD_SCREENS.filter((item) => item.href !== '/settings/appearance' && !IMPLEMENTED.has(item.href))) {
+  for (const screen of SCAFFOLD_SCREENS.filter((item) => !['/settings/appearance', '/settings/backups'].includes(item.href) && !IMPLEMENTED.has(item.href))) {
     const entry = children.find((child) => child.href === screen.href);
     assert.ok(entry, `${screen.href} is missing from the menu`);
     assert.equal(entry.sprintEnabled, false, `${screen.href} must start hidden`);
   }
+});
+
+test('the backup design is visible in its own sidebar group', () => {
+  const entry = children.find((child) => child.href === '/settings/backups');
+  assert.equal(entry?.module, 'Respaldos');
+  assert.equal(entry?.sprintEnabled, true);
+  assert.equal(entry?.moduleEnabled, true);
 });
 
 test('the appearance screen keeps its existing menu entry, now served by its own page', () => {

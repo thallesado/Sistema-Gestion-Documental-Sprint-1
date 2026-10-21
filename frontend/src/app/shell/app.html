@@ -306,6 +306,13 @@
         </div>
       </header>
 
+      @if (backupMaintenance.restoring()) {
+        <div role="alert" style="margin:16px;padding:18px;border:1px solid #f3d28d;border-radius:12px;background:#fff8e6;color:#74500b">
+          <strong>Tu organización está siendo restaurada.</strong>
+          <p>Las modificaciones están temporalmente suspendidas. Conserva o copia los cambios de formularios antes de salir. Actualiza los datos antes de volver a editar.</p>
+          <button type="button" (click)="backupMaintenance.refresh()">Actualizar estado</button>
+        </div>
+      }
       <router-outlet></router-outlet>
     </section>
 

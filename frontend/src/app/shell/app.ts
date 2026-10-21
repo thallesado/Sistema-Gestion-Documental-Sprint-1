@@ -1,3 +1,4 @@
+import { BackupMaintenanceService } from '../core/api/backup-maintenance.service';
 import { CommonModule } from '@angular/common';
 import { Component, computed, DestroyRef, effect, inject, signal, ViewEncapsulation } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -38,6 +39,7 @@ export class App {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly permissions = inject(PermissionService);
+  readonly backupMaintenance = inject(BackupMaintenanceService);
   /** Instantiated here so it listens to navigation from the very first route. */
   private readonly assistantContext = inject(AssistantContextService);
   readonly help = inject(HelpService);
@@ -293,7 +295,7 @@ export class App {
       return;
     }
     if (action === 'Configuración') {
-      void this.router.navigate(['/settings/general']);
+      void this.router.navigate(['/settings']);
       return;
     }
     this.notify(`${action}: operación preparada para la API`);

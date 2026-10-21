@@ -1,0 +1,7 @@
+# Linux host only. Create the host queue directory with permissions matching the backend user.
+services:
+  backend:
+    environment:
+      BACKUPS_PLATFORM_QUEUE_PATH: /data/platform-backup-queue
+    volumes:
+      - /var/lib/nexodocs-backup-queue:/data/platform-backup-queue

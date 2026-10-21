@@ -10,7 +10,12 @@ flutter pub get
 flutter run                      # dispositivo o emulador conectado
 flutter test                     # pruebas con un servidor simulado (no necesita backend)
 flutter analyze
+flutter build apk --debug        # APK instalable de desarrollo
 ```
+
+La compilación de integración continua también publica `nexodocs-android-debug-apk` como
+artefacto descargable durante 14 días. El archivo local queda en
+`build/app/outputs/flutter-apk/app-debug.apk`.
 
 ### Servidor
 

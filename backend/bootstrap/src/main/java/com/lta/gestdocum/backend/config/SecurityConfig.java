@@ -1,6 +1,7 @@
 package com.lta.gestdocum.backend.config;
 
 import com.lta.gestdocum.backend.security.JwtAuthenticationFilter;
+import com.lta.gestdocum.backend.security.LoginAttemptRateLimitFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -13,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.beans.factory.annotation.Value;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.cors.CorsConfiguration;
@@ -27,12 +29,15 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
+    private final LoginAttemptRateLimitFilter loginAttemptRateLimitFilter;
     private final List<String> allowedOrigins;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthFilter,
+            LoginAttemptRateLimitFilter loginAttemptRateLimitFilter,
             @Value("${app.cors.allowed-origins}") String configuredOrigins) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.loginAttemptRateLimitFilter = loginAttemptRateLimitFilter;
         this.allowedOrigins = Arrays.stream(configuredOrigins.split(","))
                 .map(String::trim)
                 .filter(origin -> !origin.isBlank())
@@ -78,7 +83,17 @@ public class SecurityConfig {
                 }))
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
+        http.addFilterBefore(loginAttemptRateLimitFilter, UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
+    }
+
+    @Bean
+    public FilterRegistrationBean<LoginAttemptRateLimitFilter> loginAttemptRateLimitServletRegistration(
+            LoginAttemptRateLimitFilter filter) {
+        FilterRegistrationBean<LoginAttemptRateLimitFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

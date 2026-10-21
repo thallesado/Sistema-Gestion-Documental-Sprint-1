@@ -38,6 +38,8 @@ El tenant para negocio procede del contexto. Login, selección pública y admini
 
 ## Bitácora inmutable y modelo de amenazas
 
+Compatibilidad JPA (2026-10-19): `AuditEvent.previousHash`, `AuditEvent.recordHash` y `AuditAnchor.recordHash` se mapean con `@JdbcTypeCode(SqlTypes.CHAR)` para coincidir con las columnas `char(64)` de la migración 041. No cambiar el esquema ni desactivar su validación para resolver esta diferencia.
+
 A partir de la migración `041_audit_tamper_proof.sql`, `audit_events` implementa una cadena de hashes SHA-256 por tenant serializada mediante advisory locks transaccionales:
 
 - **Cadena criptográfica en base de datos**: En cada inserción (`BEFORE INSERT`), el trigger `trg_audit_events_chain` adquiere `pg_advisory_xact_lock(726395, hashtext(coalesce(tenant_id::text, 'global')))` y calcula `record_hash = sha256(previous_hash || contenido canónico)` enlazado secuencialmente al `chain_seq` anterior. La génesis utiliza 64 ceros.

@@ -49,7 +49,7 @@ El DNS debe coincidir con IP pública vigente y los puertos ser alcanzables. Sto
 - Comprobar finalización de migrate e historial app.schema_migrations antes de servir backend nuevo.
 - La 035 agrega campos/restricciones de ocr_jobs; jobs INDEXED sin documento o FAILED sin motivo pueden bloquearla.
 - No usar --no-deps para omitir una migración necesaria; solo reiniciar imágenes cuando sus prerrequisitos estén confirmados.
-- El Dockerfile frontend local tiene una copia adicional de nginx.conf para pruebas; no asumir que se subió a main.
+- El Dockerfile frontend del checkout `8c3dcb8` ya incluye nginx.conf antes de ejecutar pruebas. Ese ajuste vino de main; no sigue siendo un parche local separado.
 
 ## Datos y configuración
 
@@ -62,3 +62,7 @@ Documentar nombres, no valores: FRONTEND_URL/PORT, DB/POSTGRES_*, STORAGE_LOCAL_
 Verificar HTTPS/redirect, login, lista/descarga, OCR ficticio y errores del backend. Registrar commit/imagenes/migraciones. Si una migración ya se aplicó, revertir imágenes no revierte el esquema; revisar compatibilidad y no improvisar SQL inverso. Una recuperación requiere base y archivos de la misma situación consistente.
 
 Costos: detener contenedores no detiene EC2; revisar facturación por servicio/tipo de uso y requisitos de disponibilidad antes de cambios de capacidad.
+
+## Actualización local 2026-10-21
+
+Ver [cambios locales, puertos y respaldos](cambios-locales-2026-10-21.md) para el proyecto Compose local, correcciones de arranque, respaldo previo y límites de verificación. Las operaciones locales no actualizan EC2.

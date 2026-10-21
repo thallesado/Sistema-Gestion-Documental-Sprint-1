@@ -18,6 +18,11 @@ No crear automáticamente core/services, interceptors o guards por una estructur
 
 ## Convenciones
 
+### Respaldos: implementación local del 2026-10-21
+
+`/settings/backups` utiliza el shell y la API interna del sistema para generar, listar, verificar, descargar y restaurar respaldos del tenant. Los botones dependen de permisos efectivos devueltos por el servicio y la autorización se repite en PostgreSQL. El sidebar exige `backup:read`; renovar sesión tras conceder permisos nuevos. La configuración diaria persiste y el progreso proviene de operaciones guardadas en la base. El shell consulta mantenimiento y muestra un banner durante restauración. La ruta de desarrollo `/preview/backups` carga el mismo componente operativo, no una simulación.
+
+Ver [respaldos y restauración](../04-dominio-y-negocio/respaldos-y-restauracion.md) para permisos, evidencia histórica, excepciones y límites. Las notas anteriores de «vista previa sin API» pertenecen a la fase de diseño y ya no describen esta implementación.
 Componentes standalone, imports explícitos, servicios por inyección y signals/computed para estado de UI. RxJS para solicitudes, errores y cancelación. Reutilizar formularios y componentes existentes; no agregar NgModule ni un store externo sin necesidad.
 
 Rutas por feature con loadComponent. El menú viene de datos y aplica permisos de función y banderas (`sprintEnabled`, `visible`); no es la autoridad del backend ni un gate uniforme de capacidades tenant.
@@ -33,6 +38,8 @@ Rutas por feature con loadComponent. El menú viene de datos y aplica permisos d
 - La etiqueta de rol del encabezado todavía se calcula con los cuatro textos de `Role`; es solo informativa.
 
 ## Rutas que no deben confundirse
+
+Configuración general utiliza `/settings`. El menú de usuario apunta a esa ruta; `/settings/general` se conserva como redirección compatible (corrección 2026-10-21). Esto corrige navegación, no implementa persistencia nueva de configuración ni amplía permisos.
 
 | Ruta web | Pantalla |
 |---|---|

@@ -48,6 +48,7 @@ test('permittedChildren: los hijos heredan el permiso del padre y aplican el pro
 
 test('un rol personalizado con solo document:read ve unicamente lo que ese permiso habilita', () => {
   const menu = visibleMenu(['document:read']);
+  // Backups now require their own permission.
   assert.deepEqual(menu.map((item) => item.label), ['Inicio', 'Documentos']);
   const documents = menu.find((item) => item.label === 'Documentos').children;
   assert.ok(documents.includes('/documents'));
@@ -112,3 +113,8 @@ test('audit read permission shows every audit entry in the menu', () => {
     '/audit/permissions',
   ]);
 });
+
+ test('respaldos requiere backup:read para aparecer en el menu', () => {
+ assert.ok(!visibleMenu(['document:read']).some(i => i.label === 'Respaldos'));
+ assert.ok(visibleMenu(['backup:read']).some(i => i.label === 'Respaldos'));
+ });

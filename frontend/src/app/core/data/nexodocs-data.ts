@@ -125,6 +125,12 @@ export const navSections: NavSection[] = [
           { label: 'Diseñador', href: '/workflows/designer', permission: 'workflow:designer' },
         ],
       },
+      {
+        label: 'Respaldos',
+        icon: 'BK',
+        permission: 'backup:read',
+        children: [{ label: 'Respaldos y restauración', href: '/settings/backups', sprintEnabled: true }],
+      },
     ],
   },
   {
@@ -214,7 +220,6 @@ export const navSections: NavSection[] = [
           { label: 'Retencion', href: '/settings/retention' },
           { label: 'Seguridad', href: '/settings/security' },
           { label: 'Apariencia', href: '/settings/appearance' },
-          { label: 'Respaldos', href: '/settings/backups', sprintEnabled: false },
         ],
       },
     ],

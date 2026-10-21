@@ -4,7 +4,7 @@
 
 ## Conexión
 
-Clientes bajo core/api, API relativa /api/v1. Proxy de desarrollo [frontend/proxy.conf.json](../../../frontend/proxy.conf.json) apunta actualmente a localhost:8080 (puerto por defecto del backend, BACKEND_PORT). Docker usa Nginx hacia backend:8080; HTTPS se termina en Caddy en el despliegue documentado.
+Clientes bajo core/api, API relativa /api/v1. Proxy de desarrollo [frontend/proxy.conf.json](../../../frontend/proxy.conf.json) apunta actualmente a localhost:8080 (puerto por defecto del backend, BACKEND_PORT). El proxy envía `Origin: http://localhost:4200` al backend para permitir el servidor Angular también en puertos alternativos como 4201 con el backend local existente. Este ajuste es exclusivo del proxy de desarrollo; no modifica la lista CORS del servidor ni producción. Docker usa Nginx hacia backend:8080; HTTPS se termina en Caddy en el despliegue documentado.
 
 ## Sesión e interceptor
 

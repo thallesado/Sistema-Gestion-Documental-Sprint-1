@@ -1,0 +1,16 @@
+[Unit]
+Description=NexoDocs full database and storage backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/nexodocs
+Environment=BACKUP_DESTINATION=/mnt/nexodocs-backups
+ExecStart=/usr/bin/bash /opt/nexodocs/infrastructure/backup-full.sh
+UMask=0077
+TimeoutStartSec=2h
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/mnt/nexodocs-backups

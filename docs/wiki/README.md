@@ -4,7 +4,11 @@
 
 Esta wiki es documentación de referencia contrastada con el código, no una garantía de producción ni sustituto de inspección. Resume el sistema para reducir lecturas repetidas. Si una fuente cambia o contradice una página, identificar la diferencia antes de modificar negocio o seguridad.
 
+**Actualización parcial 2026-10-21:** consultar [cambios locales, puertos y respaldos](06-operacion/cambios-locales-2026-10-21.md). Documenta `8c3dcb8` más cambios sin commit, correcciones de arranque y navegación, y la interfaz de Respaldos aún sin backend. El snapshot de 2026-10-16 se conserva como antecedente; las páginas no revisadas mantienen su alcance histórico.
+
 ## Lectura mínima
+
+Integración posterior del 2026-10-21: [15 commits hasta c93a8b4, permisos de sesión y actualización Docker](06-operacion/integracion-main-c93a8b4.md). Incluye los problemas detectados en 048 y la corrección local 049, con límites de las verificaciones.
 
 1. Al empezar: instrucciones aplicables, este índice, git status y estado verificado.
 2. Leer una vez las convenciones obligatorias indicadas por el archivo de agente; reutilizarlas durante la sesión.
@@ -15,6 +19,10 @@ Esta wiki es documentación de referencia contrastada con el código, no una gar
 El código de referencia incluye el OCR persistido y la migración 035. La revisión del código no demuestra el estado de una base o servidor; verificarlos antes de operar. No hacer pull ni descartar cambios como efecto secundario de consultar la wiki.
 
 ## Mapa por tarea
+
+[Respaldo completo del host: herramientas preparadas y ensayo pendiente](06-operacion/respaldo-completo.md).
+
+**Implementación local de Respaldos (2026-10-21):** [funcionamiento, permisos, restauración, evidencia y pruebas](04-dominio-y-negocio/respaldos-y-restauracion.md). Esta página sustituye el estado anterior de interfaz sin backend; las notas de integración previas se conservan como historial.
 
 | Tarea | Lecturas |
 |---|---|

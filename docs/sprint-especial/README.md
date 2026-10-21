@@ -1,5 +1,7 @@
 # Sprint especial: plan general y flujo de trabajo
 
+> Revisión posterior: [pendientes contrastados con el checkout local del 2026-10-21](revision-de-pendientes-2026-10-21.md). El reparto y diagnóstico siguientes son el plan original; sus estados y reservas de migración no representan necesariamente la implementación actual.
+
 Documento base para repartir el trabajo entre los seis integrantes. Cada persona tiene además su propio archivo `tareas-<nombre>.md` con lo que ya existe y lo que debe implementar.
 
 ## 1. Fuente y nivel de confianza
