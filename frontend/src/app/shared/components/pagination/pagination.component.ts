@@ -11,9 +11,11 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
         <span>{{ startResult }}–{{ endResult }} de <strong>{{ total }}</strong> resultados</span>
         <label>
           <span>Por página</span>
-          <select [value]="pageSize" (change)="changePageSize($event)" [attr.aria-label]="'Resultados por página'">
-            @for (size of pageSizes; track size) {
-              <option [value]="size">{{ size }}</option>
+          <!-- [selected] en cada opción: [value] en el select se aplica antes de que existan las opciones
+               y dejaba visible la primera (5) aunque el tamaño real fuera otro. -->
+          <select (change)="changePageSize($event)" [attr.aria-label]="'Resultados por página'">
+            @for (size of sizeOptions; track size) {
+              <option [value]="size" [selected]="size === pageSize">{{ size }}</option>
             }
           </select>
         </label>
@@ -21,6 +23,9 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
       <div class="pagination-controls">
         <span class="page-status">Página {{ page }} de {{ totalPages }}</span>
         <button type="button" (click)="previousPage()" [disabled]="page <= 1" aria-label="Página anterior">‹</button>
+        @for (number of visiblePages; track number) {
+          <button type="button" (click)="pageChange.emit(number)" [attr.aria-current]="page === number ? 'page' : null" [disabled]="page === number">{{ number }}</button>
+        }
         <button type="button" (click)="nextPage()" [disabled]="page >= totalPages" aria-label="Página siguiente">›</button>
       </div>
     </nav>
@@ -35,6 +40,18 @@ export class Pagination {
   @Output() pageSizeChange = new EventEmitter<number>();
 
   readonly pageSizes = [5, 10, 25, 50, 100];
+
+  /** Incluye el tamaño actual aunque no esté en la lista, para que el selector nunca muestre otro valor. */
+  get sizeOptions(): number[] {
+    return this.pageSizes.includes(this.pageSize)
+      ? this.pageSizes
+      : [...this.pageSizes, this.pageSize].sort((a, b) => a - b);
+  }
+
+  get visiblePages(): number[] {
+    const start = Math.max(1, Math.min(this.page - 2, this.totalPages - 4));
+    return Array.from({ length: Math.min(5, this.totalPages) }, (_, i) => start + i);
+  }
 
   get totalPages(): number {
     return Math.max(1, Math.ceil(this.total / this.pageSize));

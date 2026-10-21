@@ -17,11 +17,15 @@ CROSS JOIN LATERAL (VALUES
 
 INSERT INTO plan_features (plan_id, feature_key, is_enabled, description)
 SELECT p.id, features.feature_key,
-  CASE WHEN p.code = 'BASIC' THEN features.basic_enabled ELSE true END,
+  CASE 
+    WHEN p.code = 'ENTERPRISE' THEN true
+    WHEN p.code = 'PRO' AND features.feature_key IN ('workflows', 'ocr_scanning', 'custom_branding', 'advanced_analytics') THEN true
+    ELSE false
+  END,
   features.description
 FROM plans p
 CROSS JOIN (VALUES
-  ('workflows', true, 'Flujos documentales'),
+  ('workflows', false, 'Flujos documentales'),
   ('ocr_scanning', false, 'Digitalización con OCR'),
   ('custom_branding', false, 'Identidad visual por tenant'),
   ('advanced_analytics', false, 'Reportes avanzados'),

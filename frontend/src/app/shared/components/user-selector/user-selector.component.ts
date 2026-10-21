@@ -23,8 +23,9 @@ import { AdministrationApiService, ApiUser } from '../../../core/api/administrat
     </label>
   `,
   styles: [`
-    .user-selector { display: grid; gap: 7px; font-size: 12px; font-weight: 700; }
-    .user-selector input, .user-selector select { border: 1px solid #dcebe8; border-radius: 8px; padding: 9px; }
+    :host { display: block; min-width: 0; }
+    .user-selector { display: grid; gap: 7px; font-size: 12px; font-weight: 700; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+    .user-selector input, .user-selector select { border: 1px solid #dcebe8; border-radius: 8px; padding: 9px; min-width: 0; width: 100%; }
     .user-selector small { font-size: 11px; color: #6b8583; }
     .user-selector .error { color: #a65050; }
   `],

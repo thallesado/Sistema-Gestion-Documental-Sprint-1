@@ -3,19 +3,41 @@ export interface AuthResponse {
   tokenType: string;
   refreshToken: string;
   expiresIn: number;
+  permissions?: string[];
 }
 
 export interface AuthUser {
   id: string;
   tenantId: string | null;
   tenantName: string | null;
+  tenantLogoUrl: string | null;
   platformAdmin: boolean;
   roleNames: string[];
+  /** Permisos efectivos del usuario (códigos `modulo:accion`) devueltos por /auth/me. */
+  permissions: string[];
   username: string;
   email: string;
   firstName: string;
   lastName: string;
   status: string;
+  phone: string | null;
+  biography: string | null;
+  hasAvatar: boolean;
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+}
+
+export interface ProfileUpdateRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  biography: string;
+}
+
+export interface NotificationPreferencesRequest {
+  emailNotifications: boolean;
+  pushNotifications: boolean;
 }
 
 export interface LoginRequest {

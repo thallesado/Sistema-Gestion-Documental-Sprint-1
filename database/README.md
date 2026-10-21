@@ -145,6 +145,8 @@ no lo concedas al backend ni a personas.
 | init/015_acme_superadmin_demo_users.sql | Usuarios demo de Acme para probar superadministración y permisos por rol. |
 | init/016_finocode_tenant_name.sql | Renombra el tenant demo a FinoCode y ajusta datos asociados. |
 | init/017_revoked_access_tokens.sql | Revocación persistente de access tokens (tabla `revoked_access_tokens` con hash SHA-256, sin RLS por diseño para que el filtro de seguridad la consulte antes de establecer contexto). |
+| init/030_workflow_approvals_deadlines.sql | Aprobaciones, checklist normalizado, auditoría compartida, códigos legibles y notificaciones/job SLA. |
+| init/031_workflow_status_rules.sql | Reglas configurables de estado documental, guardadas también en la instancia del workflow. |
 | migrate.ps1 | Respaldo y aplicación al servicio local existente. |
 | tests/validate.sql | Regresión de integridad, aislamiento y autorización con rollback. |
 | tests/run.ps1 | Inicialización, upgrade, errores, login real y concurrencia en Docker temporal. |
@@ -153,6 +155,23 @@ no lo concedas al backend ni a personas.
 
 No ejecutes docker compose down --volumes para aplicar una migración: ese comando
 elimina los datos del volumen.
+
+### Actualizar un volumen existente
+
+El servicio Docker `migrate` revisa `app.schema_migrations` y ejecuta sólo las
+migraciones incrementales pendientes antes de permitir que arranque el backend.
+El SQL de migración está incluido dentro de su imagen, así que al desplegar un
+cambio de esquema hay que reconstruirla:
+
+```powershell
+docker compose -f infrastructure/docker-compose.yml up -d --build
+```
+
+Esto conserva los volúmenes y datos existentes; las versiones `001` a `003`
+siguen reservadas para inicializar una base vacía y nunca se repiten en una base
+persistente. `database\\migrate.ps1` ofrece el mismo procedimiento de forma
+manual, creando primero un respaldo recuperable. No uses `down -v` para
+actualizar el esquema.
 
 ### Dataset sintético reproducible de Acme
 

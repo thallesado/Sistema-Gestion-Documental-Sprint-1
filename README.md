@@ -1,6 +1,29 @@
 # NexoDocs - Sistema de Gestión Documental
 
-Plataforma integral y modularizada para la gestión, control y trazabilidad de documentos clínicos y organizacionales. Diseñada bajo principios de **Arquitectura Limpia / Hexagonal**, **Frontend Angular Modular (Feature-Driven)**, **Flutter Clean Architecture** y orquestación con **Docker**.
+La [wiki de desarrollo y contexto para IA](docs/wiki/README.md) contiene el mapa de lectura,
+contratos verificados, diferencias entre revisiones y guías por área. Consulta su
+[estado verificado](docs/wiki/05-guias-ia/estado-verificado-y-pendientes.md) antes de
+tomar las descripciones históricas de este README como comportamiento actual.
+
+Para comprobar enlaces y contratos documentados: `node scripts/validate-wiki.mjs`.
+
+## Workflow Module
+
+El módulo conecta workflows, tareas, revisión, aprobación y plantillas con datos
+reales del tenant. Incluye diseñador visual, borradores/publicación versionada,
+auditoría, timeline con participantes y notificaciones internas. Consulta [la
+guía de Workflows](docs/workflows.md) y la [matriz de cumplimiento hasta el
+punto 215](docs/workflows-compliance-122-215.md) para estados, permisos,
+migraciones y pruebas.
+
+Para probarlo, abre Workflows en el menú: crea una plantilla en Diseñador,
+guárdala, pulsa **Iniciar workflow**, selecciona origen y responsables, y resuelve
+las tareas desde las cuentas asignadas. Solo un superior puede aprobar; el dueño
+del tenant tiene la excepción de autoaprobación. Para completar una devolución
+documental, primero sube una versión corregida: la aprobación queda vinculada a
+la versión exacta revisada.
+
+Plataforma integral y modularizada para la gestión, control y trazabilidad de documentos clínicos y organizacionales. Diseñada bajo principios de **Arquitectura Limpia / Hexagonal**, **Frontend Angular Modular (Feature-Driven)**, **Flutter** y orquestación con **Docker**.
 
 ---
 
@@ -33,11 +56,10 @@ Sistema-Gestion-Documental-Sprint-1/
 │   ├── src/app/shell/          # Layout maestro (Sidebar Dark Forest, Topbar, User Menu)
 │   ├── src/app/shared/         # Componentes, directivas y pipes reutilizables
 │   └── src/app/features/       # Módulos de negocio (Auth, Tablero, Documentos, Expedientes, etc.)
-├── mobile/                     # Flutter (Feature-First + Clean Architecture + BLoC)
+├── mobile/                     # Flutter: cliente móvil sobre la misma API (ver mobile/README.md)
 │   └── lib/
-│       ├── injection/          # Contenedor de inyección de dependencias (GetIt)
-│       ├── core/               # Configuración, cliente HTTP (Dio), temas y router
-│       └── features/           # Funcionalidades por capas (Data, Domain, Presentation)
+│       ├── core/               # Cliente HTTP con renovación de sesión, servicios por módulo, tema y utilidades
+│       └── screens/            # Pantallas: login, inicio, documentos, tareas, notificaciones, pacientes, perfil
 ├── database/                   # Scripts SQL, esquemas modulares y semillas PostgreSQL
 └── packages/
     └── shared/                 # Modelos, DTOs y utilidades TypeScript compartidas
@@ -103,7 +125,7 @@ En otra terminal, desde la **raíz del proyecto**:
    ```powershell
    pnpm dev
    ```
-   *(o `cd frontend && pnpm start`)*
+   *(o `cd frontend && pnpm dev`; `pnpm start` sirve el build de producción sin proxy a `/api`)*
 
 - **Acceso Web:** `http://localhost:4200`
 
@@ -125,8 +147,8 @@ flutter run
 | Rol | Usuario / Correo | Contraseña | Organización (Tenant ID) |
 | :--- | :--- | :--- | :--- |
 | **Administrador de Tenant** | `laura@acme.com` | `DemoPass123!` | `20000000-0000-0000-0000-000000000001` |
-| **Super Administrador** | `carlos@nexodocs.com` | `DemoPass123!` | *(Vacío / Global)* |
-| **Supervisor** | `marcos@acme.com` | `DemoPass123!` | `20000000-0000-0000-0000-000000000001` |
+| **Super Administrador** | `diego.superadmin@acme.example.invalid` (también `andres.`, `oscar.`, `edixon.`, `denilson.`, `mauricio.superadmin@acme.example.invalid`) | `DemoPass123!` | `[ Plataforma / Administración Global ]` |
+| **Supervisor** | `acme.supervisor.test@acme.example.invalid` | `DemoPass123!` | `20000000-0000-0000-0000-000000000001` |
 
 ---
 
@@ -174,4 +196,25 @@ Si dispones de la utilidad `make`, puedes usar los atajos:
 | **Frontend Web** | `http://localhost:4200` | Interfaz de usuario (Angular 19+ Dark Forest Theme) |
 | **Backend REST API** | `http://localhost:8080/api/v1` | Endpoints modulares de negocio |
 | **Swagger / OpenAPI** | `http://localhost:8080/swagger-ui.html` | Explorador interactivo de la API REST |
-| **PostgreSQL** | `127.0.0.1:5432` | Base de datos relacional con RLS |
+| **PostgreSQL** | `127.0.0.1:5434` | Base de datos relacional con RLS |
+
+En cada despliegue Docker, el servicio `migrate` aplica las migraciones nuevas
+al volumen actual antes de iniciar el backend. Usa `--build` para incorporar
+los archivos SQL actualizados; no hace falta borrar la base ni sus volúmenes.
+
+## Historias de usuario de Workflows
+
+Consulta las [cuatro historias de usuario verificables](docs/workflows-user-stories.md), sus criterios de aceptación y las pruebas automatizadas asociadas.
+
+## Docker desde un clon limpio
+
+Requisitos: Docker Desktop con Docker Compose v2.
+
+```powershell
+Copy-Item .env.example .env
+docker compose -f infrastructure/docker-compose.yml up -d --build
+```
+
+En Linux/macOS, usa `cp .env.example .env` en lugar de `Copy-Item`. El build ejecuta las pruebas Maven del backend y las pruebas del frontend antes de compilar las imágenes. PostgreSQL crea esquemas y datos demo en la primera ejecución. Abre <http://localhost:4200>; la API está disponible en <http://localhost:8080>.
+
+Detén la aplicación sin borrar los datos con `docker compose -f infrastructure/docker-compose.yml down`. Evita `down -v` si necesitas conservar la base de datos y los archivos cargados. Para revisar contenedores y logs usa `docker compose -f infrastructure/docker-compose.yml ps` y `docker compose -f infrastructure/docker-compose.yml logs -f`.

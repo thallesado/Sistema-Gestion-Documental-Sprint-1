@@ -16,7 +16,10 @@ node_modules
 .angular/
 dist/
 backend/data/
+backend/bootstrap/data/
 data/storage/
+**/data/storage/
+mobile/**/build/
 .DS_Store
 
 # Local database dumps can contain private data.
@@ -28,3 +31,11 @@ database/backups/
 # IDEs
 .vscode/
 .idea/
+
+# Local-only AI workflow artifacts (ODD tasks/specs, skill registry).
+# Machine-local by team decision: never pushed to any branch.
+odd/
+.atl/
+
+# Local documents and technical specifications
+/*.docx

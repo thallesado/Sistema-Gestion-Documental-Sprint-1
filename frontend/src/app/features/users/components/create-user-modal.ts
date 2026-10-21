@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { merge } from 'rxjs';
 import { AdministrationApiService, ApiRole, CreateUserPayload } from '../../../core/api/administration-api.service';
+import { FieldPermissionDirective } from '../../../core/auth/field-permission.directive';
 
 /** Exige mínimo 8 caracteres, mayúscula, número y carácter especial. */
 function strongPassword(control: AbstractControl): ValidationErrors | null {
@@ -26,7 +27,7 @@ function suggestUsername(first: string, last: string): string {
  */
 @Component({
   selector: 'app-create-user-modal',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, FieldPermissionDirective],
   template: `
     <div class="modal-backdrop" role="presentation">
       <form class="admin-modal create-user-modal create-user-form" [formGroup]="userForm" (ngSubmit)="onSubmit()"
@@ -45,11 +46,11 @@ function suggestUsername(first: string, last: string): string {
         <div class="create-user-modal-body">
           @if (error()) { <div class="admin-state error" role="alert">{{ error() }}</div> }
           <div class="form-grid">
-            <label class="field-first">Nombre<input formControlName="firstName" autocomplete="given-name" />@if (invalid('firstName')) { <small class="field-error">Ingresa el nombre.</small> }</label>
-            <label class="field-last">Apellido<input formControlName="lastName" autocomplete="family-name" />@if (invalid('lastName')) { <small class="field-error">Ingresa el apellido.</small> }</label>
-            <label class="field-username">Usuario<input formControlName="username" autocomplete="off" />@if (invalid('username')) { <small class="field-error">{{ userForm.controls.username.hasError('pattern') ? 'El usuario no puede contener espacios.' : 'Ingresa un nombre de usuario.' }}</small> }</label>
-            <label class="field-email">Correo<input type="email" formControlName="email" autocomplete="off" />@if (invalid('email')) { <small class="field-error">Ingresa un correo válido.</small> }</label>
-            <label class="field-password">Contraseña<input type="password" formControlName="password" autocomplete="new-password" />
+            <label class="field-first" [appField]="'usuario.nombre'">Nombre<input formControlName="firstName" autocomplete="given-name" />@if (invalid('firstName')) { <small class="field-error">Ingresa el nombre.</small> }</label>
+            <label class="field-last" [appField]="'usuario.apellido'">Apellido<input formControlName="lastName" autocomplete="family-name" />@if (invalid('lastName')) { <small class="field-error">Ingresa el apellido.</small> }</label>
+            <label class="field-username" [appField]="'usuario.usuario'">Usuario<input formControlName="username" autocomplete="off" />@if (invalid('username')) { <small class="field-error">{{ userForm.controls.username.hasError('pattern') ? 'El usuario no puede contener espacios.' : 'Ingresa un nombre de usuario.' }}</small> }</label>
+            <label class="field-email" [appField]="'usuario.correo'">Correo<input type="email" formControlName="email" autocomplete="off" />@if (invalid('email')) { <small class="field-error">Ingresa un correo válido.</small> }</label>
+            <label class="field-password" [appField]="'usuario.contrasena'">Contraseña<input type="password" formControlName="password" autocomplete="new-password" />
               <div class="password-popover" role="status" aria-label="Requisitos de la contraseña">
                 <p class="password-popover-title">Tu contraseña debe tener:</p>
                 <ul class="password-rules">
@@ -59,15 +60,15 @@ function suggestUsername(first: string, last: string): string {
                 </ul>
               </div>
             </label>
-            <label class="field-confirm-password">Confirmar contraseña<input type="password" formControlName="confirmPassword" autocomplete="new-password" />@if (userForm.hasError('passwordMismatch') && userForm.controls.confirmPassword.touched) { <small class="field-error">Las contraseñas no coinciden.</small> }</label>
-            <div class="chip-field field-roles">
-              <span class="chip-field-header"><span id="create-user-roles-label">Roles permitidos</span><span class="role-chip-counter">{{ selectedRoleIds().length }} seleccionado{{ selectedRoleIds().length === 1 ? '' : 's' }}</span></span>
+            <label class="field-confirm-password" [appField]="'usuario.contrasena'">Confirmar contraseña<input type="password" formControlName="confirmPassword" autocomplete="new-password" />@if (userForm.hasError('passwordMismatch') && userForm.controls.confirmPassword.touched) { <small class="field-error">Las contraseñas no coinciden.</small> }</label>
+            <div class="chip-field field-roles" [appField]="'usuario.grupos'">
+              <span class="chip-field-header"><span id="create-user-roles-label">Grupos del usuario</span><span class="role-chip-counter">{{ selectedRoleIds().length }} seleccionado{{ selectedRoleIds().length === 1 ? '' : 's' }}</span></span>
               <div class="role-chip-list" role="group" aria-labelledby="create-user-roles-label">
                 @for (role of roles(); track role.id) {
                   <button type="button" class="role-chip" [class.selected]="selectedRoleIds().includes(role.id)" [attr.aria-pressed]="selectedRoleIds().includes(role.id)" (click)="toggleRole(role.id)">{{ role.name }}</button>
                 }
               </div>
-              @if (invalid('roleIds')) { <small class="field-error">Selecciona al menos un rol.</small> } @else { <small class="field-help">Selecciona uno o más roles activos de la organización.</small> }
+              @if (invalid('roleIds')) { <small class="field-error">Selecciona al menos un grupo.</small> } @else { <small class="field-help">Selecciona uno o más grupos (perfiles) de la organización.</small> }
             </div>
           </div>
         </div>

@@ -1,0 +1,48 @@
+name: Wiki validation
+
+on:
+  push:
+    paths:
+      - 'docs/wiki/**'
+      - 'scripts/validate-wiki.mjs'
+      - 'scripts/tests/validate-wiki.test.mjs'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'GEMINI.md'
+      - 'backend/**'
+      - 'frontend/**'
+      - 'database/**'
+      - 'infrastructure/**'
+      - '.github/workflows/wiki-ci.yml'
+  pull_request:
+    paths:
+      - 'docs/wiki/**'
+      - 'scripts/validate-wiki.mjs'
+      - 'scripts/tests/validate-wiki.test.mjs'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'GEMINI.md'
+      - 'backend/**'
+      - 'frontend/**'
+      - 'database/**'
+      - 'infrastructure/**'
+      - '.github/workflows/wiki-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test documentation validator
+        run: node --test scripts/tests/validate-wiki.test.mjs
+      - name: Validate links and documented source contracts
+        run: node scripts/validate-wiki.mjs --include-remote

@@ -10,13 +10,14 @@ spring:
       write-dates-as-timestamps: false
 
   datasource:
-    url: jdbc:postgresql://127.0.0.1:5434/nexodocs
-    username: nexodocs
-    password: nexodocs_dev
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://ep-lucky-dream-b436bm6l-pooler.c-6.us-east-2.aws.neon.tech:5432/neondb?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:neondb_owner}
+    password: ${SPRING_DATASOURCE_PASSWORD:npg_k2zSxB3MPLEq}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
+      # The schema is owned exclusively by versioned PostgreSQL migrations.
       ddl-auto: validate
     show-sql: false
     open-in-view: false
@@ -26,16 +27,16 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: ${MAIL_SMTP_AUTH:false}
+          auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: ${MAIL_SMTP_STARTTLS:false}
+            enable: ${MAIL_SMTP_STARTTLS:true}
 
   servlet:
     multipart:
@@ -61,13 +62,23 @@ app:
     expiration-ms: ${JWT_EXPIRATION_MS:28800000}
     refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost}
   rate-limit:
     public-tenants:
       max-requests: ${PUBLIC_TENANTS_RATE_LIMIT:10}
       window-seconds: ${PUBLIC_TENANTS_RATE_WINDOW_SECONDS:60}
-  frontend-url: ${FRONTEND_URL:http://localhost:4200}
-  mail-from: ${MAIL_FROM:hello@demomailtrap.co}
+  frontend-url: ${FRONTEND_URL:http://nexodocs-si2.duckdns.org}
+  mail-from: ${MAIL_FROM:diegoastetepaz@gmail.com}
   password-recovery-expiration-minutes: ${PASSWORD_RECOVERY_EXPIRATION_MINUTES:30}
   storage:
     local-path: ${STORAGE_LOCAL_PATH:./data/storage}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
+    timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:35}
+    base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+    retry-delay-ms: ${GEMINI_RETRY_DELAY_MS:1000}
+  assistant:
+    rate-limit:
+      max-requests: ${ASSISTANT_RATE_LIMIT_MAX_REQUESTS:20}
+      window-seconds: ${ASSISTANT_RATE_LIMIT_WINDOW_SECONDS:60}

@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+
 import '../../core/api/auth_api.dart';
+import '../../core/constants/api_constants.dart';
+import '../../core/errors/api_exception.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/state_views.dart';
 import '../auth/login_page.dart';
 
+/// Datos de la cuenta autenticada (GET /auth/me), como "Mi perfil" de la web.
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key, required this.api});
 
@@ -12,8 +18,9 @@ class ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<ProfileTab> {
-  String tenantId = '';
-  String userEmail = '';
+  Map<String, dynamic>? user;
+  String? error;
+  bool loading = true;
 
   @override
   void initState() {
@@ -22,13 +29,17 @@ class _ProfileTabState extends State<ProfileTab> {
   }
 
   Future<void> loadProfile() async {
-    final tId = await widget.api.getTenantId() ?? 'FinoCode';
-    final email = await widget.api.getUserEmail() ?? 'laura@acme.com';
-    if (mounted) {
-      setState(() {
-        tenantId = tId;
-        userEmail = email;
-      });
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final result = await widget.api.me();
+      if (mounted) setState(() => user = result);
+    } on ApiException catch (exception) {
+      if (mounted) setState(() => error = exception.message);
+    } finally {
+      if (mounted) setState(() => loading = false);
     }
   }
 
@@ -37,12 +48,9 @@ class _ProfileTabState extends State<ProfileTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cerrar sesión'),
-        content: const Text('¿Estás seguro de que deseas cerrar tu sesión en NexoDocs?'),
+        content: const Text('¿Seguro que deseas cerrar tu sesión en NexoDocs?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
             onPressed: () => Navigator.pop(ctx, true),
@@ -51,102 +59,80 @@ class _ProfileTabState extends State<ProfileTab> {
         ],
       ),
     );
-
     if (confirm != true) return;
-
     await widget.api.logout();
     if (!mounted) return;
-
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(
-        builder: (_) => LoginPage(authApi: widget.api),
-      ),
-      (route) => false,
-    );
+    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute<void>(builder: (_) => LoginPage(authApi: widget.api)), (_) => false);
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Center(
-          child: Column(
-            children: [
+    if (loading && user == null) return const Center(child: CircularProgressIndicator(color: AppTheme.teal));
+    if (error != null && user == null) return ErrorStateView(message: error!, onRetry: loadProfile);
+    final u = user!;
+    final name = '${u['firstName'] ?? ''} ${u['lastName'] ?? ''}'.trim();
+    final roles = ((u['roleNames'] as List<dynamic>?) ?? []).cast<String>();
+    final initials = name.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).take(2).map((p) => p[0].toUpperCase()).join();
+
+    return RefreshIndicator(
+      onRefresh: loadProfile,
+      color: AppTheme.teal,
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Center(
+            child: Column(children: [
               CircleAvatar(
                 radius: 40,
-                backgroundColor: const Color(0xff087f7b),
-                child: Text(
-                  userEmail.isNotEmpty ? userEmail[0].toUpperCase() : 'U',
-                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
+                backgroundColor: AppTheme.teal,
+                child: Text(initials.isEmpty ? 'U' : initials, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
               ),
               const SizedBox(height: 12),
-              Text(
-                userEmail,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff1f2937)),
+              Text(name.isEmpty ? (u['username'] as String? ?? '') : name, key: const Key('profile-name'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.ink)),
+              const SizedBox(height: 2),
+              Text(u['email'] as String? ?? '', style: TextStyle(color: Colors.grey.shade600)),
+              const SizedBox(height: 8),
+              StatusBadge(
+                u['platformAdmin'] == true ? 'Administración de plataforma' : 'Organización: ${u['tenantName'] ?? '—'}',
+                tone: BadgeTone.brand,
               ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xffd4ece7),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Tenant: $tenantId',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xff087f7b)),
-                ),
-              ),
-            ],
+            ]),
           ),
-        ),
-        const SizedBox(height: 32),
-
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey.shade200),
-          ),
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.security, color: Color(0xff087f7b)),
-                title: const Text('Seguridad y token JWT'),
-                subtitle: const Text('Sesión cifrada con SecureStorage'),
-                trailing: const Icon(Icons.check_circle, color: Color(0xff10b981), size: 18),
-              ),
+          const SizedBox(height: 24),
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+            child: Column(children: [
+              _tile(Icons.badge_outlined, 'Usuario', u['username']),
               const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.cloud_done_outlined, color: Color(0xff087f7b)),
-                title: const Text('Conexión con backend'),
-                subtitle: const Text('Spring Boot API REST v1'),
-                trailing: const Icon(Icons.chevron_right, size: 18),
-              ),
+              _tile(Icons.admin_panel_settings_outlined, 'Roles', roles.isEmpty ? '—' : roles.join(', ')),
               const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.info_outline, color: Color(0xff087f7b)),
-                title: const Text('Versión de NexoDocs'),
-                subtitle: const Text('1.0.0 (Sprint 1 - Mobile)'),
-              ),
-            ],
+              _tile(Icons.medical_services_outlined, 'Perfil clínico', u['staffType'] ?? 'No asignado'),
+              if ((u['phone'] as String?)?.isNotEmpty ?? false) ...[const Divider(height: 1), _tile(Icons.phone_outlined, 'Teléfono', u['phone'])],
+              const Divider(height: 1),
+              _tile(Icons.cloud_done_outlined, 'Servidor', apiBaseUrl),
+            ]),
           ),
-        ),
-
-        const SizedBox(height: 24),
-
-        FilledButton.icon(
-          onPressed: logout,
-          icon: const Icon(Icons.logout),
-          label: const Text('Cerrar sesión'),
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.red.shade600,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            key: const Key('logout'),
+            onPressed: logout,
+            icon: const Icon(Icons.logout),
+            label: const Text('Cerrar sesión'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+
+  Widget _tile(IconData icon, String title, Object? value) => ListTile(
+    leading: Icon(icon, color: AppTheme.teal),
+    title: Text(title, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+    subtitle: Text(value?.toString() ?? '—', style: const TextStyle(fontSize: 14, color: AppTheme.ink)),
+  );
 }

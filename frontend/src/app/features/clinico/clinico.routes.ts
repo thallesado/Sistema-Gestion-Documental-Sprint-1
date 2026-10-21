@@ -1,7 +1,25 @@
 import { Routes } from '@angular/router';
-import { authGuard } from '../../core/auth/auth.guard';
+import { authGuard, hasPermissionGuard } from '../../core/auth/auth.guard';
 
 export const clinicoRoutes: Routes = [
+  {
+    path: 'clinical/patients',
+    loadComponent: () => import('./pages/pacientes-page').then((m) => m.PacientesPage),
+    title: 'Pacientes - NexoDocs',
+    canActivate: [authGuard, hasPermissionGuard('patient:read')],
+  },
+  {
+    path: 'clinical/history',
+    loadComponent: () => import('./pages/antecedentes-page').then((m) => m.AntecedentesPage),
+    title: 'Antecedentes - NexoDocs',
+    canActivate: [authGuard, hasPermissionGuard('patient:read')],
+  },
+  {
+    path: 'clinical/notes',
+    loadComponent: () => import('./pages/notas-medicas-page').then((m) => m.NotasMedicasPage),
+    title: 'Notas Médicas - NexoDocs',
+    canActivate: [authGuard, hasPermissionGuard('medical_note:read')],
+  },
   {
     path: 'expedients/clinical',
     loadComponent: () => import('../../pages/clinico/expediente-clinico/expediente-clinico.page').then((m) => m.ExpedienteClinicoPage),
@@ -10,7 +28,16 @@ export const clinicoRoutes: Routes = [
       routeInfo: { module: 'Expedientes', subcategory: 'Expediente clínico', href: '/expedients/clinical' },
       mode: 'records',
     },
-    canActivate: [authGuard],
+    canActivate: [authGuard, hasPermissionGuard('patient:read')],
+  },
+  {
+    path: 'expedients/clinical/history',
+    loadComponent: () => import('./pages/historia-clinica-page').then((m) => m.HistoriaClinicaPage),
+    title: 'Historia clínica - NexoDocs',
+    data: {
+      routeInfo: { module: 'Expedientes', subcategory: 'Historia clínica', href: '/expedients/clinical/history' },
+    },
+    canActivate: [authGuard, hasPermissionGuard('patient:read')],
   },
   {
     path: 'expedients/clinical/notes',
@@ -20,7 +47,7 @@ export const clinicoRoutes: Routes = [
       routeInfo: { module: 'Expedientes', subcategory: 'Notas médicas', href: '/expedients/clinical/notes' },
       mode: 'notes',
     },
-    canActivate: [authGuard],
+    canActivate: [authGuard, hasPermissionGuard('medical_note:read')],
   },
 ];
 

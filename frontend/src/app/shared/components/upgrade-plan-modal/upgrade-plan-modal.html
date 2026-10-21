@@ -1,0 +1,22 @@
+@if (isOpen() && subscription.canManage()) {
+  <div class="upgrade-backdrop" role="presentation" (click)="close()">
+    <section class="upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="upgrade-title" (click)="$event.stopPropagation()">
+      <button class="upgrade-close" type="button" [attr.aria-label]="'common.close' | translate" (click)="close()">×</button>
+      @if (reason()) { <div class="upgrade-notice"><span>✨</span><p>{{ 'subscription.limitNotice' | translate:{ reason: reason()! } }}</p></div> }
+      @if (changeSuccess()) { <div class="upgrade-success" role="status">✓ {{ changeSuccess()! | translate }}</div> }
+      @if (changeError()) { <div class="upgrade-error" role="alert">{{ changeError() }}</div> }
+      <header class="upgrade-header"><span class="upgrade-sparkle">✨</span><div><p>{{ 'subscription.planLabel' | translate }}</p><h2 id="upgrade-title">{{ 'subscription.modalTitle' | translate }}</h2><span>{{ 'subscription.modalSubtitle' | translate }}</span></div></header>
+      <div class="plan-grid">
+        @for (plan of plans(); track plan.code) {
+          <article class="plan-card" [class.plan-pro]="plan.code === 'PRO'" [class.plan-enterprise]="plan.code === 'ENTERPRISE'" [class.current]="isCurrent(plan)">
+            @if (plan.code === 'PRO') { <span class="recommended">{{ 'subscription.recommended' | translate }}</span> }
+            <div class="plan-card-head"><p>{{ (plan.code === 'BASIC' ? 'subscription.starter' : plan.code === 'PRO' ? 'subscription.advanced' : 'subscription.clinics') | translate }}</p><h3>{{ planName(plan) }}</h3><span>{{ planDescription(plan) }}</span></div>
+            <div class="plan-capacity"><div><b>✓</b><span>{{ users(plan) }}</span></div><div><b>✓</b><span>{{ storage(plan) }}</span></div></div>
+            <ul class="plan-features">@for (feature of ['workflows', 'ocr_scanning', 'advanced_analytics', 'clinical_module', 'dicom_imaging']; track feature) { <li [class.disabled]="!featureEnabled(plan, feature)"><span>{{ featureEnabled(plan, feature) ? '✓' : '·' }}</span>{{ featureLabel(feature) }}</li> }</ul>
+            <button type="button" [class.primary]="plan.code === 'PRO'" [disabled]="isCurrent(plan) || changingPlan() === plan.code" (click)="choose(plan)">{{ actionLabel(plan) }}</button>
+          </article>
+        }
+      </div>
+    </section>
+  </div>
+}

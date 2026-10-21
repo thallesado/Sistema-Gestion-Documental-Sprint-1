@@ -3,6 +3,16 @@ import { publicGuard } from '../../core/auth/auth.guard';
 
 export const autenticacionRoutes: Routes = [
   {
+    path: 'welcome',
+    loadComponent: () => import('../marketing/pages/welcome-page').then((m) => m.WelcomePage),
+    title: 'NexoDocs - Gestión documental inteligente',
+  },
+  {
+    path: 'register',
+    loadComponent: () => import('../marketing/pages/register-page').then((m) => m.RegisterPage),
+    title: 'Crear organización - NexoDocs',
+  },
+  {
     path: 'login',
     loadComponent: () => import('../../pages/auth/login/login.page').then((m) => m.LoginPage),
     title: 'Iniciar sesión - NexoDocs',

@@ -1,0 +1,398 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-16",
+  "localRevision": "a590a6d",
+  "remoteRevision": "a590a6d",
+  "pages": [
+    "01-arquitectura/convenciones-y-reglas.md",
+    "01-arquitectura/multi-tenancy-y-seguridad-rls.md",
+    "01-arquitectura/vision-general.md",
+    "02-backend/autenticacion-y-sesiones.md",
+    "02-backend/base-de-datos-y-migraciones.md",
+    "02-backend/estructura-spring-boot.md",
+    "03-frontend/arquitectura-angular.md",
+    "03-frontend/estado-y-comunicacion-api.md",
+    "04-dominio-y-negocio/digitalizacion-y-ocr.md",
+    "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+    "04-dominio-y-negocio/modulo-clinico.md",
+    "04-dominio-y-negocio/motor-de-workflows.md",
+    "04-dominio-y-negocio/nucleo-documental-y-tenants.md",
+    "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+    "05-guias-ia/como-promptear-en-nexodocs.md",
+    "05-guias-ia/estado-verificado-y-pendientes.md",
+    "05-guias-ia/pruebas-y-validacion.md",
+    "06-operacion/despliegue-y-recuperacion.md",
+    "README.md"
+  ],
+  "contracts": [
+    {
+      "page": "01-arquitectura/vision-general.md",
+      "path": "backend/pom.xml",
+      "includes": [
+        "<version>3.2.12</version>",
+        "<java.version>21</java.version>"
+      ]
+    },
+    {
+      "page": "01-arquitectura/vision-general.md",
+      "path": "database/init/003_seed.sql",
+      "includes": [
+        "20000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "page": "01-arquitectura/multi-tenancy-y-seguridad-rls.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/AuthenticatedUserContext.java",
+      "includes": [
+        "SET LOCAL ROLE nexodocs_app",
+        "set_config('app.tenant_id'",
+        "set_config('app.user_id'"
+      ]
+    },
+    {
+      "page": "01-arquitectura/multi-tenancy-y-seguridad-rls.md",
+      "path": "database/init/004_saas_hardening.sql",
+      "includes": [
+        "CREATE POLICY tenant_context",
+        "AS RESTRICTIVE TO nexodocs_app",
+        "CREATE POLICY rbac_insert"
+      ]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AuthRequest.java",
+      "includes": [
+        "String usernameOrEmail",
+        "UUID tenantId",
+        "String tenantName"
+      ]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AuthResponse.java",
+      "includes": [
+        "String token;",
+        "String refreshToken;",
+        "long expiresIn;",
+        "List<String> permissions;"
+      ]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/JwtService.java",
+      "includes": [
+        "claims.put(\"tenantId\"",
+        "claims.put(\"userId\"",
+        "claims.put(\"authorities\"",
+        "SignatureAlgorithm.HS256"
+      ]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "infrastructure/docker/migrate.sh",
+      "includes": [
+        "if [ \"$number\" -lt 4 ]",
+        "app.schema_migrations",
+        "${filename%.sql}"
+      ]
+    },
+    {
+      "page": "03-frontend/estado-y-comunicacion-api.md",
+      "path": "frontend/proxy.conf.json",
+      "includes": [
+        "http://localhost:8080"
+      ]
+    },
+    {
+      "page": "03-frontend/estado-y-comunicacion-api.md",
+      "path": "frontend/src/app/core/auth/auth.service.ts",
+      "includes": [
+        "sessionStorage.setItem(TOKEN_KEY, response.token)",
+        "nexodocs.access_token",
+        "nexodocs.refresh_token"
+      ]
+    },
+    {
+      "page": "03-frontend/arquitectura-angular.md",
+      "path": "frontend/src/app/features/clinico/clinico.routes.ts",
+      "includes": [
+        "path: 'clinical/history'",
+        "AntecedentesPage",
+        "path: 'expedients/clinical/history'",
+        "HistoriaClinicaPage"
+      ]
+    },
+    {
+      "page": "03-frontend/arquitectura-angular.md",
+      "path": "frontend/src/app/core/auth/auth.guard.ts",
+      "includes": [
+        "export const hasPermissionGuard",
+        "export const userAdminGuard: CanActivateFn = hasPermissionGuard('user:read');"
+      ]
+    },
+    {
+      "page": "03-frontend/arquitectura-angular.md",
+      "path": "frontend/src/app/core/data/nexodocs-data.ts",
+      "includes": [
+        "permission?: PermissionRequirement"
+      ]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/UserService.java",
+      "includes": [
+        "sessionPermissions()",
+        "roleRepository.findCurrentNames()"
+      ]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "database/init/045_audit_chain_select_grant.sql",
+      "includes": [
+        "GRANT SELECT (tenant_id, chain_seq, record_hash) ON public.audit_events TO nexodocs_security;"
+      ]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DefaultAuditRecorder.java",
+      "includes": [
+        "public void afterCommit()"
+      ]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "database/init/044_current_role_names.sql",
+      "includes": [
+        "CREATE OR REPLACE FUNCTION app.current_role_names() RETURNS SETOF text",
+        "GRANT EXECUTE ON FUNCTION app.current_role_names() TO nexodocs_app"
+      ]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/repository/PlanRepository.java",
+      "includes": [
+        "pg_advisory_xact_lock(hashtextextended('plan:' || cast(:tenantId as text), 0))"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/nucleo-documental-y-tenants.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PlanController.java",
+      "includes": [
+        "static final String TENANT_PLAN_ADMIN = \"hasAnyAuthority('tenant:update', 'tenant:manage')\";"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/nucleo-documental-y-tenants.md",
+      "path": "frontend/src/app/core/auth/auth.interceptor.ts",
+      "includes": [
+        "!request.url.includes('/api/v1/plans')"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentStorageService.java",
+      "includes": [
+        "Path.of(tenantId.toString(), documentId.toString(), versionId.toString())",
+        "MessageDigest.getInstance(\"SHA-256\")",
+        "reason == null || reason.isBlank()"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/motor-de-workflows.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/WorkflowEngineService.java",
+      "includes": [
+        "Set.of(\"DRAFT\",\"ACTIVE\",\"INACTIVE\")",
+        "workflow_template_stages",
+        "workflow_steps",
+        "workflow_approvals",
+        "workflow:approve"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/modulo-clinico.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/model/ClinicalHistory.java",
+      "includes": [
+        "private Long version",
+        "private String bloodType"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/modulo-clinico.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/MedicalNoteController.java",
+      "includes": [
+        "medical_note:read",
+        "medical_note:create",
+        "medical_note:update"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/digitalizacion-y-ocr.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/OcrController.java",
+      "includes": [
+        "@GetMapping(\"/jobs\")",
+        "@GetMapping(\"/stats\")",
+        "@PostMapping(\"/jobs/{id}/index\")",
+        "CAN_INDEX_OCR"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/digitalizacion-y-ocr.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/model/OcrJob.java",
+      "includes": [
+        "QUEUED, PROCESSING, REQUIRES_VALIDATION, VALIDATED, INDEXED, FAILED, REJECTED"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/digitalizacion-y-ocr.md",
+      "path": "database/init/035_ocr_job_persistence.sql",
+      "includes": [
+        "035_ocr_job_persistence",
+        "ck_ocr_indexed_has_document",
+        "ck_ocr_failed_has_reason"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "database/init/042_component_permissions.sql",
+      "includes": [
+        "CREATE TABLE IF NOT EXISTS component_permissions",
+        "CREATE POLICY tenant_context ON component_permissions AS RESTRICTIVE TO nexodocs_app",
+        "app.has_permission('component_permission:manage')",
+        "CREATE OR REPLACE FUNCTION app.current_role_ids()"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ComponentFormAccess.java",
+      "includes": [
+        "ComponentState.mostPermissive(state, roleState)",
+        "getOrDefault(component.key(), ComponentState.DEFAULT)"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/ComponentPermissionController.java",
+      "includes": [
+        "@RequestMapping(\"/api/v1/component-permissions\")",
+        "@GetMapping(\"/me\")",
+        "hasAuthority('component_permission:manage')"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/UserFormPolicy.java",
+      "includes": [
+        "El usuario debe pertenecer al menos a un grupo (perfil)"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "frontend/src/app/core/auth/field-permission.directive.ts",
+      "includes": [
+        "selector: '[appField]'"
+      ]
+    },
+    {
+      "page": "03-frontend/estado-y-comunicacion-api.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/AssistantController.java",
+      "includes": [
+        "@RequestMapping(\"/api/v1/assistant\")",
+        "@PostMapping(\"/chat\")"
+      ]
+    },
+    {
+      "page": "03-frontend/estado-y-comunicacion-api.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AssistantService.java",
+      "includes": [
+        "assistant/manual.md",
+        "app.assistant.rate-limit.max-requests:20",
+        "HttpStatus.TOO_MANY_REQUESTS"
+      ]
+    },
+    {
+      "page": "03-frontend/estado-y-comunicacion-api.md",
+      "path": "frontend/src/app/core/api/assistant-api.service.ts",
+      "includes": [
+        "/assistant/chat"
+      ]
+    }
+  ],
+  "reviews": {
+    "01-arquitectura/convenciones-y-reglas.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "01-arquitectura/multi-tenancy-y-seguridad-rls.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "01-arquitectura/vision-general.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "02-backend/autenticacion-y-sesiones.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "02-backend/base-de-datos-y-migraciones.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "02-backend/estructura-spring-boot.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "03-frontend/arquitectura-angular.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "03-frontend/estado-y-comunicacion-api.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/digitalizacion-y-ocr.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/documentos-y-almacenamiento.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/modulo-clinico.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/motor-de-workflows.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/nucleo-documental-y-tenants.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md": {
+      "reviewedAt": "2026-10-18",
+      "revision": "855ffff"
+    },
+    "05-guias-ia/como-promptear-en-nexodocs.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "05-guias-ia/estado-verificado-y-pendientes.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "05-guias-ia/pruebas-y-validacion.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "06-operacion/despliegue-y-recuperacion.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    },
+    "README.md": {
+      "reviewedAt": "2026-10-16",
+      "revision": "a590a6d"
+    }
+  }
+}

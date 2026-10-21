@@ -1,0 +1,13 @@
+package com.lta.gestdocum.backend.repository;
+
+import com.lta.gestdocum.backend.model.ExpedientType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.UUID;
+
+public interface ExpedientTypeRepository extends JpaRepository<ExpedientType, UUID> {
+    Page<ExpedientType> findByTenantIdAndActiveTrueOrderByNameAsc(UUID tenantId, Pageable pageable);
+    boolean existsByTenantIdAndCodeIgnoreCase(UUID tenantId, String code);
+}

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>com.lta.gestdocum</groupId>
         <artifactId>backend-parent</artifactId>
@@ -15,45 +16,11 @@
     <name>Bootstrap Application</name>
 
     <dependencies>
-        <!-- Módulos funcionales del sistema -->
         <dependency>
             <groupId>com.lta.gestdocum</groupId>
             <artifactId>shared</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.lta.gestdocum</groupId>
-            <artifactId>autenticacion</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.lta.gestdocum</groupId>
-            <artifactId>usuarios</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.lta.gestdocum</groupId>
-            <artifactId>documentos</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.lta.gestdocum</groupId>
-            <artifactId>expedientes</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.lta.gestdocum</groupId>
-            <artifactId>clinico</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.lta.gestdocum</groupId>
-            <artifactId>auditoria</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.lta.gestdocum</groupId>
-            <artifactId>tablero</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.lta.gestdocum</groupId>
-            <artifactId>reportes</artifactId>
-        </dependency>
 
-        <!-- Spring Boot Starters -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -75,19 +42,22 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
-        <!-- Database & Tools -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <optional>true</optional>
         </dependency>
 
-        <!-- JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
@@ -103,13 +73,11 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Swagger / OpenAPI -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         </dependency>
 
-        <!-- Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -122,7 +90,17 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
                 <configuration>
+                    <source>21</source>
+                    <target>21</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                     <excludes>
                         <exclude>**/ChatBotToolsConfig.java</exclude>
                         <exclude>**/RAGService.java</exclude>

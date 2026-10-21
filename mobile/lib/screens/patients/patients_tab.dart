@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/api/auth_api.dart';
-import '../../core/errors/auth_exception.dart';
+import '../../core/errors/api_exception.dart';
 import 'widgets/summary_card.dart';
 
 class PatientsTab extends StatefulWidget {
@@ -38,12 +38,12 @@ class _PatientsTabState extends State<PatientsTab> {
       summary = null;
     });
     try {
-      final result = await widget.api.patients(searchController.text.trim());
+      final result = await widget.api.clinical.patients(searchController.text.trim());
       if (mounted) setState(() => patients = result);
     } catch (exception) {
       if (mounted) {
         setState(
-          () => error = exception is AuthException
+          () => error = exception is ApiException
               ? exception.message
               : 'No se pudo buscar pacientes.',
         );
@@ -59,12 +59,12 @@ class _PatientsTabState extends State<PatientsTab> {
       error = null;
     });
     try {
-      final result = await widget.api.quickSummary(id);
+      final result = await widget.api.clinical.quickSummary(id);
       if (mounted) setState(() => summary = result);
     } catch (exception) {
       if (mounted) {
         setState(
-          () => error = exception is AuthException
+          () => error = exception is ApiException
               ? exception.message
               : 'No se pudo abrir el resumen clínico.',
         );

@@ -1,1 +1,389 @@
-<router-outlet></router-outlet>
+@if (!isWorkspace()) {
+  <div class="public-outlet" i18nContent><router-outlet></router-outlet></div>
+} @else {
+  <main class="shell" i18nContent [class.sidebar-collapsed]="isCollapsed()">
+    <aside class="sidebar" [class.open]="mobileNavOpen()" [class.collapsed]="isCollapsed()" id="sidebar-nav">
+      <!-- Brand Logo -->
+      <a routerLink="/" class="brand" aria-label="NexoDocs, ir al inicio">
+        <span class="brand-logo-icon">
+          <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="28" height="28" rx="8" fill="#ffffff" fill-opacity="0.15"/>
+            <path d="M8 6h8l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" stroke="#ffffff" stroke-width="2" fill="none"/>
+            <path d="M16 6v5h5" stroke="#ffffff" stroke-width="2" fill="none"/>
+          </svg>
+        </span>
+        <span class="brand-copy">
+          <strong>NexoDocs</strong>
+          <small>{{ 'shell.documentManagement' | translate }}</small>
+        </span>
+      </a>
+
+      <!-- Colapsar / expandir (solo escritorio) -->
+      <button type="button" class="sidebar-toggle" (click)="toggleSidebar()" [attr.aria-expanded]="!isCollapsed()" aria-controls="sidebar-nav" [attr.aria-label]="isCollapsed() ? ('shell.expand' | translate) : ('shell.collapse' | translate)" [attr.title]="isCollapsed() ? ('shell.expand' | translate) : ('shell.collapse' | translate)">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" [style.transform]="isCollapsed() ? 'rotate(180deg)' : 'none'"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>{{ (isCollapsed() ? 'shell.expand' : 'shell.collapse') | translate }}</span>
+      </button>
+
+      <!-- Organización Activa Card -->
+      <div class="tenant-card">
+        <span class="tenant-icon">
+          @if (hasTenantLogo()) {
+            <img class="tenant-logo" [src]="tenantLogoUrl()" [alt]="'Logo de ' + tenantName()" (error)="onTenantLogoError()" />
+          } @else {
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><path d="M9 18h6v4H9z"/>
+            </svg>
+          }
+        </span>
+        <div class="tenant-info">
+          <small>{{ 'shell.organization' | translate }}</small>
+          <b>{{ tenantName() }}</b>
+          <span class="tenant-role-badge">{{ 'shell.role' | translate }}: {{ roleDisplay() | uppercase }}</span>
+        </div>
+        <span class="tenant-chevron">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </span>
+      </div>
+
+      <!-- Navegación Principal -->
+      <nav class="sidebar-nav" aria-label="Navegación principal">
+        @for (section of availableSections(); track section.title) {
+          <p class="nav-section-title">{{ navLabel(section.title) | uppercase }}</p>
+          @for (item of section.items; track item.label) {
+            <div class="nav-group" [class.active]="isActiveItem(item.label)">
+              <a
+                class="nav-item"
+                [class.has-toggle]="visibleChildren(item).length > 1"
+                [attr.title]="isCollapsed() ? navLabel(item.label) : null"
+                [class.active]="isActiveItem(item.label)"
+                [routerLink]="visibleChildren(item)[0]?.href ?? item.children[0].href"
+                (click)="openNav(item.label)"
+              >
+                <span class="nav-icon-wrap" aria-hidden="true">
+                  @switch (item.label) {
+                    @case ('Inicio') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+                      </svg>
+                    }
+                    @case ('Expedientes') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                      </svg>
+                    }
+                    @case ('Documentos') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                      </svg>
+                    }
+                    @case ('Usuarios y equipos') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                      </svg>
+                    }
+                    @case ('Auditoria') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                      </svg>
+                    }
+                    @case ('Reportes') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                      </svg>
+                    }
+                    @case ('Historial clínico') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                      </svg>
+                    }
+                    @case ('Módulo Clínico') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                      </svg>
+                    }
+                    @case ('Digitalizacion') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/>
+                      </svg>
+                    }
+                    @case ('Workflows') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6"/><polyline points="13 12 16 15 13 18"/>
+                      </svg>
+                    }
+                    @case ('Facturacion e ingresos') {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+                      </svg>
+                    }
+                    @default {
+                      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                    }
+                  }
+                </span>
+                <b>{{ navLabel(item.label) }}</b>
+              </a>
+              @if (visibleChildren(item).length > 1) {
+                <button
+                  type="button"
+                  class="nav-arrow"
+                  [attr.aria-label]="'shell.submenu' | translate:{ label: navLabel(item.label) }"
+                  [attr.aria-expanded]="isExpanded(item.label)"
+                  [attr.aria-controls]="navId(item.label)"
+                  (click)="toggleNav(item.label)"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" [style.transform]="isExpanded(item.label) ? 'rotate(180deg)' : 'none'">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </button>
+              }
+            </div>
+            @if (visibleChildren(item).length > 1) {
+              <div class="nav-children-list" [id]="navId(item.label)" [hidden]="!isExpanded(item.label)">
+                @for (child of visibleChildren(item); track child.href) {
+                  <a
+                    [routerLink]="child.href"
+                    routerLinkActive="active"
+                    ariaCurrentWhenActive="page"
+                    [routerLinkActiveOptions]="{ exact: true }"
+                    (click)="openNav(item.label)"
+                  >
+                    <span>{{ navLabel(child.label) }}</span>
+                  </a>
+                }
+              </div>
+            }
+          }
+        }
+      </nav>
+
+      <!-- Widget de cuota del tenant (solo administrador del tenant) -->
+      @if (subscription.canManage()) {
+      <button type="button" class="storage-widget subscription-usage" (click)="openUpgrade('Consulta el uso actual de tu suscripción')" aria-label="Consultar uso y mejorar plan">
+        <div class="storage-gauge">
+          <svg viewBox="0 0 36 36" class="circular-chart">
+            <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+            <path class="circle" [attr.stroke-dasharray]="storageUsagePercent() + ', 100'" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+          </svg>
+        </div>
+        <div class="storage-meta">
+          <div class="storage-row">
+            <span>{{ 'subscription.storage' | translate }}</span>
+            <strong>{{ storageUsagePercent() }}%</strong>
+          </div>
+          <small>{{ usersUsageLabel() }}</small>
+          <div class="storage-track"><div class="storage-progress" [style.width.%]="storageUsagePercent()"></div></div>
+        </div>
+      </button>
+      }
+
+      <!-- Footer Perfil Usuario -->
+      <div class="user-profile-footer">
+        <button type="button" class="avatar-button" aria-label="Abrir mi perfil" (click)="openProfile()">
+          @if (avatarUrl()) { <img class="avatar-image" [src]="avatarUrl()" alt="Foto de perfil" /> } @else { <span class="user-avatar">{{ initials() }}</span> }
+        </button>
+        <button type="button" class="user-details profile-open-trigger" (click)="openProfile()">
+          <b>{{ displayName() }}</b>
+          <small>{{ userSubtitle() }}</small>
+        </button>
+        <button type="button" class="user-menu-btn" aria-label="Opciones de usuario" [attr.aria-expanded]="sidebarUserMenuOpen()" (click)="toggleSidebarUserMenu()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        @if (sidebarUserMenuOpen()) {
+          <div class="account-dropdown sidebar-account-dropdown">
+            <button type="button" (click)="openProfile()">Mi Perfil</button>
+            <button type="button" (click)="accountAction('Configuración')">Configuración</button>
+            <button type="button" class="danger-btn" (click)="logout()">Cerrar sesión</button>
+          </div>
+        }
+      </div>
+    </aside>
+@if (mobileNavOpen()) {      <div class="sidebar-overlay" (click)="mobileNavOpen.set(false)" aria-hidden="true"></div>    }
+
+    <!-- Área de Trabajo Principal -->
+    <section class="workspace">
+      <header class="topbar">
+        <div class="mobile-brand-wrap">
+          <button type="button" class="menu-toggle-btn" (click)="mobileNavOpen.set(!mobileNavOpen())" aria-label="Abrir menú" aria-controls="sidebar-nav" [attr.aria-expanded]="mobileNavOpen()">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <a routerLink="/" class="brand-mobile">
+            <strong>NexoDocs</strong>
+          </a>
+        </div>
+
+        @if (!hideGlobalSearch()) {
+          <form class="topbar-search" (submit)="onGlobalSearch($event)">
+            <span class="search-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </span>
+            <input
+              type="search"
+              aria-label="Buscar en NexoDocs"
+              [placeholder]="'shell.searchPlaceholder' | translate"
+              [value]="globalSearchTerm()"
+              (input)="globalSearchTerm.set($any($event.target).value)"
+              (keydown.enter)="onGlobalSearch($event)"
+            />
+          </form>
+        }
+
+        <div class="topbar-actions">
+          <div class="language-switcher" (keydown.escape)="languageMenuOpen.set(false)">
+            <button
+              type="button"
+              class="topbar-btn language-trigger"
+              [attr.aria-label]="'language.label' | translate"
+              [attr.aria-expanded]="languageMenuOpen()"
+              aria-haspopup="menu"
+              (click)="toggleLanguageMenu()"
+            >{{ i18n.language().toUpperCase() }}</button>
+            @if (languageMenuOpen()) {
+              <div class="account-dropdown language-options" role="menu" [attr.aria-label]="'language.label' | translate">
+                @for (language of i18n.languages; track language.code) {
+                  <button
+                    type="button"
+                    role="menuitemradio"
+                    class="language-option"
+                    [class.selected]="i18n.language() === language.code"
+                    [attr.aria-checked]="i18n.language() === language.code"
+                    (click)="selectLanguage(language.code)"
+                  >
+                    <span>{{ language.label }}</span>
+                    <b>{{ language.code.toUpperCase() }}</b>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+          @if (subscription.canManage()) {
+            <button type="button" class="upgrade-pill" (click)="openUpgrade()" [attr.aria-label]="'subscription.upgrade' | translate">
+              <span>✨</span>{{ subscription.isBasicPlan() ? ('subscription.upgrade' | translate) : subscriptionPlanName() }}
+            </button>
+            @if (subscription.currentSubscription()?.subscriptionStatus === 'TRIAL') {
+              <button type="button" class="upgrade-pill" (click)="openUpgrade()">⏳ {{ 'billing.trialBadge' | translate:{ days: subscription.currentSubscription()?.trialDaysRemaining ?? 0 } }}</button>
+            }
+          }
+          <a routerLink="/notifications/unread" class="topbar-btn bell-btn" aria-label="Notificaciones">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <i class="unread-dot"></i>
+          </a>
+
+          <button type="button" class="topbar-btn help-btn" aria-label="Ayuda" (click)="help.toggle()">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </button>
+
+          <div class="topbar-user-pill">
+            <button type="button" class="user-pill-btn" aria-label="Abrir opciones de usuario" [attr.aria-expanded]="headerUserMenuOpen()" (click)="toggleHeaderUserMenu()">
+              @if (avatarUrl()) { <img class="pill-avatar avatar-image" [src]="avatarUrl()" alt="Foto de perfil" /> } @else { <span class="pill-avatar">{{ initials() }}</span> }
+              <span class="pill-name">{{ displayName() }}</span>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            @if (headerUserMenuOpen()) {
+              <div class="account-dropdown header-account-dropdown">
+                <button type="button" (click)="openProfile()">Mi Perfil</button>
+                <button type="button" (click)="accountAction('Configuración')">Configuración</button>
+                <button type="button" class="danger-btn" (click)="logout()">Cerrar sesión</button>
+              </div>
+            }
+          </div>
+        </div>
+      </header>
+
+      <router-outlet></router-outlet>
+    </section>
+
+    <app-upgrade-plan-modal />
+
+    @if (profileOpen()) {
+      <div class="profile-modal-backdrop" role="presentation" (click)="closeProfile()">
+        <section class="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title" (click)="$event.stopPropagation()">
+          <header class="profile-modal-header">
+            <div><p>MI CUENTA</p><h1 id="profile-title">Mi perfil</h1><span>Gestiona tu información personal.</span></div>
+            <button type="button" class="profile-close" aria-label="Cerrar" (click)="closeProfile()">×</button>
+          </header>
+          <div class="profile-modal-body">
+            <aside class="profile-summary">
+              <div class="profile-photo-wrap">
+                @if (avatarUrl()) { <img class="profile-photo" [src]="avatarUrl()" alt="Foto de perfil" /> } @else { <span class="profile-photo profile-initials">{{ initials() }}</span> }
+                <label class="profile-photo-action" title="Cambiar foto"><input type="file" accept="image/jpeg,image/png,image/webp" (change)="uploadAvatar($event)" [disabled]="avatarUploading()" />{{ avatarUploading() ? '…' : '⌑' }}</label>
+              </div>
+              <h2>{{ displayName() }}</h2>
+              <span class="profile-role">{{ roleDisplay() }}</span>
+              <dl><div><dt>Organización</dt><dd>{{ tenantName() }}</dd></div><div><dt>Usuario</dt><dd>{{ currentUser()?.username }}</dd></div></dl>
+              <small>JPG, PNG o WEBP · máximo 2 MB</small>
+            </aside>
+            <div class="profile-form">
+              <nav class="profile-tabs" aria-label="Secciones del perfil">
+                <button type="button" [class.active]="profileTab() === 'profile'" (click)="setProfileTab('profile')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><span>Perfil</span></button>
+                <button type="button" [class.active]="profileTab() === 'security'" (click)="setProfileTab('security')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Seguridad</span></button>
+                <button type="button" [class.active]="profileTab() === 'notifications'" (click)="setProfileTab('notifications')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 21h4"/></svg><span>Notificaciones</span></button>
+                <button type="button" [class.active]="profileTab() === 'access'" (click)="setProfileTab('access')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 21c0-4 2.8-7 6-7s6 3 6 7M14 20c.4-2.7 2-4.5 4.5-4.5 2 0 3.5 1.5 3.5 4.5"/></svg><span>Accesos</span></button>
+                <button type="button" [class.active]="profileTab() === 'workflows'" (click)="setProfileTab('workflows')"><span>Workflows</span></button>
+              </nav>
+              @if (profileError()) { <p class="profile-error" role="alert">{{ profileError() }}</p> }
+              @if (profileTab() === 'profile') {
+                <form (ngSubmit)="saveProfile()">
+                  <div class="profile-fields">
+                    <label>Nombre(s) *<input name="profileFirstName" [(ngModel)]="profileFirstName" required maxlength="100" /></label>
+                    <label>Apellidos *<input name="profileLastName" [(ngModel)]="profileLastName" required maxlength="100" /></label>
+                    <label>Correo electrónico *<input type="email" name="profileEmail" [(ngModel)]="profileEmail" required maxlength="150" /></label>
+                    <label>Teléfono<input type="tel" name="profilePhone" [(ngModel)]="profilePhone" maxlength="30" /></label>
+                    <label>Cargo / rol<input [value]="roleDisplay()" readonly /></label>
+                    <label>Organización<input [value]="tenantName()" readonly /></label>
+                    <label class="profile-wide">Biografía / descripción<textarea name="profileBiography" [(ngModel)]="profileBiography" maxlength="500" placeholder="Cuéntanos brevemente sobre tu función."></textarea><small>{{ profileBiography.length }}/500</small></label>
+                  </div>
+                  <div class="profile-form-footer"><button type="button" class="profile-cancel" (click)="closeProfile()">Cancelar</button><button type="submit" class="profile-save" [disabled]="profileSaving() || avatarUploading()">{{ profileSaving() ? 'Guardando…' : 'Guardar cambios' }}</button></div>
+                </form>
+              } @else if (profileTab() === 'security') {
+                <form (ngSubmit)="savePassword()" class="profile-section-form">
+                  <h2>Seguridad de la cuenta</h2><p>Actualiza tu contraseña. La sesión actual se mantiene protegida.</p>
+                  <div class="profile-fields one-column">
+                    <label>Contraseña actual *<input type="password" name="currentPassword" [(ngModel)]="currentPassword" required autocomplete="current-password" /></label>
+                    <label>Nueva contraseña *<input type="password" name="newPassword" [(ngModel)]="newPassword" required minlength="8" autocomplete="new-password" /><small>Al menos 8 caracteres.</small></label>
+                    <label>Confirmar nueva contraseña *<input type="password" name="confirmPassword" [(ngModel)]="confirmPassword" required autocomplete="new-password" /></label>
+                  </div>
+                  <div class="profile-form-footer"><button type="button" class="profile-cancel" (click)="closeProfile()">Cancelar</button><button type="submit" class="profile-save" [disabled]="passwordSaving()">{{ passwordSaving() ? 'Actualizando…' : 'Actualizar contraseña' }}</button></div>
+                </form>
+              } @else if (profileTab() === 'notifications') {
+                <form (ngSubmit)="saveNotifications()" class="profile-section-form">
+                  <h2>Preferencias de notificación</h2><p>Elige cómo deseas recibir las novedades de tu organización.</p>
+                  <label class="preference-row"><input type="checkbox" name="emailNotifications" [(ngModel)]="profileEmailNotifications" /><span><b>Notificaciones por correo</b><small>Recibe avisos de documentos, expedientes y tareas en tu correo.</small></span></label>
+                  <label class="preference-row"><input type="checkbox" name="pushNotifications" [(ngModel)]="profilePushNotifications" /><span><b>Notificaciones en la aplicación</b><small>Muestra alertas dentro de NexoDocs mientras tengas la sesión activa.</small></span></label>
+                  <div class="profile-form-footer"><button type="button" class="profile-cancel" (click)="closeProfile()">Cancelar</button><button type="submit" class="profile-save" [disabled]="notificationSaving()">{{ notificationSaving() ? 'Guardando…' : 'Guardar preferencias' }}</button></div>
+                </form>
+              } @else if (profileTab() === 'workflows') {
+                <section class="profile-section-form"><h2>Mi actividad de workflows</h2><h3>Tareas asignadas</h3>@for(task of profileWorkflowTasks();track task.id){<p><a [routerLink]="['/workflows/tasks']" (click)="closeProfile()">{{ task.workflow_code }} · {{ task.title }} · {{ task.status }}</a></p>}@empty{<p>No tienes tareas pendientes.</p>}<h3>Workflows activos</h3>@for(flow of profileActiveWorkflows();track flow.id){<p><a [routerLink]="['/workflows']" [queryParams]="{workflow:flow.id}" (click)="closeProfile()">{{ flow.code }} · {{ flow.title }} · {{ flow.status }}</a></p>}@empty{<p>No tienes workflows activos asignados.</p>}<h3>Historial de aprobaciones</h3>@for(approval of profileApprovalHistory();track approval.id){<p>{{ approval.workflow_code }} · {{ approval.workflow_title }} · {{ approval.decision }} · {{ approval.decided_at|date:'short' }}</p>}@empty{<p>Aún no hay decisiones registradas.</p>}<div class="profile-form-footer"><button type="button" class="profile-save" (click)="closeProfile()">Listo</button></div></section>
+              } @else {
+                <section class="profile-section-form access-section"><h2>Accesos asignados</h2><p>Estos datos provienen de tu cuenta autenticada y no pueden modificarse desde el perfil.</p><dl><div><dt>Usuario</dt><dd>{{ currentUser()?.username }}</dd></div><div><dt>Organización</dt><dd>{{ tenantName() }}</dd></div><div><dt>Roles</dt><dd>@for (roleName of currentUser()?.roleNames ?? []; track roleName) { <span class="access-role">{{ roleName }}</span> }</dd></div><div><dt>Estado</dt><dd>{{ currentUser()?.status }}</dd></div></dl><div class="profile-form-footer"><button type="button" class="profile-save" (click)="closeProfile()">Listo</button></div></section>
+              }
+            </div>
+          </div>
+        </section>
+      </div>
+    }
+
+    <app-help-drawer />
+    <app-assistant-widget />
+
+    @if (toast()) {
+      <div class="toast-notification" role="status">{{ toast() }}</div>
+    }
+  </main>
+}

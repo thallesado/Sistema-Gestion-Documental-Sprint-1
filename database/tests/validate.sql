@@ -115,9 +115,11 @@ INSERT INTO documents(id,tenant_id,document_type_id,author_id,code,name) VALUES
 (pg_temp.id(403),pg_temp.id(101),pg_temp.id(301),pg_temp.id(201),'TEST-2','Borrador vacío');
 INSERT INTO document_versions(tenant_id,document_id,author_id,change_reason,content)
 SELECT tenant_id,id,author_id,'Inicial','{}'::jsonb FROM documents WHERE id IN (pg_temp.id(401),pg_temp.id(402));
-INSERT INTO workflow_templates(id,tenant_id,name,created_by) VALUES
-(pg_temp.id(501),pg_temp.id(101),'TEST-1',pg_temp.id(201)),(pg_temp.id(502),pg_temp.id(101),'TEST-2',pg_temp.id(201));
-INSERT INTO workflow_templates(id,tenant_id,name,created_by) VALUES (pg_temp.id(503),pg_temp.id(101),'Unused',pg_temp.id(201));
+INSERT INTO workflow_templates(id,tenant_id,name,created_by,family_id) VALUES
+(pg_temp.id(501),pg_temp.id(101),'TEST-1',pg_temp.id(201),pg_temp.id(501)),
+(pg_temp.id(502),pg_temp.id(101),'TEST-2',pg_temp.id(201),pg_temp.id(502));
+INSERT INTO workflow_templates(id,tenant_id,name,created_by,family_id)
+VALUES (pg_temp.id(503),pg_temp.id(101),'Unused',pg_temp.id(201),pg_temp.id(503));
 INSERT INTO workflow_template_stages(tenant_id,workflow_template_id,name,stage_type,sort_order,assignment_type,assigned_user_id)
 VALUES (pg_temp.id(101),pg_temp.id(503),'Asignación tipada','TASK',1,'USER',pg_temp.id(201));
 INSERT INTO workflow_template_stages(id,tenant_id,workflow_template_id,name,stage_type,sort_order) VALUES

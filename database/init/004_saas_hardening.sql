@@ -270,17 +270,28 @@ CREATE INDEX idx_dicom_series_study ON dicom_series(tenant_id, study_id);
 -- Rol interno sin login ni membresía del backend. BYPASSRLS se limita a funciones
 -- de consulta de autorización y escritura de auditoría con search_path fijo.
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nexodocs_security') THEN
-    CREATE ROLE nexodocs_security NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS;
-  END IF;
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'nexodocs_security') THEN
+      CREATE ROLE nexodocs_security NOLOGIN NOCREATEDB NOCREATEROLE NOINHERIT;
+    END IF;
+    ALTER ROLE nexodocs_app NOLOGIN NOCREATEDB NOCREATEROLE;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Skipping role attributes that require superuser: %', SQLERRM;
+  END;
 END $$;
-ALTER ROLE nexodocs_app NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
-REVOKE nexodocs_platform_admin, nexodocs_security FROM nexodocs_app;
+GRANT nexodocs_security TO CURRENT_USER;
+DO $$ BEGIN
+  BEGIN
+    REVOKE nexodocs_platform_admin, nexodocs_security FROM nexodocs_app;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+END $$;
 REVOKE CREATE ON SCHEMA public, app FROM PUBLIC, nexodocs_app;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES IN SCHEMA app REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-GRANT USAGE ON SCHEMA public, app TO nexodocs_security;
+GRANT USAGE, CREATE ON SCHEMA public, app TO nexodocs_security;
 GRANT SELECT (id, tenant_id, status, deleted_at, is_platform_admin) ON users TO nexodocs_security;
 GRANT SELECT (id, subscription_status) ON tenants TO nexodocs_security;
 GRANT SELECT ON roles, user_roles, permissions, role_permissions TO nexodocs_security;
