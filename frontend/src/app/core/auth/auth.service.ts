@@ -19,6 +19,8 @@ export class AuthService {
   readonly user = signal<AuthUser | null>(this.readUser());
   readonly avatarUrl = signal<string | null>(null);
   readonly isAuthenticated = signal(Boolean(this.readToken()));
+  /** true mientras la contraseña sea temporal (login, refresh o /auth/me lo informan). */
+  readonly mustChangePassword = signal(this.readUser()?.mustChangePassword === true);
   private refreshInFlight: Observable<AuthResponse> | null = null;
 
   constructor() {
@@ -159,7 +161,17 @@ export class AuthService {
     return this.http.put<void>(`${API_URL}/auth/me/password`, { currentPassword, newPassword });
   }
 
+  /**
+   * Termina el cambio obligatorio: el backend cierra las sesiones emitidas con la contraseña temporal,
+   * así que se limpia la sesión local y se pide iniciar sesión con la contraseña nueva.
+   */
+  completeForcedPasswordChange(): void {
+    this.clearSession();
+    void this.router.navigate(['/login'], { queryParams: { reason: 'password-changed' } });
+  }
+
   private storeTokens(response: AuthResponse): void {
+    this.mustChangePassword.set(response.mustChangePassword === true);
     sessionStorage.setItem(TOKEN_KEY, response.token);
     sessionStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken);
     this.isAuthenticated.set(true);
@@ -171,6 +183,7 @@ export class AuthService {
     sessionStorage.removeItem(REFRESH_TOKEN_KEY);
     sessionStorage.removeItem(USER_KEY);
     this.user.set(null);
+    this.mustChangePassword.set(false);
     this.clearAvatarUrl();
     this.isAuthenticated.set(false);
   }
@@ -226,6 +239,7 @@ export class AuthService {
         tenantName: typeof user.tenantName === 'string' ? user.tenantName : null,
         tenantLogoUrl: typeof user.tenantLogoUrl === 'string' ? user.tenantLogoUrl : null,
         platformAdmin: user.platformAdmin === true,
+        mustChangePassword: user.mustChangePassword === true,
         roleNames: Array.isArray(user.roleNames)
           ? user.roleNames.filter((role): role is string => typeof role === 'string')
           : [],
@@ -257,6 +271,7 @@ export class AuthService {
       : { ...response, permissions: this.user()?.permissions ?? [] };
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
     this.user.set(user);
+    this.mustChangePassword.set(user.mustChangePassword === true);
   }
 
   private loadAvatar(hasAvatar: boolean): void {

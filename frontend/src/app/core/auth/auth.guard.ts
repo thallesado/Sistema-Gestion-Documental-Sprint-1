@@ -8,9 +8,18 @@ export const authGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
   if (auth.isAuthenticated()) {
-    return true;
+    // Con contraseña temporal solo se puede usar la pantalla de cambio obligatorio.
+    return auth.mustChangePassword() ? router.createUrlTree(['/change-password']) : true;
   }
   return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
+};
+
+/** Pantalla de cambio obligatorio: solo para sesiones con contraseña temporal. */
+export const changePasswordPageGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  if (!auth.isAuthenticated()) return router.createUrlTree(['/login']);
+  return auth.mustChangePassword() ? true : router.createUrlTree(['/']);
 };
 
 /** Root is the smart entry point: visitors discover the product, members enter their workspace. */

@@ -609,6 +609,8 @@ export class LoginPage implements OnInit {
   ngOnInit(): void {
     if (this.route.snapshot.queryParamMap.get('reason') === 'inactivity') {
       this.sessionNotice.set('Desconectado por inactividad. Inicia sesión nuevamente.');
+    } else if (this.route.snapshot.queryParamMap.get('reason') === 'password-changed') {
+      this.sessionNotice.set('Contraseña actualizada. Inicia sesión con tu nueva contraseña.');
     }
     this.auth.publicTenants().subscribe({
       next: (list) => { this.tenants.set(list); this.tenantsLoading.set(false); },

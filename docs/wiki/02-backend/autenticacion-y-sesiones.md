@@ -29,11 +29,19 @@
 
 El frontend usa `permissions` solo para decidir qué mostrar (menú, botones y guards); la autorización sigue en `@PreAuthorize` y RLS. Los nombres visibles de roles no sustituyen permisos; revisar los catálogos/migraciones y controladores. No inventar `clinical:history:read` o `workflow:task:approve`.
 
+## Contraseña temporal obligatoria (S1)
+
+Un administrador de organización creado con contraseña generada (alta por superadmin o `/public/signup` sin `adminPassword`) tiene `users.must_change_password = true`. `AuthService` expone `mustChangePassword` en la respuesta de login y refresh y en `GET /api/v1/auth/me`, y añade al JWT la authority interna `ROLE_MUST_CHANGE_PASSWORD` (no se devuelve en `permissions`). `MustChangePasswordFilter`, registrado tras `JwtAuthenticationFilter` en `SecurityConfig`, responde 403 con `code: MUST_CHANGE_PASSWORD` a cualquier petición salvo `GET /auth/me`, `POST /auth/logout`, `POST /auth/refresh` y `PUT /auth/me/password`. `PUT /auth/me/password` limpia el indicador y, si era temporal, cierra las sesiones emitidas para que se inicie sesión de nuevo. Cuando el administrador elige su contraseña (`adminPassword` en el alta o en `/public/onboarding`) el indicador es false y no se envía correo. Ninguna respuesta de alta devuelve contraseñas (`temporaryPassword` es siempre null) y el log nunca las imprime; sin SMTP la contraseña temporal no se entrega y hay que usar la recuperación de contraseña. `/public/signup` y `/public/onboarding` crean la organización por el único recorrido `TenantService.create(request, adminPassword)` y tienen límite propio por IP (`app.rate-limit.public-signup.*`, 10 por hora por defecto, 429 con `Retry-After`).
+
+## Cupos del plan (S2)
+
+Reactivar un usuario (`UserService.updateUser`, de inactivo/bloqueado a ACTIVE) ejecuta `validateUserLimit`. El OCR cuenta una página por página de PDF (`OcrService.countPages`, sin dependencia de PDFBox: cuenta objetos `/Type /Page` o el mayor `/Count`) y, si no se puede leer el consumo mensual, `PlanLimitService.validateOcrLimit` falla cerrado con `PlanLimitExceededException`. La bitácora `UPDATE USERS` registra antes y después nombres, apellidos, correo, estado y grupos (`roleIds`), nunca credenciales.
+
 ## Límites conocidos
 
 ### Login fallido y bloqueo local (2026-10-21)
 
-`LoginAttemptRateLimitFilter` limita `POST /api/v1/auth/login` a cinco solicitudes por ventana de 60 segundos por IP y por identificador de cuenta/organización enviada. Cuenta también los inicios correctos. El sexto intento recibe 429 con `Retry-After`; la ventana se libera sin intervención. Los contadores están en memoria, se reinician con el backend y no coordinan réplicas. Distintos alias de organización o username/email representan claves de cuenta distintas; el límite por IP se aplica igualmente. La capacidad del mapa está acotada y al saturarse rechaza claves nuevas hasta que caduquen entradas.
+`LoginAttemptRateLimitFilter` limita `POST /api/v1/auth/login` a cinco intentos fallidos por ventana de 60 segundos por IP y por identificador de cuenta/organización enviada. El cupo se reserva antes de procesar y se devuelve si la respuesta es correcta (< 400): un inicio de sesión exitoso no lo consume. El sexto fallo recibe 429 con `Retry-After`; la ventana se libera sin intervención. Los contadores están en memoria, se reinician con el backend y no coordinan réplicas. Distintos alias de organización o username/email representan claves de cuenta distintas; el límite por IP se aplica igualmente. La capacidad del mapa está acotada y al saturarse rechaza claves nuevas hasta que caduquen entradas.
 
 El controlador registra credenciales inválidas, organización inexistente y acceso denegado. Los rechazos del filtro también registran `LOGIN_FAILED`/`FAILURE`, IP, agente e identificador intentado. No se entrega la contraseña al servicio de auditoría. La migración `052_login_failure_audit.sql` habilita una función restringida de inserción previa a la autenticación, conservando los triggers de hash. Si falla la auditoría, se registra una advertencia: requiere vigilancia operativa y no hay cola de reintentos.
 
