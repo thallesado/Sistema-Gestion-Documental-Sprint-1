@@ -88,4 +88,22 @@ class PlanLimitServiceTest {
 
         assertDoesNotThrow(() -> planLimitService.validateDocumentLimit(tenantId));
     }
+
+    @Test
+    void validateOcrLimit_WhenConsumptionCannotBeRead_FailsClosed() {
+        when(planRepository.findPlanIdByTenantIdForUpdate(tenantId)).thenReturn(Optional.of(planId));
+        when(planRepository.findLimitValue(planId, PlanLimitService.MAX_OCR_PAGES)).thenReturn(Optional.of(100L));
+        when(entityManager.createNativeQuery(anyString())).thenThrow(new IllegalStateException("db caida"));
+
+        assertThrows(PlanLimitExceededException.class, () -> planLimitService.validateOcrLimit(tenantId, 1));
+    }
+
+    @Test
+    void validateOcrLimit_WhenNoUsageRowYet_AllowsAndUnlimitedPlanSkipsLookup() {
+        when(planRepository.findPlanIdByTenantIdForUpdate(tenantId)).thenReturn(Optional.of(planId));
+        when(planRepository.findLimitValue(planId, PlanLimitService.MAX_OCR_PAGES)).thenReturn(Optional.of(-1L));
+
+        assertDoesNotThrow(() -> planLimitService.validateOcrLimit(tenantId, 5));
+        verify(entityManager, never()).createNativeQuery(anyString());
+    }
 }

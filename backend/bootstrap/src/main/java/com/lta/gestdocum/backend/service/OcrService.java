@@ -70,6 +70,20 @@ public class OcrService {
         }
     }
 
+    /** Páginas que consume un archivo: 1 por imagen; en un PDF, las páginas del documento (mínimo 1). */
+    public static int countPages(byte[] bytes, String mimeType) {
+        if (bytes == null || mimeType == null || !mimeType.toLowerCase(Locale.ROOT).contains("pdf")) return 1;
+        String text = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1);
+        java.util.regex.Matcher pages = java.util.regex.Pattern.compile("/Type\\s*/Page(?![A-Za-z])").matcher(text);
+        int leaves = 0;
+        while (pages.find()) leaves++;
+        // PDF con objetos comprimidos: el nodo raíz /Pages declara el total en /Count.
+        int declared = 0;
+        java.util.regex.Matcher counts = java.util.regex.Pattern.compile("/Count\\s+(\\d{1,6})").matcher(text);
+        while (counts.find()) declared = Math.max(declared, Integer.parseInt(counts.group(1)));
+        return Math.max(1, Math.max(leaves, declared));
+    }
+
     public OcrExtraction extract(byte[] fileBytes, String mimeType, String originalFilename) {
         long started = System.nanoTime();
         if (!geminiClient.isConfigured()) {

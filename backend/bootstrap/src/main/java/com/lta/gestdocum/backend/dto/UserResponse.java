@@ -17,6 +17,8 @@ public class UserResponse {
     private String tenantName;
     private String tenantLogoUrl;
     private boolean platformAdmin;
+    /** true si la contraseña es temporal y debe cambiarse antes de usar el sistema. */
+    private boolean mustChangePassword;
     private String staffType;
     private String specialty;
     private String phone;

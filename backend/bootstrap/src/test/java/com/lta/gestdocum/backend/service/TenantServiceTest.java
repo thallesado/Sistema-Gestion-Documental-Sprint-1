@@ -140,4 +140,51 @@ class TenantServiceTest {
         assertEquals("Europe/Madrid", response.timezone());
         assertEquals("DD/MM/YYYY", response.dateFormat());
     }
+
+    @Test
+    void createTenant_WithOwnPassword_DoesNotForcePasswordChangeNorEmailIt() {
+        when(passwordEncoder.encode("MiClave#2026")).thenReturn("hashed-own");
+        when(tenantRepository.save(any(Tenant.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(roleRepository.save(any(Role.class))).thenAnswer(inv -> { Role r = inv.getArgument(0); r.setId(11L); return r; });
+        when(permissionRepository.findByIsActiveTrueOrderByModuleAscActionAsc()).thenReturn(Collections.emptyList());
+
+        tenantService.create(new TenantCreateRequest("Org Propia", "ORG-P", "org-propia", "a@org.test",
+                null, "admin@org.test", "Ana Admin"), "MiClave#2026");
+
+        ArgumentCaptor<User> user = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(user.capture());
+        assertFalse(user.getValue().isMustChangePassword());
+        assertEquals("hashed-own", user.getValue().getPasswordHash());
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void createTenant_WithoutMailSender_NeverLogsThePassword() {
+        ObjectProvider<JavaMailSender> noMail = mock(ObjectProvider.class);
+        when(noMail.getIfAvailable()).thenReturn(null);
+        TenantService service = new TenantService(tenantRepository, planRepository, userRepository, roleRepository,
+                permissionRepository, passwordEncoder, noMail);
+        when(tenantRepository.save(any(Tenant.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(roleRepository.save(any(Role.class))).thenAnswer(inv -> { Role r = inv.getArgument(0); r.setId(12L); return r; });
+        when(permissionRepository.findByIsActiveTrueOrderByModuleAscActionAsc()).thenReturn(Collections.emptyList());
+        ArgumentCaptor<String> encoded = ArgumentCaptor.forClass(String.class);
+
+        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger)
+                org.slf4j.LoggerFactory.getLogger(TenantService.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            service.create(new TenantCreateRequest("Org Log", "ORG-L", "org-log", "a@log.test",
+                    null, "admin@log.test", "Ana Admin"));
+            verify(passwordEncoder, atLeastOnce()).encode(encoded.capture());
+            String generated = encoded.getValue();
+            assertTrue(appender.list.stream().noneMatch(e -> e.getFormattedMessage().contains(generated)));
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
 }
