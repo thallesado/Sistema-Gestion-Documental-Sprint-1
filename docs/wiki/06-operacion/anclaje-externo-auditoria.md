@@ -1,6 +1,6 @@
 # Anclaje externo de la cadena de auditoría
 
-> Revisión documental: 2026-10-25 (sprint especial C3). Implementado y probado localmente contra una base de pruebas aislada; no activado en producción.
+> Revisión documental: 2026-10-25 (sprint especial C3). Base de código: `3876454` más los cambios del sprint especial. Implementado y probado localmente contra una base de pruebas aislada; no activado en producción.
 
 ## Qué resuelve
 
