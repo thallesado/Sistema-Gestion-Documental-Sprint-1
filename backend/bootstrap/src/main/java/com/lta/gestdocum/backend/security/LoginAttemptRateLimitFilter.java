@@ -75,9 +75,10 @@ public class LoginAttemptRateLimitFilter extends OncePerRequestFilter {
         long now = clock.millis();
         if (windows.size() > MAX_BUCKETS) windows.entrySet().removeIf(e -> now - e.getValue().start() >= windowMillis);
 
-        long retryIp = take("ip:" + request.getRemoteAddr(), now);
-        long retryUser = identifier.isBlank() ? 0 : take("user:" + readScope(body) + ":" + identifier.toLowerCase(java.util.Locale.ROOT), now);
-        long retryAfter = Math.max(retryIp, retryUser);
+        Take ip = take("ip:" + request.getRemoteAddr(), now);
+        Take user = identifier.isBlank() ? null
+                : take("user:" + readScope(body) + ":" + identifier.toLowerCase(java.util.Locale.ROOT), now);
+        long retryAfter = Math.max(ip.retryAfter(), user == null ? 0 : user.retryAfter());
         if (retryAfter > 0) {
             audit.recordFailedAuthentication(identifier, null, request);
             response.setStatus(429);
@@ -88,18 +89,33 @@ public class LoginAttemptRateLimitFilter extends OncePerRequestFilter {
             return;
         }
         chain.doFilter(wrapped, response);
+        // Solo los intentos fallidos consumen el cupo: se reserva antes de procesar (las peticiones
+        // en paralelo no lo exceden) y se devuelve si el login fue correcto.
+        if (response.getStatus() < 400) {
+            refund(ip);
+            refund(user);
+        }
     }
 
-    private synchronized long take(String key, long now) {
+    private record Take(String key, long windowStart, long retryAfter) { }
+
+    private synchronized void refund(Take take) {
+        if (take == null || take.key() == null) return;
+        windows.computeIfPresent(take.key(), (ignored, current) ->
+                current.start() == take.windowStart() && current.count() > 0
+                        ? new Window(current.start(), current.count() - 1) : current);
+    }
+
+    private synchronized Take take(String key, long now) {
         String hashed = digest(key);
         if (!windows.containsKey(hashed) && windows.size() >= MAX_BUCKETS) {
             windows.entrySet().removeIf(e -> now - e.getValue().start() >= windowMillis);
-            if (windows.size() >= MAX_BUCKETS) return Math.max(1, windowMillis / 1000);
+            if (windows.size() >= MAX_BUCKETS) return new Take(null, 0, Math.max(1, windowMillis / 1000));
         }
         Window updated = windows.compute(hashed, (ignored, current) -> current == null || now - current.start() >= windowMillis
                 ? new Window(now, 1) : new Window(current.start(), Math.min(maxAttempts, current.count()) + 1));
-        if (updated.count() <= maxAttempts) return 0;
-        return Math.max(1, (updated.start() + windowMillis - now + 999) / 1000);
+        if (updated.count() <= maxAttempts) return new Take(hashed, updated.start(), 0);
+        return new Take(hashed, updated.start(), Math.max(1, (updated.start() + windowMillis - now + 999) / 1000));
     }
 
     private String readScope(byte[] body) {

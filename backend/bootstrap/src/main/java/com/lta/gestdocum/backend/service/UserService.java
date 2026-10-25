@@ -140,6 +140,7 @@ public class UserService {
     userFormPolicy.validateUpdate(user, request);
 
     UserStatus previousStatus = user.getStatus();
+    java.util.Map<String, Object> auditBefore = auditSnapshot(user, tenantId, null);
     user.setFirstName(request.getFirstName());
     user.setLastName(request.getLastName());
     user.setEmail(request.getEmail());
@@ -147,19 +148,22 @@ public class UserService {
         UserStatus status = UserStatus.valueOf(request.getStatus().toUpperCase());
         if (id.equals(authenticatedUserContext.requireUserId()) && status != UserStatus.ACTIVE)
             throw new IllegalArgumentException("No puede desactivarse o bloquearse a sí mismo");
+        // Reactivar ocupa un cupo del plan igual que crear un usuario.
+        if (status == UserStatus.ACTIVE && previousStatus != UserStatus.ACTIVE && planEnforcementService != null) {
+            planEnforcementService.validateUserLimit(tenantId);
+        }
         user.setStatus(status);
     }
 
     User updatedUser = userRepository.save(user);
-    if (auditRecorder != null) {
-        auditRecorder.record("UPDATE", "USERS", updatedUser.getId(),
-                java.util.Map.of("status", String.valueOf(previousStatus)),
-                java.util.Map.of("status", String.valueOf(updatedUser.getStatus()), "email", updatedUser.getEmail()));
-    }
     if (updatedUser.getStatus() != previousStatus) authSessionService.revokeAll(id);
     if (request.getRoleIds() != null) {
     requireRoleAssignmentPermission();
     assignRoles(tenantId, id, request.getRoleIds());
+    }
+    if (auditRecorder != null) {
+        auditRecorder.record("UPDATE", "USERS", updatedUser.getId(), auditBefore,
+                auditSnapshot(updatedUser, tenantId, request.getRoleIds()));
     }
 
     String staffTypeStr = null;
@@ -318,8 +322,26 @@ public class UserService {
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("La contraseña actual no es correcta");
         }
+        boolean wasTemporary = user.isMustChangePassword();
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        user.setMustChangePassword(false);
         userRepository.save(user);
+        // El token emitido con la contraseña temporal lleva la marca de bloqueo: se cierran las
+        // sesiones para que la persona inicie sesión de nuevo con la contraseña elegida.
+        if (wasTemporary && authSessionService != null) authSessionService.revokeAll(user.getId());
+    }
+
+    /** Campos editables de un usuario para la bitácora (nunca incluye credenciales). */
+    private java.util.Map<String, Object> auditSnapshot(User user, UUID tenantId, Set<Long> roleIds) {
+        java.util.Map<String, Object> snapshot = new java.util.LinkedHashMap<>();
+        snapshot.put("firstName", user.getFirstName());
+        snapshot.put("lastName", user.getLastName());
+        snapshot.put("email", user.getEmail());
+        snapshot.put("status", String.valueOf(user.getStatus()));
+        Set<Long> groups = roleIds != null ? roleIds
+                : roleRepository == null ? null : roleRepository.findIds(tenantId, user.getId());
+        if (groups != null) snapshot.put("roleIds", new java.util.TreeSet<>(groups).toString());
+        return snapshot;
     }
 
     private User currentUserEntity() {
@@ -372,6 +394,7 @@ public class UserService {
                 .tenantName(tenant == null ? null : tenant.getName())
                 .tenantLogoUrl(tenant == null ? null : tenant.getLogoUrl())
                 .platformAdmin(user.isPlatformAdmin())
+                .mustChangePassword(user.isMustChangePassword())
                 .staffType(staffType)
                 .specialty(specialty)
                 .phone(user.getPhone())

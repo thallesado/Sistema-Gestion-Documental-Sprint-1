@@ -101,7 +101,7 @@ public class PlanLimitService {
         if (maxOcr <= 0 && maxOcr != -1) return;
         if (maxOcr == -1) return;
 
-        long currentMonthPages = getCurrentMonthOcrPages(tenantId);
+        long currentMonthPages = getCurrentMonthOcrPagesStrict(tenantId);
         if ((currentMonthPages + pagesToProcess) > maxOcr) {
             throw new PlanLimitExceededException("Tu plan permite un máximo de " + maxOcr + " páginas de OCR al mes.");
         }
@@ -196,6 +196,26 @@ public class PlanLimitService {
     private long getLimitValue(UUID planId, String resourceKey) {
         if (planId == null) return -1;
         return planRepository.findLimitValue(planId, resourceKey).orElse(-1L);
+    }
+
+    /** Igual que la consulta de resumen, pero falla cerrado: si no se puede leer el consumo no se omite la cuota. */
+    private long getCurrentMonthOcrPagesStrict(UUID tenantId) {
+        try {
+            LocalDate startOfMonth = LocalDate.now().withDayOfMonth(1);
+            Object result = entityManager.createNativeQuery(
+                    "SELECT coalesce(ocr_pages, 0) FROM tenant_usage_monthly " +
+                    "WHERE tenant_id = ?1 AND year_month = ?2")
+                    .setParameter(1, tenantId)
+                    .setParameter(2, startOfMonth)
+                    .getSingleResult();
+            if (result instanceof Number num) return num.longValue();
+        } catch (jakarta.persistence.NoResultException noUsageYet) {
+            return 0L;
+        } catch (Exception ex) {
+            log.error("No se pudo consultar el consumo de OCR del tenant {}: {}", tenantId, ex.getMessage());
+        }
+        throw new PlanLimitExceededException(
+                "No se pudo verificar el consumo de OCR de tu plan. Inténtalo de nuevo en unos minutos.");
     }
 
     private long getCurrentMonthOcrPages(UUID tenantId) {

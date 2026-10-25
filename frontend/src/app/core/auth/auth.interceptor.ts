@@ -1,5 +1,6 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 import { SubscriptionService } from '../subscription/subscription.service';
@@ -9,6 +10,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const auth = inject(AuthService);
   const subscription = inject(SubscriptionService);
   const i18n = inject(I18nService);
+  const router = inject(Router);
   const token = auth.accessToken();
   const authorizedRequest = request.clone({
     setHeaders: {
@@ -27,6 +29,11 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
           || JSON.stringify(error?.error ?? '').includes('PLAN_LIMIT_EXCEEDED'));
       if (planLimitExceeded) {
         subscription.openUpgrade(error?.error?.message || 'Esta acción supera la capacidad de tu plan actual');
+      }
+      if (error?.status === 403 && error?.error?.code === 'MUST_CHANGE_PASSWORD') {
+        auth.mustChangePassword.set(true);
+        if (!router.url.startsWith('/change-password')) void router.navigateByUrl('/change-password');
+        return throwError(() => error);
       }
       const isAuthEndpoint = ['/auth/login', '/auth/logout', '/auth/refresh']
         .some((path) => request.url.endsWith(path));

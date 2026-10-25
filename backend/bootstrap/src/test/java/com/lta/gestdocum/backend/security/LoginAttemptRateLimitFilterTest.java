@@ -38,14 +38,14 @@ class LoginAttemptRateLimitFilterTest {
         LoginAttemptRateLimitFilter filter = new LoginAttemptRateLimitFilter(new ObjectMapper(), audit, 1, 60, clock);
         MockHttpServletRequest first = request("shared-user");
         first.setContent("{\"usernameOrEmail\":\"shared-user\",\"tenantName\":\"Alpha\"}".getBytes(StandardCharsets.UTF_8));
-        assertEquals(200, invoke(filter, first).getStatus());
+        assertEquals(401, invokeFailing(filter, first).getStatus());
         MockHttpServletRequest second = request("shared-user");
         second.setRemoteAddr("192.0.2.11");
         second.setContent("{\"usernameOrEmail\":\"shared-user\",\"tenantName\":\"Beta\"}".getBytes(StandardCharsets.UTF_8));
-        assertEquals(200, invoke(filter, second).getStatus());
-        assertEquals(429, invoke(filter, request("another-user")).getStatus());
+        assertEquals(401, invokeFailing(filter, second).getStatus());
+        assertEquals(429, invokeFailing(filter, request("another-user")).getStatus());
         when(clock.millis()).thenReturn(61000L);
-        assertEquals(200, invoke(filter, request("another-user")).getStatus());
+        assertEquals(401, invokeFailing(filter, request("another-user")).getStatus());
     }
 
     @Test void oversizedBodyIsRejectedBeforeAuditing() throws Exception {
@@ -56,12 +56,36 @@ class LoginAttemptRateLimitFilterTest {
         assertEquals(413, invoke(filter, request).getStatus());
         verifyNoInteractions(audit);
     }
-    @Test void allowsFiveRequestsThenReturns429AndAuditsBlockedAttempt() throws Exception {
+    @Test void successfulLoginsDoNotConsumeTheQuota() throws Exception {
+        AuthenticationAuditService audit = mock(AuthenticationAuditService.class);
+        LoginAttemptRateLimitFilter filter = new LoginAttemptRateLimitFilter(new ObjectMapper(), audit, 3, 60);
+        for (int i = 0; i < 20; i++) {
+            assertEquals(200, invoke(filter, request("laura@example.test")).getStatus());
+        }
+        for (int i = 0; i < 3; i++) {
+            assertEquals(401, invokeFailing(filter, request("laura@example.test")).getStatus());
+        }
+        MockHttpServletResponse limited = invokeFailing(filter, request("laura@example.test"));
+        assertEquals(429, limited.getStatus());
+        assertNotNull(limited.getHeader("Retry-After"));
+        verify(audit).recordFailedAuthentication(eq("laura@example.test"), isNull(), any());
+    }
+
+    @Test void successAfterFailuresKeepsPreviousFailuresCounted() throws Exception {
+        AuthenticationAuditService audit = mock(AuthenticationAuditService.class);
+        LoginAttemptRateLimitFilter filter = new LoginAttemptRateLimitFilter(new ObjectMapper(), audit, 2, 60);
+        assertEquals(401, invokeFailing(filter, request("laura@example.test")).getStatus());
+        assertEquals(200, invoke(filter, request("laura@example.test")).getStatus());
+        assertEquals(401, invokeFailing(filter, request("laura@example.test")).getStatus());
+        assertEquals(429, invokeFailing(filter, request("laura@example.test")).getStatus());
+    }
+
+    @Test void allowsFiveFailuresThenReturns429AndAuditsBlockedAttempt() throws Exception {
         AuthenticationAuditService audit = mock(AuthenticationAuditService.class);
         LoginAttemptRateLimitFilter filter = new LoginAttemptRateLimitFilter(new ObjectMapper(), audit, 5, 60);
         for (int i = 0; i < 5; i++) {
-            MockHttpServletResponse response = invoke(filter, request("laura@example.test"));
-            assertEquals(200, response.getStatus());
+            MockHttpServletResponse response = invokeFailing(filter, request("laura@example.test"));
+            assertEquals(401, response.getStatus());
         }
         MockHttpServletResponse limited = invoke(filter, request("laura@example.test"));
         assertEquals(429, limited.getStatus());
@@ -83,6 +107,12 @@ class LoginAttemptRateLimitFilterTest {
         filter.doFilter(request, response, chain);
         assertEquals(200, response.getStatus());
         verifyNoInteractions(audit);
+    }
+
+    private MockHttpServletResponse invokeFailing(LoginAttemptRateLimitFilter filter, MockHttpServletRequest request) throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (wrapped, result) -> ((jakarta.servlet.http.HttpServletResponse) result).setStatus(401));
+        return response;
     }
 
     private MockHttpServletResponse invoke(LoginAttemptRateLimitFilter filter, MockHttpServletRequest request) throws Exception {

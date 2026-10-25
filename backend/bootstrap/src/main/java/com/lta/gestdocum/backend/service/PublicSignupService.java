@@ -11,7 +11,6 @@ import com.lta.gestdocum.backend.repository.TenantRepository;
 import com.lta.gestdocum.backend.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +31,6 @@ public class PublicSignupService {
     private final PlanRepository planRepository;
     private final SubscriptionPaymentRepository subscriptionPaymentRepository;
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
     private final AuthService authService;
 
     public PublicSignupService(
@@ -41,14 +39,12 @@ public class PublicSignupService {
             PlanRepository planRepository,
             SubscriptionPaymentRepository subscriptionPaymentRepository,
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder,
             AuthService authService) {
         this.tenantService = tenantService;
         this.tenantRepository = tenantRepository;
         this.planRepository = planRepository;
         this.subscriptionPaymentRepository = subscriptionPaymentRepository;
         this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
         this.authService = authService;
     }
 
@@ -91,19 +87,11 @@ public class PublicSignupService {
                 request.adminName().trim()
         );
 
-        TenantResponse tenantResponse = tenantService.create(createRequest);
-        UUID tenantId = tenantResponse.id();
-
-        // Si el usuario proporcionó su propia contraseña, aplicarla
+        // Si el administrador eligió su contraseña se usa desde el alta (sin contraseña temporal ni correo);
+        // si no, TenantService genera una temporal que solo se envía por correo.
         String passwordUsed = request.adminPassword();
-        if (passwordUsed != null && !passwordUsed.isBlank()) {
-            userRepository.findByTenantAndIdentifier(tenantId, request.adminEmail().trim())
-                    .ifPresent(u -> {
-                        u.setPasswordHash(passwordEncoder.encode(passwordUsed));
-                        u.setMustChangePassword(false);
-                        userRepository.save(u);
-                    });
-        }
+        TenantResponse tenantResponse = tenantService.create(createRequest, passwordUsed);
+        UUID tenantId = tenantResponse.id();
 
         // Determinar monto del pago simulado
         String billingPeriod = (request.billingPeriod() != null && "ANNUAL".equalsIgnoreCase(request.billingPeriod()))
@@ -168,7 +156,7 @@ public class PublicSignupService {
                 tenant.getName(),
                 adminUsername,
                 request.adminEmail().trim(),
-                passwordUsed,
+                null,
                 true,
                 reference,
                 "Organización creada y suscripción activada exitosamente mediante pago simulado.",

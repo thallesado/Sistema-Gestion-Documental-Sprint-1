@@ -4,6 +4,8 @@ export interface AuthResponse {
   refreshToken: string;
   expiresIn: number;
   permissions?: string[];
+  /** true si la contraseña es temporal y debe cambiarse antes de usar el sistema. */
+  mustChangePassword?: boolean;
 }
 
 export interface AuthUser {
@@ -12,6 +14,8 @@ export interface AuthUser {
   tenantName: string | null;
   tenantLogoUrl: string | null;
   platformAdmin: boolean;
+  /** Contraseña temporal: el backend bloquea el resto de la API hasta que se cambie. */
+  mustChangePassword: boolean;
   roleNames: string[];
   /** Permisos efectivos del usuario (códigos `modulo:accion`) devueltos por /auth/me. */
   permissions: string[];
