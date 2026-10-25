@@ -42,10 +42,24 @@ Cada componente de un formulario tiene, por grupo, uno de tres estados: `VISIBLE
 
 El rechazo es `AccessDeniedException` (403) con el nombre del componente. Un componente obligatorio que no sea editable (por ejemplo `nombre` en el alta de usuarios o `contenido` en notas) impide esa operación para el grupo: es una consecuencia buscada de la configuración.
 
+### Vías de lectura de documentos con ocultación (formulario `documento.nuevo`)
+
+Todas reutilizan `ComponentFormAccess` (gana el grupo más permisivo; sin configuración, visible).
+
+| Vía | Qué oculta | Prueba |
+|---|---|---|
+| `GET /documents`, `/mine`, `/shared`, `/{id}`; `DocumentService.toResponse` | Componentes ocultos y, en `metadata`, `patientName`/`patientDocumentNumber` (paciente), `doctorName` (responsable) e `issueDate` (emisión) | `DocumentComponentPermissionTest`, `HiddenComponentsReadPathsTest` |
+| `GET /dashboard` (documentos recientes) | `code` (codigo) y `name` (nombre) | `DashboardServiceTest` |
+| `DocumentSearchService` (búsqueda para el asistente) | Código y descripción; si `nombre` está oculto no busca por nombre | `HiddenComponentsReadPathsTest` |
+| `/workflows`, `/workflows/{id}`, `/workflows/tasks`, `/tasks/my`, `/tasks/{id}`, `/{id}/tasks` | `document_name`, `document_code`, `document_description`; la búsqueda no usa nombre/código ocultos | `HiddenComponentsReadPathsTest` |
+
+No aplican ocultación, tras revisar el código: expedientes (`ExpedientService` no incrusta datos de documentos), versiones y descarga (`DocumentStorageService`: nombre de archivo y motivo de versión no son componentes del formulario) y cuentas de plataforma sin tenant (`ComponentFormAccess.unrestricted`). No existe un endpoint de edición de documentos: las escrituras de solo lectura se rechazan en el alta (`requireEditableIfProvided`). La metadata del alta no se valida contra los componentes para no romper el flujo OCR.
+
 ## Pendiente o no verificado
 
 - La migración 040 no se ejecutó contra una base PostgreSQL en esta revisión; solo se revisó y se probó la lógica en pruebas unitarias.
-- Otros caminos que devuelven documentos (dashboard, búsqueda, expedientes, workflows) no aplican la ocultación por componente.
+- `GET /api/v1/clinical-histories/{id}/documents` (`ClinicalHistoryService.toDocumentResponse`) devuelve el documento sin aplicar la ocultación por componente; queda pendiente.
+- `GET /users/{id}` y `GET /users/me` (`UserService`) no se auditaron en esta revisión: solo el listado aplica `UserFormPolicy.hideComponents`.
 - Los permisos y estados se recalculan al iniciar sesión; un cambio de grupo afecta a la sesión abierta en el siguiente login o refresh.
 
 Fuentes: [ComponentFormAccess.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ComponentFormAccess.java), [ComponentFormCatalog.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ComponentFormCatalog.java), [UserFormPolicy.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/UserFormPolicy.java), [042_component_permissions.sql](../../../database/init/042_component_permissions.sql), [form-registry.ts](../../../frontend/src/app/core/auth/form-registry.ts), [field-permission.directive.ts](../../../frontend/src/app/core/auth/field-permission.directive.ts).

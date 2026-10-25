@@ -22,15 +22,18 @@ public class DashboardService {
     private final AuthenticatedUserContext context;
     private final UserService userService;
     private final ExpedientService expedientService;
+    private final ComponentPermissionService componentPermissions;
 
     public DashboardService(DashboardRepository repository,
                             AuthenticatedUserContext context,
                             UserService userService,
-                            ExpedientService expedientService) {
+                            ExpedientService expedientService,
+                            ComponentPermissionService componentPermissions) {
         this.repository = repository;
         this.context = context;
         this.userService = userService;
         this.expedientService = expedientService;
+        this.componentPermissions = componentPermissions;
     }
 
     @Transactional(readOnly = true)
@@ -50,9 +53,13 @@ public class DashboardService {
                         (String) value[2], (String) value[3], (String) value[4],
                         (UUID) value[5], toOffset(value[6]), (String) value[7]))
                 .toList();
+        // B2: el código y el nombre ocultos para el perfil tampoco salen en los documentos recientes.
+        ComponentFormAccess documentAccess = componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM);
         List<DashboardDocumentResponse> documents = repository.findRecentDocuments(tenantId, limit).stream()
                 .map(value -> new DashboardDocumentResponse((UUID) value[0], (UUID) value[1],
-                        (String) value[2], (String) value[3], (String) value[4], toOffset(value[5])))
+                        documentAccess.reveal("codigo", (String) value[2]),
+                        documentAccess.reveal("nombre", (String) value[3]),
+                        (String) value[4], toOffset(value[5])))
                 .toList();
         List<ExpedientResponse> expedients = expedientService.find(null,
                 org.springframework.data.domain.PageRequest.of(0, limit)).getContent();
