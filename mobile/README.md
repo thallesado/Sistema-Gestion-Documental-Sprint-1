@@ -27,7 +27,10 @@ Por defecto la app apunta a `http://127.0.0.1:8080/api/v1`. Para cambiarlo:
 - **Al compilar:** `flutter run --dart-define=NEXODOCS_API_URL=https://mi-servidor/api/v1`
 - **Emulador Android:** el equipo anfitrión es `http://10.0.2.2:8080/api/v1`.
 
-Android permite `http://` (tráfico sin cifrar) para desarrollo. En iOS hace falta HTTPS o
+El tráfico `http://` sin cifrar solo está permitido en compilaciones **debug**
+(`android/app/src/debug/AndroidManifest.xml`); las compilaciones release y profile exigen HTTPS, así
+que para producción compila con `--dart-define=NEXODOCS_API_URL=https://...`. Los botones
+"Demo: ..." del login solo existen en debug (`kDebugMode`). En iOS hace falta HTTPS o
 una excepción de App Transport Security en `ios/Runner/Info.plist`.
 
 ## Estructura

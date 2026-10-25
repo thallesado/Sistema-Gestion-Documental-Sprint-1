@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/api/auth_api.dart';
@@ -9,6 +10,19 @@ import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/upload_rules.dart';
 import '../../core/widgets/state_views.dart';
+
+/// Mensaje comprensible cuando falla la captura (permiso denegado u otro error).
+String scanPickErrorMessage(Object error) {
+  if (error is PlatformException) {
+    switch (error.code) {
+      case 'camera_access_denied':
+        return 'Sin permiso de la cámara. Actívalo en Ajustes > Aplicaciones > NexoDocs > Permisos o elige una imagen de la galería.';
+      case 'photo_access_denied':
+        return 'Sin permiso para acceder a la galería. Actívalo en Ajustes > Aplicaciones > NexoDocs > Permisos.';
+    }
+  }
+  return 'No se pudo acceder a la cámara o a la imagen. Inténtalo de nuevo.';
+}
 
 class ScanDocumentPage extends StatefulWidget {
   const ScanDocumentPage({super.key, required this.api, this.initialJobId});
@@ -95,7 +109,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
       await _processImage();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _errorMessage = 'No se pudo acceder a la cámara o imagen: $e');
+      setState(() => _errorMessage = scanPickErrorMessage(e));
     }
   }
 
