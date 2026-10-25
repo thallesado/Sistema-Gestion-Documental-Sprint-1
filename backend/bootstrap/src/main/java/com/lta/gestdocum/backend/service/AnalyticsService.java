@@ -171,7 +171,7 @@ public class AnalyticsService {
                   AND d.deleted_at IS NULL
                   AND d.created_at >= :dateFrom
                   AND d.created_at <= :dateTo
-                GROUP BY to_char(d.created_at AT TIME ZONE :tz, 'YYYY-MM')
+                GROUP BY month_label
                 ORDER BY month_label ASC
                 """;
 
@@ -192,7 +192,7 @@ public class AnalyticsService {
                   AND w.completed_at IS NOT NULL
                   AND w.completed_at >= :dateFrom
                   AND w.completed_at <= :dateTo
-                GROUP BY to_char(w.completed_at AT TIME ZONE :tz, 'YYYY-MM')
+                GROUP BY month_label
                 ORDER BY month_label ASC
                 """;
 

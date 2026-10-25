@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, catchError, from, switchMap, throwError } from 'rxjs';
 
 const API_URL = '/api/v1/reports';
 
@@ -109,13 +109,30 @@ export class ReportApiService {
     return this.http.get(`${API_URL}/${endpoint}/export/csv`, {
       params,
       responseType: 'blob',
-    });
+    }).pipe(catchError((err) => this.readBlobError(err)));
+  }
+
+  /** Un error con cuerpo Blob (p. ej. HTTP 413) se convierte en un error con el JSON del servidor. */
+  private readBlobError(err: any): Observable<never> {
+    if (!(err?.error instanceof Blob)) return throwError(() => err);
+    return from(err.error.text() as Promise<string>).pipe(
+      switchMap((text) => {
+        let body: unknown = { message: text };
+        try {
+          body = JSON.parse(text);
+        } catch {
+          // cuerpo no JSON: se conserva el texto
+        }
+        return throwError(() => ({ ...err, error: body }));
+      }),
+    );
   }
 
   getAnalyticsDashboard(dateFrom: string, dateTo: string): Observable<AnalyticsDashboard> {
     const params = new HttpParams()
-      .set('dateFrom', dateFrom.includes('T') ? dateFrom : `${dateFrom}T00:00:00Z`)
-      .set('dateTo', dateTo.includes('T') ? dateTo : `${dateTo}T23:59:59Z`);
+      // yyyy-MM-dd sin hora: el servidor lo interpreta en la zona horaria del tenant
+      .set('dateFrom', dateFrom)
+      .set('dateTo', dateTo);
 
     return this.http.get<AnalyticsDashboard>(`${API_URL}/analytics/dashboard`, { params });
   }
@@ -130,6 +147,8 @@ export class ReportApiService {
         return 'audit';
       case 'expedients':
         return 'expedients';
+      case 'ocr':
+        return 'ocr';
       default:
         return 'documents';
     }

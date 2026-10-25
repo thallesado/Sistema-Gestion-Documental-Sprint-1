@@ -14,11 +14,7 @@ import { TenantSelector } from './tenant-selector';
         <p>{{ description }}</p>
       </div>
       <div class="report-header-actions">
-        <app-tenant-selector
-          [tenant]="tenant"
-          [role]="role"
-          (tenantChange)="tenantChange.emit($event)"
-        />
+        <app-tenant-selector [tenant]="tenant" [role]="role" />
         <app-export-dropdown [filterSummary]="filterSummary" (export)="export.emit($event)" />
       </div>
     </header>
@@ -30,6 +26,5 @@ export class ReportHeader {
   @Input() tenant = 'Organización autenticada';
   @Input() role = '';
   @Input() filterSummary = 'Filtros actuales';
-  @Output() tenantChange = new EventEmitter<string>();
   @Output() export = new EventEmitter<string>();
 }
