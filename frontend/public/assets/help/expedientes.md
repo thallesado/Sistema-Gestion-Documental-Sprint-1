@@ -1,26 +1,14 @@
-# Expedientes e Historias Clínicas Digitales
+### Expedientes
+Un **expediente** reúne los documentos de un caso, cliente, paciente, proyecto o trámite en un solo lugar. En organizaciones de salud, el módulo clínico (Módulo Clínico > Pacientes) añade pacientes, antecedentes y notas médicas; es opcional y otros sectores no lo necesitan.
 
-El módulo de **Expedientes** organiza de forma unificada toda la documentación clínica y legal asociada a pacientes, procesos asistenciales o expedientes corporativos.
+#### 1. Estructura
+- **Ficha del expediente**: título, estado y datos de identificación.
+- **Documentos asociados**: los documentos se vinculan al expediente y se clasifican por tipo documental.
+- **Versiones**: cada actualización de un documento crea una versión nueva, con autor y fecha, y las anteriores se conservan.
 
----
+#### 2. Acceso y trazabilidad
+- Cada usuario ve solo lo que sus permisos permiten, y los datos de cada organización están aislados de las demás.
+- Las acciones relevantes (consultas, descargas, modificaciones) quedan registradas en Auditoría. El sistema no declara por sí mismo el cumplimiento de ninguna normativa; eso depende de cómo lo configure y opere cada organización.
 
-## 1. Estructura de un Expediente Clínico
-
-- **Ficha Principal del Paciente**: Contiene datos demográficos, número de identificación, contactos de emergencia y antecedentes relevantes.
-- **Árbol de Documentos**: Los documentos se clasifican por categorías (consultas médicas, interconsultas, consentimientos informados, analíticas de laboratorio, estudios de imagenología y epicrisis).
-- **Control de Versiones**: Cada actualización genera una nueva versión inmutable que preserva la autoría, fecha y hora exacta (timestamp auditado).
-
----
-
-## 2. Privacidad y Confidencialidad Médica (HIPAA / GDPR)
-
-- El acceso a la historia clínica está estrictamente restringido por políticas de seguridad basadas en roles (RBAC) y control de acceso a nivel de fila (RLS).
-- **Registro de Auditoría**: Toda visualización, descarga, exportación o modificación queda registrada de forma indeleble en las tablas de auditoría del sistema.
-- Los pacientes pueden solicitar acceso o copias certificadas conforme a los protocolos institucionales.
-
----
-
-## 3. Cierre y Archivo Histórico
-
-- Al finalizar el ciclo asistencial o alcanzar el plazo de custodia legal estipulado por la normativa sanitaria, el expediente puede pasar al estado **Cerrado** o **Archivado**.
-- Los expedientes archivados son de solo lectura y conservan su integridad para auditorías médicas futuras.
+#### 3. Cierre y archivo
+- Un expediente puede pasar a los estados **Cerrado** o **Archivado** al terminar su ciclo.
