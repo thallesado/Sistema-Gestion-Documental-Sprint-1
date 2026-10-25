@@ -72,7 +72,12 @@ test('the appearance screen keeps its existing menu entry, now served by its own
   const entry = children.find((child) => child.href === '/settings/appearance');
   assert.ok(entry);
   assert.equal(entry.module, 'Configuracion');
-  assert.equal(entry.moduleEnabled, false, 'the whole Configuracion group is still hidden');
+  // U4 (S9): Apariencia is reachable by the tenant admin; the other catalogue entries stay hidden.
+  assert.equal(entry.moduleEnabled, true);
+  assert.equal(entry.sprintEnabled, true);
+  for (const href of ['/settings', '/settings/security']) {
+    assert.equal(children.find((child) => child.href === href)?.sprintEnabled, false, href);
+  }
 });
 
 test('the generic catalog does not claim the screens that now have their own page', () => {

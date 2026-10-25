@@ -4,11 +4,11 @@
   --line: #e2ece9;
   --surface: #ffffff;
   --canvas: #f4f8f7;
-  --teal: #0e6b66;
-  --teal-strong: #0a5652;
+  --teal: var(--tenant-teal, #0e6b66);
+  --teal-strong: var(--tenant-teal-strong, #0a5652);
   --teal-text: #eafffc;
   --teal-muted: #88b7b2;
-  --sidebar-bg: #0b2524;
+  --sidebar-bg: var(--tenant-sidebar-bg, #0b2524);
   --sidebar-card-bg: rgba(255, 255, 255, 0.04);
   --sidebar-border: rgba(255, 255, 255, 0.07);
 }
@@ -195,7 +195,7 @@
 }
 
 .nav-item.active {
-  background: linear-gradient(90deg, #0e6b66 0%, #0d5f5b 100%);
+  background: linear-gradient(90deg, var(--teal) 0%, var(--teal-strong) 100%);
   color: #ffffff;
   font-weight: 700;
   box-shadow: 0 4px 14px rgba(14, 107, 102, 0.35);
