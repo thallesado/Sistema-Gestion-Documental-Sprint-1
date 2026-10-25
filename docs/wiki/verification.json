@@ -45,6 +45,11 @@
                           "includes": ["response.setStatus(429)", "response.setHeader(\"Retry-After\"", "readScope(body)", "MAX_BUCKETS", "Clock.systemUTC()"]
                       },
                       {
+                          "page": "02-backend/base-de-datos-y-migraciones.md",
+                          "path": "database/init/053_fix_runtime_grants.sql",
+                          "includes": ["GRANT INSERT (preferred_language, must_change_password) ON public.users TO nexodocs_app", "GRANT SELECT, INSERT, UPDATE ON public.tenant_usage_monthly TO nexodocs_security", "INSERT INTO app.schema_migrations"]
+                      },
+                      {
                           "page": "02-backend/autenticacion-y-sesiones.md",
                           "path": "database/init/052_login_failure_audit.sql",
                           "includes": ["SECURITY DEFINER", "REVOKE ALL", "'LOGIN_FAILED'", "'FAILURE'"]

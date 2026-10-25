@@ -32,4 +32,6 @@ Inspeccionar historial/datos/logs y respaldar antes de migrar. Una restricción 
 
 El rol migrador administra DDL; no recomendar privilegios de migrador para el backend normal. Las funciones SECURITY DEFINER requieren dueño, search_path y grants revisados.
 
+La migración `053_fix_runtime_grants.sql` corrige dos permisos que fallaban en una base construida solo con las migraciones: `INSERT` de `nexodocs_app` sobre `users.preferred_language` y `users.must_change_password` (046 y 051 solo daban UPDATE y SELECT, y `POST /api/v1/users` respondía 500), y `SELECT, INSERT, UPDATE` de `nexodocs_security` sobre `tenant_usage_monthly` (dueño de `app.record_tenant_monthly_usage`; sin él, crear documentos respondía 500). La prueba de regresión es `scripts/tests/runtime-grants.sql`. Al agregar una columna mapeada por Hibernate o una función SECURITY DEFINER, revisar los grants de INSERT/UPDATE del rol que realmente los ejecuta.
+
 Fuentes: [infrastructure/docker/migrate.sh](../../../infrastructure/docker/migrate.sh), [infrastructure/docker/migrations.Dockerfile](../../../infrastructure/docker/migrations.Dockerfile), [database/init/004_saas_hardening.sql](../../../database/init/004_saas_hardening.sql), [database/README.md](../../../database/README.md). [Pruebas](../05-guias-ia/pruebas-y-validacion.md) y [recuperación](../06-operacion/despliegue-y-recuperacion.md).
