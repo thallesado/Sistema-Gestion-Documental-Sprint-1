@@ -9,7 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.time.DateTimeException;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.*;
 
 @Service
@@ -27,6 +30,24 @@ public class AnalyticsService {
     private UUID prepareTenantScope() {
         context.establishDatabaseContext();
         return context.requireTenantId();
+    }
+
+    /** Zona horaria configurada del tenant; UTC si no se puede determinar. */
+    public ZoneId tenantZone() {
+        return zoneFor(prepareTenantScope());
+    }
+
+    private ZoneId zoneFor(UUID tenantId) {
+        List<String> values = db.queryForList("SELECT timezone FROM tenants WHERE id = :tenantId",
+                new MapSqlParameterSource("tenantId", tenantId), String.class);
+        if (values != null && !values.isEmpty() && values.get(0) != null && !values.get(0).isBlank()) {
+            try {
+                return ZoneId.of(values.get(0).trim());
+            } catch (DateTimeException ignored) {
+                // zona inválida almacenada: se usa UTC
+            }
+        }
+        return ZoneOffset.UTC;
     }
 
     public void validateDateRange(OffsetDateTime dateFrom, OffsetDateTime dateTo) {
@@ -138,10 +159,11 @@ public class AnalyticsService {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("tenantId", tenantId)
                 .addValue("dateFrom", Timestamp.from(dateFrom.toInstant()))
-                .addValue("dateTo", Timestamp.from(dateTo.toInstant()));
+                .addValue("dateTo", Timestamp.from(dateTo.toInstant()))
+                .addValue("tz", zoneFor(tenantId).getId());
 
         String docTrendSql = """
-                SELECT to_char(d.created_at, 'YYYY-MM') AS month_label,
+                SELECT to_char(d.created_at AT TIME ZONE :tz, 'YYYY-MM') AS month_label,
                        count(*) AS created_count,
                        count(CASE WHEN d.status = 'APPROVED' THEN 1 END) AS approved_count
                 FROM documents d
@@ -149,7 +171,7 @@ public class AnalyticsService {
                   AND d.deleted_at IS NULL
                   AND d.created_at >= :dateFrom
                   AND d.created_at <= :dateTo
-                GROUP BY to_char(d.created_at, 'YYYY-MM')
+                GROUP BY to_char(d.created_at AT TIME ZONE :tz, 'YYYY-MM')
                 ORDER BY month_label ASC
                 """;
 
@@ -162,7 +184,7 @@ public class AnalyticsService {
         });
 
         String wfTrendSql = """
-                SELECT to_char(w.completed_at, 'YYYY-MM') AS month_label,
+                SELECT to_char(w.completed_at AT TIME ZONE :tz, 'YYYY-MM') AS month_label,
                        count(*) AS completed_count
                 FROM workflows w
                 WHERE w.tenant_id = :tenantId
@@ -170,7 +192,7 @@ public class AnalyticsService {
                   AND w.completed_at IS NOT NULL
                   AND w.completed_at >= :dateFrom
                   AND w.completed_at <= :dateTo
-                GROUP BY to_char(w.completed_at, 'YYYY-MM')
+                GROUP BY to_char(w.completed_at AT TIME ZONE :tz, 'YYYY-MM')
                 ORDER BY month_label ASC
                 """;
 
@@ -222,13 +244,34 @@ public class AnalyticsService {
                 ORDER BY doc_count DESC
                 """;
 
-        Map<String, Long> areaDocs = new LinkedHashMap<>();
+        Map<String, long[]> areas = new LinkedHashMap<>();
         db.query(sql, params, rs -> {
-            areaDocs.put(rs.getString("area_name"), rs.getLong("doc_count"));
+            areas.put(rs.getString("area_name"), new long[]{rs.getLong("doc_count"), 0});
+        });
+
+        String workflowSql = """
+                SELECT coalesce(dep.name, 'Sin departamento') AS area_name,
+                       count(DISTINCT w.id) AS workflow_count
+                FROM workflows w
+                JOIN workflow_documents wd ON wd.workflow_id = w.id AND wd.tenant_id = w.tenant_id
+                JOIN documents d ON d.id = wd.document_id AND d.tenant_id = wd.tenant_id
+                LEFT JOIN tenant_departments dep ON dep.id = d.department_id AND dep.tenant_id = d.tenant_id
+                WHERE w.tenant_id = :tenantId
+                  AND d.deleted_at IS NULL
+                  AND w.created_at >= :dateFrom
+                  AND w.created_at <= :dateTo
+                GROUP BY coalesce(dep.name, 'Sin departamento')
+                """;
+        db.query(workflowSql, params, rs -> {
+            areas.computeIfAbsent(rs.getString("area_name"), key -> new long[]{0, 0})[1] = rs.getLong("workflow_count");
         });
 
         List<AreaDistribution> result = new ArrayList<>();
-        areaDocs.forEach((area, count) -> result.add(new AreaDistribution(area, count, 0)));
+        areas.entrySet().stream()
+                .sorted((a, b) -> a.getValue()[0] != b.getValue()[0]
+                        ? Long.compare(b.getValue()[0], a.getValue()[0])
+                        : Long.compare(b.getValue()[1], a.getValue()[1]))
+                .forEach(e -> result.add(new AreaDistribution(e.getKey(), e.getValue()[0], e.getValue()[1])));
         return result;
     }
 
@@ -290,19 +333,23 @@ public class AnalyticsService {
                 SELECT u.id,
                        trim(concat(coalesce(u.first_name, ''), ' ', coalesce(u.last_name, ''))) AS full_name,
                        u.username,
-                       coalesce(min(r.name), 'Usuario') AS role_name,
+                       coalesce((SELECT min(r.name) FROM user_roles ur
+                                 JOIN roles r ON r.id = ur.role_id AND r.tenant_id = ur.tenant_id
+                                 WHERE ur.user_id = u.id AND ur.tenant_id = u.tenant_id), 'Usuario') AS role_name,
                        coalesce(dep.name, 'General') AS area_name,
-                       count(a.id) AS audit_actions
+                       (SELECT count(*) FROM audit_events a
+                         WHERE a.user_id = u.id AND a.tenant_id = u.tenant_id
+                           AND a.occurred_at >= :dateFrom AND a.occurred_at <= :dateTo) AS audit_actions,
+                       (SELECT count(*) FROM documents d
+                         WHERE d.author_id = u.id AND d.tenant_id = u.tenant_id AND d.deleted_at IS NULL
+                           AND d.created_at >= :dateFrom AND d.created_at <= :dateTo) AS documents_created
                 FROM users u
-                JOIN audit_events a ON a.user_id = u.id AND a.tenant_id = u.tenant_id
-                LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.tenant_id = u.tenant_id
-                LEFT JOIN roles r ON r.id = ur.role_id AND r.tenant_id = u.tenant_id
                 LEFT JOIN tenant_departments dep ON dep.id = u.department_id AND dep.tenant_id = u.tenant_id
                 WHERE u.tenant_id = :tenantId
-                  AND a.occurred_at >= :dateFrom
-                  AND a.occurred_at <= :dateTo
-                GROUP BY u.id, u.first_name, u.last_name, u.username, dep.name
-                ORDER BY audit_actions DESC
+                  AND EXISTS (SELECT 1 FROM audit_events a
+                              WHERE a.user_id = u.id AND a.tenant_id = u.tenant_id
+                                AND a.occurred_at >= :dateFrom AND a.occurred_at <= :dateTo)
+                ORDER BY audit_actions DESC, u.id
                 LIMIT :limit
                 """;
 
@@ -316,7 +363,7 @@ public class AnalyticsService {
                     rs.getString("role_name"),
                     rs.getString("area_name"),
                     rs.getLong("audit_actions"),
-                    0
+                    rs.getLong("documents_created")
             );
         });
     }
