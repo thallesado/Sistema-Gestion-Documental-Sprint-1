@@ -182,6 +182,7 @@ export const navSections: NavSection[] = [
           { label: 'Workflows', href: '/reports/workflows' },
           { label: 'Almacenamiento', href: '/reports/storage', sprintEnabled: false },
           { label: 'Auditoría', href: '/reports/audit' },
+          { label: 'Digitalización OCR', href: '/reports/ocr' },
           { label: 'Productividad', href: '/reports/productivity', sprintEnabled: false },
           { label: 'Actividad por área', href: '/reports/by-area', sprintEnabled: false },
           { label: 'Consultas dinámicas', href: '/reports/queries', sprintEnabled: false },

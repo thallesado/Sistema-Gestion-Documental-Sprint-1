@@ -29,9 +29,30 @@
                   "04-dominio-y-negocio/respaldos-y-restauracion.md",
                   "04-dominio-y-negocio/marca-y-regionalizacion.md",
                   "04-dominio-y-negocio/ayuda-y-asistente.md",
-                  "06-operacion/anclaje-externo-auditoria.md"
+                  "06-operacion/anclaje-externo-auditoria.md",
+                  "04-dominio-y-negocio/reportes-y-analitica.md"
               ],
     "contracts":  [
+                      {
+                          "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ReportService.java",
+                          "includes": ["MAX_EXPORT_ROWS = 100_000", "ExportTooLargeException", "EXPORT_BATCH_SIZE = 1000", "getOcrReport", "tenantZone"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/ReportController.java",
+                          "includes": ["X-Report-Total-Rows", "PAYLOAD_TOO_LARGE"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AnalyticsService.java",
+                          "includes": ["AT TIME ZONE", "documents_created", "workflow_documents"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+                          "path": "frontend/src/app/core/data/report-data.ts",
+                          "includes": ["chartPointsFromRows", "finiteNumber"]
+                      },
                       {
                           "page": "02-backend/autenticacion-y-sesiones.md",
                           "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/MustChangePasswordFilter.java",
@@ -642,6 +663,10 @@
                     "06-operacion/anclaje-externo-auditoria.md":  {
                                                                       "reviewedAt":  "2026-10-25",
                                                                       "revision":  "3876454"
-                                                                  }
+                                                                  },
+                    "04-dominio-y-negocio/reportes-y-analitica.md":  {
+                                                                         "reviewedAt":  "2026-10-25",
+                                                                         "revision":  "3876454"
+                                                                     }
                 }
 }
