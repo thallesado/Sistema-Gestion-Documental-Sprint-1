@@ -24,6 +24,19 @@ public record AuditVerificationResult(
             boolean anchorMatchesChain,
             String anchorType,
             String anchorReference,
-            @JsonFormat(shape = JsonFormat.Shape.STRING) OffsetDateTime anchoredAt
-    ) {}
+            @JsonFormat(shape = JsonFormat.Shape.STRING) OffsetDateTime anchoredAt,
+            /** ANCHORED_MATCH, ANCHOR_MISMATCH, ANCHOR_SIGNATURE_INVALID, NO_EXTERNAL_ANCHOR, UNREACHABLE, UNVERIFIABLE, NOT_CONFIGURED. */
+            String status,
+            String detail,
+            boolean externalConfigured,
+            String destination
+    ) {
+        /** Legacy shape (internal anchor only): no external destination is involved. */
+        public ExternalAnchorStatus(boolean anchored, Long anchoredChainSeq, String anchoredRecordHash,
+                                    boolean anchorMatchesChain, String anchorType, String anchorReference,
+                                    OffsetDateTime anchoredAt) {
+            this(anchored, anchoredChainSeq, anchoredRecordHash, anchorMatchesChain, anchorType, anchorReference,
+                    anchoredAt, "NOT_CONFIGURED", null, false, null);
+        }
+    }
 }

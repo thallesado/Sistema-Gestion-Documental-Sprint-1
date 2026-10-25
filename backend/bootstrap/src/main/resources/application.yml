@@ -94,3 +94,17 @@ app:
     rate-limit:
       max-requests: ${ASSISTANT_RATE_LIMIT_MAX_REQUESTS:20}
       window-seconds: ${ASSISTANT_RATE_LIMIT_WINDOW_SECONDS:60}
+
+# Anclaje externo de la cadena de auditoria (C3). Sin destino configurado el job queda DISABLED.
+nexodocs:
+  audit:
+    anchor-secret: ${AUDIT_ANCHOR_SECRET:nexodocs-tamper-proof-anchor-master-key-2026}
+    external-anchor:
+      file-path: ${AUDIT_ANCHOR_EXTERNAL_FILE:}
+      cron: ${AUDIT_ANCHOR_CRON:0 */15 * * * *}
+      http:
+        url: ${AUDIT_ANCHOR_EXTERNAL_HTTP_URL:}
+        read-url: ${AUDIT_ANCHOR_EXTERNAL_HTTP_READ_URL:}
+        method: ${AUDIT_ANCHOR_EXTERNAL_HTTP_METHOD:POST}
+        auth-header: ${AUDIT_ANCHOR_EXTERNAL_HTTP_AUTH_HEADER:}
+        timeout-ms: ${AUDIT_ANCHOR_EXTERNAL_HTTP_TIMEOUT_MS:5000}

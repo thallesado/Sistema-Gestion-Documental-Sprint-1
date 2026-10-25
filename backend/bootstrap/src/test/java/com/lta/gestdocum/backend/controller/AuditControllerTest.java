@@ -37,6 +37,9 @@ class AuditControllerTest {
     @Mock
     private AuthenticatedUserContext userContext;
 
+    @Mock
+    private com.lta.gestdocum.backend.service.AuditAnchorScheduler anchorScheduler;
+
     @InjectMocks
     private AuditController controller;
 
@@ -113,5 +116,14 @@ class AuditControllerTest {
         assertEquals(10L, anchor.getChainSeq());
         assertEquals(userId, anchor.getAnchoredBy());
         verify(anchorService).createAnchor(tenantId, "LOCAL_SIGNED", userId);
+    }
+
+    @Test
+    @DisplayName("anchorStatus expone el estado del job de anclaje externo en solo lectura")
+    void anchorStatus_returnsSchedulerStatus() {
+        var status = new com.lta.gestdocum.backend.dto.AuditAnchorJobStatus(
+                false, "DISABLED", "disabled", null, java.util.List.of(), null, "NEVER_RUN", 0, 0);
+        when(anchorScheduler.status()).thenReturn(status);
+        assertEquals("DISABLED", controller.anchorStatus().state());
     }
 }
