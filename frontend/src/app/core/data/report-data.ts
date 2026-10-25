@@ -10,7 +10,7 @@ export type ReportFilter = {
 };
 
 export type ReportColumn = { key: string; label: string };
-export type ReportRow = Record<string, string | number>;
+export type ReportRow = Record<string, string | number | null>;
 export type ChartPoint = { label: string; value: number; color?: string };
 
 export type ReportDefinition = {
@@ -117,7 +117,7 @@ const definitions: Record<string, ReportDefinition> = {
     ],
     columns: [
       { key: 'code', label: 'Código' },
-      { key: 'title', label: 'Título' },
+      { key: 'expedient', label: 'Expediente' },
       { key: 'type', label: 'Tipo' },
       { key: 'area', label: 'Área' },
       { key: 'owner', label: 'Responsable' },
@@ -155,6 +155,32 @@ const definitions: Record<string, ReportDefinition> = {
     chartOne: { title: 'Tendencia por fecha', subtitle: 'Volumen de eventos registrados', kind: 'line', groupBy: 'timestamp' },
     chartTwo: { title: 'Eventos por acción', subtitle: 'Accesos, modificaciones y descargas', kind: 'bars', groupBy: 'action' },
     chartThree: { title: 'Actividad por módulo', subtitle: 'Superficie operativa auditada', kind: 'donut', groupBy: 'module' },
+  },
+  ocr: {
+    key: 'ocr',
+    title: 'Reporte de OCR',
+    description: 'Trabajos de digitalización, confianza del motor y resultado de validación del tenant actual.',
+    filters: [
+      { key: 'status', label: 'Estado', type: 'select', options: ['QUEUED', 'PROCESSING', 'COMPLETED', 'VALIDATED', 'REJECTED', 'FAILED'] },
+      { key: 'owner', label: 'Cargado por', type: 'search', placeholder: 'Nombre...' },
+      { key: 'search', label: 'Archivo o documento', type: 'search', placeholder: 'Buscar...' },
+      { key: 'dateFrom', label: 'Desde *', type: 'date' },
+      { key: 'dateTo', label: 'Hasta *', type: 'date' },
+    ],
+    columns: [
+      { key: 'file', label: 'Archivo' },
+      { key: 'document', label: 'Documento' },
+      { key: 'fileType', label: 'Tipo de archivo' },
+      { key: 'uploadedBy', label: 'Cargado por' },
+      { key: 'pages', label: 'Páginas' },
+      { key: 'confidence', label: 'Confianza' },
+      { key: 'date', label: 'Fecha' },
+      { key: 'status', label: 'Estado' },
+    ],
+    rows: [],
+    chartOne: { title: 'Estados de trabajos OCR', subtitle: 'Distribución por estado', kind: 'donut', groupBy: 'status' },
+    chartTwo: { title: 'Trabajos por fecha', subtitle: 'Volumen de digitalización', kind: 'line', groupBy: 'date' },
+    chartThree: { title: 'Tipos de archivo', subtitle: 'Formatos procesados', kind: 'bars', groupBy: 'fileType' },
   },
   productivity: {
     key: 'productivity',
@@ -194,4 +220,51 @@ const definitions: Record<string, ReportDefinition> = {
 
 export function reportDefinition(key: string): ReportDefinition {
   return definitions[key] ?? definitions['documents'];
+}
+
+export const CHART_COLORS = ['#087f7b', '#4d9bd8', '#79c4bb', '#e3a633', '#7e5ab0', '#d76a6a', '#8aa19f'];
+
+/** Valor numérico finito o el valor por defecto; nunca NaN ni Infinity. */
+export function finiteNumber(value: unknown, fallback = 0): number {
+  const parsed = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+/** Normaliza una etiqueta de grupo: fechas con hora quedan como día, vacíos como "Sin dato". */
+export function groupLabel(value: unknown): string {
+  if (value === null || value === undefined || String(value).trim() === '') return 'Sin dato';
+  const text = String(value).trim();
+  return /^\d{4}-\d{2}-\d{2}[ T]/.test(text) ? text.slice(0, 10) : text;
+}
+
+/**
+ * Agrupa filas por una columna y cuenta una fila por ocurrencia (valor 1). Solo si la columna es
+ * numérica por definición ("documents" en el reporte de áreas) suma ese valor, siempre finito.
+ */
+export function chartPointsFromRows(rows: ReportRow[], groupBy: string, sumKey?: string): ChartPoint[] {
+  const grouped = new Map<string, number>();
+  for (const row of rows) {
+    const label = groupLabel(row[groupBy]);
+    const value = sumKey ? finiteNumber(row[sumKey], 1) : 1;
+    grouped.set(label, (grouped.get(label) ?? 0) + value);
+  }
+  return Array.from(grouped.entries()).map(([label, value], index) => ({
+    label,
+    value,
+    color: CHART_COLORS[index % CHART_COLORS.length],
+  }));
+}
+
+/** Texto de una celda: null/undefined se muestran como guion largo (componente oculto o sin dato). */
+export function cellText(value: string | number | null | undefined): string {
+  return value === null || value === undefined || value === '' ? '—' : String(value);
+}
+
+/** Nombre de organización y rol visibles en el encabezado, tomados de la sesión autenticada. */
+export function sessionLabels(user: { tenantName?: string | null; platformAdmin?: boolean; roleNames?: string[] } | null | undefined): { tenant: string; role: string } {
+  if (!user) return { tenant: 'Organización autenticada', role: '' };
+  return {
+    tenant: user.tenantName?.trim() || 'Organización autenticada',
+    role: user.platformAdmin ? 'Superadministrador' : (user.roleNames ?? []).filter(Boolean).join(', '),
+  };
 }

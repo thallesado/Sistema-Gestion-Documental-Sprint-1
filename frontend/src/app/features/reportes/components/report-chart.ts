@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
-import { ChartPoint, ReportChartKind } from '../../../core/data/report-data';
+import { ChartPoint, ReportChartKind, finiteNumber } from '../../../core/data/report-data';
 
 @Component({
   selector: 'app-report-chart',
@@ -25,7 +25,12 @@ export class ReportChart {
   @Input() title = '';
   @Input() subtitle = '';
   @Input() kind: ReportChartKind = 'bars';
-  @Input() points: ChartPoint[] = [];
+  private rawPoints: ChartPoint[] = [];
+  /** Puntos con valores siempre finitos: un NaN jamás llega a atributos SVG ni a anchos de barra. */
+  @Input() set points(value: ChartPoint[]) {
+    this.rawPoints = (value ?? []).map((point) => ({ ...point, value: finiteNumber(point.value) }));
+  }
+  get points(): ChartPoint[] { return this.rawPoints; }
 
   get total(): number { return this.points.reduce((sum, point) => sum + point.value, 0); }
   get max(): number { return Math.max(...this.points.map((point) => point.value), 1); }
