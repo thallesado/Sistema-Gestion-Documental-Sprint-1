@@ -63,6 +63,10 @@ export interface ApiAuditVerificationResult {
     anchorType: string | null;
     anchorReference: string | null;
     anchoredAt: string | null;
+    /** ANCHORED_MATCH | ANCHOR_MISMATCH | ANCHOR_SIGNATURE_INVALID | NO_EXTERNAL_ANCHOR | UNREACHABLE | UNVERIFIABLE | NOT_CONFIGURED */
+    status?: string;
+    detail?: string | null;
+    externalConfigured?: boolean;
   } | null;
   verifiedAt: string;
 }

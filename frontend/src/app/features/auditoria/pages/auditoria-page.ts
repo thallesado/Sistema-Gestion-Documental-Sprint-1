@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { describeExternalAnchor } from '../audit-anchor-status';
 import { ApiAuditEvent, ApiAuditVerificationResult, AuditApiService, AuditEventsFilter } from '../../../core/api/audit-api.service';
 import { activeLocale } from '../../../core/i18n/i18n.service';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -226,13 +227,15 @@ const generalFilters: AuditFilterField[] = [
                     <span class="control-check" style="background:#10b981;color:#fff;">✓</span>
                     <div>
                       <strong>Cadena íntegra ({{ verificationResult()?.totalVerified }} ev.)</strong>
-                      <small>Sin alteraciones · Ancla externa verificada</small>
+                      <small>Sin alteraciones internas</small>
+                      <small data-testid="external-anchor-status" [style.color]="anchorColor()">{{ anchorView().label }}</small>
                     </div>
                   } @else {
                     <span class="control-check" style="background:#ef4444;color:#fff;">!</span>
                     <div>
                       <strong style="color:#ef4444;">Alteración detectada</strong>
                       <small>Eslabón #{{ verificationResult()?.brokenChainSeq }} manipulado</small>
+                      <small data-testid="external-anchor-status" [style.color]="anchorColor()">{{ anchorView().label }}</small>
                     </div>
                   }
                 } @else {
@@ -336,6 +339,11 @@ export class AuditPage {
   readonly drawerDetail = signal<AuditDrawerDetail | null>(null);
   readonly verifyingChain = signal(false);
   readonly verificationResult = signal<ApiAuditVerificationResult | null>(null);
+  readonly anchorView = computed(() => describeExternalAnchor(this.verificationResult()?.externalAnchorStatus?.status));
+  readonly anchorColor = computed(() => {
+    const tone = this.anchorView().tone;
+    return tone === 'danger' ? '#ef4444' : tone === 'warn' ? '#b45309' : tone === 'ok' ? '#047857' : '';
+  });
 
   constructor() {
     effect((onCleanup) => {
