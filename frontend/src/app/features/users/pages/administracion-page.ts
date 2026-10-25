@@ -17,6 +17,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
 import { ExportColumn, exportToCsv, exportToJson, exportToPrintView } from '../../../core/utils/export-utils';
 import { Pagination } from '../../../shared/components/pagination/pagination.component';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
+import { friendlyApiMessage } from '../../../core/http/tenant-session';
 
 @Component({
   selector: 'app-administration-page',
@@ -363,7 +364,7 @@ export class AdministrationPage {
   private apiError(error: { status?: number; error?: { message?: string } }, fallback: string): string {
     if (error.status === 0) return 'No se pudo conectar con la API. Comprueba que el backend esté ejecutándose.';
     const serverMessage = error.error?.message;
-    if (serverMessage) return serverMessage;
+    if (serverMessage) return friendlyApiMessage(serverMessage, fallback);
     if (error.status === 401 || error.status === 403) return 'No tienes permisos para realizar esta operación.';
     return fallback;
   }

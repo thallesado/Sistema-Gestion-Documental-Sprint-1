@@ -54,4 +54,10 @@ Configuración general utiliza `/settings`. El menú de usuario apunta a esa rut
 
 Las rutas dinámicas reutilizan WorkspacePage en varias secciones; no asumir una feature independiente por cada opción. Verificar ruta, carga de componente y contratos antes de editar.
 
+## Tema, menú y sesión de plataforma
+
+- El color de marca del tenant se aplica en `<html>` como `--primary-color` más los tokens derivados `--tenant-teal*`, `--tenant-mint` y `--tenant-sidebar-bg` (`core/theme/theme-variables.ts`); `styles.css` y `shell/app.css` los leen con el verde por defecto como respaldo. El tono de acción se oscurece hasta cumplir contraste AA con texto blanco.
+- `/settings/appearance` aparece en Configuración para `tenant:update`/`tenant:manage`; `/settings/backups` exige `backup:read`; `/platform/backups` es solo superadmin.
+- Una sesión de plataforma (`platformAdmin` sin `tenantId`) no llama a `/api/v1/dashboard` ni a `/api/v1/backups/maintenance` (`core/http/tenant-session.ts`). Los mensajes de error con texto SQL/Hibernate se sustituyen por uno genérico (`friendlyApiMessage`).
+
 Fuentes: [frontend/src/app/core/routes/app.routes.ts](../../../frontend/src/app/core/routes/app.routes.ts), [frontend/src/app/features/clinico/clinico.routes.ts](../../../frontend/src/app/features/clinico/clinico.routes.ts), [frontend/src/app/shell/app.ts](../../../frontend/src/app/shell/app.ts). [Comunicación API](estado-y-comunicacion-api.md).

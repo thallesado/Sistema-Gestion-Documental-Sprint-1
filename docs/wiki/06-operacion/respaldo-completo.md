@@ -37,6 +37,10 @@ Validación local del 2026-10-21: tres pruebas Java del servicio cubren autoriza
 5. Extraer `storage.tar` únicamente en el volumen vacío de almacenamiento, como operador autorizado. Verificar propietario, espacio y hashes de archivos documentales.
 6. Arrancar el backend de la revisión respaldada; comprobar migraciones, perfil, listado/descarga de documentos y OCR de dos tenants, aislamiento y cadena de auditoría. Registrar duración, errores y resultado antes de considerar la recuperación operativa.
 
+## Pantalla del superadmin
+
+`/platform/backups` (solo administrador de plataforma) inicia el respaldo con confirmación (`POST /api/v1/platform/backups/full`), consulta el estado por sondeo (`GET /api/v1/platform/backups/full/{id}`) y explica el 503 «El operador de respaldos completos no está configurado» y el 409 de respaldo en curso. Fuente: [platform-backup-page.ts](../../../frontend/src/app/features/backups/pages/platform-backup-page.ts).
+
 ## Alcance pendiente
 
 Falta ejecutar captura y recuperación completa en un host con destino independiente y configurar capacidad/retención. El endpoint y worker separado están implementados, pendientes de instalación y ensayo conjunto. El backend web no recibe el socket Docker ni permisos de superusuario del host. Protección de `main`, despliegue desde etiqueta y configuración de producción requieren acceso administrativo al repositorio y al servidor; no se comprobaron aquí.

@@ -22,8 +22,9 @@ test('hasAnyPermission is true when at least one code is granted', () => {
 });
 
 test('themeVariables only emits well-formed colors', () => {
-  assert.deepEqual(themeVariables({ primaryColor: '#087f7b' }), { '--primary-color': '#087f7b' });
-  assert.deepEqual(themeVariables({ primaryColor: '#ABCDEF' }), { '--primary-color': '#ABCDEF' });
+  // --primary-color keeps the tenant value; the derived --tenant-* tokens are covered by shell-theme.test.mjs.
+  assert.equal(themeVariables({ primaryColor: '#087f7b' })['--primary-color'], '#087f7b');
+  assert.equal(themeVariables({ primaryColor: '#ABCDEF' })['--primary-color'], '#ABCDEF');
   for (const bad of ['087f7b', '#08f', 'red', '#087f7b; background: url(x)', '', null, undefined]) {
     assert.deepEqual(themeVariables({ primaryColor: bad }), {}, String(bad));
   }
