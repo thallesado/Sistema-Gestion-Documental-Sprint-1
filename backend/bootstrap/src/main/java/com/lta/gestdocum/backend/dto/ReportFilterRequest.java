@@ -2,6 +2,7 @@ package com.lta.gestdocum.backend.dto;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 
 public record ReportFilterRequest(
@@ -45,25 +46,47 @@ public record ReportFilterRequest(
             String result,
             String search
     ) {
+        return of(dateFromStr, dateToStr, status, type, area, owner, action, module, result, search, ZoneOffset.UTC);
+    }
+
+    /** Las fechas sin hora (yyyy-MM-dd) se interpretan en la zona horaria del tenant. */
+    public static ReportFilterRequest of(
+            String dateFromStr,
+            String dateToStr,
+            String status,
+            String type,
+            String area,
+            String owner,
+            String action,
+            String module,
+            String result,
+            String search,
+            ZoneId zone
+    ) {
         if (dateFromStr == null || dateFromStr.isBlank() || dateToStr == null || dateToStr.isBlank()) {
             throw new IllegalArgumentException("El rango de fechas (dateFrom y dateTo) es obligatorio para generar el reporte");
         }
-        OffsetDateTime from = parseDateTime(dateFromStr, false);
-        OffsetDateTime to = parseDateTime(dateToStr, true);
+        OffsetDateTime from = parseDateTime(dateFromStr, false, zone);
+        OffsetDateTime to = parseDateTime(dateToStr, true, zone);
         return new ReportFilterRequest(from, to, status, type, area, owner, action, module, result, search);
     }
 
     public static OffsetDateTime parseDateTime(String text, boolean endOfDay) {
+        return parseDateTime(text, endOfDay, ZoneOffset.UTC);
+    }
+
+    public static OffsetDateTime parseDateTime(String text, boolean endOfDay, ZoneId zone) {
         if (text == null || text.isBlank()) {
             return null;
         }
+        ZoneId effective = zone != null ? zone : ZoneOffset.UTC;
         String trimmed = text.trim();
         try {
             if (trimmed.length() == 10) { // yyyy-MM-dd
                 LocalDate date = LocalDate.parse(trimmed);
                 return endOfDay
-                        ? date.atTime(23, 59, 59, 999999999).atOffset(ZoneOffset.UTC)
-                        : date.atStartOfDay().atOffset(ZoneOffset.UTC);
+                        ? date.atTime(23, 59, 59, 999999999).atZone(effective).toOffsetDateTime()
+                        : date.atStartOfDay(effective).toOffsetDateTime();
             }
             return OffsetDateTime.parse(trimmed);
         } catch (Exception e) {
