@@ -24,7 +24,7 @@
 
 /* Sidebar Oscura Premium */
 .sidebar {
-  background-color: #0b2524 !important;
+  background-color: var(--sidebar-bg) !important;
   bottom: 0;
   color: #ffffff !important;
   display: flex;

@@ -68,3 +68,10 @@ test('favicon apunta a un icono que existe', async () => {
   assert.doesNotMatch(html, /favicon\.ico/);
   await read('public/icon.svg');
 });
+
+test('el fondo del menu lateral sigue el token de marca y no un color fijo', async () => {
+  const css = await read('src/app/shell/app.css');
+  const sidebar = css.match(/\.sidebar\s*\{[^}]*\}/)?.[0] ?? '';
+  assert.match(sidebar, /background-color:\s*var\(--sidebar-bg\)/, 'El menu lateral debe usar --sidebar-bg');
+  assert.doesNotMatch(sidebar, /background-color:\s*#0b2524/, 'No debe quedar el verde fijo');
+});
