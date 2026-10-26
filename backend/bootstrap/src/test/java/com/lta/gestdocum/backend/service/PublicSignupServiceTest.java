@@ -39,7 +39,6 @@ class PublicSignupServiceTest {
     @Mock private PlanRepository planRepository;
     @Mock private SubscriptionPaymentRepository subscriptionPaymentRepository;
     @Mock private UserRepository userRepository;
-    @Mock private PasswordEncoder passwordEncoder;
     @Mock private AuthService authService;
 
     private PublicSignupService signupService;
@@ -52,7 +51,6 @@ class PublicSignupServiceTest {
                 planRepository,
                 subscriptionPaymentRepository,
                 userRepository,
-                passwordEncoder,
                 authService
         );
     }
@@ -72,11 +70,10 @@ class PublicSignupServiceTest {
         tenant.setName("Clinica Dental Los Andes");
         tenant.setStatus(Tenant.Status.TRIAL);
 
-        when(tenantService.create(any(TenantCreateRequest.class))).thenReturn(
+        when(tenantService.create(any(TenantCreateRequest.class), any())).thenReturn(
                 new TenantResponse(tenantId, "Clinica Dental Los Andes", "ORG-1234", "clinica-dental", "TRIAL", planId, null, null)
         );
         when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
-        when(passwordEncoder.encode(anyString())).thenReturn("hashed-custom-password");
 
         User admin = User.builder().id(UUID.randomUUID()).tenantId(tenantId).username("admin-dental").email("admin@dental.test").build();
         when(userRepository.findByTenantAndIdentifier(eq(tenantId), eq("admin@dental.test"))).thenReturn(Optional.of(admin));
@@ -105,6 +102,10 @@ class PublicSignupServiceTest {
         assertTrue(response.simulatedPayment());
         assertTrue(response.paymentReference().startsWith("SIM-"));
         assertEquals(Tenant.Status.ACTIVE, tenant.getStatus());
+        // S1: la respuesta de alta nunca devuelve contraseñas; la elegida por el admin se aplica en el alta.
+        assertNull(response.temporaryPassword());
+        verify(tenantService).create(any(TenantCreateRequest.class), eq("ClaveSecreta#2026"));
+        assertNotNull(response.auth());
 
         // Verificar registro del pago simulado en subscription_payments
         ArgumentCaptor<SubscriptionPayment> paymentCaptor = ArgumentCaptor.forClass(SubscriptionPayment.class);
@@ -113,5 +114,28 @@ class PublicSignupServiceTest {
         assertEquals(tenantId, payment.getTenantId());
         assertEquals("COMPLETED", payment.getStatus());
         assertTrue(payment.isSimulated());
+    }
+
+    @Test
+    void signup_WithoutOwnPassword_NeverReturnsAPasswordAndLeavesGeneratedOneToTenantService() {
+        UUID planId = UUID.randomUUID();
+        Plan plan = mock(Plan.class);
+        when(plan.getId()).thenReturn(planId);
+        when(plan.getPriceMonthly()).thenReturn(new BigDecimal("10.00"));
+        when(planRepository.findFirstByCodeIgnoreCaseAndActiveTrue("BASIC")).thenReturn(Optional.of(plan));
+        UUID tenantId = UUID.randomUUID();
+        Tenant tenant = new Tenant();
+        tenant.setId(tenantId);
+        tenant.setName("Org");
+        when(tenantService.create(any(TenantCreateRequest.class), isNull())).thenReturn(
+                new TenantResponse(tenantId, "Org", "ORG-1", "org", "TRIAL", planId, null, null));
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+
+        PublicSignupResponse response = signupService.signup(new PublicSignupRequest("Org", null, null,
+                "info@org.test", null, null, "Ana Admin", "ana@org.test", null, null, null, null));
+
+        assertNull(response.temporaryPassword());
+        assertNull(response.auth());
+        verify(tenantService).create(any(TenantCreateRequest.class), isNull());
     }
 }

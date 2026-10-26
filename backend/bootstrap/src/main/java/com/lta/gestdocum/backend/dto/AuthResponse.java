@@ -14,4 +14,11 @@ public class AuthResponse {
     private long expiresIn;
     /** Códigos de permiso efectivos (los mismos que viajan como authorities en el JWT). */
     private List<String> permissions;
+    /** true mientras la contraseña sea temporal: el uso normal de la API queda bloqueado hasta cambiarla. */
+    private boolean mustChangePassword;
+
+    public AuthResponse(String token, String tokenType, String refreshToken, long expiresIn,
+                        List<String> permissions) {
+        this(token, tokenType, refreshToken, expiresIn, permissions, false);
+    }
 }

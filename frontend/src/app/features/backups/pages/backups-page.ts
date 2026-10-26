@@ -4,6 +4,7 @@ import { Component, DestroyRef, ElementRef, HostListener, computed, inject, sign
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
+import { friendlyApiMessage } from '../../../core/http/tenant-session';
 interface Backup { id:string; origin:string; status:string; created_at:string; file_size_bytes:number|null; checksum:string|null; error_message:string|null; pinned:boolean; creator:string; }
 interface Operation { id:string; backup_id:string; safety_backup_id:string|null; status:string; stage:string; error_message:string|null; }
 interface Overview { backups:Backup[]; operations:Operation[]; settings:{enabled:boolean;daily_time:string;timezone:string;retention_days:number;next_run:string|null};permissions:string[]; }
@@ -36,5 +37,5 @@ export class BackupsPage {
  close():void{if(this.panel()==='configuration'&&this.data()){const s=this.data()!.settings;if((this.enabled!==s.enabled||this.hour!==s.daily_time.slice(0,5)||this.timezone!==s.timezone||this.retention!==s.retention_days)&&!window.confirm('Hay cambios sin guardar. ¿Deseas cerrar sin guardarlos?'))return;}this.panel.set(null);this.previousFocus?.focus();}
  @HostListener('document:keydown',['$event']) onKeydown(e:KeyboardEvent):void{if(!this.panel())return;if(e.key==='Escape'){e.preventDefault();this.close();}if(e.key!=='Tab')return;const a=Array.from(this.element.nativeElement.querySelectorAll<HTMLElement>('[role=dialog] button:not([disabled]),[role=dialog] input:not([disabled]),[role=dialog] select:not([disabled])'));if(e.shiftKey&&document.activeElement===a[0]){e.preventDefault();a[a.length-1]?.focus();}else if(!e.shiftKey&&document.activeElement===a[a.length-1]){e.preventDefault();a[0]?.focus();}}
  private act(r:import('rxjs').Observable<unknown>,ok:()=>void):void{this.busy.set(true);this.error.set('');r.subscribe({next:()=>{this.busy.set(false);ok();},error:e=>{this.busy.set(false);this.error.set(this.describe(e));}});}
- private describe(e:HttpErrorResponse):string{return e.status===403?'Tu usuario no tiene permiso de respaldos.':e.status===0?'No se pudo actualizar el estado. La operación puede seguir en curso.':e.error?.detail||e.error?.message||`No se pudo completar la solicitud (HTTP ${e.status}).`;}
+ private describe(e:HttpErrorResponse):string{return e.status===403?'Tu usuario no tiene permiso de respaldos.':e.status===0?'No se pudo actualizar el estado. La operación puede seguir en curso.':friendlyApiMessage(e.error?.detail||e.error?.message,`No se pudo completar la solicitud (HTTP ${e.status}).`);}
 }

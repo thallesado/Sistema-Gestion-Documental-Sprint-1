@@ -6,6 +6,8 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { filter } from 'rxjs';
 import { NavChild, NavItem, navigationRoutes, navSections, Role, roles } from '../core/data/nexodocs-data';
 import { AuthService } from '../core/auth/auth.service';
+import { friendlyApiMessage } from '../core/http/tenant-session';
+import { ThemeService } from '../core/theme/theme.service';
 import { PermissionService } from '../core/auth/permission.service';
 import { permittedChildren } from '../core/auth/permission-rules';
 import { WorkflowApi } from '../features/workflows/workflow-api.service';
@@ -24,7 +26,7 @@ import { HelpService } from '../features/help/help.service';
 /** Pantallas públicas: siempre a pantalla completa, sin sidebar ni topbar, aunque haya sesión. */
 // These routes own a full-screen layout. Contact Sales remains authenticated so
 // its form can use the active organization, but intentionally bypasses the shell.
-const PUBLIC_PATHS = ['/welcome', '/register', '/login', '/forgot-password', '/reset-password', '/plans/contact-sales', '/planes'];
+const PUBLIC_PATHS = ['/welcome', '/register', '/login', '/forgot-password', '/reset-password', '/plans/contact-sales', '/planes', '/change-password'];
 
 type ProfileTab = 'profile' | 'security' | 'notifications' | 'access' | 'workflows';
 
@@ -39,6 +41,7 @@ export class App {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly permissions = inject(PermissionService);
+  private readonly theme = inject(ThemeService);
   readonly backupMaintenance = inject(BackupMaintenanceService);
   /** Instantiated here so it listens to navigation from the very first route. */
   private readonly assistantContext = inject(AssistantContextService);
@@ -90,7 +93,8 @@ export class App {
     return user?.tenantName?.trim()
       || (user?.platformAdmin ? 'Todos los tenants' : user?.tenantId ? `Organización · ${user.tenantId.slice(0, 8)}` : 'Organización sin asignar');
   });
-  readonly tenantLogoUrl = computed(() => this.currentUser()?.tenantLogoUrl?.trim() || null);
+  /** Logo saved in Apariencia wins over the one captured at login, so the header follows the tenant settings. */
+  readonly tenantLogoUrl = computed(() => this.theme.settings().logoUrl?.trim() || this.currentUser()?.tenantLogoUrl?.trim() || null);
   readonly failedTenantLogoUrl = signal<string | null>(null);
   readonly hasTenantLogo = computed(() => {
     const logoUrl = this.tenantLogoUrl();
@@ -192,7 +196,7 @@ export class App {
   );
 
   constructor() {
-    effect(() => { if (this.isWorkspace()) this.subscription.load(); });
+    effect(() => { if (this.isWorkspace() && !this.auth.mustChangePassword()) this.subscription.load(); });
     const activityEvents = ['pointerdown', 'keydown', 'mousemove', 'touchstart', 'scroll'];
     const resetIdleTimer = () => this.resetIdleTimer();
     activityEvents.forEach((eventName) => window.addEventListener(eventName, resetIdleTimer, { passive: true }));
@@ -343,7 +347,7 @@ export class App {
       },
       error: (error) => {
         this.profileSaving.set(false);
-        this.profileError.set(error?.error?.message || 'No se pudieron guardar los cambios.');
+        this.profileError.set(friendlyApiMessage(error?.error?.message, 'No se pudieron guardar los cambios.'));
       },
     });
   }
@@ -366,7 +370,7 @@ export class App {
       },
       error: (error) => {
         this.avatarUploading.set(false);
-        this.profileError.set(error?.error?.message || 'No se pudo subir la foto.');
+        this.profileError.set(friendlyApiMessage(error?.error?.message, 'No se pudo subir la foto.'));
       },
     });
   }
@@ -413,7 +417,7 @@ export class App {
       },
       error: (error) => {
         this.notificationSaving.set(false);
-        this.profileError.set(error?.error?.message || 'No se pudieron guardar las preferencias.');
+        this.profileError.set(friendlyApiMessage(error?.error?.message, 'No se pudieron guardar las preferencias.'));
       },
     });
   }
@@ -439,7 +443,7 @@ export class App {
       },
       error: (error) => {
         this.passwordSaving.set(false);
-        this.profileError.set(error?.error?.message || 'No se pudo actualizar la contraseña.');
+        this.profileError.set(friendlyApiMessage(error?.error?.message, 'No se pudo actualizar la contraseña.'));
       },
     });
   }

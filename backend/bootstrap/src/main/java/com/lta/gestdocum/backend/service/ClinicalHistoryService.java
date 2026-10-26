@@ -39,6 +39,9 @@ public class ClinicalHistoryService {
     private final UserRepository userRepository;
     private final ClinicalStaffRepository clinicalStaffRepository;
     private final ObjectMapper objectMapper;
+    /** B2: opcional para conservar los constructores existentes; sin él no se oculta nada (comportamiento previo). */
+    @Autowired(required = false)
+    private ComponentPermissionService componentPermissions;
     @Autowired
     public ClinicalHistoryService(
             ClinicalHistoryRepository repository,
@@ -434,24 +437,27 @@ public class ClinicalHistoryService {
     }
 
     private DocumentResponse toDocumentResponse(Document document) {
+        ComponentFormAccess access = componentPermissions == null
+                ? ComponentFormAccess.unrestricted(ComponentFormCatalog.require(ComponentFormCatalog.DOCUMENT_FORM))
+                : componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM);
         return new DocumentResponse(
                 document.getId(),
                 document.getDocumentTypeId(),
-                document.getExpedientId(),
+                access.reveal("expediente", document.getExpedientId()),
                 document.getAuthorId(),
-                document.getResponsibleId(),
-                document.getDepartmentId(),
-                document.getPatientId(),
-                document.getSpecialty(),
-                document.getInstitutionalProcess(),
-                document.getMetadata(),
-                document.getCode(),
-                document.getName(),
-                document.getDescription(),
+                access.reveal("responsable", document.getResponsibleId()),
+                access.reveal("departamento", document.getDepartmentId()),
+                access.reveal("paciente", document.getPatientId()),
+                access.reveal("especialidad", document.getSpecialty()),
+                access.reveal("proceso", document.getInstitutionalProcess()),
+                DocumentService.hideMetadata(access, document.getMetadata()),
+                access.reveal("codigo", document.getCode()),
+                access.reveal("nombre", document.getName()),
+                access.reveal("descripcion", document.getDescription()),
                 document.getStatus(),
                 document.getCurrentVersion(),
-                document.getIssueDate(),
-                document.getExpiryDate(),
+                access.reveal("emision", document.getIssueDate()),
+                access.reveal("vencimiento", document.getExpiryDate()),
                 document.getIsExternalSource(),
                 document.getSource(),
                 document.getCreatedAt(),

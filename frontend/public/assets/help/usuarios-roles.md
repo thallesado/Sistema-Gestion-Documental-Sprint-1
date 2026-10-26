@@ -1,27 +1,17 @@
-# Gestión de Usuarios, Grupos y Roles (RBAC)
+### Gestión de Usuarios, Grupos y Permisos (RBAC)
+NexoDocs controla el acceso por roles (**RBAC**): los permisos se asignan a grupos (perfiles) y los grupos a los usuarios.
 
-NexoDocs implementa un modelo de control de acceso basado en roles (**Role-Based Access Control - RBAC**) que permite asignar responsabilidades precisas a cada colaborador de la organización.
+#### 1. Grupos y perfiles típicos
+- **Administrador del tenant**: configura la organización, la marca, y gestiona usuarios.
+- **Perfiles de trabajo** (por ejemplo revisor, aprobador, operador o personal clínico): se crean según el rubro en Usuarios y equipos > Grupos de usuarios (perfiles).
+- **Auditor**: acceso de consulta a la auditoría y los reportes.
+- Un usuario puede pertenecer a varios grupos; ve el menú y las acciones de la suma de sus permisos.
 
----
+#### 2. Límite de usuarios por plan
+Tu plan establece un máximo de usuarios activos (*maxUsers*). Al alcanzarlo no se pueden crear ni reactivar cuentas hasta desactivar otras o cambiar de plan.
 
-## 1. Grupos y Perfiles Clínicos
-
-Los usuarios pertenecen a uno o más grupos que definen sus facultades dentro del sistema:
-- **Administrador de Tenant**: Configura la empresa, marca corporativa, límites de plan y gestiona las cuentas de los usuarios.
-- **Médico Especialista**: Consulta y crea historias clínicas, aprueba órdenes médicas y revisa resultados de laboratorio.
-- **Personal de Enfermería**: Registra signos vitales, notas de evolución y administración de medicamentos.
-- **Auditor Clínico / Calidad**: Acceso de solo lectura a los expedientes y logs de auditoría para inspecciones regulatorias.
-
----
-
-## 2. Límite de Usuarios por Plan
-
-- Tu suscripción define un número máximo de usuarios activos (`maxUsers`).
-- Si se alcanza este tope, el sistema impedirá la creación de nuevas cuentas hasta que se desactiven usuarios inactivos o se realice un cambio de plan a uno superior.
-
----
-
-## 3. Seguridad de Acceso y Credenciales
-
-- Al crear un usuario nuevo, el sistema genera una contraseña temporal y activa la bandera `must_change_password`. El usuario deberá actualizar su clave de forma obligatoria en su primer inicio de sesión.
-- Las cuentas pueden desactivarse temporalmente sin perder el histórico documental generado por el usuario.
+#### 3. Contraseñas y acceso
+- Al crear un usuario se define una contraseña temporal que debe cambiarse en el primer inicio de sesión. El sistema no envía correos: el administrador entrega la contraseña temporal por un canal seguro.
+- Tras varios intentos de inicio de sesión fallidos en poco tiempo el acceso se bloquea temporalmente (error 429); espera el tiempo indicado y reintenta.
+- Las cuentas pueden desactivarse sin perder el historial que generaron.
+- Para ocultar o bloquear campos concretos de un formulario por grupo, consulta el artículo Privilegios por formulario.

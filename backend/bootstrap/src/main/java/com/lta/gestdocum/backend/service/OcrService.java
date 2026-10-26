@@ -70,6 +70,61 @@ public class OcrService {
         }
     }
 
+    /** Tope de páginas que se cobran por archivo; evita que un /Count fabricado agote la cuota. */
+    static final int MAX_COUNTED_PAGES = 2000;
+
+    private static final java.util.regex.Pattern PAGE_LEAF = java.util.regex.Pattern.compile("/Type\\s*/Page(?![A-Za-z])");
+    private static final java.util.regex.Pattern PAGES_NODE = java.util.regex.Pattern.compile("/Type\\s*/Pages(?![A-Za-z])");
+    private static final java.util.regex.Pattern COUNT = java.util.regex.Pattern.compile("/Count\\s+(\\d{1,6})");
+
+    /**
+     * Páginas que consume un archivo: 1 por imagen; en un PDF, las páginas del documento (mínimo 1, máximo
+     * {@link #MAX_COUNTED_PAGES}). Se toma el mayor entre las hojas {@code /Type /Page} visibles y el
+     * {@code /Count} del nodo raíz {@code /Type /Pages} (el que no tiene {@code /Parent}), así un PDF con páginas
+     * comprimidas no se subcobra. Los {@code /Count} de marcadores (outlines) y de nodos intermedios no cuentan.
+     */
+    public static int countPages(byte[] bytes, String mimeType) {
+        if (bytes == null || mimeType == null || !mimeType.toLowerCase(Locale.ROOT).contains("pdf")) return 1;
+        String text = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1);
+        int leaves = 0;
+        java.util.regex.Matcher pages = PAGE_LEAF.matcher(text);
+        while (pages.find()) leaves++;
+        // El mayor entre las hojas visibles y el total declarado por la raíz: una hoja suelta no oculta un PDF
+        // con páginas comprimidas, y un /Count inflado solo encarece la subida de quien lo fabrica.
+        int counted = Math.max(leaves, rootPagesCount(text));
+        return Math.min(MAX_COUNTED_PAGES, Math.max(1, counted));
+    }
+
+    private static int rootPagesCount(String text) {
+        int declared = 0;
+        java.util.regex.Matcher nodes = PAGES_NODE.matcher(text);
+        while (nodes.find()) {
+            int start = text.lastIndexOf("<<", nodes.start());
+            if (start < 0) continue;
+            String dictionary = balancedDictionary(text, start);
+            if (dictionary == null || dictionary.contains("/Parent")) continue;
+            java.util.regex.Matcher count = COUNT.matcher(dictionary);
+            if (count.find()) declared = Math.max(declared, Integer.parseInt(count.group(1)));
+        }
+        return declared;
+    }
+
+    /** El diccionario que empieza en {@code start}, con sus diccionarios anidados, o null si no cierra. */
+    private static String balancedDictionary(String text, int start) {
+        int depth = 0;
+        for (int i = start; i + 1 < text.length(); i++) {
+            if (text.charAt(i) == '<' && text.charAt(i + 1) == '<') {
+                depth++;
+                i++;
+            } else if (text.charAt(i) == '>' && text.charAt(i + 1) == '>') {
+                depth--;
+                i++;
+                if (depth == 0) return text.substring(start, i + 1);
+            }
+        }
+        return null;
+    }
+
     public OcrExtraction extract(byte[] fileBytes, String mimeType, String originalFilename) {
         long started = System.nanoTime();
         if (!geminiClient.isConfigured()) {

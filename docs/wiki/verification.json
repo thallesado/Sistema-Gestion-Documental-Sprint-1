@@ -26,9 +26,98 @@
                   "05-guias-ia/pruebas-y-validacion.md",
                   "06-operacion/despliegue-y-recuperacion.md",
                   "README.md",
-                  "04-dominio-y-negocio/respaldos-y-restauracion.md"
+                  "04-dominio-y-negocio/respaldos-y-restauracion.md",
+                  "04-dominio-y-negocio/marca-y-regionalizacion.md",
+                  "04-dominio-y-negocio/ayuda-y-asistente.md",
+                  "06-operacion/anclaje-externo-auditoria.md",
+                  "04-dominio-y-negocio/reportes-y-analitica.md"
               ],
     "contracts":  [
+                      {
+                          "page": "02-backend/base-de-datos-y-migraciones.md",
+                          "path": "database/init/058_users_self_update.sql",
+                          "includes": ["CREATE POLICY self_update", "users_guard_self_update", "INSERT INTO app.schema_migrations"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ReportService.java",
+                          "includes": ["MAX_EXPORT_ROWS = 100_000", "ExportTooLargeException", "EXPORT_BATCH_SIZE = 1000", "getOcrReport", "tenantZone"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/ReportController.java",
+                          "includes": ["X-Report-Total-Rows", "PAYLOAD_TOO_LARGE"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AnalyticsService.java",
+                          "includes": ["AT TIME ZONE", "documents_created", "workflow_documents"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+                          "path": "frontend/src/app/core/data/report-data.ts",
+                          "includes": ["chartPointsFromRows", "finiteNumber"]
+                      },
+                      {
+                          "page": "02-backend/autenticacion-y-sesiones.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/MustChangePasswordFilter.java",
+                          "includes": ["MUST_CHANGE_PASSWORD", "ROLE_MUST_CHANGE_PASSWORD"]
+                      },
+                      {
+                          "page": "02-backend/autenticacion-y-sesiones.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/PublicEndpointRateLimitFilter.java",
+                          "includes": ["public-signup"]
+                      },
+                      {
+                          "page": "03-frontend/estado-y-comunicacion-api.md",
+                          "path": "frontend/src/app/core/auth/auth.guard.ts",
+                          "includes": ["changePasswordPageGuard"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentService.java",
+                          "includes": ["hideMetadata"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/WorkflowEngineService.java",
+                          "includes": ["hideDocumentComponents"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/marca-y-regionalizacion.md",
+                          "path": "frontend/src/app/core/theme/theme-variables.ts",
+                          "includes": ["--tenant-teal", "--primary-color"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/marca-y-regionalizacion.md",
+                          "path": "frontend/src/app/core/i18n/format.pipe.ts",
+                          "includes": ["formatTenantDate"]
+                      },
+                      {
+                          "page": "03-frontend/arquitectura-angular.md",
+                          "path": "frontend/src/app/core/http/tenant-session.ts",
+                          "includes": ["isPlatformSession", "friendlyApiMessage"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/ayuda-y-asistente.md",
+                          "path": "backend/bootstrap/src/main/resources/assistant/manual.md",
+                          "includes": ["/settings/backups", "backup:restore", "/settings/appearance"]
+                      },
+                      {
+                          "page": "06-operacion/anclaje-externo-auditoria.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AuditAnchorScheduler.java",
+                          "includes": ["DISABLED"]
+                      },
+                      {
+                          "page": "06-operacion/anclaje-externo-auditoria.md",
+                          "path": "backend/bootstrap/src/main/resources/application.yml",
+                          "includes": ["AUDIT_ANCHOR_EXTERNAL_FILE", "AUDIT_ANCHOR_CRON", "AUDIT_ANCHOR_SECRET"]
+                      },
+                      {
+                          "page": "06-operacion/respaldo-completo.md",
+                          "path": "frontend/src/app/features/backups/pages/platform-backup.logic.ts",
+                          "includes": ["El operador de respaldos completos no está configurado"]
+                      },
                       {
                           "page": "06-operacion/respaldo-completo.md",
                           "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/PlatformBackupService.java",
@@ -43,6 +132,11 @@
                           "page": "02-backend/autenticacion-y-sesiones.md",
                           "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/LoginAttemptRateLimitFilter.java",
                           "includes": ["response.setStatus(429)", "response.setHeader(\"Retry-After\"", "readScope(body)", "MAX_BUCKETS", "Clock.systemUTC()"]
+                      },
+                      {
+                          "page": "02-backend/base-de-datos-y-migraciones.md",
+                          "path": "database/init/053_fix_runtime_grants.sql",
+                          "includes": ["GRANT INSERT (preferred_language, must_change_password) ON public.users TO nexodocs_app", "GRANT SELECT, INSERT, UPDATE ON public.tenant_usage_monthly TO nexodocs_security", "INSERT INTO app.schema_migrations"]
                       },
                       {
                           "page": "02-backend/autenticacion-y-sesiones.md",
@@ -562,6 +656,22 @@
                     "04-dominio-y-negocio/respaldos-y-restauracion.md":  {
                                                                              "reviewedAt":  "2026-10-21",
                                                                              "revision":  "c93a8b4"
-                                                                         }
+                                                                         },
+                    "04-dominio-y-negocio/marca-y-regionalizacion.md":  {
+                                                                            "reviewedAt":  "2026-10-25",
+                                                                            "revision":  "3876454"
+                                                                        },
+                    "04-dominio-y-negocio/ayuda-y-asistente.md":  {
+                                                                      "reviewedAt":  "2026-10-25",
+                                                                      "revision":  "3876454"
+                                                                  },
+                    "06-operacion/anclaje-externo-auditoria.md":  {
+                                                                      "reviewedAt":  "2026-10-25",
+                                                                      "revision":  "3876454"
+                                                                  },
+                    "04-dominio-y-negocio/reportes-y-analitica.md":  {
+                                                                         "reviewedAt":  "2026-10-25",
+                                                                         "revision":  "3876454"
+                                                                     }
                 }
 }

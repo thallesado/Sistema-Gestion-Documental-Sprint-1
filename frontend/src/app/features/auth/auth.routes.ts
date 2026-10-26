@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { publicGuard } from '../../core/auth/auth.guard';
+import { changePasswordPageGuard, publicGuard } from '../../core/auth/auth.guard';
 
 export const autenticacionRoutes: Routes = [
   {
@@ -17,6 +17,12 @@ export const autenticacionRoutes: Routes = [
     loadComponent: () => import('./pages/login-page').then((m) => m.LoginPage),
     title: 'Login - NexoDocs',
     canActivate: [publicGuard],
+  },
+  {
+    path: 'change-password',
+    loadComponent: () => import('./pages/change-password-page').then((m) => m.ChangePasswordPage),
+    title: 'Cambiar contraseña temporal - NexoDocs',
+    canActivate: [changePasswordPageGuard],
   },
   {
     path: 'forgot-password',

@@ -1,6 +1,8 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, map, of } from 'rxjs';
+import { AuthService } from '../auth/auth.service';
+import { mustSkipTenantRequests } from '../http/tenant-session';
 
 const API_URL = '/api/v1';
 
@@ -46,8 +48,11 @@ export interface DashboardResponse {
 @Injectable({ providedIn: 'root' })
 export class WorkspaceApiService {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
 
   dashboard(limit = 10): Observable<DashboardResponse> {
+    // The tenant dashboard is 403 for platform admins (no tenant) and while the password is temporary: do not request it.
+    if (mustSkipTenantRequests(this.auth.user(), this.auth.mustChangePassword())) return of({ tasks: [], recentActivity: [], recentDocuments: [] });
     const params = new HttpParams().set('limit', limit);
     return this.http.get<DashboardResponse>(`${API_URL}/dashboard`, { params });
   }

@@ -9,8 +9,8 @@ import {
   ReportHeader,
   ReportTable,
 } from '../components';
-import { ChartPoint, ReportDefinition, ReportRow, reportDefinition } from '../../../core/data/report-data';
-import { DemoSessionState } from '../../../core/state/demo-session';
+import { AuthService } from '../../../core/auth/auth.service';
+import { ChartPoint, ReportDefinition, ReportRow, chartPointsFromRows, finiteNumber, reportDefinition, sessionLabels } from '../../../core/data/report-data';
 import { AnalyticsDashboard, ReportApiService } from '../../../core/api/report-api.service';
 import { exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
 
@@ -25,10 +25,9 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
       <app-report-header
         [title]="viewMode() === 'analytics' ? 'Tablero Analítico y Business Intelligence' : report.title"
         [description]="viewMode() === 'analytics' ? 'Métricas agregadas en tiempo real: evolución mensual, tiempos de ciclo, cuellos de botella y rendimiento de OCR.' : report.description"
-        [tenant]="session.tenant()"
-        [role]="session.role()"
+        [tenant]="sessionInfo().tenant"
+        [role]="sessionInfo().role"
         [filterSummary]="filterSummary()"
-        (tenantChange)="changeTenant($event)"
         (export)="exportReport($event)"
       />
 
@@ -55,22 +54,16 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
         </button>
       </div>
 
-      @if (isSuperAdmin && session.tenant() === 'Todos los tenants') {
-        <div class="tenant-comparison-note">
-          <span>◈</span>
-          <div>
-            <strong>Comparativo global disponible para Superadministrador</strong>
-            <small>Filtros aplicados sobre el alcance administrativo actual.</small>
-          </div>
-        </div>
-      }
-
       <app-report-filters
         [filters]="report.filters"
         [values]="filterValues()"
         (filtersChange)="changeFilter($event.key, $event.value)"
         (reset)="resetFilters()"
       />
+
+      @if (message()) {
+        <div class="inline-toast" role="status">{{ message() }}</div>
+      }
 
       @if (errorMessage()) {
         <div class="inline-toast" style="background: #fef2f2; border: 1px solid #f87171; color: #991b1b; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;" role="alert">
@@ -212,9 +205,6 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
           @if (report.chartThree; as chartThree) {
             <app-report-chart [title]="chartThree.title" [subtitle]="chartThree.subtitle" [kind]="chartThree.kind" [points]="chartPoints(chartThree.groupBy)" />
           }
-          @if (report.key === 'storage' && isSuperAdmin) {
-            <app-report-chart title="Comparativo por tenant" subtitle="Solo visible para Superadministrador" kind="bars" [points]="tenantComparison" />
-          }
         </section>
 
         @if (report.key === 'areas' && selectedArea()) {
@@ -255,7 +245,8 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
   `,
 })
 export class ReportsPage implements OnInit {
-  readonly session = inject(DemoSessionState);
+  private readonly auth = inject(AuthService);
+  readonly sessionInfo = computed(() => sessionLabels(this.auth.user()));
   private readonly route = inject(ActivatedRoute);
   private readonly reportApi = inject(ReportApiService);
 
@@ -277,12 +268,6 @@ export class ReportsPage implements OnInit {
   readonly rows = signal<ReportRow[]>([]);
   readonly totalElements = signal(0);
   readonly analyticsData = signal<AnalyticsDashboard | null>(null);
-
-  readonly tenantComparison: ChartPoint[] = [
-    { label: 'Acme', value: 68, color: '#087f7b' },
-    { label: 'Clínica', value: 57, color: '#4d9bd8' },
-    { label: 'Universidad', value: 81, color: '#79c4bb' },
-  ];
 
   readonly visibleRows = computed(() => this.rows());
   readonly filteredRows = computed(() => this.rows());
@@ -453,8 +438,6 @@ export class ReportsPage implements OnInit {
     return 'Resultados que respetan los filtros obligatorios actuales';
   }
 
-  get isSuperAdmin(): boolean { return this.session.role() === 'Superadministrador'; }
-
   filterSummary(): string {
     const count = Object.values(this.filterValues()).filter(Boolean).length;
     return count ? `${count} filtro${count === 1 ? '' : 's'} aplicado${count === 1 ? '' : 's'}` : 'filtros actuales';
@@ -483,13 +466,6 @@ export class ReportsPage implements OnInit {
     this.loadReport();
   }
 
-  changeTenant(tenant: string): void {
-    if (!this.isSuperAdmin) return;
-    this.session.tenant.set(tenant);
-    this.message.set(`Tenant visual cambiado a ${tenant}`);
-    this.loadData();
-  }
-
   exportReport(format: string): void {
     const filters = this.filterValues();
     if (!filters['dateFrom'] || !filters['dateTo']) {
@@ -498,7 +474,7 @@ export class ReportsPage implements OnInit {
     }
 
     if (format === 'Excel' || format === 'CSV') {
-      this.message.set(`Generando exportación CSV en el servidor...`);
+      this.message.set('Generando exportación CSV en el servidor...');
       this.reportApi.downloadCsv(this.report.key, filters).subscribe({
         next: (blob) => {
           const url = window.URL.createObjectURL(blob);
@@ -519,7 +495,7 @@ export class ReportsPage implements OnInit {
       this.message.set(`Reporte exportado exitosamente en formato JSON.`);
     } else if (format === 'PDF') {
       const cols: ExportColumn[] = this.report.columns.map((c) => ({ key: c.key, label: c.label }));
-      exportToPrintView(this.report.title, `Reporte del tenant ${this.session.tenant()} · NexoDocs`, this.rows(), cols);
+      exportToPrintView(this.report.title, `Reporte del tenant ${this.sessionInfo().tenant} · NexoDocs`, this.rows(), cols);
       this.message.set(`Vista de impresión preparada.`);
     }
   }
@@ -533,15 +509,10 @@ export class ReportsPage implements OnInit {
   }
 
   chartPoints(groupBy: string): ChartPoint[] {
-    const rows = this.rows();
-    const grouped = new Map<string, number>();
-    for (const row of rows) {
-      const label = String(row[groupBy] ?? 'Sin dato');
-      const value = this.numericValue(row, groupBy);
-      grouped.set(label, (grouped.get(label) ?? 0) + value);
-    }
-    const colors = ['#087f7b', '#4d9bd8', '#79c4bb', '#e3a633', '#7e5ab0', '#d76a6a', '#8aa19f'];
-    return Array.from(grouped.entries()).map(([label, value], index) => ({ label, value, color: colors[index % colors.length] }));
+    const sumKey = this.report.key === 'areas' && groupBy === 'area' ? 'documents'
+      : this.report.key === 'users' && groupBy === 'user' ? 'actions'
+      : undefined;
+    return chartPointsFromRows(this.rows(), groupBy, sumKey);
   }
 
   selectedAreaRow(): ReportRow | undefined {
@@ -550,14 +521,6 @@ export class ReportsPage implements OnInit {
 
   areaValue(key: string): string | number {
     return this.selectedAreaRow()?.[key] ?? '—';
-  }
-
-  private numericValue(row: ReportRow, groupBy: string): number {
-    if (groupBy === 'status' || groupBy === 'result' || groupBy === 'action' || groupBy === 'module' || groupBy === 'period') return 1;
-    const numericKey = ['stateValue', 'activityValue', 'completedValue', 'growthValue', 'stageValue', 'areaValue'].find((key) => typeof row[key] === 'number');
-    if (groupBy === 'category') return Number(row['used'] ?? row['percentage'] ?? 1);
-    if (groupBy === 'area' && this.report.key === 'areas') return Number(row['documents'] ?? 1);
-    return Number(row[numericKey ?? groupBy] ?? 1);
   }
 
   private buildKpis(rows: ReportRow[]): Kpi[] {
@@ -575,7 +538,7 @@ export class ReportsPage implements OnInit {
         { icon: '✓', label: 'Activos', value: String(countValue('status', 'ACTIVE')), detail: 'Cuentas habilitadas', tone: 'green' },
         { icon: '◌', label: 'Inactivos', value: String(countValue('status', 'INACTIVE')), detail: 'Sin actividad', tone: 'muted' },
         { icon: '!', label: 'Suspendidos', value: String(countValue('status', 'SUSPENDED')), detail: 'Acceso restringido', tone: 'rose' },
-        { icon: '↗', label: 'Con acciones', value: String(rows.filter((r) => Number(r['actions'] ?? 0) > 0).length), detail: 'Operativos en rango', tone: 'blue' },
+        { icon: '↗', label: 'Con acciones', value: String(rows.filter((r) => finiteNumber(r['actions']) > 0).length), detail: 'Operativos en rango', tone: 'blue' },
       ];
       case 'workflows': return [
         { icon: '◷', label: 'Workflows', value: String(count), detail: 'Total periodo filtrado', tone: 'teal' },
@@ -620,6 +583,7 @@ export class ReportsPage implements OnInit {
       '/reports/workflows': 'workflows',
       '/reports/expedients': 'expedients',
       '/reports/audit': 'audit',
+      '/reports/ocr': 'ocr',
       '/reports/productivity': 'productivity',
       '/reports/by-area': 'areas',
     } as Record<string, string>)[href] ?? 'documents';

@@ -36,9 +36,46 @@ El OCR solo reconoce texto de documentos (recetas, informes, formularios); no in
 
 ## Usuarios y equipos
 - Todos los usuarios (`/users`), Grupos de usuarios (perfiles) (`/users/roles`), Permisos (`/users/permissions`) y Privilegios por formulario (`/users/form-permissions`). Los permisos se asignan a perfiles y los perfiles a usuarios.
+- Un usuario nuevo recibe una contraseña temporal que el administrador le entrega (el sistema no envía correos) y debe cambiarla en su primer inicio de sesión.
+- El plan limita la cantidad de usuarios activos; al alcanzar el tope no se pueden crear más hasta desactivar cuentas o cambiar de plan.
+
+## Privilegios por formulario
+Menú Usuarios y equipos > Privilegios por formulario (`/users/form-permissions`). Requiere `component_permission:manage`.
+1. Elige el formulario y el grupo.
+2. Fija el estado de cada componente: "Visible y editable", "Solo lectura" o "No visible".
+3. Guarda los cambios.
+Por defecto todo es "Visible y editable". Si un usuario está en varios grupos, gana el grupo más permisivo.
 
 ## Auditoría
-- Registro general (`/audit`) y Accesos (`/audit/access`): quién hizo qué, cuándo (hora del cliente y del servidor), desde qué IP y qué cambió.
+- Menú Auditoría (requiere `audit:read_tenant` o `audit:read_global`): Registro general (`/audit`), Accesos (`/audit/access`), Creación de documentos, Modificaciones, Descargas, Aprobaciones, Eliminaciones y Cambios de permisos. Muestran quién hizo qué, cuándo (hora del cliente y del servidor), desde qué IP y qué cambió.
+- Verificar integridad: en el Registro general pulsa "Verificar integridad". Comprueba que la cadena de hashes SHA-256 de los eventos no fue alterada y la compara con el ancla externa si está configurada. Si es íntegra, no se detectó alteración de eventos pasados; no prueba que el contenido de cada evento sea correcto. Si falla, avisa a un administrador.
+
+## Respaldos y restauración
+Menú Respaldos > Respaldos y restauración (`/settings/backups`). Ver el menú requiere `backup:read`.
+Crear un respaldo:
+1. Entra a Respaldos > Respaldos y restauración.
+2. Pulsa "Crear respaldo" (requiere `backup:create`).
+3. Espera a que el estado sea Completado.
+Respaldo automático: en "Configuración" (requiere `backup:configure`) se define la hora diaria, la zona horaria y los días de retención (1 a 365). La retención elimina los respaldos ordinarios vencidos; los respaldos de seguridad y la evidencia de restauraciones se conservan siempre.
+Descargar: abre el detalle del respaldo y pulsa "Descargar ZIP" (requiere `backup:download`). El ZIP no está cifrado: guárdalo en un lugar seguro y conserva también una copia externa.
+Restaurar un respaldo:
+1. Abre el respaldo y pulsa "Restaurar" (requiere `backup:restore`).
+2. El sistema verifica que el paquete sea válido y compatible.
+3. Escribe exactamente el nombre de la organización para confirmar y pulsa "Restaurar respaldo".
+4. Antes de restaurar se crea automáticamente un respaldo de seguridad protegido y las modificaciones de la organización se suspenden temporalmente; las demás organizaciones no se ven afectadas.
+5. Los cambios posteriores al respaldo dejan de estar vigentes; la auditoría original se conserva y el estado anterior queda en el respaldo de seguridad.
+Un respaldo creado antes de un cambio de estructura del sistema puede ser incompatible; crea uno nuevo.
+
+## Apariencia y regionalización
+Menú Configuración > Apariencia (`/settings/appearance`); el menú Configuración requiere `configuration:read`.
+- Color primario de la marca (selector de color con vista previa).
+- URL del Logotipo: se pega la dirección pública de una imagen; no se suben archivos de logo.
+- Moneda, Zona horaria y formato de fecha de la organización.
+
+## Registro, planes e inicio de sesión
+- Una empresa nueva se registra desde la pantalla de inicio de sesión con "Crear cuenta de empresa" (`/planes`): elige un plan y completa sus datos; la cuenta creada es de administrador.
+- Cada plan (por ejemplo Básico, Pro, Enterprise) fija límites: usuarios, almacenamiento, documentos y páginas de OCR por mes. Al superar un límite la acción se rechaza con un aviso; hay que liberar cupo o cambiar de plan.
+- Si se superan los intentos fallidos de inicio de sesión en poco tiempo, el acceso se bloquea temporalmente (error 429): espera el tiempo indicado y reintenta. Un inicio de sesión correcto no cuenta como intento fallido.
 
 ## Otros
 - Reportes (`/reports`), Facturación e ingresos (`/billing`).

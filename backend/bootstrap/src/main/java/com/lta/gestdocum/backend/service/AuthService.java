@@ -82,11 +82,12 @@ public class AuthService {
                     "El usuario no tiene permisos activos asignados");
         }
         String token = jwtService.generateToken(
-                user.getId(), user.getTenantId(), user.getUsername(), authorities);
+                user.getId(), user.getTenantId(), user.getUsername(), tokenAuthorities(user, authorities));
         String refreshToken = jwtService.generateRefreshToken(
                 user.getId(), user.getTenantId(), user.getUsername());
         authSessionService.issue(user, refreshToken, jwtService.getRefreshExpiration());
-        return new AuthResponse(token, "Bearer", refreshToken, jwtService.getExpiration(), authorities);
+        return new AuthResponse(token, "Bearer", refreshToken, jwtService.getExpiration(), authorities,
+                user.isMustChangePassword());
     }
 
     public AuthResponse refresh(RefreshTokenRequest request) {
@@ -106,12 +107,21 @@ public class AuthService {
                     "El usuario no tiene permisos activos asignados");
         }
         String token = jwtService.generateToken(
-                user.getId(), user.getTenantId(), user.getUsername(), authorities);
+                user.getId(), user.getTenantId(), user.getUsername(), tokenAuthorities(user, authorities));
         String replacementRefreshToken = jwtService.generateRefreshToken(
                 user.getId(), user.getTenantId(), user.getUsername());
         authSessionService.rotate(user, request.getRefreshToken(), replacementRefreshToken,
                 jwtService.getRefreshExpiration());
-        return new AuthResponse(token, "Bearer", replacementRefreshToken, jwtService.getExpiration(), authorities);
+        return new AuthResponse(token, "Bearer", replacementRefreshToken, jwtService.getExpiration(), authorities,
+                user.isMustChangePassword());
+    }
+
+    /** Con contraseña temporal el JWT lleva además la marca que usa MustChangePasswordFilter. */
+    private List<String> tokenAuthorities(User user, List<String> authorities) {
+        if (!user.isMustChangePassword()) return authorities;
+        List<String> marked = new java.util.ArrayList<>(authorities);
+        marked.add(com.lta.gestdocum.backend.security.MustChangePasswordFilter.MARKER_AUTHORITY);
+        return marked;
     }
 
     private List<String> resolveAuthorities(User user) {

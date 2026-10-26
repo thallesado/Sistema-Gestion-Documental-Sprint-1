@@ -91,6 +91,17 @@ public class TenantService {
      */
     @Transactional
     public TenantResponse create(TenantCreateRequest r) {
+        return create(r, null);
+    }
+
+    /**
+     * Único recorrido de creación de organizaciones (alta por superadmin, /public/signup y /public/onboarding).
+     * Con {@code adminPassword} el administrador elige su contraseña: no queda marcada como temporal y no se
+     * envía correo con credenciales. Sin ella se genera una temporal que se envía por correo y debe cambiarse.
+     */
+    @Transactional
+    public TenantResponse create(TenantCreateRequest r, String adminPassword) {
+        boolean ownPassword = adminPassword != null && !adminPassword.isBlank();
         UUID tenantId = UUID.randomUUID();
         Tenant t = new Tenant();
         t.setId(tenantId);
@@ -135,17 +146,17 @@ public class TenantService {
 
         String suffix = tenantId.toString().substring(0, 8);
         String username = deriveUsername(adminEmail, suffix);
-        String tempPassword = generateTemporaryPassword();
+        String tempPassword = ownPassword ? null : generateTemporaryPassword();
 
         User adminUser = User.builder()
                 .tenantId(tenantId)
                 .username(username)
                 .email(adminEmail)
-                .passwordHash(passwordEncoder.encode(tempPassword))
+                .passwordHash(passwordEncoder.encode(ownPassword ? adminPassword : tempPassword))
                 .firstName(firstName)
                 .lastName(lastName)
                 .status(UserStatus.ACTIVE)
-                .mustChangePassword(true)
+                .mustChangePassword(!ownPassword)
                 .preferredLanguage("es")
                 .build();
         userRepository.save(adminUser);
@@ -176,7 +187,7 @@ public class TenantService {
         }
 
         // Enviar correo con credenciales de acceso de forma defensiva
-        sendWelcomeEmail(saved, adminUser, tempPassword);
+        if (!ownPassword) sendWelcomeEmail(saved, adminUser, tempPassword);
 
         // Sembrar catálogos base (departamentos, categorías y tipos documentales)
         seedDefaultCatalogs(saved.getId());
@@ -296,8 +307,9 @@ public class TenantService {
 
     private void sendWelcomeEmail(Tenant tenant, User adminUser, String tempPassword) {
         if (mailSender == null) {
-            log.info("JavaMailSender no disponible; credenciales de {} para {}: usuario={}, clave={}",
-                    tenant.getName(), adminUser.getEmail(), adminUser.getUsername(), tempPassword);
+            log.warn("JavaMailSender no disponible; no se envió la contraseña temporal de {} a {} (usuario={}). "
+                            + "Usa la recuperación de contraseña para definir una nueva.",
+                    tenant.getName(), adminUser.getEmail(), adminUser.getUsername());
             return;
         }
         try {

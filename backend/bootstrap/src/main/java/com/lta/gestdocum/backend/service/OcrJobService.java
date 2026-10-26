@@ -113,6 +113,10 @@ public class OcrJobService {
             throw new UncheckedIOException("Error al leer los bytes del archivo", exception);
         }
         String mimeType = file.getContentType().toLowerCase(Locale.ROOT);
+        int pages = OcrService.countPages(bytes, mimeType);
+        if (planLimitService != null && pages > 1) {
+            planLimitService.validateOcrLimit(tenantId, pages);
+        }
         String filename = sanitizeFilename(file.getOriginalFilename());
         UUID jobId = UUID.randomUUID();
         String storedPath = fileStore.save(tenantId, jobId, bytes);
@@ -145,9 +149,9 @@ public class OcrJobService {
                 context.establishDatabaseContext();
                 OcrJob job = repository.findByIdAndTenantId(jobId, tenantId)
                         .orElseThrow(() -> new NotFoundException("Digitalización no encontrada"));
-                applyExtraction(job, extraction, mimeType);
+                applyExtraction(job, extraction, mimeType, pages);
                 if (planLimitService != null) {
-                    planLimitService.recordOcrUsage(tenantId, 1);
+                    planLimitService.recordOcrUsage(tenantId, pages);
                 }
                 return toResponse(repository.save(job));
             });
@@ -418,10 +422,10 @@ public class OcrJobService {
         });
     }
 
-    private void applyExtraction(OcrJob job, OcrService.OcrExtraction extraction, String mimeType) {
+    private void applyExtraction(OcrJob job, OcrService.OcrExtraction extraction, String mimeType, int pages) {
         OcrProcessResponse data = extraction.data();
         job.setProcessingMs((int) Math.min(extraction.elapsedMs(), Integer.MAX_VALUE));
-        job.setPagesTotal(mimeType.startsWith("image/") ? 1 : null);
+        job.setPagesTotal(pages);
         job.setUpdatedAt(OffsetDateTime.now());
         if (extraction.fallback()) {
             job.setStatus(Status.FAILED);
@@ -430,7 +434,7 @@ public class OcrJobService {
             return;
         }
         job.setStatus(Status.REQUIRES_VALIDATION);
-        job.setPagesProcessed(1);
+        job.setPagesProcessed(pages);
         job.setModelUsed(extraction.model());
         job.setRawText(data.fullText());
         job.setConfidenceScore(BigDecimal.valueOf(data.confidence() == null ? 0.0 : data.confidence())

@@ -80,13 +80,14 @@ public class GlobalExceptionHandler {
                 "La operación entra en conflicto con datos existentes", request);
     }
 
-    // Errores de BD no contemplados (p. ej. "permission denied", RLS): se registran y se devuelven con su causa
+    // Errores de BD no contemplados (p. ej. "permission denied", RLS): el detalle solo se registra en el log;
+    // al cliente se devuelve un mensaje genérico para no exponer SQL, tablas ni texto de Hibernate/PostgreSQL.
     @ExceptionHandler(org.springframework.dao.DataAccessException.class)
     public ResponseEntity<Map<String, Object>> handleDataAccess(
             org.springframework.dao.DataAccessException exception, HttpServletRequest request) {
         log.error("Error de acceso a datos en {} {}", request.getMethod(), request.getRequestURI(), exception);
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "Database Error",
-                exception.getMostSpecificCause().getMessage(), request);
+                "No se pudo completar la operación por un problema interno de datos. Inténtalo de nuevo o contacta a tu administrador.", request);
     }
 
     @ExceptionHandler(DuplicateResourceException.class)

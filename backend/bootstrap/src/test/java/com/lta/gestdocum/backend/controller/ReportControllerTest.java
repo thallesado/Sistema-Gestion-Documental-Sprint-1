@@ -77,8 +77,8 @@ class ReportControllerTest {
     @DisplayName("Exportación a CSV devuelve cabeceras correctas y archivo generado")
     void exportCsv_returnsCsvFile() {
         byte[] mockBytes = "Documento,Código\nDoc1,C1".getBytes();
-        when(reportService.exportCsv(eq("documents"), any(ReportFilterRequest.class)))
-                .thenReturn(mockBytes);
+        when(reportService.exportCsvFile(eq("documents"), any(ReportFilterRequest.class)))
+                .thenReturn(new ReportService.CsvExport(mockBytes, 2));
 
         ResponseEntity<byte[]> response = controller.exportCsv(
                 "documents", "2026-09-01", "2026-09-30",
@@ -90,5 +90,41 @@ class ReportControllerTest {
         assertTrue(response.getHeaders().getContentType().toString().contains("text/csv"));
         assertTrue(response.getHeaders().getFirst("Content-Disposition").contains("attachment; filename=\"reporte-documents-"));
         assertArrayEquals(mockBytes, response.getBody());
+        assertEquals("2", response.getHeaders().getFirst("X-Report-Total-Rows"));
+    }
+
+    @Test
+    @DisplayName("Una exportación demasiado grande responde 413 con mensaje y total de filas")
+    void exportTooLarge_maps413() {
+        ResponseEntity<java.util.Map<String, Object>> response =
+                controller.handleExportTooLarge(new ReportService.ExportTooLargeException(150_000, 100_000));
+
+        assertEquals(413, response.getStatusCode().value());
+        assertEquals("150000", response.getHeaders().getFirst("X-Report-Total-Rows"));
+        assertTrue(response.getBody().get("message").toString().contains("Acote los filtros"));
+    }
+
+    @Test
+    @DisplayName("Las fechas sin hora se interpretan en la zona horaria del tenant")
+    void getDocuments_parsesDatesInTenantZone() {
+        when(reportService.tenantZone()).thenReturn(java.time.ZoneId.of("America/La_Paz"));
+        when(reportService.getDocumentsReport(any(ReportFilterRequest.class), eq(1), eq(10)))
+                .thenReturn(ReportPageResponse.of(List.of(), 0, 1, 10));
+
+        controller.getDocuments("2026-09-01", "2026-09-30", null, null, null, null, null, 1, 10);
+
+        org.mockito.ArgumentCaptor<ReportFilterRequest> captor = org.mockito.ArgumentCaptor.forClass(ReportFilterRequest.class);
+        verify(reportService).getDocumentsReport(captor.capture(), eq(1), eq(10));
+        assertEquals(java.time.Instant.parse("2026-09-01T04:00:00Z"), captor.getValue().dateFrom().toInstant());
+    }
+
+    @Test
+    @DisplayName("El reporte de OCR valida el rango de fechas y delega al servicio")
+    void getOcr_delegatesToService() {
+        when(reportService.getOcrReport(any(ReportFilterRequest.class), eq(1), eq(10)))
+                .thenReturn(ReportPageResponse.of(List.of(), 0, 1, 10));
+
+        assertEquals(200, controller.getOcr("2026-09-01", "2026-09-30", null, null, null, 1, 10).getStatusCode().value());
+        assertThrows(IllegalArgumentException.class, () -> controller.getOcr(null, "2026-09-30", null, null, null, 1, 10));
     }
 }

@@ -4,6 +4,7 @@ import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, Validatio
 import { merge } from 'rxjs';
 import { AdministrationApiService, ApiRole, CreateUserPayload } from '../../../core/api/administration-api.service';
 import { FieldPermissionDirective } from '../../../core/auth/field-permission.directive';
+import { friendlyApiMessage } from '../../../core/http/tenant-session';
 
 /** Exige mínimo 8 caracteres, mayúscula, número y carácter especial. */
 function strongPassword(control: AbstractControl): ValidationErrors | null {
@@ -168,7 +169,7 @@ export class CreateUserModal {
 
   private apiError(error: { status?: number; error?: { message?: string } }): string {
     if (error.status === 0) return 'No se pudo conectar con la API. Comprueba que el backend esté ejecutándose.';
-    if (error.error?.message) return error.error.message;
+    if (error.error?.message) return friendlyApiMessage(error.error.message, 'No se pudo crear el usuario.');
     if (error.status === 401 || error.status === 403) return 'No tienes permisos para realizar esta operación.';
     return 'No se pudo crear el usuario.';
   }

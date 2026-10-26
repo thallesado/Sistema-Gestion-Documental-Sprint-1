@@ -15,15 +15,25 @@ public class DocumentSearchService {
     private final DocumentRepository documentRepository;
     private final AuthenticatedUserContext authenticatedUserContext;
 
-    public DocumentSearchService(DocumentRepository documentRepository, AuthenticatedUserContext authenticatedUserContext) {
+    private final ComponentPermissionService componentPermissions;
+
+    public DocumentSearchService(DocumentRepository documentRepository, AuthenticatedUserContext authenticatedUserContext,
+                                 ComponentPermissionService componentPermissions) {
         this.documentRepository = documentRepository;
         this.authenticatedUserContext = authenticatedUserContext;
+        this.componentPermissions = componentPermissions;
     }
 
     public List<DocumentDTO> searchDocumentsByTenant(String query, int limit) {
         UUID tenantId = authenticatedUserContext.requireTenantId();
 
         if (query == null || query.trim().isEmpty()) {
+            return List.of();
+        }
+
+        // B2: no se puede buscar por un nombre que el perfil no ve (inferencia) ni devolver campos ocultos.
+        ComponentFormAccess access = componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM);
+        if (!access.visible("nombre")) {
             return List.of();
         }
 
@@ -34,17 +44,17 @@ public class DocumentSearchService {
             .toList();
 
         return documents.stream()
-            .map(this::mapToDocumentDTO)
+            .map(document -> mapToDocumentDTO(document, access))
             .toList();
     }
 
-    private DocumentDTO mapToDocumentDTO(Document doc) {
+    private DocumentDTO mapToDocumentDTO(Document doc, ComponentFormAccess access) {
         double relevance = 0.8;
         return new DocumentDTO(
             doc.getId().toString(),
-            doc.getCode(),
-            doc.getName(),
-            doc.getDescription(),
+            access.reveal("codigo", doc.getCode()),
+            access.reveal("nombre", doc.getName()),
+            access.reveal("descripcion", doc.getDescription()),
             "Documento",
             relevance
         );
