@@ -58,7 +58,7 @@ No aplican ocultación, tras revisar el código: expedientes (`ExpedientService`
 ## Pendiente o no verificado
 
 - La migración 040 no se ejecutó contra una base PostgreSQL en esta revisión; solo se revisó y se probó la lógica en pruebas unitarias.
-- `GET /api/v1/clinical-histories/{id}/documents` (`ClinicalHistoryService.toDocumentResponse`) aplica la misma ocultación por componente que el listado de documentos; la prueba es `ClinicalHistoryLinkedDocumentsHiddenTest`. Pendiente conocido: el orden (`sort`) de las vistas de workflow no valida que la columna no esté oculta, así que podría inferirse el orden de un dato oculto.
+- `GET /api/v1/clinical-histories/{id}/documents` (`ClinicalHistoryService.toDocumentResponse`) aplica la misma ocultación por componente que el listado de documentos; la prueba es `ClinicalHistoryLinkedDocumentsHiddenTest`. El orden (`sort`) de las vistas de workflow usa una lista cerrada de columnas de `WorkflowEngineService` (título, fechas, estado, prioridad, progreso) que no incluye nombre, código ni descripción del documento; cualquier otro valor ordena por fecha de creación, así que no se puede inferir un dato oculto por el orden.
 - `GET /users/{id}` y `GET /users/me` (`UserService`) no se auditaron en esta revisión: solo el listado aplica `UserFormPolicy.hideComponents`.
 - Los permisos y estados se recalculan al iniciar sesión; un cambio de grupo afecta a la sesión abierta en el siguiente login o refresh.
 
