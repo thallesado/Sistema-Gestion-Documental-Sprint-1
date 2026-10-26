@@ -26,7 +26,9 @@ export const changePasswordPageGuard: CanActivateFn = () => {
 export const rootEntryGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  return auth.isAuthenticated() ? true : router.createUrlTree(['/welcome']);
+  if (!auth.isAuthenticated()) return router.createUrlTree(['/welcome']);
+  // Con contraseña temporal la entrada al espacio de trabajo es la pantalla de cambio obligatorio.
+  return auth.mustChangePassword() ? router.createUrlTree(['/change-password']) : true;
 };
 
 export const platformAdminGuard: CanActivateFn = (_route, state) => {

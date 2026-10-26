@@ -196,7 +196,7 @@ export class App {
   );
 
   constructor() {
-    effect(() => { if (this.isWorkspace()) this.subscription.load(); });
+    effect(() => { if (this.isWorkspace() && !this.auth.mustChangePassword()) this.subscription.load(); });
     const activityEvents = ['pointerdown', 'keydown', 'mousemove', 'touchstart', 'scroll'];
     const resetIdleTimer = () => this.resetIdleTimer();
     activityEvents.forEach((eventName) => window.addEventListener(eventName, resetIdleTimer, { passive: true }));

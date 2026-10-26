@@ -26,3 +26,15 @@ test('el helper sigue omitiendo las llamadas de tenant para el superadmin de pla
   const helper = read('core/http/tenant-session.ts');
   assert.match(helper, /isPlatformSession/);
 });
+
+test('el shell no carga el plan y la suscripcion mientras la contraseña es temporal', () => {
+  const shell = read('shell/app.ts');
+  assert.match(shell, /isWorkspace\(\)\s*&&\s*!this\.auth\.mustChangePassword\(\)\)\s*this\.subscription\.load\(\)/);
+});
+
+test('la ruta raiz tambien manda a cambiar la contraseña temporal sin depender de un 403', () => {
+  const guard = read('core/auth/auth.guard.ts');
+  const root = guard.match(/export const rootEntryGuard[\s\S]*?\n};/)?.[0] ?? '';
+  assert.match(root, /mustChangePassword\(\)/, 'rootEntryGuard debe redirigir con clave temporal');
+  assert.match(root, /\/change-password/);
+});
