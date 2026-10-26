@@ -33,6 +33,13 @@ La pantalla de Auditoría muestra este estado, también al administrador del ten
 
 `AUDIT_ANCHOR_EXTERNAL_FILE`, `AUDIT_ANCHOR_EXTERNAL_HTTP_URL`, `AUDIT_ANCHOR_EXTERNAL_HTTP_READ_URL`, `AUDIT_ANCHOR_EXTERNAL_HTTP_METHOD`, `AUDIT_ANCHOR_EXTERNAL_HTTP_AUTH_HEADER`, `AUDIT_ANCHOR_EXTERNAL_HTTP_TIMEOUT_MS`, `AUDIT_ANCHOR_CRON` y `AUDIT_ANCHOR_SECRET` (ver `infrastructure/.env.example`). La clave por defecto del repositorio es pública: definir `AUDIT_ANCHOR_SECRET` en producción y mantenerla fuera de la base, o un atacante con acceso al repositorio puede firmar anclas falsas.
 
+## Endurecimiento
+
+- **Secreto:** `AuditAnchorSecretGuard` detiene el arranque en el perfil `prod` si hay un destino externo configurado y `AUDIT_ANCHOR_SECRET` conserva el valor público por defecto; en otros casos solo advierte en el log.
+- **Escritura concurrente:** el sumidero de archivo serializa a los escritores con un archivo hermano `<archivo>.lock` y comprueba la idempotencia dentro de ese bloqueo, así que dos instancias que comparten el volumen no duplican un ancla. El archivo `.lock` queda junto al de anclas y no contiene datos.
+- **Lectura incremental:** `latest()` solo procesa los bytes agregados desde la consulta anterior y reinicia su caché si el archivo se reemplaza o se acorta.
+- **Detalle de errores:** si el destino no se puede leer, `/audit/verify` responde un mensaje genérico; el detalle (con host y puerto) queda solo en el log del servidor.
+
 ## Límites conocidos
 
 - Si el atacante controla también el volumen externo o `AUDIT_ANCHOR_SECRET`, no hay detección.

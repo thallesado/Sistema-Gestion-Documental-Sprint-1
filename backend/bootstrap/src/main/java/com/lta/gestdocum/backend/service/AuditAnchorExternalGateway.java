@@ -90,7 +90,10 @@ public class AuditAnchorExternalGateway {
                     .orElseGet(() -> new AuditExternalLookup(AuditExternalLookup.Status.NONE, null, reader.kind(),
                             "No external anchor published yet for this scope"));
         } catch (RuntimeException e) {
-            return new AuditExternalLookup(AuditExternalLookup.Status.UNREACHABLE, null, reader.kind(), e.getMessage());
+            // El mensaje original puede nombrar host y puerto del destino: queda solo en el log del servidor.
+            log.warn("External audit anchor lookup failed for {}: {}", reader.destination(), e.getMessage());
+            return new AuditExternalLookup(AuditExternalLookup.Status.UNREACHABLE, null, reader.kind(),
+                    "The external anchor destination could not be read; see the server log");
         }
     }
 }
