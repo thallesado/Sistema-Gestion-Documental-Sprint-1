@@ -34,6 +34,11 @@
               ],
     "contracts":  [
                       {
+                          "page": "02-backend/base-de-datos-y-migraciones.md",
+                          "path": "database/init/058_users_self_update.sql",
+                          "includes": ["CREATE POLICY self_update", "users_guard_self_update", "INSERT INTO app.schema_migrations"]
+                      },
+                      {
                           "page": "04-dominio-y-negocio/reportes-y-analitica.md",
                           "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ReportService.java",
                           "includes": ["MAX_EXPORT_ROWS = 100_000", "ExportTooLargeException", "EXPORT_BATCH_SIZE = 1000", "getOcrReport", "tenantZone"]
