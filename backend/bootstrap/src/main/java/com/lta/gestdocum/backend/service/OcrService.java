@@ -70,18 +70,42 @@ public class OcrService {
         }
     }
 
-    /** Páginas que consume un archivo: 1 por imagen; en un PDF, las páginas del documento (mínimo 1). */
+    /** Tope de páginas que se cobran por archivo; evita que un /Count fabricado agote la cuota. */
+    static final int MAX_COUNTED_PAGES = 2000;
+
+    private static final java.util.regex.Pattern PAGE_LEAF = java.util.regex.Pattern.compile("/Type\\s*/Page(?![A-Za-z])");
+    private static final java.util.regex.Pattern PAGES_NODE = java.util.regex.Pattern.compile("/Type\\s*/Pages(?![A-Za-z])");
+    private static final java.util.regex.Pattern COUNT = java.util.regex.Pattern.compile("/Count\\s+(\\d{1,6})");
+
+    /**
+     * Páginas que consume un archivo: 1 por imagen; en un PDF, las páginas del documento (mínimo 1, máximo
+     * {@link #MAX_COUNTED_PAGES}). Se cuentan las hojas {@code /Type /Page} visibles; si no hay ninguna (objetos
+     * comprimidos), se usa el {@code /Count} del nodo raíz {@code /Type /Pages}, el que no tiene {@code /Parent}.
+     * Los {@code /Count} de marcadores (outlines) y de nodos intermedios no cuentan.
+     */
     public static int countPages(byte[] bytes, String mimeType) {
         if (bytes == null || mimeType == null || !mimeType.toLowerCase(Locale.ROOT).contains("pdf")) return 1;
         String text = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1);
-        java.util.regex.Matcher pages = java.util.regex.Pattern.compile("/Type\\s*/Page(?![A-Za-z])").matcher(text);
         int leaves = 0;
+        java.util.regex.Matcher pages = PAGE_LEAF.matcher(text);
         while (pages.find()) leaves++;
-        // PDF con objetos comprimidos: el nodo raíz /Pages declara el total en /Count.
+        int counted = leaves > 0 ? leaves : rootPagesCount(text);
+        return Math.min(MAX_COUNTED_PAGES, Math.max(1, counted));
+    }
+
+    private static int rootPagesCount(String text) {
         int declared = 0;
-        java.util.regex.Matcher counts = java.util.regex.Pattern.compile("/Count\\s+(\\d{1,6})").matcher(text);
-        while (counts.find()) declared = Math.max(declared, Integer.parseInt(counts.group(1)));
-        return Math.max(1, Math.max(leaves, declared));
+        java.util.regex.Matcher nodes = PAGES_NODE.matcher(text);
+        while (nodes.find()) {
+            int start = text.lastIndexOf("<<", nodes.start());
+            int end = text.indexOf(">>", nodes.end());
+            if (start < 0 || end < 0) continue;
+            String dictionary = text.substring(start, end);
+            if (dictionary.contains("/Parent")) continue;
+            java.util.regex.Matcher count = COUNT.matcher(dictionary);
+            if (count.find()) declared = Math.max(declared, Integer.parseInt(count.group(1)));
+        }
+        return declared;
     }
 
     public OcrExtraction extract(byte[] fileBytes, String mimeType, String originalFilename) {
