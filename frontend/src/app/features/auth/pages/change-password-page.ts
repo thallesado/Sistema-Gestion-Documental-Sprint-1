@@ -35,6 +35,18 @@ import { AuthService } from '../../../core/auth/auth.service';
     </main>
   `,
   styles: [`
+    .login-page { align-items: center; background: #f4f8f7; display: flex; justify-content: center; min-height: 100vh; padding: 24px; }
+    .login-card { background: #fff; border: 1px solid #dbe7e4; border-radius: 16px; box-shadow: 0 12px 32px rgba(15, 59, 56, .08); display: grid; gap: 14px; max-width: 440px; padding: 32px; width: 100%; }
+    .brand-mark { align-items: center; background: var(--teal, #0f817e); border-radius: 12px; color: #fff; display: flex; font-weight: 800; height: 44px; justify-content: center; width: 44px; }
+    .eyebrow { color: var(--teal, #0f817e); font-size: 12px; font-weight: 700; letter-spacing: .08em; margin: 0; }
+    h1 { color: #12302d; font-size: 24px; line-height: 1.2; margin: 0; }
+    p { color: #4a5d5a; font-size: 14px; line-height: 1.5; margin: 0; }
+    label { color: #12302d; display: grid; font-size: 13px; font-weight: 600; gap: 6px; }
+    input { border: 1px solid #c7d8d5; border-radius: 10px; font: inherit; padding: 10px 12px; }
+    input:focus-visible, button:focus-visible { outline: 3px solid var(--teal, #0f817e); outline-offset: 2px; }
+    .primary-link { background: var(--teal, #0f817e); border: 0; border-radius: 10px; color: #fff; cursor: pointer; font: inherit; font-weight: 700; padding: 12px 16px; }
+    .primary-link:disabled { cursor: progress; opacity: .6; }
+    .login-error { background: #fdecec; border: 1px solid #f3b6b6; border-radius: 10px; color: #8a1c1c; font-size: 13px; padding: 10px 12px; }
     .secondary-link { background: none; border: 0; color: #0f817e; cursor: pointer; display: block; font-size: 13px; margin: 14px auto 0; text-decoration: underline; }
   `],
 })

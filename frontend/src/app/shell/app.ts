@@ -26,7 +26,7 @@ import { HelpService } from '../features/help/help.service';
 /** Pantallas públicas: siempre a pantalla completa, sin sidebar ni topbar, aunque haya sesión. */
 // These routes own a full-screen layout. Contact Sales remains authenticated so
 // its form can use the active organization, but intentionally bypasses the shell.
-const PUBLIC_PATHS = ['/welcome', '/register', '/login', '/forgot-password', '/reset-password', '/plans/contact-sales', '/planes'];
+const PUBLIC_PATHS = ['/welcome', '/register', '/login', '/forgot-password', '/reset-password', '/plans/contact-sales', '/planes', '/change-password'];
 
 type ProfileTab = 'profile' | 'security' | 'notifications' | 'access' | 'workflows';
 
