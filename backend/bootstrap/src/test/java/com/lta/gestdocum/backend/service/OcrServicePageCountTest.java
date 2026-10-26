@@ -52,10 +52,25 @@ class OcrServicePageCountTest {
     }
 
     @Test
-    @DisplayName("Las hojas visibles mandan sobre un /Count declarado mayor")
-    void visibleLeavesWinOverLargerDeclaredCount() {
+    @DisplayName("Un /Count raíz mayor que las hojas visibles manda: no se subcobra un PDF con páginas comprimidas")
+    void largerRootCountWinsOverVisibleLeaves() {
         String pdf = "%PDF-1.4\n1 0 obj<</Type /Pages /Count 900>>endobj\n"
                 + "2 0 obj<</Type /Page>>endobj\n3 0 obj<</Type /Page>>endobj";
-        assertEquals(2, count(pdf));
+        assertEquals(900, count(pdf));
+    }
+
+    @Test
+    @DisplayName("Una hoja visible suelta no oculta un /Count raíz mayor")
+    void singleVisibleLeafDoesNotHideTheRootCount() {
+        String pdf = "%PDF-1.7\n2 0 obj<</Type /Pages /Kids [10 0 R] /Count 12>>endobj\n"
+                + "3 0 obj<</Type /Page /Parent 2 0 R>>endobj";
+        assertEquals(12, count(pdf));
+    }
+
+    @Test
+    @DisplayName("Un diccionario raíz con diccionarios anidados antes de /Count se lee completo")
+    void rootDictionaryWithNestedDictionariesIsReadWhole() {
+        String pdf = "%PDF-1.7\n2 0 obj<</Type /Pages /Resources <</Font <</F1 9 0 R>> >> /Kids [3 0 R] /Count 4>>endobj";
+        assertEquals(4, count(pdf));
     }
 }
