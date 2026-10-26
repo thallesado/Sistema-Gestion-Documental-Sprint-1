@@ -84,7 +84,7 @@ export class AuthService {
       next: (user) => {
         this.setCurrentUser(user);
         this.loadAvatar(user.hasAvatar);
-        if (user.tenantId) {
+        if (user.tenantId && !this.mustChangePassword()) {
           this.http.get<TenantSettings>(`${API_URL}/tenants/current/settings`).subscribe({
             next: (settings) => this.themeService.apply(settings),
             error: () => {},

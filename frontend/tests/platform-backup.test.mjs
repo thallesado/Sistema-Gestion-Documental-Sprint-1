@@ -50,8 +50,11 @@ test('el superadmin sin tenant no dispara dashboard ni mantenimiento de respaldo
   assert.equal(tenant.isPlatformSession({ platformAdmin: true, tenantId: null }), true);
   assert.equal(tenant.isPlatformSession({ platformAdmin: true, tenantId: 't1' }), false);
   assert.equal(tenant.isPlatformSession({ platformAdmin: false, tenantId: null }), false);
-  assert.match(await read('src/app/core/api/workspace-api.service.ts'), /isPlatformSession\(this\.auth\.user\(\)\)\) return of/);
-  assert.match(await read('src/app/core/api/backup-maintenance.service.ts'), /isPlatformSession\(this\.auth\.user\(\)\)/);
+  assert.equal(tenant.mustSkipTenantRequests({ platformAdmin: true, tenantId: null }, false), true);
+  assert.equal(tenant.mustSkipTenantRequests({ platformAdmin: false, tenantId: 't1' }, true), true);
+  assert.equal(tenant.mustSkipTenantRequests({ platformAdmin: false, tenantId: 't1' }, false), false);
+  assert.match(await read('src/app/core/api/workspace-api.service.ts'), /mustSkipTenantRequests\(this\.auth\.user\(\), this\.auth\.mustChangePassword\(\)\)\) return of/);
+  assert.match(await read('src/app/core/api/backup-maintenance.service.ts'), /mustSkipTenantRequests\(this\.auth\.user\(\),this\.auth\.mustChangePassword\(\)\)/);
 });
 
 test('errores crudos de base de datos se reemplazan por un mensaje amable', () => {

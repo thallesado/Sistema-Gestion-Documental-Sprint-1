@@ -7,6 +7,17 @@ export function isPlatformSession(user: { platformAdmin?: boolean; tenantId?: st
   return user?.platformAdmin === true && !user.tenantId;
 }
 
+/**
+ * Tenant-only requests are skipped for platform sessions and while the person still has a temporary
+ * password: the backend answers 403 MUST_CHANGE_PASSWORD to everything except the password change.
+ */
+export function mustSkipTenantRequests(
+  user: { platformAdmin?: boolean; tenantId?: string | null } | null | undefined,
+  mustChangePassword: boolean,
+): boolean {
+  return mustChangePassword || isPlatformSession(user);
+}
+
 const RAW_DB_ERROR = /^\s*ERROR:|SQLException|PSQLException|org\.hibernate|org\.postgresql|could not execute statement|violates (?:foreign key|unique|not-null|check) constraint|duplicate key value|JDBC|SQLState|relation ".*" does not exist/i;
 
 export const GENERIC_ERROR_MESSAGE = 'No se pudo completar la operación. Inténtalo de nuevo o contacta a tu administrador.';
