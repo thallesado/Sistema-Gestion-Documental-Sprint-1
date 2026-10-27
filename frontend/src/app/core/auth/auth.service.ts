@@ -5,6 +5,9 @@ import { Observable, catchError, finalize, shareReplay, tap, throwError } from '
 import { AuthResponse, AuthUser, LoginRequest, NotificationPreferencesRequest, ProfileUpdateRequest, PublicTenant } from './auth.types';
 import { ThemeService } from '../theme/theme.service';
 import { TenantSettings } from '../theme/theme-variables';
+import { I18nService } from '../i18n/i18n.service';
+import { navigationRoutes } from '../data/nexodocs-data';
+import { permittedLandingPage } from './permission-rules';
 
 const API_URL = '/api/v1';
 const TOKEN_KEY = 'nexodocs.access_token';
@@ -16,12 +19,15 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly themeService = inject(ThemeService);
+  private readonly i18n = inject(I18nService);
   readonly user = signal<AuthUser | null>(this.readUser());
   readonly avatarUrl = signal<string | null>(null);
   readonly isAuthenticated = signal(Boolean(this.readToken()));
   /** true mientras la contraseña sea temporal (login, refresh o /auth/me lo informan). */
   readonly mustChangePassword = signal(this.readUser()?.mustChangePassword === true);
   private refreshInFlight: Observable<AuthResponse> | null = null;
+  /** Tras un login explícito se aplica una vez la personalización del administrador (idioma e inicio). */
+  private applyCustomizationOnLoad = false;
 
   constructor() {
     if (this.accessToken()) {
@@ -46,7 +52,7 @@ export class AuthService {
     console.log('URL de login:', urlExacta);
     return this.http.post<AuthResponse>(urlExacta, request).pipe(
       tap((response) => this.storeTokens(response)),
-      tap(() => this.loadCurrentUser()),
+      tap(() => { this.applyCustomizationOnLoad = true; this.loadCurrentUser(); }),
       catchError((error: HttpErrorResponse) => {
         console.error('Error real del servidor:', error);
         return throwError(() => error);
@@ -84,6 +90,10 @@ export class AuthService {
       next: (user) => {
         this.setCurrentUser(user);
         this.loadAvatar(user.hasAvatar);
+        if (this.applyCustomizationOnLoad) {
+          this.applyCustomizationOnLoad = false;
+          this.applyLoginCustomization(user);
+        }
         if (user.tenantId && !this.mustChangePassword()) {
           this.http.get<TenantSettings>(`${API_URL}/tenants/current/settings`).subscribe({
             next: (settings) => this.themeService.apply(settings),
@@ -98,6 +108,18 @@ export class AuthService {
         }
       },
     });
+  }
+
+  /** Idioma predeterminado y pantalla de inicio definidos en la personalización del usuario. */
+  private applyLoginCustomization(user: AuthUser): void {
+    const customization = user.customization;
+    if (!customization) return;
+    if (customization.language) this.i18n.setLanguage(customization.language);
+    const landing = permittedLandingPage(customization.landingPage, user.permissions, navigationRoutes);
+    // Solo sustituye la entrada por defecto; un returnUrl explícito se respeta.
+    if (landing && !this.mustChangePassword() && (this.router.url === '/' || this.router.url.startsWith('/login'))) {
+      void this.router.navigateByUrl(landing, { replaceUrl: true });
+    }
   }
 
   logout(): void {

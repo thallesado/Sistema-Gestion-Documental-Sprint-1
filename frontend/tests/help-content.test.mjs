@@ -28,7 +28,7 @@ for (const [re, why] of absent) {
 }
 
 test('help has articles for backups, form privileges, audit and appearance in the drawer and as markdown', () => {
-  for (const id of ['respaldos', 'privilegios-formulario', 'auditoria', 'apariencia']) {
+  for (const id of ['respaldos', 'privilegios-formulario', 'auditoria', 'apariencia', 'personalizar-usuarios']) {
     assert.match(drawer, new RegExp(`id: '${id}'`), `drawer article ${id}`);
     assert.ok(articles.some(([f]) => f === `${id}.md`), `markdown ${id}.md`);
   }
@@ -46,7 +46,7 @@ test('existing article ids are preserved', () => {
 
 test('assistant manual covers backups, privileges, audit, appearance, signup/plans and login lockout', () => {
   for (const re of [/\/settings\/backups/, /backup:restore/, /nombre de la organización/i, /Visible y editable/, /Solo lectura/, /No visible/,
-    /Verificar integridad/, /\/settings\/appearance/, /\/planes/, /intentos fallidos/i]) {
+    /Verificar integridad/, /\/settings\/appearance/, /\/planes/, /intentos fallidos/i, /user:customize/, /Personalizar/]) {
     assert.match(manual, re);
   }
   assert.ok(manual.length < 20000, 'manual stays small enough to embed in every prompt');

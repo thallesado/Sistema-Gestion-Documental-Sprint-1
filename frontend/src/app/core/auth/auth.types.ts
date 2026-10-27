@@ -29,6 +29,18 @@ export interface AuthUser {
   hasAvatar: boolean;
   emailNotifications: boolean;
   pushNotifications: boolean;
+  /** Personalización definida por un administrador (user:customize); solo para usuarios de tenant. */
+  customization?: UserCustomization | null;
+}
+
+export interface UserCustomization {
+  jobTitle: string | null;
+  language: 'es' | 'en' | 'fr' | 'zh' | null;
+  landingPage: string | null;
+  maxUploadMb: number | null;
+  storageQuotaMb: number | null;
+  /** Vacío = todos los tipos documentales. */
+  allowedDocumentTypeIds: string[];
 }
 
 export interface ProfileUpdateRequest {

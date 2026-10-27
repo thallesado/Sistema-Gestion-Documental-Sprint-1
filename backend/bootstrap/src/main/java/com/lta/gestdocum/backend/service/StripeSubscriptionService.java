@@ -49,6 +49,9 @@ public class StripeSubscriptionService {
     private final EntityManager entityManager;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transaction;
+    /** Días entre la cancelación y el borrado definitivo de la organización. */
+    @org.springframework.beans.factory.annotation.Value("${billing.cancellation.retention-days:30}")
+    int retentionDays = 30;
 
     public StripeSubscriptionService(StripeBillingProperties properties, StripeApiClient stripe, JdbcTemplate jdbc,
                                      TenantService tenantService, PlanRepository plans, PasswordEncoder passwordEncoder,
@@ -148,13 +151,31 @@ public class StripeSubscriptionService {
         Map<String, String> metadata = Map.of("kind", KIND_TENANT, "tenantId", tenantId.toString(),
                 "plan", planCode, "billingPeriod", cycle);
         Map<String, String> form = checkoutForm(price, metadata, tenantId.toString(),
-                properties.frontendUrl() + "/billing?checkout=success",
-                properties.frontendUrl() + "/billing?checkout=cancelled");
+                properties.frontendUrl() + "/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}",
+                properties.frontendUrl() + "/billing/checkout?plan=" + planCode + "&cycle=" + cycle + "&checkout=cancelled");
         // Un cliente anterior reutiliza su Customer y sus tarjetas guardadas.
         if (tenant.get("stripe_customer_id") != null) form.put("customer", (String) tenant.get("stripe_customer_id"));
         else form.put("customer_email", (String) tenant.get("email"));
         JsonNode session = stripe.createCheckoutSession(form, null);
         return new SubscriptionCheckoutSessionResponse(session.path("id").asText(), requireUrl(session));
+    }
+
+    /**
+     * Respaldo del webhook al volver de Checkout: pregunta a Stripe por la sesión y, si está pagada,
+     * vincula la suscripción (idempotente). Solo acepta sesiones de la organización autenticada;
+     * el session_id de la URL no prueba nada por sí mismo.
+     */
+    public String confirmTenantCheckout(String sessionId) {
+        requireConfigured();
+        UUID tenantId = context.requireTenantId();
+        JsonNode session = stripe.retrieveCheckoutSession(sessionId);
+        JsonNode metadata = session.path("metadata");
+        if (!KIND_TENANT.equals(metadata.path("kind").asText()) || !tenantId.toString().equals(metadata.path("tenantId").asText())) {
+            throw new org.springframework.security.access.AccessDeniedException("La sesión de pago no pertenece a esta organización");
+        }
+        String status = session.path("status").asText();
+        if ("complete".equals(status)) handleCheckoutPaid(session);
+        return status;
     }
 
     /** Portal alojado por Stripe para cambiar tarjeta o plan, cancelar y descargar facturas. */
@@ -319,7 +340,8 @@ public class StripeSubscriptionService {
         recordInvoice(tenantId, (UUID) tenant.get("plan_id"), (String) tenant.get("billing_cycle_v2"), invoice, subscriptionId);
     }
 
-    private void syncTenant(JsonNode subscription) {
+    /** Refleja en tenants el estado de una suscripción de Stripe (webhook o respuesta de la API). */
+    void syncTenant(JsonNode subscription) {
         String subscriptionId = subscription.path("id").asText();
         List<Map<String, Object>> rows = jdbc.queryForList("select id from tenants where stripe_subscription_id = ?", subscriptionId);
         if (rows.isEmpty()) return; // suscripción ajena o alta todavía en creación
@@ -329,16 +351,30 @@ public class StripeSubscriptionService {
         UUID planId = planPrice.flatMap(p -> plans.findFirstByCodeIgnoreCaseAndActiveTrue(p.planCode())).map(Plan::getId).orElse(null);
         String cycle = planPrice.map(StripeBillingProperties.PlanPrice::cycle)
                 .orElse("year".equals(price.path("recurring").path("interval").asText()) ? "ANNUAL" : "MONTHLY");
-        // Una suspensión manual de plataforma no se deshace con un webhook de facturación.
+        String access = accessStatus(stripeStatus);
+        String schedule = textOrNull(subscription.path("schedule"));
+        // No renovar: según la versión de la API llega como cancel_at_period_end o como cancel_at.
+        boolean cancelAtPeriodEnd = subscription.path("cancel_at_period_end").asBoolean(false)
+                || subscription.path("cancel_at").asLong(0) > 0;
+        // Una suspensión manual de plataforma no se deshace con un webhook de facturación. Al quedar
+        // cancelada empieza el período de gracia antes del borrado definitivo de la organización.
         jdbc.update("""
                 update tenants set stripe_subscription_status = ?,
                   subscription_status = case when subscription_status = 'SUSPENDED' then subscription_status
                                              else cast(? as subscription_status) end,
                   plan_id = coalesce(?, plan_id), billing_cycle_v2 = ?,
-                  current_period_end = coalesce(?, current_period_end)
+                  current_period_end = coalesce(?, current_period_end),
+                  cancel_at_period_end = ?, stripe_schedule_id = cast(? as varchar),
+                  scheduled_plan_id = case when cast(? as text) is null or scheduled_plan_id = coalesce(cast(? as uuid), plan_id) then null else scheduled_plan_id end,
+                  scheduled_billing_cycle = case when cast(? as text) is null or scheduled_plan_id = coalesce(cast(? as uuid), plan_id) then null else scheduled_billing_cycle end,
+                  scheduled_change_at = case when cast(? as text) is null or scheduled_plan_id = coalesce(cast(? as uuid), plan_id) then null else scheduled_change_at end,
+                  canceled_at = case when cast(? as text) = 'CANCELED' then coalesce(canceled_at, now()) else canceled_at end,
+                  deletion_scheduled_at = case when cast(? as text) = 'CANCELED'
+                    then coalesce(deletion_scheduled_at, now() + make_interval(days => ?)) else deletion_scheduled_at end
                 where id = ?
-                """, stripeStatus, accessStatus(stripeStatus), planId, cycle, timestamp(periodEnd(subscription)),
-                rows.get(0).get("id"));
+                """, stripeStatus, access, planId, cycle, timestamp(periodEnd(subscription)),
+                cancelAtPeriodEnd, schedule, schedule, planId, schedule, planId, schedule, planId,
+                access, access, retentionDays, rows.get(0).get("id"));
     }
 
     private void recordInvoice(UUID tenantId, UUID planId, String cycle, JsonNode invoice, String subscriptionId) {

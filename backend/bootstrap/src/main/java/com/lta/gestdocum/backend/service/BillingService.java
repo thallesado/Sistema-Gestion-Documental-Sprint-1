@@ -143,6 +143,11 @@ public class BillingService {
 
     public BillingPortalResponse portal() { return subscriptions.createPortalSession(); }
 
+    public String confirmStripeCheckout(String sessionId) {
+        if (sessionId == null || !sessionId.matches("cs_[A-Za-z0-9_]{8,200}")) throw new IllegalArgumentException("Sesión de pago inválida");
+        return subscriptions.confirmTenantCheckout(sessionId);
+    }
+
     private BillingInvoiceResponse invoice(BillingTransaction tx) { return new BillingInvoiceResponse(tx.getId(), tx.getAmountUsd(), tx.getCurrency(), tx.getPaymentMethod().name(), tx.getStatus().name(), tx.getExternalReference(), tx.getBillingPeriod().name(), tx.getCreatedAt(), tx.getCompletedAt()); }
 
     private boolean isExpired(BillingTransaction transaction) {

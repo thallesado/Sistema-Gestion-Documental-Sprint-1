@@ -35,6 +35,56 @@
               ],
     "contracts":  [
                       {
+                          "page": "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
+                          "path": "database/init/061_subscription_lifecycle.sql",
+                          "includes": ["CREATE OR REPLACE FUNCTION app.purge_tenant(t uuid)", "app.tenant_purges", "OR app.tenant_purge_active()", "deletion_scheduled_at", "INSERT INTO app.schema_migrations(version) VALUES ('061_subscription_lifecycle')"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/BillingController.java",
+                          "includes": ["@PostMapping(\"/subscription/upgrade\")", "@PostMapping(\"/subscription/scheduled-change\")", "@DeleteMapping(\"/subscription/scheduled-change\")", "@PostMapping(\"/subscription/stop-renewal\")", "@PostMapping(\"/subscription/resume-renewal\")", "@PostMapping(\"/subscription/cancel\")"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/SubscriptionLifecycleService.java",
+                          "includes": ["\"always_invoice\"", "createScheduleFromSubscription", "\"end_behavior\", \"release\"", "select app.purge_tenant(?)::text", "update auth_sessions set revoked_at"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+                          "path": "database/init/060_user_customizations.sql",
+                          "includes": ["CREATE TABLE IF NOT EXISTS user_customizations", "CREATE TABLE IF NOT EXISTS user_allowed_document_types", "app.user_storage_bytes", "CREATE POLICY customize_update", "users_guard_customize_update", "'user:customize', 'user', 'customize'", "INSERT INTO app.schema_migrations(version) VALUES ('060_user_customizations')"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/UserController.java",
+                          "includes": ["@GetMapping(\"/{id}/customization\")", "@PutMapping(\"/{id}/customization\")", "@PostMapping(\"/{id}/sessions/revoke\")", "hasAuthority('user:customize') and hasAuthority('user:read')"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AuthService.java",
+                          "includes": ["userCustomizationService.assertAccessAllowed(user)"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentStorageService.java",
+                          "includes": ["userCustomizationService.validateUpload(tenantId, file.getSize())", "userCustomizationService.validateUpload(tenantId, sourceSize)"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentService.java",
+                          "includes": ["userCustomizationService.validateDocumentType(tenantId, request.documentTypeId())"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+                          "path": "frontend/src/app/features/users/pages/administracion-page.ts",
+                          "includes": ["*appHasPermission=\"'user:customize'\"", "<app-user-customization-modal"]
+                      },
+                      {
+                          "page": "02-backend/base-de-datos-y-migraciones.md",
+                          "path": "scripts/tests/user-customizations.sql",
+                          "includes": ["user_customizations", "insufficient_privilege"]
+                      },
+                      {
                           "page": "02-backend/base-de-datos-y-migraciones.md",
                           "path": "database/init/058_users_self_update.sql",
                           "includes": ["CREATE POLICY self_update", "users_guard_self_update", "INSERT INTO app.schema_migrations"]
@@ -610,8 +660,8 @@
                   ],
     "reviews":  {
                     "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md":  {
-                                                                                 "reviewedAt":  "2026-10-26",
-                                                                                 "revision":  "e3f6358"
+                                                                                 "reviewedAt":  "2026-10-27",
+                                                                                 "revision":  "3f80c45"
                                                                              },
                     "06-operacion/integracion-main-c93a8b4.md":  {
                                                                      "reviewedAt":  "2026-10-21",
@@ -674,8 +724,8 @@
                                                                                 "revision":  "a590a6d"
                                                                             },
                     "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md":  {
-                                                                                  "reviewedAt":  "2026-10-18",
-                                                                                  "revision":  "855ffff"
+                                                                                  "reviewedAt":  "2026-10-27",
+                                                                                  "revision":  "3f80c45"
                                                                               },
                     "05-guias-ia/como-promptear-en-nexodocs.md":  {
                                                                       "reviewedAt":  "2026-10-16",

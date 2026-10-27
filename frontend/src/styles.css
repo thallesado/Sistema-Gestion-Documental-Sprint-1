@@ -5,9 +5,10 @@
 :root {
   --ink: #153a39;
   --muted: #6b8583;
-  --line: #dcebe8;
+  --line: var(--tenant-line, #dcebe8);
   --surface: #ffffff;
-  --canvas: #f6faf9;
+  --canvas: var(--tenant-canvas, #f6faf9);
+  --tint: var(--tenant-tint, #e6f7f4);
   --teal: var(--tenant-teal, #087f7b);
   --teal-strong: var(--tenant-teal-strong, #05635f);
   --teal-text: var(--tenant-teal-text, #eafffc);
@@ -20,7 +21,7 @@
 
 body {
   margin: 0;
-  background: #f6faf9;
+  background: var(--canvas);
   color: #153a39;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -232,7 +233,7 @@ a {
 /* Dashboard Welcome Banner */
 .dashboard-welcome {
   align-items: center;
-  background: linear-gradient(135deg, #ffffff 60%, #e8f7f4 100%);
+  background: linear-gradient(135deg, #ffffff 55%, var(--tint) 100%);
   border: 1px solid var(--line);
   border-radius: 20px;
   box-shadow: 0 4px 20px rgba(10, 50, 48, 0.03);
@@ -875,7 +876,7 @@ a {
 
 .module-hero-banner {
   align-items: center;
-  background: linear-gradient(135deg, #ffffff 60%, #e6f7f4 100%);
+  background: linear-gradient(135deg, #ffffff 55%, var(--tint) 100%);
   border: 1px solid var(--line);
   border-radius: 20px;
   box-shadow: 0 4px 20px rgba(10, 50, 48, 0.03);

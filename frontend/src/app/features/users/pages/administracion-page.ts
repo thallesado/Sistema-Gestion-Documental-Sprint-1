@@ -10,6 +10,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { CreateUserModal } from '../components/create-user-modal';
 import { RolePermissionsModal } from '../components/role-permissions-modal';
 import { RoleFormModal } from '../components/role-form-modal';
+import { UserCustomizationModal } from '../components/user-customization-modal';
 import { PermissionService } from '../../../core/auth/permission.service';
 import { HasPermissionDirective } from '../../../core/auth/has-permission.directive';
 import { FieldPermissionDirective } from '../../../core/auth/field-permission.directive';
@@ -21,7 +22,7 @@ import { friendlyApiMessage } from '../../../core/http/tenant-session';
 
 @Component({
   selector: 'app-administration-page',
-  imports: [CommonModule, FormsModule, RouterLink, CreateUserModal, RolePermissionsModal, RoleFormModal, HasPermissionDirective, FieldPermissionDirective, Pagination, LocalizedContentDirective],
+  imports: [CommonModule, FormsModule, RouterLink, CreateUserModal, RolePermissionsModal, RoleFormModal, UserCustomizationModal, HasPermissionDirective, FieldPermissionDirective, Pagination, LocalizedContentDirective],
   template: `
     <section class="admin-page" i18nContent>
       @if (isTenantArea) {
@@ -111,7 +112,7 @@ import { friendlyApiMessage } from '../../../core/http/tenant-session';
             @else if (!visibleUsers().length && !error()) { <p class="admin-empty">No hay usuarios para mostrar.</p> }
             @else {
               <table><thead><tr><th>Usuario</th><th>Correo</th><th>Perfil clínico</th><th>Estado</th><th><span class="sr-only">Acciones</span></th></tr></thead>
-              <tbody>@for (user of visibleUsers(); track user.id) { <tr><td><b>{{ user.firstName }} {{ user.lastName }}</b><small>{{ user.username }}</small></td><td>{{ user.email }}</td><td>{{ user.staffType || 'No asignado' }}</td><td><span class="admin-status" [class.status-inactive]="user.status === 'INACTIVE'" [class.inactive]="user.status !== 'ACTIVE' && user.status !== 'INACTIVE'">{{ statusLabel(user.status) }}</span></td><td><button class="link-button" type="button" (click)="edit(user)">Editar</button>@if (user.status === 'ACTIVE') {<button class="link-button danger" type="button" (click)="deactivate(user)">Desactivar</button>} @else {<button class="link-button" type="button" (click)="reactivate(user)">Reactivar</button>}</td></tr> }</tbody></table>
+              <tbody>@for (user of visibleUsers(); track user.id) { <tr><td><b>{{ user.firstName }} {{ user.lastName }}</b><small>{{ user.username }}</small></td><td>{{ user.email }}</td><td>{{ user.staffType || 'No asignado' }}</td><td><span class="admin-status" [class.status-inactive]="user.status === 'INACTIVE'" [class.inactive]="user.status !== 'ACTIVE' && user.status !== 'INACTIVE'">{{ statusLabel(user.status) }}</span></td><td><button class="link-button" type="button" (click)="edit(user)">Editar</button><button *appHasPermission="'user:customize'" class="link-button" type="button" (click)="customizeUser.set(user)">Personalizar</button>@if (user.status === 'ACTIVE') {<button class="link-button danger" type="button" (click)="deactivate(user)">Desactivar</button>} @else {<button class="link-button" type="button" (click)="reactivate(user)">Reactivar</button>}</td></tr> }</tbody></table>
             }
             @if (editUser()) {
               <div class="modal-backdrop" role="presentation"><section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
@@ -140,6 +141,9 @@ import { friendlyApiMessage } from '../../../core/http/tenant-session';
         <app-create-user-modal [roles]="roles()" (closed)="showCreateModal.set(false)" (saved)="onUserCreated()" />
       }
       <app-role-permissions-modal [roleId]="permissionsRoleId()" (closed)="permissionsRoleId.set(null)" (saved)="loadRoles()" />
+      @if (customizeUser(); as target) {
+        <app-user-customization-modal [user]="target" (closed)="customizeUser.set(null)" (saved)="onCustomizationSaved()" />
+      }
       @if (roleFormOpen()) {
         <app-role-form-modal (closed)="roleFormOpen.set(false)" (saved)="loadRoles()" />
       }
@@ -187,6 +191,7 @@ export class AdministrationPage {
   readonly permissionsRoleId = signal<number | null>(null);
   readonly roleFormOpen = signal(false);
   readonly editUser = signal<ApiUser | null>(null);
+  readonly customizeUser = signal<ApiUser | null>(null);
   readonly confirmation = signal<{ title: string; message: string; action: () => void } | null>(null);
   editForm = { firstName: '', lastName: '', email: '', status: 'ACTIVE', roleIds: [] as number[] };
   readonly isTenantArea = this.route.snapshot.url[0]?.path === 'tenants';
@@ -288,6 +293,12 @@ export class AdministrationPage {
   }
 
   openCreateUserModal(): void { this.showCreateModal.set(true); }
+
+  onCustomizationSaved(): void {
+    this.customizeUser.set(null);
+    this.error.set(false);
+    this.message.set('Personalización guardada.');
+  }
 
   /** El usuario se creó: cierra el modal y recarga la lista desde la primera página. */
   onUserCreated(): void {

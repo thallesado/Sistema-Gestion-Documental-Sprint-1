@@ -1,8 +1,11 @@
 package com.lta.gestdocum.backend.controller;
 
 import com.lta.gestdocum.backend.dto.UserCreateRequest;
+import com.lta.gestdocum.backend.dto.UserCustomizationDtos.UserCustomizationRequest;
+import com.lta.gestdocum.backend.dto.UserCustomizationDtos.UserCustomizationResponse;
 import com.lta.gestdocum.backend.dto.UserResponse;
 import com.lta.gestdocum.backend.dto.UserUpdateRequest;
+import com.lta.gestdocum.backend.service.UserCustomizationService;
 import com.lta.gestdocum.backend.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -26,9 +29,11 @@ public class UserController {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UserController.class);
 
     private final UserService userService;
+    private final UserCustomizationService userCustomizationService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, UserCustomizationService userCustomizationService) {
         this.userService = userService;
+        this.userCustomizationService = userCustomizationService;
     }
 
     @GetMapping
@@ -70,6 +75,30 @@ public class UserController {
         @PathVariable UUID id, 
         @Valid @RequestBody UserUpdateRequest request) {
     return ResponseEntity.ok(userService.updateUser(id, request));
+    }
+
+    @GetMapping("/{id}/customization")
+    @PreAuthorize("hasAuthority('user:customize') and hasAuthority('user:read')")
+    @Operation(summary = "Consultar personalización", description = "Perfil, interfaz, notificaciones, acceso y límites documentales del usuario")
+    public ResponseEntity<UserCustomizationResponse> getCustomization(@PathVariable UUID id) {
+        return ResponseEntity.ok(userCustomizationService.get(id));
+    }
+
+    @PutMapping("/{id}/customization")
+    @PreAuthorize("hasAuthority('user:customize') and hasAuthority('user:read')")
+    @Operation(summary = "Personalizar usuario", description = "Guarda la personalización; si cambia el acceso se cierran sus sesiones")
+    public ResponseEntity<UserCustomizationResponse> updateCustomization(
+            @PathVariable UUID id,
+            @Valid @RequestBody UserCustomizationRequest request) {
+        return ResponseEntity.ok(userCustomizationService.update(id, request));
+    }
+
+    @PostMapping("/{id}/sessions/revoke")
+    @PreAuthorize("hasAuthority('user:customize') and hasAuthority('user:read')")
+    @Operation(summary = "Cerrar sesiones del usuario", description = "Revoca todas las sesiones abiertas del usuario")
+    public ResponseEntity<Void> revokeSessions(@PathVariable UUID id) {
+        userCustomizationService.revokeSessions(id);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")

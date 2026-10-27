@@ -644,10 +644,13 @@ export class LoginPage implements OnInit {
         void this.router.navigateByUrl(returnUrl, { replaceUrl: true });
         this.isSubmitting.set(false);
       },
-      error: (error: { status?: number }) => {
+      error: (error: { status?: number; error?: { message?: string } }) => {
+        // 403: credenciales válidas pero acceso vencido o fuera del horario personalizado.
         this.errorMessage.set(error.status === 401
           ? this.i18n.t('auth.invalidCredentials')
-          : this.i18n.t('auth.connectError'));
+          : error.status === 403 && error.error?.message
+            ? error.error.message
+            : this.i18n.t('auth.connectError'));
         this.isSubmitting.set(false);
       },
     });

@@ -74,6 +74,13 @@ public class DocumentService {
         this.planLimitService = planLimitService;
     }
 
+    private UserCustomizationService userCustomizationService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setUserCustomizationService(UserCustomizationService userCustomizationService) {
+        this.userCustomizationService = userCustomizationService;
+    }
+
     @Transactional(readOnly = true)
     public Page<DocumentResponse> find(String filter, Document.DocumentStatus status, Pageable pageable) {
         UUID tenantId = userContext.requireTenantId();
@@ -124,6 +131,9 @@ public class DocumentService {
         userContext.establishDatabaseContext();
         if (planLimitService != null) {
             planLimitService.validateDocumentLimit(tenantId);
+        }
+        if (userCustomizationService != null) {
+            userCustomizationService.validateDocumentType(tenantId, request.documentTypeId());
         }
         ComponentFormAccess access = documentAccess();
         requireEditableComponents(access, request);

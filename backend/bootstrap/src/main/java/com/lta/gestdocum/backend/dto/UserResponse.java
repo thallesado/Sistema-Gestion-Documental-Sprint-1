@@ -32,5 +32,7 @@ public class UserResponse {
     private java.util.List<String> permissions;
     private String planCode;
     private java.util.List<String> enabledFeatures;
+    /** Solo en /auth/me: personalización definida por un administrador (user:customize). */
+    private UserCustomizationDtos.CurrentUserCustomization customization;
 }
 

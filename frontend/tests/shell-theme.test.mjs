@@ -36,6 +36,24 @@ test('los estilos globales y del shell leen los tokens del tenant con el verde c
   assert.match(styles, /\.btn-primary-action\s*\{\s*background:\s*var\(--teal\)/);
 });
 
+test('el fondo, los bordes y las cabeceras toman un tono de la marca sin perder legibilidad', async () => {
+  for (const color of ['#7a1fa2', '#000000', '#ffee00', '#087f7b', '#c2185b']) {
+    const vars = themeVariables({ primaryColor: color });
+    for (const name of ['--tenant-canvas', '--tenant-line', '--tenant-tint']) {
+      assert.match(vars[name], /^#[0-9a-f]{6}$/, `${color} ${name}`);
+      assert.ok(THEME_VARIABLE_NAMES.includes(name), `${name} debe poder limpiarse al cerrar sesion`);
+    }
+    assert.ok(contrastRatio(vars['--tenant-canvas'], '#153a39') >= 7, `${color}: texto sobre el fondo`);
+    assert.notEqual(vars['--tenant-canvas'], '#ffffff', `${color}: el fondo debe verse tintado`);
+  }
+  const global = await read('src/styles.css');
+  assert.match(global, /--canvas:\s*var\(--tenant-canvas,\s*#[0-9a-f]{6}\)/i);
+  assert.match(global, /--line:\s*var\(--tenant-line,\s*#[0-9a-f]{6}\)/i);
+  // El shell hereda --canvas y --line de styles.css: redefinirlos taparía el tono del tenant.
+  assert.doesNotMatch(await read('src/app/shell/app.css'), /--(canvas|line):/);
+  assert.match(await read('src/styles.css'), /\.module-hero-banner\s*\{[^}]*var\(--tint\)/);
+});
+
 test('el logo guardado en Apariencia se usa en la cabecera del shell', async () => {
   assert.match(await read('src/app/shell/app.ts'), /theme\.settings\(\)\.logoUrl/);
 });

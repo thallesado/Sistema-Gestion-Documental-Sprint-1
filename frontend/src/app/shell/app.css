@@ -1,9 +1,7 @@
 :root, :host, app-root {
   --ink: #102d2a;
   --muted: #648280;
-  --line: #e2ece9;
   --surface: #ffffff;
-  --canvas: #f4f8f7;
   --teal: var(--tenant-teal, #0e6b66);
   --teal-strong: var(--tenant-teal-strong, #0a5652);
   --teal-text: #eafffc;

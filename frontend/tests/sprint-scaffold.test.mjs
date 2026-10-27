@@ -75,7 +75,9 @@ test('the appearance screen keeps its existing menu entry, now served by its own
   // U4 (S9): Apariencia is reachable by the tenant admin; the other catalogue entries stay hidden.
   assert.equal(entry.moduleEnabled, true);
   assert.equal(entry.sprintEnabled, true);
-  for (const href of ['/settings', '/settings/security']) {
+  // General (/settings) es ahora la portada de Configuración; las entradas sin pantalla siguen ocultas.
+  assert.equal(children.find((child) => child.href === '/settings')?.sprintEnabled, true, '/settings');
+  for (const href of ['/settings/security', '/settings/templates', '/settings/retention']) {
     assert.equal(children.find((child) => child.href === href)?.sprintEnabled, false, href);
   }
 });

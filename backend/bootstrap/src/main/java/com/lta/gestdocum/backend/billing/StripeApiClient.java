@@ -35,6 +35,35 @@ public class StripeApiClient {
 
     public JsonNode retrieveInvoice(String invoiceId) { return get("/v1/invoices/{id}", invoiceId); }
 
+    /** Cambia precio, renovación (cancel_at_period_end) u otros campos de la suscripción. */
+    public JsonNode updateSubscription(String subscriptionId, Map<String, String> form) {
+        return post("/v1/subscriptions/" + encode(subscriptionId), form, null);
+    }
+
+    /** Cancela de inmediato; Stripe emite customer.subscription.deleted. */
+    public JsonNode cancelSubscription(String subscriptionId) {
+        requireConfigured();
+        JsonNode result = stripeClient.delete().uri("/v1/subscriptions/{id}", subscriptionId)
+                .headers(headers -> headers.setBasicAuth(properties.apiKey(), ""))
+                .retrieve().body(JsonNode.class);
+        if (result == null) throw new IllegalStateException("Stripe no devolvió una respuesta válida");
+        return result;
+    }
+
+    /** Crea un schedule con una fase igual al período actual de la suscripción. */
+    public JsonNode createScheduleFromSubscription(String subscriptionId) {
+        return post("/v1/subscription_schedules", Map.of("from_subscription", subscriptionId), null);
+    }
+
+    public JsonNode updateSchedule(String scheduleId, Map<String, String> form) {
+        return post("/v1/subscription_schedules/" + encode(scheduleId), form, null);
+    }
+
+    /** Quita el schedule y sus fases futuras; la suscripción sigue igual. */
+    public JsonNode releaseSchedule(String scheduleId) {
+        return post("/v1/subscription_schedules/" + encode(scheduleId) + "/release", Map.of(), null);
+    }
+
     private JsonNode post(String path, Map<String, String> form, String idempotencyKey) {
         requireConfigured();
         String body = form.entrySet().stream()

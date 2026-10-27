@@ -39,6 +39,21 @@ El OCR solo reconoce texto de documentos (recetas, informes, formularios); no in
 - Un usuario nuevo recibe una contraseña temporal que el administrador le entrega (el sistema no envía correos) y debe cambiarla en su primer inicio de sesión.
 - El plan limita la cantidad de usuarios activos; al alcanzar el tope no se pueden crear más hasta desactivar cuentas o cambiar de plan.
 
+## Gestionar suscripción
+Menú Facturación e ingresos > "Gestionar suscripción" (`/billing/subscription`). Requiere `tenant:update` o `tenant:manage`.
+- Mejorar ahora: aplica un plan superior de inmediato y cobra la diferencia prorrateada (con tarjeta en Stripe); sin cobro automático abre el pago.
+- Desde el próximo período: conserva el plan actual hasta la renovación y la siguiente factura cobra el plan elegido. Se usa para bajar de plan o pasar a anual; el uso actual debe caber en el nuevo plan. Se puede anular.
+- No renovar suscripción: mantiene el acceso hasta el fin del período pagado y no cobra más; se puede reanudar antes de esa fecha.
+- Cancelar suscripción: pide el nombre exacto de la organización, la contraseña y un motivo. Anula la suscripción ya, cierra todas las sesiones y conserva los datos 30 días; después se eliminan definitivamente documentos, expedientes, archivos y respaldos, y se anonimizan los usuarios. Facturas y auditoría se conservan. Descarga un respaldo antes de cancelar. Para recuperar la organización dentro del plazo hay que contactar al soporte.
+
+## Personalizar usuarios
+Menú Usuarios y equipos > Todos los usuarios (`/users`), botón "Personalizar" en la fila del usuario. Requiere `user:customize` y `user:read`.
+- Perfil: cargo, teléfono y biografía. Nombre, correo, estado y grupos se cambian con "Editar".
+- Interfaz: idioma predeterminado y pantalla de inicio, aplicados al iniciar sesión (si no tiene permiso para esa pantalla entra al tablero).
+- Notificaciones: avisos por correo electrónico y push.
+- Seguridad y acceso: exigir cambio de contraseña, acceso válido hasta una fecha, días y horario permitidos (zona horaria de la organización; una franja con fin anterior al inicio cruza la medianoche) y "Cerrar todas sus sesiones". Fuera de la fecha u horario el inicio de sesión se rechaza indicando el motivo. Guardar un cambio de acceso cierra sus sesiones. Nadie puede cambiar su propio acceso.
+- Documentos: tamaño máximo por archivo (1 a 25 MB), cuota de almacenamiento y tipos documentales permitidos para crear documentos. Los límites del plan se aplican siempre.
+
 ## Privilegios por formulario
 Menú Usuarios y equipos > Privilegios por formulario (`/users/form-permissions`). Requiere `component_permission:manage`.
 1. Elige el formulario y el grupo.

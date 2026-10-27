@@ -274,8 +274,19 @@ public class TenantService {
     @Transactional
     public TenantResponse changeStatus(UUID id, String value) {
         Tenant t = repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Tenant no encontrado"));
-        t.setStatus(Tenant.Status.valueOf(value.toUpperCase(Locale.ROOT)));
-        return map(repository.save(t));
+        Tenant.Status next = Tenant.Status.valueOf(value.toUpperCase(Locale.ROOT));
+        if (jdbcTemplate != null && Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                "select purged_at is not null from tenants where id = ?", Boolean.class, id))) {
+            throw new IllegalStateException("La organización fue eliminada definitivamente y no puede reactivarse");
+        }
+        t.setStatus(next);
+        TenantResponse response = map(repository.saveAndFlush(t));
+        // Reactivar dentro del período de gracia anula el borrado programado.
+        if (next == Tenant.Status.ACTIVE && jdbcTemplate != null) {
+            jdbcTemplate.update("update tenants set canceled_at = null, deletion_scheduled_at = null,"
+                    + " cancellation_reason = null, cancel_at_period_end = false where id = ?", id);
+        }
+        return response;
     }
 
     @Transactional(readOnly = true)

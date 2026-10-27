@@ -24,6 +24,9 @@ export const THEME_VARIABLE_NAMES = [
   '--tenant-teal-muted',
   '--tenant-mint',
   '--tenant-sidebar-bg',
+  '--tenant-canvas',
+  '--tenant-line',
+  '--tenant-tint',
 ] as const;
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -91,6 +94,10 @@ export function themeVariables(settings: TenantSettings): Record<string, string>
     variables['--tenant-teal-muted'] = toHex(mix(brand, WHITE, 0.75));
     variables['--tenant-mint'] = toHex(mix(brand, WHITE, 0.88));
     variables['--tenant-sidebar-bg'] = toHex(mix(brand, BLACK, 0.78));
+    // Superficies tintadas: fondo de página, bordes y degradado de cabeceras con el tono de la marca.
+    variables['--tenant-canvas'] = toHex(mix(brand, WHITE, 0.93));
+    variables['--tenant-line'] = toHex(mix(brand, WHITE, 0.84));
+    variables['--tenant-tint'] = toHex(mix(brand, WHITE, 0.86));
   }
   return variables;
 }

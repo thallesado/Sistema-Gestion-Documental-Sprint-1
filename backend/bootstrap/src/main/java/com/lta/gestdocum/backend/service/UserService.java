@@ -43,6 +43,8 @@ public class UserService {
     private AuditRecorder auditRecorder;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.lta.gestdocum.backend.repository.PlanRepository planRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private UserCustomizationService userCustomizationService;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setAuditRecorder(AuditRecorder auditRecorder) {
@@ -266,6 +268,9 @@ public class UserService {
         if (tenantId != null && planRepository != null) {
             planRepository.findPlanCodeByTenantId(tenantId).ifPresent(response::setPlanCode);
             response.setEnabledFeatures(planRepository.findEnabledFeatureKeysByTenantId(tenantId));
+        }
+        if (tenantId != null && userCustomizationService != null) {
+            response.setCustomization(userCustomizationService.currentFor(tenantId, userId));
         }
         return response;
     }

@@ -24,7 +24,7 @@ const clinicalPaths = new Set([
 ]);
 const documentPaths = new Set(['documents', 'documents/mine', 'documents/shared', 'documents/new', 'documents/upload', 'settings/statuses']);
 /** Screens with their own page (created by the sprint scaffold): the generic catalog must not claim them. */
-const sprintOwnedPaths = new Set(['settings/backups', 'platform/backups', 'settings/appearance', 'users/form-permissions', 'reports/queries', 'reports/voice', 'platform/dashboard', 'platform/reports/tenants', 'platform/reports/payments']);
+const sprintOwnedPaths = new Set(['settings', 'settings/backups', 'platform/backups', 'settings/appearance', 'users/form-permissions', 'reports/queries', 'reports/voice', 'platform/dashboard', 'platform/reports/tenants', 'platform/reports/payments']);
 const expedientPaths = new Set(['expedientes', 'expedients', 'expedientes/new', 'expedientes/active', 'expedientes/closed', 'expedientes/archived']);
 // WorkspacePage is shared by the dashboard and catalogue routes.  It reads
 // routeInfo during its first change-detection cycle, so the root dashboard
@@ -71,6 +71,18 @@ export const routes: Routes = [
   ...documentosRoutes,
   ...expedientesRoutes,
   ...workflowsRoutes,
+  {
+    path: 'billing/checkout',
+    loadComponent: () => import('../../features/billing/pages/checkout-page').then((m) => m.CheckoutPage),
+    title: 'Pagar suscripción - NexoDocs',
+    canActivate: [authGuard, hasPermissionGuard([...TENANT_PLAN_ADMIN])],
+  },
+  {
+    path: 'billing/subscription',
+    loadComponent: () => import('../../features/billing/pages/subscription-page').then((m) => m.SubscriptionPage),
+    title: 'Gestionar suscripción - NexoDocs',
+    canActivate: [authGuard, hasPermissionGuard([...TENANT_PLAN_ADMIN])],
+  },
   {
     path: 'billing',
     loadComponent: () => import('../../features/billing/pages/billing-page').then((m) => m.BillingPage),

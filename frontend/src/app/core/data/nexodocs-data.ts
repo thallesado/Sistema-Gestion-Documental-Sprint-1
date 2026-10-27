@@ -209,11 +209,11 @@ export const navSections: NavSection[] = [
       {
         label: 'Configuracion',
         icon: 'CF',
-        // Apariencia is open to the tenant admin (tenant:update / tenant:manage); the remaining
-        // catalogue entries keep requiring configuration:read and stay hidden until they have a screen.
+        // General (/settings) is the configuration hub; Apariencia is open to the tenant admin
+        // (tenant:update / tenant:manage). Entries without a screen stay hidden (sprintEnabled: false).
         permission: ['configuration:read', 'tenant:update', 'tenant:manage'],
         children: [
-          { label: 'General', href: '/settings', sprintEnabled: false, permission: 'configuration:read' },
+          { label: 'General', href: '/settings', sprintEnabled: true },
           { label: 'Tipos documentales', href: '/settings/document-types', sprintEnabled: false, permission: 'configuration:read' },
           { label: 'Estados', href: '/settings/statuses', sprintEnabled: false, permission: 'configuration:read' },
           { label: 'Metadatos', href: '/settings/metadata', sprintEnabled: false, permission: 'configuration:read' },

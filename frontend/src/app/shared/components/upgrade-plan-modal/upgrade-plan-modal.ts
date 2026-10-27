@@ -33,7 +33,7 @@ export class UpgradePlanModalComponent {
   choose(plan: SubscriptionPlan): void {
     if (this.isCurrent(plan)) return;
     this.close();
-    void this.router.navigate(['/billing'], { queryParams: { plan: plan.code } });
+    void this.router.navigate(['/billing/subscription'], { queryParams: { plan: plan.code } });
   }
 
   actionLabel(plan: SubscriptionPlan): string {

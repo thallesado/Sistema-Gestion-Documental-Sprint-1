@@ -39,7 +39,7 @@ Rutas por feature con loadComponent. El menú viene de datos y aplica permisos d
 
 ## Rutas que no deben confundirse
 
-Configuración general utiliza `/settings`. El menú de usuario apunta a esa ruta; `/settings/general` se conserva como redirección compatible (corrección 2026-10-21). Esto corrige navegación, no implementa persistencia nueva de configuración ni amplía permisos.
+Configuración general utiliza `/settings`. Desde 2026-10-27 es una portada propia (`features/settings/pages/settings-home-page.ts`, abierta a cualquier sesión porque el menú de usuario enlaza a ella): resumen de la organización, tarjetas a las pantallas reales de configuración filtradas con el mismo permiso que su ruta (`SETTINGS_SHORTCUTS`) y el manual de uso en PDF (`/assets/manual/manual-de-uso-nexodocs.pdf`). El PDF se genera desde `frontend/public/assets/manual/manual-de-uso.md` con `node scripts/build-manual.mjs` (jsPDF del frontend); al cambiar el Markdown hay que regenerarlo. El menú muestra «General» y «Apariencia»; las demás entradas de Configuración siguen ocultas hasta tener pantalla. El menú de usuario apunta a esa ruta; `/settings/general` se conserva como redirección compatible (corrección 2026-10-21). Esto corrige navegación, no implementa persistencia nueva de configuración ni amplía permisos.
 
 | Ruta web | Pantalla |
 |---|---|
@@ -60,7 +60,7 @@ Las rutas dinámicas reutilizan WorkspacePage en varias secciones; no asumir una
 
 ## Tema, menú y sesión de plataforma
 
-- El color de marca del tenant se aplica en `<html>` como `--primary-color` más los tokens derivados `--tenant-teal*`, `--tenant-mint` y `--tenant-sidebar-bg` (`core/theme/theme-variables.ts`); `styles.css` y `shell/app.css` los leen con el verde por defecto como respaldo. El tono de acción se oscurece hasta cumplir contraste AA con texto blanco.
+- El color de marca del tenant se aplica en `<html>` como `--primary-color` más los tokens derivados `--tenant-teal*`, `--tenant-mint` y `--tenant-sidebar-bg` (`core/theme/theme-variables.ts`); `styles.css` y `shell/app.css` los leen con el verde por defecto como respaldo. El tono de acción se oscurece hasta cumplir contraste AA con texto blanco. Desde 2026-10-27 también se derivan `--tenant-canvas` (fondo de página, 93 % hacia blanco), `--tenant-line` (bordes) y `--tenant-tint` (degradado de las cabeceras `.dashboard-welcome` y `.module-hero-banner`), que `styles.css` expone como `--canvas`, `--line` y `--tint` (el shell los hereda y no los redefine); sin color de marca se conservan los verdes originales.
 - `/settings/appearance` aparece en Configuración para `tenant:update`/`tenant:manage`; `/settings/backups` exige `backup:read`; `/platform/backups` es solo superadmin.
 - `LocalizedContentDirective` observa el DOM con un `MutationObserver` creado fuera de la zona de Angular (corrección 2026-10-27): dentro de la zona, una vista que recrea nodos en cada ciclo (como `*ngFor` sobre un arreglo nuevo sin `trackBy` en la pestaña de ingresos de `/billing`) producía un bucle observador → detección de cambios que congelaba la página. En listas derivadas de objetos usar `trackBy`.
 - Una sesión de plataforma (`platformAdmin` sin `tenantId`) no llama a `/api/v1/dashboard` ni a `/api/v1/backups/maintenance` (`core/http/tenant-session.ts`). Los mensajes de error con texto SQL/Hibernate se sustituyen por uno genérico (`friendlyApiMessage`).

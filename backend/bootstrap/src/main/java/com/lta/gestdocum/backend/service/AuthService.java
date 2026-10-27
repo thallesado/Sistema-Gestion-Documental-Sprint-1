@@ -29,6 +29,18 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthSessionService authSessionService;
     private final AccessTokenRevocationService accessTokenRevocationService;
+    private UserCustomizationService userCustomizationService;
+    private SubscriptionLifecycleService subscriptionLifecycleService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setSubscriptionLifecycleService(SubscriptionLifecycleService subscriptionLifecycleService) {
+        this.subscriptionLifecycleService = subscriptionLifecycleService;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setUserCustomizationService(UserCustomizationService userCustomizationService) {
+        this.userCustomizationService = userCustomizationService;
+    }
 
     public AuthService(UserRepository userRepository,
                        TenantRepository tenantRepository,
@@ -75,6 +87,10 @@ public class AuthService {
         if (user.getDeletedAt() != null || user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException();
         }
+        // Organización cancelada (período de gracia) o eliminada; 403 con el motivo.
+        if (subscriptionLifecycleService != null) subscriptionLifecycleService.assertTenantAccess(user);
+        // Vigencia y horario de acceso personalizados (user:customize); 403 con el motivo.
+        if (userCustomizationService != null) userCustomizationService.assertAccessAllowed(user);
 
         List<String> authorities = resolveAuthorities(user);
         if (authorities.isEmpty()) {
@@ -101,6 +117,8 @@ public class AuthService {
                 || user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException();
         }
+        if (subscriptionLifecycleService != null) subscriptionLifecycleService.assertTenantAccess(user);
+        if (userCustomizationService != null) userCustomizationService.assertAccessAllowed(user);
         List<String> authorities = resolveAuthorities(user);
         if (authorities.isEmpty()) {
             throw new org.springframework.security.access.AccessDeniedException(

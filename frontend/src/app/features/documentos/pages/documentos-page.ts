@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, computed, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink, NavigationEnd } from '@angular/router';
 import { filter, Subscription } from 'rxjs';
@@ -19,6 +19,7 @@ import { WorkflowApi } from '../../workflows/workflow-api.service';
 import { WorkflowStart } from '../../workflows/components/workflow-start';
 import { activeLocale } from '../../../core/i18n/i18n.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { allowedDocumentTypes } from '../../../core/auth/permission-rules';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 import { FieldPermissionDirective } from '../../../core/auth/field-permission.directive';
 import { ComponentPermissionService } from '../../../core/auth/component-permission.service';
@@ -121,7 +122,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                 </div>
                 <select name="documentTypeId" [(ngModel)]="createForm.documentTypeId" required style="width: 100%;">
                   <option value="">Selecciona un tipo documental</option>
-                  @for (type of types(); track type.id) {
+                  @for (type of creatableTypes(); track type.id) {
                     <option [value]="type.id">{{ type.name }} · {{ type.code }}</option>
                   }
                 </select>
@@ -723,6 +724,8 @@ export class DocumentPage implements OnInit, OnDestroy {
 
   // Catálogos auxiliares
   readonly types = signal<ApiDocumentType[]>([]);
+  /** Tipos para crear: los permitidos por la personalización del usuario (user:customize). */
+  readonly creatableTypes = computed(() => allowedDocumentTypes(this.types(), this.auth.user()?.customization?.allowedDocumentTypeIds));
   readonly categories = signal<ApiDocumentCategory[]>([]);
   readonly departments = signal<ApiDepartment[]>([]);
   readonly specialties = signal<string[]>([]);
