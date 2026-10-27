@@ -128,6 +128,9 @@ class AuditAnchorHardeningTest {
         assertEquals(64, first.secret().length());
         assertEquals(first.secret(), new AuditAnchorKeyProvider("", "", anchors.toString()).secret());
         assertNotEquals(AuditAnchorKeyProvider.LEGACY_PUBLIC_SECRET, first.secret());
+        if (Files.getFileStore(keyFile).supportsFileAttributeView("posix")) {
+            assertEquals("rw-------", java.nio.file.attribute.PosixFilePermissions.toString(Files.getPosixFilePermissions(keyFile)));
+        }
     }
 
     @Test

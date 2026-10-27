@@ -110,15 +110,16 @@ public class AuditAnchorKeyProvider {
             new SecureRandom().nextBytes(random);
             String generated = HexFormat.of().formatHex(random);
             try {
-                Files.writeString(path, generated + "\n", StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
+                // Se crea ya con permisos solo del propietario, sin una ventana con los del umask.
+                try {
+                    Files.createFile(path, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+                } catch (UnsupportedOperationException noPosix) {
+                    Files.createFile(path); // Windows: permisos por defecto del sistema.
+                }
             } catch (FileAlreadyExistsException race) {
                 return Files.readString(path, StandardCharsets.UTF_8).trim();
             }
-            try {
-                Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"));
-            } catch (UnsupportedOperationException ignored) {
-                // Sistemas sin permisos POSIX (Windows): se conserva el archivo con los permisos por defecto.
-            }
+            Files.writeString(path, generated + "\n", StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
             log.info("Generated a new audit anchor key at {}", path);
             return generated;
         } catch (IOException e) {

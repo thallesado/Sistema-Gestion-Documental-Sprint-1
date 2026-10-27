@@ -13,6 +13,7 @@ public interface DocumentVersionRepository extends JpaRepository<DocumentVersion
     List<DocumentVersion> findByTenantIdAndDocumentIdOrderByVersionNumberDesc(UUID tenantId, UUID documentId);
     Optional<DocumentVersion> findByIdAndTenantId(UUID id, UUID tenantId);
     boolean existsByTenantIdAndDocumentId(UUID tenantId, UUID documentId);
+    long countByTenantIdAndDocumentId(UUID tenantId, UUID documentId);
 
     @Query("select coalesce(sum(v.fileSizeBytes), 0) from DocumentVersion v where v.tenantId = :tenantId")
     long sumFileSizeBytesByTenantId(@Param("tenantId") UUID tenantId);

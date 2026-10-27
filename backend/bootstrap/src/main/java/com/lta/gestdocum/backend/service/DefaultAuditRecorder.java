@@ -241,6 +241,8 @@ public class DefaultAuditRecorder implements AuditRecorder {
         if (key == null) return false;
         String normalized = key.toLowerCase(Locale.ROOT).replaceAll("[_\\-\\s]", "");
         if (SENSITIVE_EXACT.contains(normalized)) return true;
+        // apiKey, accessKey, encryptionKey, signingKey... sin ocultar keywords ni keyboard.
+        if (normalized.length() > 3 && normalized.endsWith("key")) return true;
         for (String sensitive : SENSITIVE_FRAGMENTS) {
             if (normalized.contains(sensitive)) return true;
         }

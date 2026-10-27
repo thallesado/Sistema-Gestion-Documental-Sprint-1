@@ -123,7 +123,10 @@ public class DocumentStorageService {
     private void recordVersion(UUID documentId, DocumentVersion saved) {
         if (auditRecorder == null) return;
         Map<String, Object> after = new java.util.LinkedHashMap<>();
-        after.put("versionNumber", saved.getVersionNumber());
+        // version_number lo asigna un trigger: la entidad en memoria aún no lo tiene. Las versiones son
+        // inmutables y correlativas, así que su número es el total de versiones del documento.
+        after.put("versionNumber", saved.getVersionNumber() != null ? saved.getVersionNumber()
+                : versionRepository.countByTenantIdAndDocumentId(saved.getTenantId(), documentId));
         after.put("fileName", saved.getFileName());
         after.put("sha256", saved.getChecksumSha256());
         after.put("reason", saved.getChangeReason());

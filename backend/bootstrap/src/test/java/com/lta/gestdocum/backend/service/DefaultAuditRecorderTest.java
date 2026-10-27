@@ -197,6 +197,10 @@ class DefaultAuditRecorderTest {
         assertTrue(recorder.isSensitive("nueva_contraseña"));
         assertTrue(recorder.isSensitive("clave"));
         assertTrue(recorder.isSensitive("api-key"));
+        assertTrue(recorder.isSensitive("accessKey"));
+        assertTrue(recorder.isSensitive("encryption_key"));
+        assertTrue(recorder.isSensitive("signingKey"));
+        assertFalse(recorder.isSensitive("keyboard"));
         assertFalse(recorder.isSensitive("keywords"));
         assertFalse(recorder.isSensitive("opinion"));
         assertFalse(recorder.isSensitive("shipping"));
