@@ -31,9 +31,85 @@
                   "04-dominio-y-negocio/ayuda-y-asistente.md",
                   "06-operacion/anclaje-externo-auditoria.md",
                   "04-dominio-y-negocio/reportes-y-analitica.md",
-                  "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md"
+                  "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
+                  "04-dominio-y-negocio/administracion-de-plataforma.md"
               ],
     "contracts":  [
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "database/init/064_addons.sql",
+                          "includes": ["CREATE TABLE IF NOT EXISTS public.tenant_addons", "ALTER TABLE public.tenant_addons FORCE ROW LEVEL SECURITY", "CREATE OR REPLACE FUNCTION app.consume_ocr_pack_pages(p_pages bigint)", "CREATE OR REPLACE FUNCTION app.grant_addon_from_payment(p_transaction uuid)", "INSERT INTO app.schema_migrations(version) VALUES ('064_addons')"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/EffectiveLimits.java",
+                          "includes": ["public static long effectiveLimit(long planLimit, String resourceKey, Collection<Grant> grants, Instant now)", "if (planLimit == -1) return -1;"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/billing/SubscriptionItems.java",
+                          "includes": ["public static final String ADDON_METADATA = \"addonCode\";", "public static JsonNode planItem(JsonNode subscription)"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/TenantAddonController.java",
+                          "includes": ["@RequestMapping(\"/api/v1/billing/addons\")", "@PreAuthorize(PlanController.TENANT_PLAN_ADMIN)", "@PostMapping(\"/purchase\")"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/TenantAddonService.java",
+                          "includes": ["form.put(\"proration_behavior\", \"always_invoice\");", "form.put(\"mode\", \"payment\");", "No puedes quitar esas unidades"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "database/init/063_plan_catalog.sql",
+                          "includes": ["CREATE TABLE IF NOT EXISTS public.plan_prices", "CREATE UNIQUE INDEX IF NOT EXISTS uq_plan_prices_current", "ADD COLUMN IF NOT EXISTS plan_price_id", "CREATE TABLE IF NOT EXISTS public.default_role_templates", "REVOKE ALL ON public.plan_prices FROM nexodocs_app", "INSERT INTO app.schema_migrations(version) VALUES ('063_plan_catalog')"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PlatformPlanController.java",
+                          "includes": ["@GetMapping(\"/plans\")", "@PutMapping(\"/plans/{id}/limits\")", "@PutMapping(\"/plans/{id}/features\")", "@PostMapping(\"/plans/{id}/prices\")", "@PostMapping(\"/plans/prices/{priceId}/migrate\")", "\"CONFIRMATION_REQUIRED\""]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/PlatformPlanService.java",
+                          "includes": ["static final long NOTICE_DAYS = 30;", "stripe.createPrice(form", "archiveStripePrice(createdStripe)", "\"PLAN_PRICE_MIGRATION_SCHEDULED\""]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/billing/StripeBillingProperties.java",
+                          "includes": ["pp.archived_at is null and pp.stripe_price_id is not null", "environmentPriceFor(planCode, cycle)"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/TenantService.java",
+                          "includes": ["createDefaultGroups(tenantId, allowed)", "from default_role_templates"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "database/init/062_platform_audit.sql",
+                          "includes": ["CREATE TABLE IF NOT EXISTS public.platform_audit_events", "CHECK (char_length(btrim(reason)) >= 5)", "BEFORE UPDATE ON public.platform_audit_events", "BEFORE DELETE ON public.platform_audit_events", "BEFORE TRUNCATE ON public.platform_audit_events", "REVOKE ALL ON public.platform_audit_events FROM nexodocs_app", "INSERT INTO app.schema_migrations(version) VALUES ('062_platform_audit')"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PlatformTenantController.java",
+                          "includes": ["@PreAuthorize(\"hasAuthority('platform:tenant:manage')\")", "@GetMapping(\"/tenants/{id}/overview\")", "@PostMapping(\"/tenants/{id}/status\")", "@PostMapping(\"/tenants/{id}/trial-extension\")", "@PostMapping(\"/tenants/{id}/plan\")", "@GetMapping(\"/audit/export/csv\")"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/PlatformAuditService.java",
+                          "includes": ["public static String requireReason(String reason)", "insert into platform_audit_events", "getRemoteAddr()"]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PlatformBackupController.java",
+                          "includes": ["audit.record(\"PLATFORM_BACKUP_REQUESTED\""]
+                      },
+                      {
+                          "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
+                          "path": "frontend/src/app/features/platform-admin/platform-admin.routes.ts",
+                          "includes": ["path: 'platform/tenants/:id'", "path: 'platform/audit'"]
+                      },
                       {
                           "page": "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
                           "path": "database/init/061_subscription_lifecycle.sql",
@@ -659,6 +735,10 @@
                       }
                   ],
     "reviews":  {
+                    "04-dominio-y-negocio/administracion-de-plataforma.md":  {
+                                                                                 "reviewedAt":  "2026-10-27",
+                                                                                 "revision":  "8996d62"
+                                                                             },
                     "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md":  {
                                                                                  "reviewedAt":  "2026-10-27",
                                                                                  "revision":  "3f80c45"

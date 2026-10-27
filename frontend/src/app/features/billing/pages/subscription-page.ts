@@ -10,6 +10,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
 import { friendlyApiMessage } from '../../../core/http/tenant-session';
 import { activeLocale } from '../../../core/i18n/i18n.service';
 import { planDirection } from './subscription-rules';
+import { SubscriptionAddonsPanel } from './subscription-addons-panel';
 
 type Confirm = { title: string; message: string; action: string; danger?: boolean; run: () => void };
 
@@ -26,7 +27,7 @@ const CANCEL_REASONS = ['Es demasiado caro', 'No lo usamos lo suficiente', 'Nos 
 @Component({
   selector: 'app-subscription-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, LocalizedContentDirective],
+  imports: [CommonModule, FormsModule, RouterLink, LocalizedContentDirective, SubscriptionAddonsPanel],
   template: `
 <main class="sub" i18nContent>
   <a class="back" routerLink="/billing">← Facturación</a>
@@ -42,6 +43,14 @@ const CANCEL_REASONS = ['Es demasiado caro', 'No lo usamos lo suficiente', 'Nos 
   } @else if (details(); as d) {
     @if (message()) { <div class="notice" [class.error]="isError()" role="status">{{ message() }}</div> }
 
+    <nav class="tabs" role="tablist" aria-label="Secciones de la suscripción">
+      <button type="button" role="tab" [attr.aria-selected]="tab() === 'plan'" [class.active]="tab() === 'plan'" (click)="tab.set('plan')">Plan</button>
+      <button type="button" role="tab" [attr.aria-selected]="tab() === 'addons'" [class.active]="tab() === 'addons'" (click)="tab.set('addons')">Complementos</button>
+    </nav>
+
+    @if (tab() === 'addons') {
+      <app-subscription-addons />
+    } @else {
     <section class="current">
       <div class="current-main">
         <span class="pill" [class]="'pill ' + d.status.toLowerCase()">{{ statusLabel(d.status) }}</span>
@@ -138,6 +147,7 @@ const CANCEL_REASONS = ['Es demasiado caro', 'No lo usamos lo suficiente', 'Nos 
       <div><h2>Cancelar suscripción</h2><p>Anula la suscripción de inmediato y programa la eliminación definitiva de la organización y de todos sus datos.</p></div>
       <button type="button" class="danger-btn" (click)="openCancel()">Cancelar suscripción</button>
     </section>
+    }
   }
 
   @if (confirm(); as c) {
@@ -181,6 +191,7 @@ const CANCEL_REASONS = ['Es demasiado caro', 'No lo usamos lo suficiente', 'Nos 
   }
 </main>`,
   styles: [`
+    .tabs{display:flex;gap:6px;margin:4px 0 14px}.tabs button{background:#fff;border:1px solid var(--line,#dcebe8);border-radius:9px;cursor:pointer;font:inherit;font-weight:700;padding:8px 16px;color:var(--ink,#153a39)}.tabs button.active{background:var(--teal,#087f7b);border-color:var(--teal,#087f7b);color:#fff}
     .sub{padding:32px;max-width:1240px;margin:auto;color:var(--ink,#173f38)}
     .back{color:var(--teal);font-size:13px;font-weight:700;text-decoration:none}
     header{margin:14px 0 22px}.kicker{color:var(--teal);font-size:11px;font-weight:800;letter-spacing:.12em;margin:0;text-transform:uppercase}
@@ -227,6 +238,8 @@ export class SubscriptionPage implements OnInit {
   readonly details = this.billing.subscription;
   readonly plans = this.subscriptions.plans;
   readonly loading = signal(true);
+  /** Pestaña Complementos (064); ?complementos=… al volver de Stripe Checkout la abre. */
+  readonly tab = signal<'plan' | 'addons'>(typeof location !== 'undefined' && /[?&]complementos=/.test(location.search) ? 'addons' : 'plan');
   readonly loadError = signal('');
   readonly busy = signal(false);
   readonly message = signal('');

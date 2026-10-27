@@ -193,9 +193,11 @@ public class TenantService {
                     .toList();
             java.util.Set<String> featureSet = new java.util.HashSet<>(enabledFeatures);
 
-            permissionRepository.findByIsActiveTrueOrderByModuleAscActionAsc().stream()
+            List<Permission> allowed = permissionRepository.findByIsActiveTrueOrderByModuleAscActionAsc().stream()
                     .filter(perm -> PlanFeatureMatrix.isPermissionAllowed(perm.getModule(), perm.getCode(), featureSet))
-                    .forEach(perm -> roleRepository.grantPermission(tenantId, adminRole.getId(), perm.getId()));
+                    .toList();
+            allowed.forEach(perm -> roleRepository.grantPermission(tenantId, adminRole.getId(), perm.getId()));
+            createDefaultGroups(tenantId, allowed);
         } catch (Exception ex) {
             log.warn("Aviso al otorgar permisos al rol de tenant admin: {}", ex.getMessage());
         }
@@ -207,6 +209,50 @@ public class TenantService {
         seedDefaultCatalogs(saved.getId());
 
         return map(saved);
+    }
+
+    /**
+     * Grupos por defecto de una organización nueva desde default_role_templates (063), editables por el
+     * administrador global. Cada grupo recibe solo los códigos de su plantilla que existen y que el plan
+     * habilita; sin la tabla (base anterior a 063) no se crea ninguno.
+     */
+    void createDefaultGroups(UUID tenantId, List<Permission> allowedPermissions) {
+        if (jdbcTemplate == null) return;
+        List<java.util.Map<String, Object>> templates;
+        try {
+            templates = jdbcTemplate.queryForList("""
+                    select name, description, permission_codes from default_role_templates
+                    where is_active order by sort_order, name
+                    """);
+        } catch (org.springframework.dao.DataAccessException ex) {
+            log.warn("No se pudieron leer las plantillas de grupos por defecto: {}", ex.getMessage());
+            return;
+        }
+        java.util.Map<String, Permission> byCode = new java.util.HashMap<>();
+        allowedPermissions.forEach(perm -> byCode.put(perm.getCode(), perm));
+        for (java.util.Map<String, Object> template : templates) {
+            Role role = roleRepository.save(Role.builder()
+                    .tenantId(tenantId)
+                    .name((String) template.get("name"))
+                    .description((String) template.get("description"))
+                    .isSystem(false)
+                    .isActive(true)
+                    .build());
+            for (String code : permissionCodes(template.get("permission_codes"))) {
+                Permission perm = byCode.get(code);
+                if (perm != null) roleRepository.grantPermission(tenantId, role.getId(), perm.getId());
+            }
+        }
+    }
+
+    static List<String> permissionCodes(Object value) {
+        try {
+            if (value instanceof java.sql.Array array) return List.of((String[]) array.getArray());
+        } catch (java.sql.SQLException ex) {
+            return List.of();
+        }
+        if (value instanceof String[] array) return List.of(array);
+        return List.of();
     }
 
     public void seedDefaultCatalogs(UUID tenantId) {

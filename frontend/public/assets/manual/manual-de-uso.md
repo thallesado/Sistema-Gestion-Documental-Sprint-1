@@ -129,6 +129,16 @@ Facturación e ingresos muestra el estado, el plan, la próxima renovación y lo
 ### No renovar
 "No renovar suscripción" mantiene el acceso hasta el fin del período pagado y no hace más cobros. Puedes reanudar la renovación antes de esa fecha.
 
+### Complementos
+
+En Gestionar suscripción, pestaña "Complementos", puedes ampliar un límite sin cambiar de plan: almacenamiento adicional, usuarios adicionales o un paquete de páginas OCR. Se compran con la suscripción activa.
+
+- Si pagas con tarjeta, el complemento se agrega a tu suscripción: se cobra ahora la parte proporcional y después junto con el plan en cada renovación.
+- El paquete OCR se paga una vez y vale los meses indicados; se usa cuando se agota la cuota mensual de tu plan.
+- Sin tarjeta, se genera una orden de pago por QR o USDT por un período.
+
+Para reducir o quitar un complemento, el uso actual debe caber sin esas unidades. El cambio se aplica al final del período pagado. Si tus complementos cuestan más que el plan siguiente, la pantalla te lo sugiere.
+
 ### Cancelar la suscripción
 1. Descarga antes un respaldo de tus datos.
 2. Pulsa "Cancelar suscripción", elige un motivo, escribe el nombre exacto de la organización y tu contraseña.
@@ -142,7 +152,35 @@ El menú Auditoría muestra quién hizo qué, cuándo, desde qué dirección IP 
 
 "Verificar integridad" comprueba que la cadena de registros no fue alterada. Si la verificación falla, avisa a un administrador.
 
-## 13. Preguntas frecuentes
+## 13. Administración global (equipo de NexoDocs)
+
+Esta sección solo aplica a las cuentas de plataforma; los usuarios de una organización no ven estas pantallas.
+
+### Ficha de organización
+
+En Tenants → Todos los tenants, o desde la tabla del Panel de plataforma, abre "Ver ficha". Muestra el resumen de la organización y sus administradores, la suscripción (plan, ciclo, renovación, cambio programado, cancelación y período de gracia), el uso frente a los límites del plan (usuarios, almacenamiento, documentos y páginas OCR del mes), los pagos y el historial. La ficha nunca muestra documentos, pacientes ni su contenido.
+
+Desde la ficha puedes suspender o reactivar la organización (también dentro del período de gracia tras una cancelación), extender la prueba de 1 a 90 días y cambiar el plan sin cobro. Si la organización paga con Stripe, el plan se cambia desde su suscripción. Si el uso no cabe en el plan nuevo, el sistema lo avisa y pide confirmar.
+
+Cada acción, el alta de una organización y el respaldo completo exigen un motivo de al menos 5 caracteres.
+
+### Auditoría de plataforma
+
+Panel de plataforma → Auditoría de plataforma lista cada acción de plataforma con fecha, administrador, organización, motivo, estado anterior y posterior, e IP. Filtra por fecha, acción, administrador u organización y exporta a CSV. Los registros no se pueden editar ni borrar.
+
+### Planes y precios
+
+Tenants → Planes y precios permite editar cada plan: nombre, descripción, si está a la venta, límites (usuarios, almacenamiento, documentos y páginas OCR; -1 es ilimitado) y funcionalidades. Retirar un plan de la venta no afecta a quien ya lo tiene. Si bajas un límite que alguna organización ya supera, o retiras una funcionalidad, el sistema muestra a quién afecta y pide confirmar.
+
+Para cambiar un precio crea una versión nueva: se crea en Stripe y se aplica a las nuevas ventas. Los clientes actuales conservan su precio. Con "Migrar clientes" pasan al precio vigente en su primera renovación con al menos 30 días de aviso; reciben un correo y una notificación.
+
+En la pestaña "Grupos por defecto" defines los grupos que se crean en cada organización nueva, además del administrador, eligiendo permisos existentes.
+
+### Complementos
+
+Tenants → Complementos administra el catálogo: crear un complemento, elegir en qué planes se ofrece, ponerlo a la venta y publicar o cambiar su precio en Stripe (quien ya lo compró conserva su precio). Desde la ficha de una organización puedes conceder un complemento de cortesía, sin cobro, con motivo y fecha de vencimiento, y retirarlo.
+
+## 14. Preguntas frecuentes
 
 **No veo una opción del menú.** Tus grupos no tienen el permiso necesario; pídelo al administrador. Los permisos nuevos se aplican al volver a iniciar sesión.
 

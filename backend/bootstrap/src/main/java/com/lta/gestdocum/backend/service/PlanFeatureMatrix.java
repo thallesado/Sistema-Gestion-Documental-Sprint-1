@@ -66,6 +66,18 @@ public final class PlanFeatureMatrix {
         return true;
     }
 
+    /** Funcionalidad de plan que exige un permiso, o null si pertenece al DMS base (siempre disponible). */
+    public static String requiredFeature(String module, String code) {
+        String mod = module == null ? "" : module.trim().toLowerCase(Locale.ROOT);
+        String cd = code == null ? "" : code.trim().toLowerCase(Locale.ROOT);
+        if (isWorkflow(mod, cd)) return FEATURE_WORKFLOWS;
+        if (isOcr(mod, cd)) return FEATURE_OCR;
+        if (isClinical(mod, cd)) return FEATURE_CLINICAL;
+        if (isDicom(mod, cd)) return FEATURE_DICOM;
+        if (isAnalytics(mod, cd)) return FEATURE_ANALYTICS;
+        return null;
+    }
+
     public static boolean isWorkflow(String module, String code) {
         return "workflow".equals(module)
                 || "workflow_template".equals(module)

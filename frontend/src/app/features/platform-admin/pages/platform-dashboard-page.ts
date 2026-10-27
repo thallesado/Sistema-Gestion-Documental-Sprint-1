@@ -28,6 +28,7 @@ const METHOD_LABELS: Record<string, string> = { STRIPE_CARD: 'Tarjeta (Stripe)',
         <div class="pd-actions">
           <a routerLink="/platform/reports/tenants" class="pd-btn">Reporte de tenants</a>
           <a routerLink="/platform/reports/payments" class="pd-btn">Reporte de pagos</a>
+          <a routerLink="/platform/audit" class="pd-btn">Auditoría</a>
           <a routerLink="/tenants/new" class="pd-btn primary">+ Crear tenant</a>
           <button type="button" class="pd-btn icon" (click)="load()" [disabled]="loading()" aria-label="Actualizar">↻</button>
         </div>
@@ -129,7 +130,7 @@ const METHOD_LABELS: Record<string, string> = { STRIPE_CARD: 'Tarjeta (Stripe)',
               <tbody>
                 @for (t of filteredTenants(); track t.id) {
                   <tr>
-                    <td><b>{{ t.tenant }}</b><small>{{ t.code }}{{ t.stripeManaged ? ' · Stripe' : '' }}</small></td>
+                    <td><a class="pd-tenant-link" [routerLink]="['/platform/tenants', t.id]"><b>{{ t.tenant }}</b></a><small>{{ t.code }}{{ t.stripeManaged ? ' · Stripe' : '' }}</small></td>
                     <td>{{ t.plan }}<small>{{ t.cycle === 'ANNUAL' ? 'Anual' : 'Mensual' }}</small></td>
                     <td><span class="pd-badge" [class]="'pd-badge s-' + t.status">{{ statusLabel(t.status) }}</span></td>
                     <td class="num">{{ t.users }}</td>
@@ -253,6 +254,8 @@ const METHOD_LABELS: Record<string, string> = { STRIPE_CARD: 'Tarjeta (Stripe)',
     .pd-badge.s-PAST_DUE { background: #ffedd5; color: #c2410c; }
     .pd-badge.s-EXPIRED, .pd-badge.s-CANCELED, .pd-badge.s-FAILED { background: #fde8e8; color: #b42318; }
     .pd-badge.s-SUSPENDED { background: #ece9f9; color: #5b45a6; }
+    .pd-tenant-link { color: inherit; text-decoration: none; }
+    .pd-tenant-link:hover b { color: #087f7b; text-decoration: underline; }
     .pd-link { color: #087f7b; font-weight: 700; font-size: 13px; text-decoration: none; }
 
     @media (max-width: 1200px) { .pd-tenant-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); } .report-charts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

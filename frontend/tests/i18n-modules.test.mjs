@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const frontend = fileURLToPath(new URL('../', import.meta.url));
 const audit = (args) => JSON.parse(execFileSync(process.execPath, ['scripts/i18n-audit.mjs', ...args, '--json'], { cwd: frontend, encoding: 'utf8' }));
 
-/** Pantallas revisadas: Respaldos, Permisos, Gestionar suscripción y pago, Reportes, Apariencia, Configuración y bienvenida. */
+/** Pantallas revisadas: Ficha de organización y auditoría de plataforma, Respaldos, Permisos, Gestionar suscripción y pago, Reportes, Apariencia, Configuración y bienvenida. */
 const SCREENS = [
   'src/app/features/backups/pages/backups-page.html', 'src/app/features/backups/pages/backups-page.ts',
   'src/app/features/users/components/permission-detail-modal.ts', 'src/app/features/users/components/permissions-catalog.ts',
@@ -17,6 +17,11 @@ const SCREENS = [
   'src/app/core/data/report-data.ts', 'src/app/features/settings/pages/appearance-page.ts',
   'src/app/features/settings/pages/settings-home-page.ts', 'src/app/features/marketing/pages/welcome-page.ts',
   'src/app/features/marketing/components/site-header.ts',
+  'src/app/features/platform-admin/pages/platform-tenant-page.ts', 'src/app/features/platform-admin/pages/platform-audit-page.ts',
+  'src/app/features/platform-admin/pages/platform-tenant.logic.ts',
+  'src/app/features/platform-admin/pages/platform-plans-page.ts', 'src/app/features/platform-admin/pages/platform-plans.logic.ts',
+  'src/app/features/platform-admin/pages/platform-addons-page.ts', 'src/app/features/billing/pages/subscription-addons-panel.ts',
+  'src/app/features/billing/pages/addons.logic.ts',
 ];
 
 for (const language of ['en', 'fr', 'zh']) {

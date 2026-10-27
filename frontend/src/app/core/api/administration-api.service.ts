@@ -196,11 +196,12 @@ export class AdministrationApiService {
     return this.http.get<ApiTenant[]>(`${API_URL}/tenants`);
   }
 
-  changeTenantStatus(id: string, value: string): Observable<ApiTenant> {
-    return this.http.patch<ApiTenant>(`${API_URL}/tenants/${id}/status`, null, { params: { value } });
+  /** Suspender o reactivar exige motivo (auditoría de plataforma, migración 062). */
+  changeTenantStatus(id: string, value: string, reason: string): Observable<ApiTenant> {
+    return this.http.patch<ApiTenant>(`${API_URL}/tenants/${id}/status`, null, { params: { value, reason } });
   }
 
-  createTenant(payload: CreateTenantPayload): Observable<ApiTenant> {
-    return this.http.post<ApiTenant>(`${API_URL}/tenants`, payload);
+  createTenant(payload: CreateTenantPayload, reason: string): Observable<ApiTenant> {
+    return this.http.post<ApiTenant>(`${API_URL}/tenants`, payload, { params: { reason } });
   }
 }

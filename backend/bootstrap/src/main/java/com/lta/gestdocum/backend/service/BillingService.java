@@ -34,6 +34,9 @@ public class BillingService {
     private final EntityManager entityManager;
     private final ObjectMapper objectMapper;
     private final StripeSubscriptionService subscriptions;
+    /** Paquetes consumibles pagados con Checkout (064); opcional para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    TenantAddonService addons;
 
     public BillingService(AuthenticatedUserContext context, TenantRepository tenants, PlanRepository plans,
                           BillingTransactionRepository transactions, List<PaymentGatewayProvider> providers,
@@ -93,6 +96,14 @@ public class BillingService {
             throw new IllegalArgumentException("La confirmación del pago no es válida");
         }
         transaction.setStatus(BillingTransaction.PaymentStatus.COMPLETED); transaction.setCompletedAt(Instant.now()); transactions.save(transaction);
+        if (transaction.getMetadata() != null && "addon".equals(transaction.getMetadata().get("kind"))) {
+            // Orden de un complemento (064): no toca el plan; la función crea el complemento desde la orden pagada.
+            entityManager.flush();
+            Object granted = entityManager.createNativeQuery("select app.grant_addon_from_payment(cast(:id as uuid))")
+                    .setParameter("id", transaction.getId()).getSingleResult();
+            if (!(granted instanceof Boolean ok) || !ok) throw new IllegalStateException("No se pudo activar el complemento");
+            return overview(tenantId);
+        }
         Instant periodEnd = Instant.now().plus(transaction.getBillingPeriod() == BillingTransaction.BillingCycle.ANNUAL ? 365 : 30, ChronoUnit.DAYS);
         if (plans.activateTenantSubscription(tenantId, transaction.getPlanId(), "ACTIVE", periodEnd,
                 transaction.getBillingPeriod().name(), transaction.getPaymentMethod().name()) != 1) {
@@ -107,6 +118,7 @@ public class BillingService {
         try {
             JsonNode event = objectMapper.readTree(rawPayload);
             if (subscriptions.handleEvent(event)) return;
+            if (addons != null && addons.handleStripeEvent(event)) return;
             String type = event.path("type").asText();
             if (!"payment_intent.succeeded".equals(type) && !"checkout.session.completed".equals(type)) return;
             JsonNode payment = event.path("data").path("object");
