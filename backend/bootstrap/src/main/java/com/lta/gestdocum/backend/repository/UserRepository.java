@@ -41,16 +41,22 @@ public interface UserRepository extends JpaRepository<User, UUID> {
           AND u.deletedAt IS NULL
           AND (
             :filter IS NULL OR :filter = ''
-            OR LOWER(u.username) LIKE LOWER(CONCAT('%', :filter, '%'))
-            OR LOWER(u.email) LIKE LOWER(CONCAT('%', :filter, '%'))
-            OR LOWER(u.firstName) LIKE LOWER(CONCAT('%', :filter, '%'))
-            OR LOWER(u.lastName) LIKE LOWER(CONCAT('%', :filter, '%'))
+            OR (:#{#fields.username()} = true AND LOWER(u.username) LIKE LOWER(CONCAT('%', :filter, '%')))
+            OR (:#{#fields.email()} = true AND LOWER(u.email) LIKE LOWER(CONCAT('%', :filter, '%')))
+            OR (:#{#fields.firstName()} = true AND LOWER(u.firstName) LIKE LOWER(CONCAT('%', :filter, '%')))
+            OR (:#{#fields.lastName()} = true AND LOWER(u.lastName) LIKE LOWER(CONCAT('%', :filter, '%')))
           )
         """)
     Page<User> findActiveByTenant(
             @Param("tenantId") UUID tenantId,
             @Param("filter") String filter,
+            @Param("fields") SearchFields fields,
             Pageable pageable);
+
+    /** B2: campos que la búsqueda de usuarios puede comparar; los ocultos para el perfil no se usan como filtro. */
+    record SearchFields(boolean username, boolean email, boolean firstName, boolean lastName) {
+        public static final SearchFields ALL = new SearchFields(true, true, true, true);
+    }
 
     @Query(value = """
         SELECT u.* FROM users u

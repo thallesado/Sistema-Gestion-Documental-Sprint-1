@@ -11,6 +11,11 @@ import java.util.List;
 import java.util.UUID;
 
 public interface DocumentRepository extends JpaRepository<Document, UUID> {
+    /** B2: campos que la búsqueda libre puede comparar; los ocultos para el perfil no se usan como filtro. */
+    record SearchFields(boolean name, boolean description, boolean code, boolean specialty, boolean process) {
+        public static final SearchFields ALL = new SearchFields(true, true, true, true, true);
+    }
+
     @Query(value = "SELECT app.document_has_active_workflow(:tenantId,:documentId)", nativeQuery = true)
     boolean hasActiveWorkflow(@Param("tenantId") UUID tenantId,@Param("documentId") UUID documentId);
 
@@ -25,76 +30,76 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
     @org.springframework.data.jpa.repository.Query("""
         select d from Document d
         where d.tenantId = :tenantId and d.deletedAt is null
-          and (lower(d.name) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
-            or lower(d.code) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%')))
+          and (:filter = '' or (:#{#fields.name()} = true and lower(d.name) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.description()} = true and lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.code()} = true and lower(d.code) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.specialty()} = true and lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.process()} = true and lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%'))))
         """)
-    Page<Document> searchByTenant(UUID tenantId, String filter, Pageable pageable);
+    Page<Document> searchByTenant(UUID tenantId, String filter, @Param("fields") SearchFields fields, Pageable pageable);
 
     @org.springframework.data.jpa.repository.Query("""
         select d from Document d
         where d.tenantId = :tenantId and d.deletedAt is null and d.status = :status
-          and (lower(d.name) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
-            or lower(d.code) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%')))
+          and (:filter = '' or (:#{#fields.name()} = true and lower(d.name) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.description()} = true and lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.code()} = true and lower(d.code) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.specialty()} = true and lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.process()} = true and lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%'))))
         """)
-    Page<Document> searchByTenantAndStatus(UUID tenantId, String filter, Document.DocumentStatus status, Pageable pageable);
+    Page<Document> searchByTenantAndStatus(UUID tenantId, String filter, Document.DocumentStatus status, @Param("fields") SearchFields fields, Pageable pageable);
 
     @org.springframework.data.jpa.repository.Query("""
         select d from Document d
         where d.tenantId = :tenantId and d.deletedAt is null
           and (d.authorId = :userId or d.responsibleId = :userId)
-          and (lower(d.name) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
-            or lower(d.code) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%')))
+          and (:filter = '' or (:#{#fields.name()} = true and lower(d.name) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.description()} = true and lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.code()} = true and lower(d.code) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.specialty()} = true and lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.process()} = true and lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%'))))
         """)
-    Page<Document> searchMine(UUID tenantId, UUID userId, String filter, Pageable pageable);
+    Page<Document> searchMine(UUID tenantId, UUID userId, String filter, @Param("fields") SearchFields fields, Pageable pageable);
 
     @org.springframework.data.jpa.repository.Query("""
         select d from Document d
         where d.tenantId = :tenantId and d.deletedAt is null
           and (d.authorId = :userId or d.responsibleId = :userId)
           and d.status = :status
-          and (lower(d.name) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
-            or lower(d.code) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%')))
+          and (:filter = '' or (:#{#fields.name()} = true and lower(d.name) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.description()} = true and lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.code()} = true and lower(d.code) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.specialty()} = true and lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.process()} = true and lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%'))))
         """)
     Page<Document> searchMineAndStatus(UUID tenantId, UUID userId, String filter,
-                                       Document.DocumentStatus status, Pageable pageable);
+                                       Document.DocumentStatus status, @Param("fields") SearchFields fields, Pageable pageable);
 
     @org.springframework.data.jpa.repository.Query("""
         select d from Document d
         where d.tenantId = :tenantId and d.deletedAt is null
           and d.authorId != :userId
-          and (lower(d.name) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
-            or lower(d.code) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%')))
+          and (:filter = '' or (:#{#fields.name()} = true and lower(d.name) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.description()} = true and lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.code()} = true and lower(d.code) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.specialty()} = true and lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.process()} = true and lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%'))))
         """)
-    Page<Document> searchShared(UUID tenantId, UUID userId, String filter, Pageable pageable);
+    Page<Document> searchShared(UUID tenantId, UUID userId, String filter, @Param("fields") SearchFields fields, Pageable pageable);
 
     @org.springframework.data.jpa.repository.Query("""
         select d from Document d
         where d.tenantId = :tenantId and d.deletedAt is null
           and d.authorId != :userId
           and d.status = :status
-          and (lower(d.name) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%'))
-            or lower(d.code) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%'))
-            or lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%')))
+          and (:filter = '' or (:#{#fields.name()} = true and lower(d.name) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.description()} = true and lower(coalesce(d.description, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.code()} = true and lower(d.code) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.specialty()} = true and lower(coalesce(d.specialty, '')) like lower(concat('%', :filter, '%')))
+            or (:#{#fields.process()} = true and lower(coalesce(d.institutionalProcess, '')) like lower(concat('%', :filter, '%'))))
         """)
     Page<Document> searchSharedAndStatus(UUID tenantId, UUID userId, String filter,
-                                         Document.DocumentStatus status, Pageable pageable);
+                                         Document.DocumentStatus status, @Param("fields") SearchFields fields, Pageable pageable);
 
     java.util.Optional<Document> findByIdAndTenantIdAndDeletedAtIsNull(UUID id, UUID tenantId);
 

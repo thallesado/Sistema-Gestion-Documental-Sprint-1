@@ -292,6 +292,8 @@ public class ClinicalHistoryService {
         userContext.establishDatabaseContext();
         ClinicalHistory history = getForTenant(id);
         UUID tenantId = userContext.requireTenantId();
+        ComponentFormAccess noteAccess = formAccess(ComponentFormCatalog.MEDICAL_NOTE_FORM);
+        ComponentFormAccess documentAccess = formAccess(ComponentFormCatalog.DOCUMENT_FORM);
         List<TimelineEventResponse> events = new ArrayList<>();
 
         events.add(TimelineEventResponse.builder()
@@ -325,13 +327,13 @@ public class ClinicalHistoryService {
                     events.add(TimelineEventResponse.builder()
                             .occurredAt(note.getCreatedAt())
                             .eventType("MEDICAL_NOTE")
-                            .code(note.getNoteType())
+                            .code(noteAccess.reveal("tipo", note.getNoteType()))
                             .status("RECORDED")
                             .referenceId(note.getId())
                             .episodeId(note.getEpisodeId())
                             .professionalId(note.getAuthorId())
                             .specialty(spec)
-                            .description(summary(note.getContent()))
+                            .description(noteAccess.reveal("contenido", summary(note.getContent())))
                             .build());
                 });
 
@@ -345,12 +347,12 @@ public class ClinicalHistoryService {
                     events.add(TimelineEventResponse.builder()
                             .occurredAt(document.getCreatedAt())
                             .eventType("DOCUMENT")
-                            .code(document.getCode())
+                            .code(documentAccess.reveal("codigo", document.getCode()))
                             .status(document.getStatus().name())
                             .referenceId(document.getId())
                             .professionalId(document.getAuthorId())
                             .specialty(spec)
-                            .description(document.getName())
+                            .description(documentAccess.reveal("nombre", document.getName()))
                             .build());
                 });
 
@@ -436,10 +438,14 @@ public class ClinicalHistoryService {
         clinicalDocumentLinkRepository.deleteByTenantIdAndClinicalHistoryIdAndIdDocumentId(tenantId, historyId, documentId);
     }
 
+    private ComponentFormAccess formAccess(String formKey) {
+        return componentPermissions == null
+                ? ComponentFormAccess.unrestricted(ComponentFormCatalog.require(formKey))
+                : componentPermissions.current(formKey);
+    }
+
     private DocumentResponse toDocumentResponse(Document document) {
-        ComponentFormAccess access = componentPermissions == null
-                ? ComponentFormAccess.unrestricted(ComponentFormCatalog.require(ComponentFormCatalog.DOCUMENT_FORM))
-                : componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM);
+        ComponentFormAccess access = formAccess(ComponentFormCatalog.DOCUMENT_FORM);
         return new DocumentResponse(
                 document.getId(),
                 document.getDocumentTypeId(),

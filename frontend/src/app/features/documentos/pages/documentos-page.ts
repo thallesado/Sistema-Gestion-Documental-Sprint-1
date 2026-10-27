@@ -380,7 +380,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     <span>Versiones (v{{ item.currentVersion || 1 }})</span>
                   </button>
-                  <label class="btn-doc-action" (click)="$event.stopPropagation()">
+                  <label class="btn-doc-action" [appField]="'documento.nuevo.accion_subir_version'" (click)="$event.stopPropagation()">
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
                     <span>Subir v{{ (item.currentVersion || 1) + 1 }}</span>
                     <input type="file" accept=".pdf,.png,.jpg,.jpeg,.docx" style="display: none;" (change)="uploadVersion(item, $event)" />
@@ -467,7 +467,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
 
               <!-- TRANSICIONES DE ESTADO PERMITIDAS -->
               @if (allowedStatusTransitions(selectedDocument()!).length) {
-                <div class="status-actions">
+                <div class="status-actions" [appField]="'documento.nuevo.accion_cambiar_estado'">
                   <span>Cambiar estado del documento:</span>
                   @for (status of allowedStatusTransitions(selectedDocument()!); track status) {
                     <button type="button" (click)="changeStatus(selectedDocument()!, status)" [disabled]="changingStatus()">
@@ -480,7 +480,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
               @if (detailError()) { <p class="drawer-error" role="alert">{{ detailError() }}</p> }
 
               <div class="drawer-actions" style="margin-top: 20px;">
-                <label class="btn-primary-action" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                <label class="btn-primary-action" [appField]="'documento.nuevo.accion_subir_version'" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
                   <span>Subir nueva versión (v{{ (selectedDocument()?.currentVersion || 1) + 1 }})</span>
                   <input type="file" accept=".pdf,.png,.jpg,.jpeg,.docx" style="display: none;" (change)="uploadVersion(selectedDocument()!, $event)" />

@@ -5,6 +5,7 @@ import com.lta.gestdocum.backend.model.Patient;
 import com.lta.gestdocum.backend.repository.ClinicalHistoryRepository;
 import com.lta.gestdocum.backend.repository.MedicalNoteRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,9 @@ public class PatientQuickSummaryService {
     private final ClinicalHistoryRepository historyRepository;
     private final MedicalNoteRepository noteRepository;
     private final AuthenticatedUserContext context;
+    /** B2: opcional para conservar el constructor existente; sin él no se oculta nada. */
+    @Autowired(required = false)
+    private ComponentPermissionService componentPermissions;
 
     public PatientQuickSummaryService(PatientService patientService,
                                       ClinicalHistoryRepository historyRepository,
@@ -40,10 +44,14 @@ public class PatientQuickSummaryService {
                     patient.getDocumentType() + " " + patient.getDocumentNumber(), null, null,
                     List.of(), List.of(), List.of());
         }
+        ComponentFormAccess noteAccess = componentPermissions == null
+                ? ComponentFormAccess.unrestricted(ComponentFormCatalog.require(ComponentFormCatalog.MEDICAL_NOTE_FORM))
+                : componentPermissions.current(ComponentFormCatalog.MEDICAL_NOTE_FORM);
         var notes = noteRepository.findByTenantIdAndClinicalHistoryIdOrderByCreatedAtDesc(
                         tenantId, history.getId(), PageRequest.of(0, 5)).getContent().stream()
                 .map(note -> new PatientQuickSummaryResponse.RecentNote(
-                        note.getId(), note.getNoteType(), note.getContent(), note.getCreatedAt()))
+                        note.getId(), noteAccess.reveal("tipo", note.getNoteType()),
+                        noteAccess.reveal("contenido", note.getContent()), note.getCreatedAt()))
                 .toList();
         return new PatientQuickSummaryResponse(patientId, patient.getFirstName() + " " + patient.getLastName(),
                 patient.getDocumentType() + " " + patient.getDocumentNumber(), history.getId(), history.getCode(),

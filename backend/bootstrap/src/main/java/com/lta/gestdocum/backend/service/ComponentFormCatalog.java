@@ -46,7 +46,9 @@ public final class ComponentFormCatalog {
                 new Component("emision", "Fecha de emisión"),
                 new Component("vencimiento", "Fecha de vencimiento"),
                 new Component("responsable", "Responsable asignado"),
-                new Component("descripcion", "Descripción / Resumen"))));
+                new Component("descripcion", "Descripción / Resumen"),
+                new Component("accion_cambiar_estado", "Botón «Cambiar estado»"),
+                new Component("accion_subir_version", "Botón «Subir nueva versión»"))));
         register(new Form(MEDICAL_NOTE_FORM, "Notas médicas", List.of(
                 new Component("tipo", "Tipo de nota"),
                 new Component("estado", "Estado (borrador / vigente)"),

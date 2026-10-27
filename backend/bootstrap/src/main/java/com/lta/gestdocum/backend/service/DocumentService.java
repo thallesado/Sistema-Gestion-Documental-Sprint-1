@@ -88,9 +88,9 @@ public class DocumentService {
         String value = filter == null ? "" : filter.trim();
         ComponentFormAccess access = documentAccess();
         if (status != null) {
-            return repository.searchByTenantAndStatus(tenantId, value, status, pageable).map(document -> toResponse(document, access));
+            return repository.searchByTenantAndStatus(tenantId, value, status, searchFields(access), pageable).map(document -> toResponse(document, access));
         }
-        return repository.searchByTenant(tenantId, value, pageable).map(document -> toResponse(document, access));
+        return repository.searchByTenant(tenantId, value, searchFields(access), pageable).map(document -> toResponse(document, access));
     }
 
     @Transactional(readOnly = true)
@@ -101,9 +101,9 @@ public class DocumentService {
         String value = filter == null ? "" : filter.trim();
         ComponentFormAccess access = documentAccess();
         if (status != null) {
-            return repository.searchMineAndStatus(tenantId, userId, value, status, pageable).map(document -> toResponse(document, access));
+            return repository.searchMineAndStatus(tenantId, userId, value, status, searchFields(access), pageable).map(document -> toResponse(document, access));
         }
-        return repository.searchMine(tenantId, userId, value, pageable).map(document -> toResponse(document, access));
+        return repository.searchMine(tenantId, userId, value, searchFields(access), pageable).map(document -> toResponse(document, access));
     }
 
     @Transactional(readOnly = true)
@@ -114,9 +114,15 @@ public class DocumentService {
         String value = filter == null ? "" : filter.trim();
         ComponentFormAccess access = documentAccess();
         if (status != null) {
-            return repository.searchSharedAndStatus(tenantId, userId, value, status, pageable).map(document -> toResponse(document, access));
+            return repository.searchSharedAndStatus(tenantId, userId, value, status, searchFields(access), pageable).map(document -> toResponse(document, access));
         }
-        return repository.searchShared(tenantId, userId, value, pageable).map(document -> toResponse(document, access));
+        return repository.searchShared(tenantId, userId, value, searchFields(access), pageable).map(document -> toResponse(document, access));
+    }
+
+    /** B2: la búsqueda libre no compara contra campos ocultos, para no revelar su valor por inferencia. */
+    static DocumentRepository.SearchFields searchFields(ComponentFormAccess access) {
+        return new DocumentRepository.SearchFields(access.visible("nombre"), access.visible("descripcion"),
+                access.visible("codigo"), access.visible("especialidad"), access.visible("proceso"));
     }
 
     @Transactional(readOnly = true)
@@ -184,6 +190,7 @@ public class DocumentService {
     public DocumentResponse changeStatus(UUID id, DocumentStatusRequest request) {
         userContext.establishDatabaseContext();
         Document document = getForTenant(id);
+        documentAccess().requireEditable("accion_cambiar_estado");
         if (repository.hasActiveWorkflow(document.getTenantId(), id)) {
             throw new IllegalStateException("El estado de este documento lo controla un workflow activo. Resuelve su tarea o cancela el flujo antes de cambiarlo manualmente.");
         }

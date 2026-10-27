@@ -39,6 +39,14 @@ public class DocumentStorageService {
     private final PlanEnforcementService planEnforcementService;
     private UserCustomizationService userCustomizationService;
 
+    /** B2: opcional para conservar el constructor existente; sin él no se restringe la acción. */
+    private ComponentPermissionService componentPermissions;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setComponentPermissions(ComponentPermissionService componentPermissions) {
+        this.componentPermissions = componentPermissions;
+    }
+
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setUserCustomizationService(UserCustomizationService userCustomizationService) {
         this.userCustomizationService = userCustomizationService;
@@ -62,6 +70,10 @@ public class DocumentStorageService {
         context.establishDatabaseContext();
         documentRepository.findByIdAndTenantIdAndDeletedAtIsNull(documentId, tenantId)
                 .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
+        // La primera versión forma parte del alta; las siguientes son la acción «Subir nueva versión».
+        if (componentPermissions != null && versionRepository.existsByTenantIdAndDocumentId(tenantId, documentId)) {
+            componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM).requireEditable("accion_subir_version");
+        }
         validate(file, reason);
         planEnforcementService.validateStorageLimit(tenantId, file.getSize());
         if (userCustomizationService != null) userCustomizationService.validateUpload(tenantId, file.getSize());

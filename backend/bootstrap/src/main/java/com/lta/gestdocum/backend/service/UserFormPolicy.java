@@ -5,6 +5,7 @@ import com.lta.gestdocum.backend.dto.UserResponse;
 import com.lta.gestdocum.backend.dto.UserUpdateRequest;
 import com.lta.gestdocum.backend.model.User;
 import com.lta.gestdocum.backend.repository.RoleRepository;
+import com.lta.gestdocum.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
@@ -71,16 +72,30 @@ public class UserFormPolicy {
     /** Listado de usuarios: los componentes ocultos para el perfil no salen del servidor. */
     public Page<UserResponse> hideComponents(Page<UserResponse> page) {
         ComponentFormAccess access = access();
-        return page.map(user -> {
-            user.setFirstName(access.reveal("nombre", user.getFirstName()));
-            user.setLastName(access.reveal("apellido", user.getLastName()));
-            user.setUsername(access.reveal("usuario", user.getUsername()));
-            user.setEmail(access.reveal("correo", user.getEmail()));
-            user.setStatus(access.reveal("estado", user.getStatus()));
-            user.setRoleIds(access.reveal("grupos", user.getRoleIds()));
-            user.setRoleNames(access.reveal("grupos", user.getRoleNames()));
-            return user;
-        });
+        return page.map(user -> hide(access, user));
+    }
+
+    /** Respuesta de alta o edición: mismo filtro que el listado. */
+    public UserResponse hideComponents(UserResponse user) {
+        return hide(access(), user);
+    }
+
+    /** La búsqueda no compara contra componentes ocultos, para no revelar su valor por inferencia. */
+    public UserRepository.SearchFields searchFields() {
+        ComponentFormAccess access = access();
+        return new UserRepository.SearchFields(access.visible("usuario"), access.visible("correo"),
+                access.visible("nombre"), access.visible("apellido"));
+    }
+
+    private static UserResponse hide(ComponentFormAccess access, UserResponse user) {
+        user.setFirstName(access.reveal("nombre", user.getFirstName()));
+        user.setLastName(access.reveal("apellido", user.getLastName()));
+        user.setUsername(access.reveal("usuario", user.getUsername()));
+        user.setEmail(access.reveal("correo", user.getEmail()));
+        user.setStatus(access.reveal("estado", user.getStatus()));
+        user.setRoleIds(access.reveal("grupos", user.getRoleIds()));
+        user.setRoleNames(access.reveal("grupos", user.getRoleNames()));
+        return user;
     }
 
     private ComponentFormAccess access() {
