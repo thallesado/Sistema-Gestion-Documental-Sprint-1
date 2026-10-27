@@ -70,6 +70,14 @@ public class AuditAnchorKeyProvider {
         return secret;
     }
 
+    /**
+     * Solo una instalación que nunca configuró su propio secreto firmó con el valor público. Con
+     * {@code AUDIT_ANCHOR_SECRET} propio las anclas antiguas ya usaban esa clave y no hay nada que tolerar.
+     */
+    public boolean legacyFallbackAllowed() {
+        return !"AUDIT_ANCHOR_SECRET".equals(source);
+    }
+
     /** Origen de la clave (variable o ruta del archivo), sin revelar su valor. */
     public String source() {
         return source;

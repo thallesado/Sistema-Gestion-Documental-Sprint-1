@@ -144,12 +144,26 @@ class AuditAnchorHardeningTest {
     @DisplayName("Un ancla firmada con la clave pública solo se acepta si es anterior a su retiro")
     void legacySignedAnchorOnlyBeforeCutoff() {
         AuditAnchorService legacyService = new AuditAnchorService(null, null, AuditAnchorKeyProvider.LEGACY_PUBLIC_SECRET);
-        AuditAnchorService current = new AuditAnchorService(null, null, "clave-nueva-de-la-instalacion-0123456789");
+        AuditAnchorService current = new AuditAnchorService(null, null, "clave-nueva-de-la-instalacion-0123456789", true);
         UUID tenant = UUID.randomUUID();
         AuditAnchor old = signed(legacyService, tenant, AuditAnchorKeyProvider.LEGACY_KEY_RETIRED_AT.minusDays(1));
         AuditAnchor forged = signed(legacyService, tenant, AuditAnchorKeyProvider.LEGACY_KEY_RETIRED_AT.plusMinutes(1));
         assertTrue(current.verifyAnchorIntegrity(old));
         assertFalse(current.verifyAnchorIntegrity(forged));
+    }
+
+    @Test
+    @DisplayName("Con un AUDIT_ANCHOR_SECRET propio nunca se acepta un ancla firmada con la clave pública, aunque esté antidatada")
+    void customSecretRejectsBackdatedLegacyAnchor() {
+        AuditAnchorKeyProvider custom = new AuditAnchorKeyProvider("un-secreto-propio-de-produccion-0123456789",
+                dir.resolve("unused/anchor.key").toString(), "");
+        assertFalse(custom.legacyFallbackAllowed());
+        assertTrue(new AuditAnchorKeyProvider("", dir.resolve("gen/anchor.key").toString(), "").legacyFallbackAllowed());
+
+        AuditAnchorService legacyService = new AuditAnchorService(null, null, AuditAnchorKeyProvider.LEGACY_PUBLIC_SECRET);
+        AuditAnchorService protectedInstall = new AuditAnchorService(null, null, custom);
+        AuditAnchor backdated = signed(legacyService, UUID.randomUUID(), AuditAnchorKeyProvider.LEGACY_KEY_RETIRED_AT.minusYears(1));
+        assertFalse(protectedInstall.verifyAnchorIntegrity(backdated));
     }
 
     private static AuditAnchor signed(AuditAnchorService signer, UUID tenant, OffsetDateTime at) {

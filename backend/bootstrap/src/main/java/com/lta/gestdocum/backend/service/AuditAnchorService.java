@@ -23,23 +23,39 @@ public class AuditAnchorService {
     private final AuditAnchorRepository anchorRepository;
     private final AuditEventRepository auditEventRepository;
     private final String anchorSecret;
+    private final boolean legacyFallback;
 
     @org.springframework.beans.factory.annotation.Autowired
     public AuditAnchorService(
             AuditAnchorRepository anchorRepository,
             AuditEventRepository auditEventRepository,
             AuditAnchorKeyProvider keyProvider) {
-        this(anchorRepository, auditEventRepository, keyProvider.secret());
+        this(anchorRepository, auditEventRepository, keyProvider.secret(), keyProvider.legacyFallbackAllowed());
     }
 
-    /** Para pruebas: clave fija. */
+    /** Para pruebas: clave fija, sin tolerar anclas firmadas con la antigua clave pública. */
     public AuditAnchorService(
             AuditAnchorRepository anchorRepository,
             AuditEventRepository auditEventRepository,
             String anchorSecret) {
+        this(anchorRepository, auditEventRepository, anchorSecret, false);
+    }
+
+    /**
+     * {@code legacyFallback}: la instalación firmó antes con la clave pública (no tenía secreto propio). Esas
+     * anclas internas eran falsificables por quien conociera el repositorio; tolerarlas no empeora nada y evita
+     * marcar como manipulada una instalación existente. El ancla externa, firmada con la clave nueva, sigue
+     * siendo la que protege frente al DBA.
+     */
+    public AuditAnchorService(
+            AuditAnchorRepository anchorRepository,
+            AuditEventRepository auditEventRepository,
+            String anchorSecret,
+            boolean legacyFallback) {
         this.anchorRepository = anchorRepository;
         this.auditEventRepository = auditEventRepository;
         this.anchorSecret = anchorSecret;
+        this.legacyFallback = legacyFallback;
     }
 
     public Optional<AuditAnchor> getLatestAnchor(UUID tenantId) {
@@ -106,7 +122,7 @@ public class AuditAnchorService {
             return true;
         }
         // Anclas emitidas antes de retirar la clave pública del repositorio (ver AuditAnchorKeyProvider).
-        return AuditAnchorKeyProvider.legacyAccepted(anchor.getAnchoredAt())
+        return legacyFallback && AuditAnchorKeyProvider.legacyAccepted(anchor.getAnchoredAt())
                 && computeSignature(AuditAnchorKeyProvider.LEGACY_PUBLIC_SECRET, anchor.getTenantId(), anchor.getChainSeq(),
                         anchor.getRecordHash(), anchor.getAnchoredAt()).equalsIgnoreCase(anchor.getSignature());
     }
