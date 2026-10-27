@@ -282,7 +282,7 @@ export function reportDefinition(key: string): ReportDefinition {
   return definitions[key] ?? definitions['documents'];
 }
 
-export const CHART_COLORS = ['#087f7b', '#4d9bd8', '#79c4bb', '#e3a633', '#7e5ab0', '#d76a6a', '#8aa19f'];
+export const CHART_COLORS = ['#087f7b', '#3f9a5b', '#79c4bb', '#e3a633', '#7e5ab0', '#d76a6a', '#8aa19f'];
 
 /** Valor numérico finito o el valor por defecto; nunca NaN ni Infinity. */
 export function finiteNumber(value: unknown, fallback = 0): number {

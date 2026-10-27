@@ -332,14 +332,14 @@ export class ReportsPage implements OnInit {
   readonly cycleTimePoints = computed<ChartPoint[]>(() => {
     const data = this.analyticsData();
     if (!data || !data.cycleTimes.length) return [];
-    const colors = ['#087f7b', '#4d9bd8', '#79c4bb', '#e3a633', '#7e5ab0'];
+    const colors = ['#087f7b', '#3f9a5b', '#79c4bb', '#e3a633', '#7e5ab0'];
     return data.cycleTimes.map((c, i) => ({ label: c.templateName, value: c.averageHours, color: colors[i % colors.length] }));
   });
 
   readonly areaPoints = computed<ChartPoint[]>(() => {
     const data = this.analyticsData();
     if (!data || !data.areaDistribution.length) return [];
-    const colors = ['#087f7b', '#4d9bd8', '#79c4bb', '#e3a633', '#7e5ab0'];
+    const colors = ['#087f7b', '#3f9a5b', '#79c4bb', '#e3a633', '#7e5ab0'];
     return data.areaDistribution.map((a, i) => ({ label: a.area, value: a.documentCount, color: colors[i % colors.length] }));
   });
 

@@ -406,7 +406,7 @@ import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalHistoryPayload
     .form-title { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
     .form-title h2 { font-size: 18px; margin: 0 0 4px; color: #153a39; }
     .status-badge { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 4px 8px; margin-top: 4px; }
-    .status-badge.new { background: #e0f2fe; color: #0369a1; }
+    .status-badge.new { background: #e6f5ef; color: #0f6b5f; }
     .status-badge.edit { background: #dcfce7; color: #15803d; }
     .required-note { font-size: 11px; color: #6b8583; }
     .preview-btn { background: #f0fdfa; border: 1px solid #99f6e4; color: #0f766e; border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 12px; cursor: pointer; }

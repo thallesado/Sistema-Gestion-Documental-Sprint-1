@@ -986,7 +986,7 @@ const DEFAULT_ROUTE_INFO: RouteInfo = { module: 'Inicio', subcategory: 'Resumen'
                   <h2 style="font-size: 16px; font-weight: 800; color: #102d2a; margin: 0 0 3px;">Documento origen</h2>
                   <p style="font-size: 12px; color: #557774; margin: 0;">Entrada seleccionada para este proceso</p>
                 </div>
-                <span class="status-pill status review" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 999px;">
+                <span class="status-pill status review" style="background: #ecf6f1; color: #1f6b52; border: 1px solid #c6e6d8; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 999px;">
                   {{ statusText(ocrStatus()) }}
                 </span>
               </div>

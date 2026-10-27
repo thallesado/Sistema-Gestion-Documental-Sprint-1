@@ -103,7 +103,7 @@ const FEATURE_LABELS: Record<string, string> = {
     header{margin:14px 0 22px}.kicker{color:var(--teal);font-size:11px;font-weight:800;letter-spacing:.12em;margin:0;text-transform:uppercase}h1{font-size:30px;margin:5px 0}header span,.muted{color:var(--muted,#66857f)}
     button{border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--teal-strong,#125a51);cursor:pointer;font:700 13px inherit;padding:10px 14px}button:disabled{cursor:not-allowed;opacity:.55}
     .primary{background:var(--teal);border-color:var(--teal);color:#fff}
-    .notice{background:#eef7ff;border:1px solid #cfe3f5;border-radius:12px;color:#356d9e;margin-bottom:16px;padding:14px 16px}.notice.error{background:#fff4f3;border-color:#f3d2d0;color:#a65050}
+    .notice{background:#ecf7f2;border:1px solid #cde8dc;border-radius:12px;color:#1f6b52;margin-bottom:16px;padding:14px 16px}.notice.error{background:#fff4f3;border-color:#f3d2d0;color:#a65050}
     .empty{color:var(--muted)}
     .layout{display:grid;gap:18px;grid-template-columns:1.4fr 1fr;align-items:start}
     .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px}

@@ -11,7 +11,7 @@
 .wf-finished-workspace>.wf-completed-metrics{grid-area:metrics;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 14px}
 .wf-finished-workspace>.wf-completed-metrics .wf-card{grid-template-columns:48px minmax(0,1fr);align-items:center;gap:3px 12px;margin:0;padding:13px 16px;border-radius:14px}
 .wf-finished-workspace>.wf-completed-metrics .wf-card:before{content:"✓";grid-row:1/4;display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:var(--mint);color:var(--teal);font-size:21px;font-weight:800}
-.wf-finished-workspace>.wf-completed-metrics .wf-card:nth-child(2):before{content:"◷";background:#eaf2ff;color:#2174db}
+.wf-finished-workspace>.wf-completed-metrics .wf-card:nth-child(2):before{content:"◷";background:#e9f5ef;color:#2174db}
 .wf-finished-workspace>.wf-completed-metrics .wf-card:nth-child(3):before{content:"▤"}
 .wf-finished-workspace>.wf-completed-metrics span{font-size:12px}
 .wf-finished-workspace>.wf-completed-metrics strong{font-size:21px;line-height:1.1}
