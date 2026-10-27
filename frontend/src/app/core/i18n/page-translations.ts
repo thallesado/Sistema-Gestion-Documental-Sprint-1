@@ -1,5 +1,6 @@
 import { LanguageCode } from './translations';
 import { PAGE_TEXT_ROWS } from './page-text-rows';
+import { MODULE_TEXT_PATTERNS, MODULE_TEXT_ROWS } from './module-text-rows';
 
 type LanguageLabels = Record<LanguageCode, Record<string, string>>;
 export type TextPattern = { re: RegExp; t: Record<LanguageCode, string> };
@@ -9,6 +10,7 @@ export type TextPattern = { re: RegExp; t: Record<LanguageCode, string> };
  * traduce si coincide con alguna etiqueta conocida.
  */
 export const TEXT_PATTERNS: TextPattern[] = [
+  ...MODULE_TEXT_PATTERNS,
   { re: /^Buenos días, (.+)$/, t: { es: 'Buenos días, {1}', en: 'Good morning, {1}', fr: 'Bonjour, {1}', zh: '早上好，{1}' } },
   { re: /^Página (\d+) de (\d+) \(Total: (\d+)\)$/, t: { es: '', en: 'Page {1} of {2} (Total: {3})', fr: 'Page {1} sur {2} (Total : {3})', zh: '第 {1} 页，共 {2} 页（总计：{3}）' } },
   { re: /^Página (\d+) de (\d+)$/, t: { es: '', en: 'Page {1} of {2}', fr: 'Page {1} sur {2}', zh: '第 {1} 页，共 {2} 页' } },
@@ -61,7 +63,7 @@ export const TEXT_PATTERNS: TextPattern[] = [
 
 /** Textos de las páginas, indexados por la frase original en castellano. */
 export const PAGE_TEXT: LanguageLabels = { es: {}, en: {}, fr: {}, zh: {} };
-for (const [es, en, fr, zh] of PAGE_TEXT_ROWS) {
+for (const [es, en, fr, zh] of [...PAGE_TEXT_ROWS, ...MODULE_TEXT_ROWS]) {
   PAGE_TEXT.en[es] = en;
   PAGE_TEXT.fr[es] = fr;
   PAGE_TEXT.zh[es] = zh;

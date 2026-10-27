@@ -8,6 +8,7 @@ import { SubscriptionPlan, SubscriptionService } from '../../../core/subscriptio
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 import { friendlyApiMessage } from '../../../core/http/tenant-session';
+import { activeLocale } from '../../../core/i18n/i18n.service';
 import { planDirection } from './subscription-rules';
 
 type Confirm = { title: string; message: string; action: string; danger?: boolean; run: () => void };
@@ -48,9 +49,9 @@ const CANCEL_REASONS = ['Es demasiado caro', 'No lo usamos lo suficiente', 'Nos 
         <p class="price">{{ currentPrice(d) | currency:'USD' }} <small>/ {{ d.billingCycle === 'ANNUAL' ? 'año' : 'mes' }}</small></p>
         <dl>
           @if (d.status === 'TRIAL') {
-            <div><dt>Prueba hasta</dt><dd>{{ d.trialEndsAt | date:'d MMM y' }}</dd></div>
+            <div><dt>Prueba hasta</dt><dd>{{ fmt(d.trialEndsAt) }}</dd></div>
           } @else {
-            <div><dt>{{ d.autoRenew ? 'Próxima renovación' : 'Acceso hasta' }}</dt><dd>{{ d.currentPeriodEnd ? (d.currentPeriodEnd | date:'d MMM y') : 'Sin período registrado' }}</dd></div>
+            <div><dt>{{ d.autoRenew ? 'Próxima renovación' : 'Acceso hasta' }}</dt><dd>{{ d.currentPeriodEnd ? fmt(d.currentPeriodEnd) : 'Sin período registrado' }}</dd></div>
           }
           <div><dt>Medio de pago</dt><dd>{{ methodLabel(d.paymentMethod, d.stripeManaged) }}</dd></div>
           <div><dt>Organización</dt><dd>{{ d.organizationName }}</dd></div>
@@ -64,14 +65,15 @@ const CANCEL_REASONS = ['Es demasiado caro', 'No lo usamos lo suficiente', 'Nos 
         @if (d.scheduledPlanCode) {
           <div class="callout blue">
             <b>Cambio programado</b>
-            <p>Desde el {{ d.scheduledChangeAt | date:'d MMM y' }} pasarás al plan <b>{{ d.scheduledPlanCode }}</b> ({{ d.scheduledBillingCycle === 'ANNUAL' ? 'anual' : 'mensual' }}){{ d.stripeManaged ? ' y esa será la próxima factura.' : '; el siguiente pago ya será por ese plan.' }}</p>
+            <!-- Una sola frase (un nodo de texto) para que i18nContent la traduzca con su patrón. -->
+            <p>{{ scheduledText(d) }}</p>
             <button type="button" (click)="cancelScheduled()" [disabled]="busy()">Anular cambio programado</button>
           </div>
         }
         @if (!d.autoRenew) {
           <div class="callout amber">
             <b>La suscripción no se renovará</b>
-            <p>Conservas el acceso hasta el {{ d.currentPeriodEnd | date:'d MMM y' }}. Después la organización queda cancelada y sus datos se eliminan a los {{ d.retentionDays }} días.</p>
+            <p>Conservas el acceso hasta el {{ fmt(d.currentPeriodEnd) }}. Después la organización queda cancelada y sus datos se eliminan a los {{ d.retentionDays }} días.</p>
             <button type="button" (click)="resume()" [disabled]="busy()">Reanudar renovación</button>
           </div>
         }
@@ -149,7 +151,7 @@ const CANCEL_REASONS = ['Es demasiado caro', 'No lo usamos lo suficiente', 'Nos 
     <div class="overlay" role="presentation"><section class="dialog wide" role="dialog" aria-modal="true" aria-labelledby="cancel-title">
       @if (deletionDate()) {
         <h2 id="cancel-title">Suscripción cancelada</h2>
-        <p>La organización quedó cancelada y se cerraron todas las sesiones. Sus datos se eliminarán definitivamente el <b>{{ deletionDate() | date:'d MMM y' }}</b>. Hasta esa fecha puedes recuperarla contactando al soporte de NexoDocs.</p>
+        <p>La organización quedó cancelada y se cerraron todas las sesiones. Sus datos se eliminarán definitivamente el {{ fmt(deletionDate()) }}. Hasta esa fecha puedes recuperarla contactando al soporte de NexoDocs.</p>
         <div class="actions"><button type="button" class="primary" (click)="finish()">Salir</button></div>
       } @else {
         <h2 id="cancel-title">Cancelar suscripción y eliminar organización</h2>
@@ -317,6 +319,15 @@ export class SubscriptionPage implements OnInit {
   /** Las sesiones ya están revocadas: se limpia la local y se vuelve a la web pública. */
   finish(): void { this.cancelOpen.set(false); this.auth.logout(); }
 
+  /** Fecha en el idioma activo (el pipe date de Angular usa siempre en-US). */
+  fmt(value: string | null | undefined): string { return formatDate(value ?? null); }
+
+  scheduledText(d: SubscriptionDetails): string {
+    const cycle = d.scheduledBillingCycle === 'ANNUAL' ? 'anual' : 'mensual';
+    return `Desde el ${formatDate(d.scheduledChangeAt)} pasarás al plan ${d.scheduledPlanCode} (${cycle})`
+      + (d.stripeManaged ? ' y esa será la próxima factura.' : '; el siguiente pago ya será por ese plan.');
+  }
+
   runConfirm(): void { const c = this.confirm(); this.confirm.set(null); c?.run(); }
 
   statusLabel(status: string): string { return STATUS_LABELS[status] ?? status; }
@@ -354,7 +365,7 @@ function normalize(value: string | null | undefined): string {
 }
 
 function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' }) : 'la fecha de renovación';
+  return value ? new Date(value).toLocaleDateString(activeLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) : 'la fecha de renovación';
 }
 
 function apiError(error: HttpErrorResponse, fallback: string): string {

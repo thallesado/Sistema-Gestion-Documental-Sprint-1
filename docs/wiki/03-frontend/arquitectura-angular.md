@@ -58,6 +58,10 @@ Configuración general utiliza `/settings`. Desde 2026-10-27 es una portada prop
 
 Las rutas dinámicas reutilizan WorkspacePage en varias secciones; no asumir una feature independiente por cada opción. Verificar ruta, carga de componente y contratos antes de editar.
 
+## Idiomas (i18nContent)
+
+El shell aplica `i18nContent` a todas las pantallas: la directiva sustituye en pantalla cada frase en castellano por su traducción de `PAGE_TEXT_ROWS`, `core/i18n/module-text-rows.ts` (Respaldos, Permisos, Facturación y suscripción, Reportes, Apariencia y Configuración) y los patrones `TEXT_PATTERNS` para frases con datos. Una frase que no está en el diccionario queda en castellano. La web pública usa claves (`site.*` en `site-translations.ts`), ahora en los cuatro idiomas. Para revisar una pantalla: `node scripts/i18n-audit.mjs <archivo> --lang=en|fr|zh` (textos fijos sin traducir) y `--keys` (claves del pipe `translate` ausentes); `frontend/tests/i18n-modules.test.mjs` lo comprueba para las pantallas revisadas. Una frase con valores debe quedar en un solo nodo de texto (sin `<b>` en medio) para que su patrón coincida, y las fechas de esas pantallas se formatean con `activeLocale()` porque el pipe `date` usa siempre en-US.
+
 ## Tema, menú y sesión de plataforma
 
 - El color de marca del tenant se aplica en `<html>` como `--primary-color` más los tokens derivados `--tenant-teal*`, `--tenant-mint` y `--tenant-sidebar-bg` (`core/theme/theme-variables.ts`); `styles.css` y `shell/app.css` los leen con el verde por defecto como respaldo. El tono de acción se oscurece hasta cumplir contraste AA con texto blanco. Desde 2026-10-27 también se derivan `--tenant-canvas` (fondo de página, 93 % hacia blanco), `--tenant-line` (bordes) y `--tenant-tint` (degradado de las cabeceras `.dashboard-welcome` y `.module-hero-banner`), que `styles.css` expone como `--canvas`, `--line` y `--tint` (el shell los hereda y no los redefine); sin color de marca se conservan los verdes originales.
