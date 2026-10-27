@@ -3,9 +3,11 @@ import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
 
 const helpDir = new URL('../public/assets/help/', import.meta.url);
-const drawer = readFileSync(new URL('../src/app/features/help/components/help-drawer.ts', import.meta.url), 'utf8');
-const manual = readFileSync(new URL('../../backend/bootstrap/src/main/resources/assistant/manual.md', import.meta.url), 'utf8');
-const articles = readdirSync(helpDir).filter((f) => f.endsWith('.md')).map((f) => [f, readFileSync(new URL(f, helpDir), 'utf8')]);
+// Windows checkouts (core.autocrlf) use CRLF; the article regexes below expect LF.
+const readText = (url) => readFileSync(url, 'utf8').replace(/\r\n/g, '\n');
+const drawer = readText(new URL('../src/app/features/help/components/help-drawer.ts', import.meta.url));
+const manual = readText(new URL('../../backend/bootstrap/src/main/resources/assistant/manual.md', import.meta.url));
+const articles = readdirSync(helpDir).filter((f) => f.endsWith('.md')).map((f) => [f, readText(new URL(f, helpDir))]);
 const everything = [...articles.map(([, t]) => t), drawer, manual].join('\n');
 
 const absent = [

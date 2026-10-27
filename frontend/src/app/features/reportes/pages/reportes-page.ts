@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink, RouterLinkActive } from '@angular/router';
 import { Pagination } from '../../../shared';
 import {
   KpiCard,
@@ -19,18 +19,24 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
 @Component({
   selector: 'app-reports-page',
   standalone: true,
-  imports: [CommonModule, Pagination, KpiCard, ReportChart, ReportFilters, ReportHeader, ReportTable],
+  imports: [CommonModule, RouterLink, RouterLinkActive, Pagination, KpiCard, ReportChart, ReportFilters, ReportHeader, ReportTable],
+  styles: [`
+    .platform-report-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .platform-report-links a { padding: 8px 14px; border-radius: 8px; background: #edf5f3; color: #087f7b; font-size: 13px; font-weight: 600; text-decoration: none; }
+    .platform-report-links a.active { background: #087f7b; color: #fff; }
+  `],
   template: `
     <section class="page report-page">
       <app-report-header
         [title]="viewMode() === 'analytics' ? 'Tablero Analítico y Business Intelligence' : report.title"
         [description]="viewMode() === 'analytics' ? 'Métricas agregadas en tiempo real: evolución mensual, tiempos de ciclo, cuellos de botella y rendimiento de OCR.' : report.description"
-        [tenant]="sessionInfo().tenant"
+        [tenant]="isPlatformReport ? 'Todas las organizaciones' : sessionInfo().tenant"
         [role]="sessionInfo().role"
         [filterSummary]="filterSummary()"
         (export)="exportReport($event)"
       />
 
+      @if (!isPlatformReport) {
       <div class="report-view-mode-tabs" style="display: flex; gap: 8px; margin-bottom: 16px;">
         <button
           type="button"
@@ -53,6 +59,13 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
           📊 Tablero Analítico y BI
         </button>
       </div>
+      } @else {
+      <nav class="platform-report-links" aria-label="Reportes de plataforma">
+        <a routerLink="/platform/dashboard">← Dashboard de plataforma</a>
+        <a routerLink="/platform/reports/tenants" routerLinkActive="active">Tenants</a>
+        <a routerLink="/platform/reports/payments" routerLinkActive="active">Pagos y costos</a>
+      </nav>
+      }
 
       <app-report-filters
         [filters]="report.filters"
@@ -252,6 +265,7 @@ export class ReportsPage implements OnInit {
 
   private readonly routeKey = this.route.snapshot.data['routeInfo']?.href ?? '/reports';
   readonly report: ReportDefinition = reportDefinition(this.keyFromRoute(this.routeKey));
+  readonly isPlatformReport = this.report.key.startsWith('platform-');
 
   readonly viewMode = signal<'tabular' | 'analytics'>(
     this.routeKey === '/reports/productivity' || this.routeKey === '/reports/by-area' ? 'analytics' : 'tabular'
@@ -495,7 +509,7 @@ export class ReportsPage implements OnInit {
       this.message.set(`Reporte exportado exitosamente en formato JSON.`);
     } else if (format === 'PDF') {
       const cols: ExportColumn[] = this.report.columns.map((c) => ({ key: c.key, label: c.label }));
-      exportToPrintView(this.report.title, `Reporte del tenant ${this.sessionInfo().tenant} · NexoDocs`, this.rows(), cols);
+      exportToPrintView(this.report.title, this.isPlatformReport ? 'Reporte de plataforma · NexoDocs' : `Reporte del tenant ${this.sessionInfo().tenant} · NexoDocs`, this.rows(), cols);
       this.message.set(`Vista de impresión preparada.`);
     }
   }
@@ -526,7 +540,20 @@ export class ReportsPage implements OnInit {
   private buildKpis(rows: ReportRow[]): Kpi[] {
     const count = this.totalElements();
     const countValue = (key: string, value: string): number => rows.filter((row) => String(row[key]).toLowerCase() === value.toLowerCase()).length;
+    const sum = (key: string, onlyCompleted = false): string => rows.filter((row) => !onlyCompleted || row['status'] === 'COMPLETED').reduce((total, row) => total + finiteNumber(row[key]), 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     switch (this.report.key) {
+      case 'platform-tenants': return [
+        { icon: '🏢', label: 'Tenants', value: String(count), detail: 'Altas en el período', tone: 'teal' },
+        { icon: '✓', label: 'Activos', value: String(countValue('status', 'ACTIVE')), detail: 'En esta página', tone: 'green' },
+        { icon: '◷', label: 'En prueba', value: String(countValue('status', 'TRIAL')), detail: 'En esta página', tone: 'amber' },
+        { icon: '$', label: 'MRR', value: 'USD ' + sum('mrr'), detail: 'Ingreso mensual recurrente (página)', tone: 'blue' },
+      ];
+      case 'platform-payments': return [
+        { icon: '▤', label: 'Pagos', value: String(count), detail: 'Registros en el período', tone: 'teal' },
+        { icon: '$', label: 'Cobrado', value: 'USD ' + sum('amount', true), detail: 'Pagos completados (página)', tone: 'green' },
+        { icon: '−', label: 'Costos estimados', value: 'USD ' + sum('fee'), detail: 'Comisiones de procesamiento', tone: 'rose' },
+        { icon: '=', label: 'Neto', value: 'USD ' + sum('net'), detail: 'Cobrado menos costos', tone: 'blue' },
+      ];
       case 'documents': return [
         { icon: '▤', label: 'Documentos', value: String(count), detail: 'Total periodo filtrado', tone: 'teal' },
         { icon: '✓', label: 'Aprobados', value: String(countValue('status', 'APPROVED')), detail: 'Estado aprobado', tone: 'green' },
@@ -586,6 +613,8 @@ export class ReportsPage implements OnInit {
       '/reports/ocr': 'ocr',
       '/reports/productivity': 'productivity',
       '/reports/by-area': 'areas',
+      '/platform/reports/tenants': 'platform-tenants',
+      '/platform/reports/payments': 'platform-payments',
     } as Record<string, string>)[href] ?? 'documents';
   }
 }

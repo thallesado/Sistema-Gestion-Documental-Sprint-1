@@ -26,6 +26,8 @@ public class PublicEndpointRateLimitFilter extends OncePerRequestFilter {
     private static final String PATH = "/api/v1/tenants/public";
     private static final String SIGNUP_PATH = "/api/v1/public/signup";
     private static final String ONBOARDING_PATH = "/api/v1/public/onboarding";
+    private static final String SUBSCRIPTION_CHECKOUT_PATH = "/api/v1/public/subscriptions/checkout";
+    private static final String CONTACT_PATH = "/api/v1/public/contact";
     private static final int CLEANUP_THRESHOLD = 10_000;
 
     private record Window(long startMillis, int count) {}
@@ -49,7 +51,9 @@ public class PublicEndpointRateLimitFilter extends OncePerRequestFilter {
 
     private static boolean isCreation(HttpServletRequest request) {
         return "POST".equals(request.getMethod())
-                && (SIGNUP_PATH.equals(request.getRequestURI()) || ONBOARDING_PATH.equals(request.getRequestURI()));
+                && (SIGNUP_PATH.equals(request.getRequestURI()) || ONBOARDING_PATH.equals(request.getRequestURI())
+                    || SUBSCRIPTION_CHECKOUT_PATH.equals(request.getRequestURI())
+                    || CONTACT_PATH.equals(request.getRequestURI()));
     }
 
     @Override

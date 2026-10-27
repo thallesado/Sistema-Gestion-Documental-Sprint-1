@@ -22,11 +22,12 @@ import { AssistantContextService } from '../core/assistant/assistant-context.ser
 import { AssistantWidget } from '../features/assistant/components/assistant-widget';
 import { HelpDrawer } from '../features/help/components/help-drawer';
 import { HelpService } from '../features/help/help.service';
+import { AppTourService } from '../core/onboarding/app-tour.service';
 
 /** Pantallas públicas: siempre a pantalla completa, sin sidebar ni topbar, aunque haya sesión. */
 // These routes own a full-screen layout. Contact Sales remains authenticated so
 // its form can use the active organization, but intentionally bypasses the shell.
-const PUBLIC_PATHS = ['/welcome', '/register', '/login', '/forgot-password', '/reset-password', '/plans/contact-sales', '/planes', '/change-password'];
+const PUBLIC_PATHS = ['/welcome', '/register', '/login', '/forgot-password', '/reset-password', '/plans/contact-sales', '/planes', '/change-password', '/nosotros', '/contacto'];
 
 type ProfileTab = 'profile' | 'security' | 'notifications' | 'access' | 'workflows';
 
@@ -40,6 +41,7 @@ type ProfileTab = 'profile' | 'security' | 'notifications' | 'access' | 'workflo
 export class App {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+  private readonly tour = inject(AppTourService);
   private readonly permissions = inject(PermissionService);
   private readonly theme = inject(ThemeService);
   readonly backupMaintenance = inject(BackupMaintenanceService);
@@ -197,6 +199,14 @@ export class App {
 
   constructor() {
     effect(() => { if (this.isWorkspace() && !this.auth.mustChangePassword()) this.subscription.load(); });
+    // One-time product tour once the workspace shell and its user are on screen.
+    effect(() => {
+      const user = this.auth.user();
+      if (!this.isWorkspace() || !user || this.auth.mustChangePassword()) return;
+      // Platform accounts go straight to work; they can start the tour from their profile.
+      if (user.platformAdmin && !user.tenantId) return;
+      setTimeout(() => this.tour.startIfNeeded(user.id), 900);
+    });
     const activityEvents = ['pointerdown', 'keydown', 'mousemove', 'touchstart', 'scroll'];
     const resetIdleTimer = () => this.resetIdleTimer();
     activityEvents.forEach((eventName) => window.addEventListener(eventName, resetIdleTimer, { passive: true }));
@@ -373,6 +383,14 @@ export class App {
         this.profileError.set(friendlyApiMessage(error?.error?.message, 'No se pudo subir la foto.'));
       },
     });
+  }
+
+  /** «Iniciar recorrido» del perfil: cierra el modal y repite el recorrido guiado. */
+  startTour(): void {
+    const user = this.auth.user();
+    if (!user) return;
+    this.closeProfile();
+    setTimeout(() => this.tour.restart(user.id), 300);
   }
 
   setProfileTab(tab: ProfileTab): void {

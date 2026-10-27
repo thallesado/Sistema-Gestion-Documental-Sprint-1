@@ -230,6 +230,17 @@ export const navSections: NavSection[] = [
     title: 'Administracion global',
     items: [
       {
+        label: 'Panel de plataforma',
+        icon: 'PP',
+        permission: 'platform:tenant:manage',
+        sprintEnabled: true,
+        children: [
+          { label: 'Dashboard', href: '/platform/dashboard', sprintEnabled: true },
+          { label: 'Reporte de tenants', href: '/platform/reports/tenants', sprintEnabled: true },
+          { label: 'Reporte de pagos y costos', href: '/platform/reports/payments', sprintEnabled: true },
+        ],
+      },
+      {
         label: 'Tenants',
         icon: 'TN',
         permission: 'platform:tenant:manage',

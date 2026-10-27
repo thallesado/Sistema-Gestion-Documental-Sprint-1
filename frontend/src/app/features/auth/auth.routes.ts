@@ -8,6 +8,16 @@ export const autenticacionRoutes: Routes = [
     title: 'NexoDocs - Gestión documental inteligente',
   },
   {
+    path: 'nosotros',
+    loadComponent: () => import('../marketing/pages/about-page').then((m) => m.AboutPage),
+    title: 'Nosotros - NexoDocs',
+  },
+  {
+    path: 'contacto',
+    loadComponent: () => import('../marketing/pages/contact-page').then((m) => m.ContactPage),
+    title: 'Contáctanos - NexoDocs',
+  },
+  {
     path: 'register',
     loadComponent: () => import('../marketing/pages/register-page').then((m) => m.RegisterPage),
     title: 'Crear organización - NexoDocs',

@@ -218,7 +218,67 @@ const definitions: Record<string, ReportDefinition> = {
   },
 };
 
+/** Reportes transversales del administrador de la plataforma (todas las organizaciones). */
+const platformDefinitions: Record<string, ReportDefinition> = {
+  'platform-tenants': {
+    key: 'platform-tenants',
+    title: 'Reporte de tenants',
+    description: 'Organizaciones dadas de alta en el período, con plan, estado de suscripción, uso y lo que han pagado.',
+    filters: [
+      { key: 'status', label: 'Estado', type: 'select', options: ['TRIAL', 'ACTIVE', 'PAST_DUE', 'EXPIRED', 'SUSPENDED', 'CANCELED'] },
+      { key: 'type', label: 'Plan', type: 'select', options: ['BASIC', 'PRO', 'ENTERPRISE'] },
+      { key: 'search', label: 'Organización', type: 'search', placeholder: 'Nombre, código o correo...' },
+      { key: 'dateFrom', label: 'Alta desde *', type: 'date' },
+      { key: 'dateTo', label: 'Alta hasta *', type: 'date' },
+    ],
+    columns: [
+      { key: 'tenant', label: 'Organización' },
+      { key: 'code', label: 'Código' },
+      { key: 'plan', label: 'Plan' },
+      { key: 'status', label: 'Estado' },
+      { key: 'cycle', label: 'Ciclo' },
+      { key: 'users', label: 'Usuarios' },
+      { key: 'documents', label: 'Documentos' },
+      { key: 'totalPaid', label: 'Pagado (USD)' },
+      { key: 'mrr', label: 'MRR (USD)' },
+      { key: 'createdAt', label: 'Alta' },
+    ],
+    rows: [],
+    chartOne: { title: 'Tenants por estado', subtitle: 'Estado de la suscripción', kind: 'donut', groupBy: 'status' },
+    chartTwo: { title: 'Tenants por plan', subtitle: 'Distribución de planes', kind: 'bars', groupBy: 'plan' },
+    chartThree: { title: 'Altas por fecha', subtitle: 'Nuevas organizaciones', kind: 'line', groupBy: 'createdAt' },
+  },
+  'platform-payments': {
+    key: 'platform-payments',
+    title: 'Reporte de pagos',
+    description: 'Cobros registrados en el período con su costo de procesamiento estimado y el ingreso neto.',
+    filters: [
+      { key: 'status', label: 'Estado', type: 'select', options: ['COMPLETED', 'PENDING', 'FAILED'] },
+      { key: 'type', label: 'Método', type: 'select', options: ['STRIPE_CARD', 'BANK_QR', 'CRYPTO_USDT'] },
+      { key: 'search', label: 'Organización o referencia', type: 'search', placeholder: 'Buscar...' },
+      { key: 'dateFrom', label: 'Desde *', type: 'date' },
+      { key: 'dateTo', label: 'Hasta *', type: 'date' },
+    ],
+    columns: [
+      { key: 'date', label: 'Fecha' },
+      { key: 'tenant', label: 'Organización' },
+      { key: 'plan', label: 'Plan' },
+      { key: 'method', label: 'Método' },
+      { key: 'status', label: 'Estado' },
+      { key: 'amount', label: 'Monto (USD)' },
+      { key: 'fee', label: 'Costo est. (USD)' },
+      { key: 'net', label: 'Neto (USD)' },
+      { key: 'reference', label: 'Referencia' },
+    ],
+    rows: [],
+    chartOne: { title: 'Pagos por estado', subtitle: 'Resultado del cobro', kind: 'donut', groupBy: 'status' },
+    chartTwo: { title: 'Pagos por método', subtitle: 'Canales de cobro', kind: 'bars', groupBy: 'method' },
+    chartThree: { title: 'Pagos por fecha', subtitle: 'Volumen diario', kind: 'line', groupBy: 'date' },
+  },
+};
+
 export function reportDefinition(key: string): ReportDefinition {
+  if (platformDefinitions[key]) return platformDefinitions[key];
   return definitions[key] ?? definitions['documents'];
 }
 

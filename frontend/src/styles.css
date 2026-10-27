@@ -1735,3 +1735,30 @@ a {
 @media (max-width: 420px) {
   .doc-filter-grid-row { grid-template-columns: 1fr; }
 }
+
+/* Entrada animada de la web comercial (RevealDirective). */
+.reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+.reveal.is-visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+
+/* Recorrido guiado (driver.js) con la paleta del sistema. */
+.driver-popover.nexodocs-tour { border-radius: 14px; padding: 18px 20px; max-width: 340px; color: var(--ink, #153a39); box-shadow: 0 20px 50px rgba(11, 66, 50, 0.25); font-family: var(--font-sans); }
+.driver-popover.nexodocs-tour .driver-popover-title { font-size: 16px; font-weight: 800; color: #0f4c47; }
+.driver-popover.nexodocs-tour .driver-popover-description { font-size: 14px; line-height: 1.55; color: #415e5a; }
+.driver-popover.nexodocs-tour .driver-popover-progress-text { font-size: 12px; color: #6b8583; }
+.driver-popover.nexodocs-tour .driver-popover-footer { gap: 8px; flex-wrap: wrap; }
+.driver-popover.nexodocs-tour .driver-popover-footer button { text-shadow: none; border-radius: 8px; padding: 6px 12px; font: 700 13px var(--font-sans); border: 1px solid #c9e3dc; background: #fff; color: #0f4c47; }
+.driver-popover.nexodocs-tour .driver-popover-next-btn { background: var(--teal, #087f7b) !important; border-color: var(--teal, #087f7b) !important; color: #fff !important; }
+.driver-popover.nexodocs-tour .nexodocs-tour-skip { margin-right: auto; border: 0 !important; background: none !important; color: #6b8583 !important; padding-left: 0 !important; }
+.driver-popover.nexodocs-tour .nexodocs-tour-skip:hover { color: #0f4c47 !important; text-decoration: underline; }
+
+/* Tarjeta «Recorrido guiado» del modal de perfil (shell/app.css está al límite de su presupuesto). */
+.profile-tour-card { margin-top: 18px; padding: 14px; border: 1px solid #cfe5df; border-radius: 12px; background: linear-gradient(180deg, #f3fbf9, #e8f7f2); text-align: left; }
+.profile-tour-card b { display: block; color: #0f4c47; font-size: 13px; }
+.profile-tour-card p { margin: 4px 0 10px; color: #5c7a76; font-size: 12px; line-height: 1.45; }
+.profile-tour-btn { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 9px; padding: 9px 12px; background: #087f7b; color: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .15s; }
+.profile-tour-btn:hover { background: #05635f; }
+.profile-tour-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.profile-tabs button { min-width: 0; }
+.profile-tabs button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) { .profile-tabs button { flex-direction: column; } }

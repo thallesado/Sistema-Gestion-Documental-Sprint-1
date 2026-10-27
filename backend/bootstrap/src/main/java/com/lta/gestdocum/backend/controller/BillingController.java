@@ -23,6 +23,8 @@ public class BillingController {
     @PostMapping("/checkout/confirm") public BillingOverviewResponse confirm(@Valid @RequestBody BillingConfirmRequest request) { return billing.confirm(request); }
     @PreAuthorize(PlanController.TENANT_PLAN_ADMIN)
     @GetMapping("/my-invoices") public BillingOverviewResponse invoices() { return billing.overviewForCurrentTenant(); }
+    @PreAuthorize(PlanController.TENANT_PLAN_ADMIN)
+    @PostMapping("/portal") public BillingPortalResponse portal() { return billing.portal(); }
     @GetMapping("/revenue-dashboard") public RevenueDashboardResponse revenue() { return billing.revenueDashboard(); }
     @PostMapping("/webhooks/stripe")
     public ResponseEntity<Void> stripeWebhook(@RequestHeader("Stripe-Signature") String signature,

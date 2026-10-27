@@ -212,8 +212,11 @@ export class AuthService {
 
   private redirectAfterInvalidSession(): void {
     const attemptedUrl = this.router.url || '/';
-    const isPublicPage = attemptedUrl === '/welcome'
+    const isPublicPage = attemptedUrl.startsWith('/welcome')
       || attemptedUrl.startsWith('/register')
+      || attemptedUrl.startsWith('/planes')
+      || attemptedUrl.startsWith('/nosotros')
+      || attemptedUrl.startsWith('/contacto')
       || attemptedUrl.startsWith('/plans/contact-sales');
 
     if (attemptedUrl === '/') {

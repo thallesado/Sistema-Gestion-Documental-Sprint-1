@@ -101,7 +101,20 @@ public class TenantService {
      */
     @Transactional
     public TenantResponse create(TenantCreateRequest r, String adminPassword) {
-        boolean ownPassword = adminPassword != null && !adminPassword.isBlank();
+        return create(r, adminPassword, null);
+    }
+
+    /** Alta pagada con Stripe: la contraseña elegida llega como hash BCrypt guardado antes del pago. */
+    @Transactional
+    public TenantResponse createWithPasswordHash(TenantCreateRequest r, String adminPasswordHash) {
+        if (adminPasswordHash == null || adminPasswordHash.isBlank()) {
+            throw new IllegalArgumentException("El alta no conserva la contraseña del administrador");
+        }
+        return create(r, null, adminPasswordHash);
+    }
+
+    private TenantResponse create(TenantCreateRequest r, String adminPassword, String adminPasswordHash) {
+        boolean ownPassword = (adminPassword != null && !adminPassword.isBlank()) || adminPasswordHash != null;
         UUID tenantId = UUID.randomUUID();
         Tenant t = new Tenant();
         t.setId(tenantId);
@@ -152,7 +165,8 @@ public class TenantService {
                 .tenantId(tenantId)
                 .username(username)
                 .email(adminEmail)
-                .passwordHash(passwordEncoder.encode(ownPassword ? adminPassword : tempPassword))
+                .passwordHash(adminPasswordHash != null ? adminPasswordHash
+                        : passwordEncoder.encode(ownPassword ? adminPassword : tempPassword))
                 .firstName(firstName)
                 .lastName(lastName)
                 .status(UserStatus.ACTIVE)

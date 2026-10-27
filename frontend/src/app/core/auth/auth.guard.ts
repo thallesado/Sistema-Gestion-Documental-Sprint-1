@@ -1,5 +1,7 @@
 import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { filter, map, of, take, timeout } from 'rxjs';
 import { AuthService } from './auth.service';
 import { PermissionRequirement } from './permission-rules';
 import { PermissionService } from './permission.service';
@@ -28,16 +30,23 @@ export const rootEntryGuard: CanActivateFn = () => {
   const router = inject(Router);
   if (!auth.isAuthenticated()) return router.createUrlTree(['/welcome']);
   // Con contraseña temporal la entrada al espacio de trabajo es la pantalla de cambio obligatorio.
-  return auth.mustChangePassword() ? router.createUrlTree(['/change-password']) : true;
+  if (auth.mustChangePassword()) return router.createUrlTree(['/change-password']);
+  return auth.user()?.platformAdmin === true && !auth.user()?.tenantId ? router.createUrlTree(['/platform/dashboard']) : true;
 };
 
 export const platformAdminGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  if (auth.isAuthenticated() && auth.user()?.platformAdmin === true) {
-    return true;
-  }
-  return router.createUrlTree(['/access-denied'], { queryParams: { returnUrl: state.url } });
+  const deny = router.createUrlTree(['/access-denied'], { queryParams: { returnUrl: state.url } });
+  if (!auth.isAuthenticated()) return deny;
+  if (auth.user()) return auth.user()?.platformAdmin === true || deny;
+  // Right after login /auth/me is still loading: wait for it instead of denying a valid platform account.
+  return toObservable(auth.user).pipe(
+    filter((user) => user !== null),
+    take(1),
+    timeout({ first: 8000, with: () => of(null) }),
+    map((user) => user?.platformAdmin === true || deny),
+  );
 };
 
 /**

@@ -6,6 +6,9 @@ import '../../core/api/auth_api.dart';
 import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/notifications/workflow_notifications.dart';
+import '../../core/onboarding/app_tour_controller.dart';
+import '../../core/onboarding/onboarding_steps.dart';
+import '../../core/onboarding/onboarding_storage.dart';
 import '../../core/theme/app_theme.dart';
 import '../dashboard/dashboard_tab.dart';
 import '../documents/documents_tab.dart';
@@ -37,9 +40,12 @@ enum ShellTab {
 }
 
 class MainShellPage extends StatefulWidget {
-  const MainShellPage({super.key, required this.api, this.notifications});
+  const MainShellPage({super.key, required this.api, this.notifications, this.onboarding = const OnboardingStorage()});
 
   final AuthApi api;
+
+  /// Bandera del recorrido guiado de un solo uso.
+  final OnboardingStorage onboarding;
 
   /// Avisos del sistema; `null` usa [WorkflowNotifications.instance].
   final WorkflowNotifications? notifications;
@@ -54,6 +60,7 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
   ShellTab current = ShellTab.home;
   int unreadNotifications = 0;
   Timer? _timer;
+  late final AppTourController _tour = AppTourController(storage: widget.onboarding);
 
   WorkflowNotifications get _notifications => widget.notifications ?? WorkflowNotifications.instance;
   UserPermissions get permissions => widget.api.permissions.value;
@@ -68,6 +75,7 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
     WidgetsBinding.instance.addObserver(this);
     widget.api.permissions.addListener(_onPermissionsChanged);
     _notifications.onOpenTask = _openTask;
+    _tour.register();
     _start();
   }
 
@@ -77,6 +85,7 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
     widget.api.permissions.removeListener(_onPermissionsChanged);
     if (_notifications.onOpenTask == _openTask) _notifications.onOpenTask = null;
     _timer?.cancel();
+    _tour.unregister();
     super.dispose();
   }
 
@@ -89,7 +98,14 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
       _timer = Timer.periodic(_refreshInterval, (_) => loadUnread());
     }
     final pending = _notifications.takePendingTask();
-    if (pending != null && mounted) _openTask(pending);
+    if (pending != null && mounted) {
+      _openTask(pending);
+      return;
+    }
+    // Con las pestañas definitivas ya construidas, el recorrido apunta a los elementos visibles.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _tour.startIfNeeded();
+    });
   }
 
   @override
@@ -178,7 +194,7 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
         ],
       ),
       body: IndexedStack(index: index, children: [for (final tab in tabs) _page(tab)]),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: _tour.wrap(OnboardingTarget.primaryAction, FloatingActionButton.extended(
         key: const Key('scan-fab'),
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => ScanDocumentPage(api: widget.api)),
@@ -187,20 +203,22 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
         foregroundColor: Colors.white,
         icon: const Icon(Icons.camera_alt),
         label: const Text('Escanear', style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
-      bottomNavigationBar: NavigationBar(
+      )),
+      bottomNavigationBar: _tour.wrap(OnboardingTarget.navigation, NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (selected) => setState(() => current = tabs[selected]),
         indicatorColor: AppTheme.mint,
         destinations: [
           for (final tab in tabs)
             NavigationDestination(
-              icon: Icon(tab.icon),
+              icon: tab == ShellTab.profile
+                  ? _tour.wrap(OnboardingTarget.profile, Icon(tab.icon), shape: const CircleBorder())
+                  : Icon(tab.icon),
               selectedIcon: Icon(tab.selectedIcon, color: AppTheme.teal),
               label: tab.label,
             ),
         ],
-      ),
+      ), shape: const RoundedRectangleBorder()),
     );
   }
 }

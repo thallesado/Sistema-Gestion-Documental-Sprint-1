@@ -30,7 +30,8 @@
                   "04-dominio-y-negocio/marca-y-regionalizacion.md",
                   "04-dominio-y-negocio/ayuda-y-asistente.md",
                   "06-operacion/anclaje-externo-auditoria.md",
-                  "04-dominio-y-negocio/reportes-y-analitica.md"
+                  "04-dominio-y-negocio/reportes-y-analitica.md",
+                  "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md"
               ],
     "contracts":  [
                       {
@@ -562,9 +563,56 @@
                                            "GRANT SELECT (preferred_language, must_change_password) ON public.users TO nexodocs_app",
                                            "051_user_profile_select_privileges"
                                        ]
+                      },
+                      {
+                          "page":  "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
+                          "path":  "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/StripeSubscriptionService.java",
+                          "includes":  [
+                                           "form.put(\"mode\", \"subscription\")",
+                                           "status = 'PROVISIONING'",
+                                           "createWithPasswordHash",
+                                           "on conflict (external_reference) do nothing",
+                                           "case \"canceled\" -> \"CANCELED\""
+                                       ]
+                      },
+                      {
+                          "page":  "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
+                          "path":  "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PublicSubscriptionController.java",
+                          "includes":  [
+                                           "@RequestMapping(\"/api/v1/public/subscriptions\")",
+                                           "@GetMapping(\"/checkout/{sessionId}/status\")"
+                                       ]
+                      },
+                      {
+                          "page":  "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
+                          "path":  "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PublicSignupController.java",
+                          "includes":  [
+                                           "HttpStatus.GONE"
+                                       ]
+                      },
+                      {
+                          "page":  "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
+                          "path":  "database/init/059_stripe_subscription_billing.sql",
+                          "includes":  [
+                                           "CREATE TABLE IF NOT EXISTS tenant_signups",
+                                           "REVOKE ALL ON tenant_signups FROM nexodocs_app",
+                                           "'TRIAL','ACTIVE','PAST_DUE','EXPIRED','SUSPENDED','CANCELED'"
+                                       ]
+                      },
+                      {
+                          "page":  "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
+                          "path":  "frontend/src/app/features/pricing/pages/checkout-success-page.ts",
+                          "includes":  [
+                                           "POLL_INTERVAL_MS = 3000",
+                                           "/api/v1/public/subscriptions/checkout/"
+                                       ]
                       }
                   ],
     "reviews":  {
+                    "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md":  {
+                                                                                 "reviewedAt":  "2026-10-26",
+                                                                                 "revision":  "e3f6358"
+                                                                             },
                     "06-operacion/integracion-main-c93a8b4.md":  {
                                                                      "reviewedAt":  "2026-10-21",
                                                                      "revision":  "c93a8b4"

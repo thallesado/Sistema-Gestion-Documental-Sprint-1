@@ -34,6 +34,7 @@ El código de referencia incluye el OCR persistido y la migración 035. La revis
 | Workflows | [Motor y reglas](04-dominio-y-negocio/motor-de-workflows.md) |
 | OCR | [Digitalización por revisión](04-dominio-y-negocio/digitalizacion-y-ocr.md) |
 | Clínica | [Extensión clínica](04-dominio-y-negocio/modulo-clinico.md) |
+| Suscripciones, pagos y alta pública | [Stripe Billing, webhooks y estados](04-dominio-y-negocio/suscripciones-y-pagos-stripe.md) |
 | Usuarios, grupos y privilegios | [Grupos y privilegios por componente](04-dominio-y-negocio/usuarios-grupos-y-privilegios.md) |
 | Publicación/recuperación | [Operación y HTTPS](06-operacion/despliegue-y-recuperacion.md) |
 | Verificación | [Pruebas](05-guias-ia/pruebas-y-validacion.md), [estado/pendientes](05-guias-ia/estado-verificado-y-pendientes.md) |

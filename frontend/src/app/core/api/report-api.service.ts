@@ -73,6 +73,35 @@ export interface AnalyticsDashboard {
   ocrPerformance: OcrAnalyticsPoint;
 }
 
+export interface PlatformSeriesPoint { label: string; value: number; }
+export interface PlatformMonth { month: string; revenue: number; fees: number; newTenants: number; }
+export interface PlatformTenantRow {
+  id: string; tenant: string; code: string; plan: string; planCode: string | null; status: string; cycle: string;
+  createdAt: string; periodEnd: string | null; trialEndsAt: string | null; stripeManaged: boolean;
+  users: number; documents: number; totalPaid: number; lastPaymentAt: string | null; mrr: number;
+}
+export interface PlatformPaymentRow {
+  id: string; createdAt: string; tenant: string; plan: string; method: string; status: string; cycle: string;
+  amount: number; fee: number; net: number; reference: string;
+}
+export interface PlatformDashboard {
+  kpis: {
+    totalTenants: number; activeTenants: number; trialTenants: number; pastDueTenants: number; churnedTenants: number;
+    suspendedTenants: number; newTenants30d: number; stripeSubscriptions: number; mrrUsd: number; arrUsd: number;
+    revenueTotalUsd: number; revenue30dUsd: number; revenuePrev30dUsd: number; feesTotalUsd: number; fees30dUsd: number;
+    netTotalUsd: number; net30dUsd: number; paymentsTotal: number; payingTenants: number; arpaUsd: number;
+    failedPayments30d: number; pendingPayments30d: number; pendingSignups: number; failedSignups: number;
+  };
+  monthly: PlatformMonth[];
+  tenantsByStatus: PlatformSeriesPoint[];
+  tenantsByPlan: PlatformSeriesPoint[];
+  revenueByPlan: PlatformSeriesPoint[];
+  revenueByMethod: PlatformSeriesPoint[];
+  tenants: PlatformTenantRow[];
+  recentPayments: PlatformPaymentRow[];
+  feeRates: { stripeCardPercent: number; stripeCardFixed: number; bankQrPercent: number; cryptoUsdtPercent: number };
+}
+
 @Injectable({ providedIn: 'root' })
 export class ReportApiService {
   private readonly http = inject(HttpClient);
@@ -94,7 +123,7 @@ export class ReportApiService {
     }
 
     const endpoint = this.resolveEndpoint(reportKey);
-    return this.http.get<ReportPageResponse<any>>(`${API_URL}/${endpoint}`, { params });
+    return this.http.get<ReportPageResponse<any>>(this.reportUrl(reportKey, endpoint), { params });
   }
 
   downloadCsv(reportKey: string, filters: Record<string, string>): Observable<Blob> {
@@ -106,7 +135,7 @@ export class ReportApiService {
     }
 
     const endpoint = this.resolveEndpoint(reportKey);
-    return this.http.get(`${API_URL}/${endpoint}/export/csv`, {
+    return this.http.get(`${this.reportUrl(reportKey, endpoint)}/export/csv`, {
       params,
       responseType: 'blob',
     }).pipe(catchError((err) => this.readBlobError(err)));
@@ -135,6 +164,18 @@ export class ReportApiService {
       .set('dateTo', dateTo);
 
     return this.http.get<AnalyticsDashboard>(`${API_URL}/analytics/dashboard`, { params });
+  }
+
+  /** Panel del administrador de plataforma: KPIs, series mensuales, tenants y pagos recientes. */
+  getPlatformDashboard(): Observable<PlatformDashboard> {
+    return this.http.get<PlatformDashboard>('/api/v1/platform/dashboard');
+  }
+
+  /** Platform reports (platform-tenants, platform-payments) live outside the tenant-scoped API. */
+  private reportUrl(reportKey: string, endpoint: string): string {
+    return reportKey.startsWith('platform-')
+      ? `/api/v1/platform/reports/${reportKey.slice('platform-'.length)}`
+      : `${API_URL}/${endpoint}`;
   }
 
   private resolveEndpoint(key: string): string {
