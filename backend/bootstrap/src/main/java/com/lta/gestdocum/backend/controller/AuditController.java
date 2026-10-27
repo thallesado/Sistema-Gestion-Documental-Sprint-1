@@ -97,6 +97,9 @@ public class AuditController {
     public AuditAnchor createAnchor(
             @RequestParam(required = false) UUID tenantId,
             @RequestParam(required = false, defaultValue = "LOCAL_SIGNED") String type) {
+        if (type == null || !type.matches("[A-Z][A-Z0-9_]{0,49}")) {
+            throw new IllegalArgumentException("Tipo de ancla inválido: use mayúsculas, dígitos y '_' (máximo 50)");
+        }
         AuthenticatedUser user = userContext.require();
         UUID targetTenantId = tenantId != null ? tenantId : user.tenantId();
         return anchorService.createAnchor(targetTenantId, type, user.userId());

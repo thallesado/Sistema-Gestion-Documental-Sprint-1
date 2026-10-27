@@ -81,6 +81,41 @@ class AuditVerificationServiceTest {
     }
 
     @Test
+    @DisplayName("Sin eventos pero con un ancla previa: la cadena fue borrada y no es válida")
+    void verifyChain_whenDeletedAfterAnchor_isInvalid() {
+        when(auditEventRepository.findByTenantIdOrderByChainSeqAsc(tenantId)).thenReturn(List.of());
+        com.lta.gestdocum.backend.model.AuditAnchor anchor = com.lta.gestdocum.backend.model.AuditAnchor.builder()
+                .tenantId(tenantId).chainSeq(5L).recordHash("a".repeat(64)).anchoredAt(baseTime).build();
+        when(auditAnchorService.getLatestAnchor(tenantId)).thenReturn(Optional.of(anchor));
+
+        AuditVerificationResult result = verificationService.verifyTenantChain(tenantId);
+
+        assertFalse(result.valid());
+        assertTrue(result.failureReason().startsWith("CHAIN_DELETED"));
+    }
+
+    @Test
+    @DisplayName("v2: cambiar la hora del cliente, el agente o el actor de plataforma rompe el hash; v1 no los cubre")
+    void canonicalV2CoversClientFields() throws Exception {
+        AuditEvent event = createEvent(1L, 1L, GENESIS_HASH, "DOCUMENT_CREATE", "DOCUMENTS", UUID.randomUUID(), baseTime, "{}");
+        event.setHashVersion((short) 2);
+        event.setClientTimestamp(baseTime.minusSeconds(3));
+        event.setClientTimezone("America/La_Paz");
+        String original = verificationService.computeRecordHash(event);
+
+        event.setClientTimestamp(baseTime.minusHours(3));
+        assertNotEquals(original, verificationService.computeRecordHash(event));
+        event.setClientTimestamp(baseTime.minusSeconds(3));
+        event.setUserAgent("curl/8");
+        assertNotEquals(original, verificationService.computeRecordHash(event));
+
+        AuditEvent legacy = createEvent(2L, 1L, GENESIS_HASH, "DOCUMENT_CREATE", "DOCUMENTS", UUID.randomUUID(), baseTime, "{}");
+        String v1 = verificationService.computeRecordHash(legacy);
+        legacy.setUserAgent("otro");
+        assertEquals(v1, verificationService.computeRecordHash(legacy), "las filas v1 conservan su hash original");
+    }
+
+    @Test
     @DisplayName("Cadena válida con 3 eventos consecutivos pasa la verificación criptográfica")
     void verifyChain_whenValid_returnsValid() throws Exception {
         UUID docId1 = UUID.randomUUID();

@@ -45,7 +45,7 @@ public class AuditVerificationService {
         String ip = postgresHost(event.getIpAddress());
         String details = (event.getDetails() == null || event.getDetails().isBlank()) ? "{}" : event.getDetails();
 
-        return String.join("|",
+        String v1 = String.join("|",
                 event.getChainSeq() == null ? "0" : event.getChainSeq().toString(),
                 event.getPreviousHash() == null ? "" : event.getPreviousHash().trim(),
                 event.getTenantId() == null ? "" : event.getTenantId().toString(),
@@ -58,6 +58,15 @@ public class AuditVerificationService {
                 ip,
                 details
         );
+        if (event.getHashVersion() == null || event.getHashVersion() < 2) {
+            return v1;
+        }
+        // 062_audit_chain_v2: mismo orden y formato que app.canonical_audit_payload_v2.
+        return String.join("|", v1, "v2",
+                event.getPlatformActorId() == null ? "" : event.getPlatformActorId().toString(),
+                event.getUserAgent() == null ? "" : event.getUserAgent(),
+                event.getClientTimestamp() == null ? "" : String.valueOf(event.getClientTimestamp().toInstant().toEpochMilli()),
+                event.getClientTimezone() == null ? "" : event.getClientTimezone());
     }
 
     /**
@@ -206,6 +215,15 @@ public class AuditVerificationService {
                     false, null, null, false, null, null, null
             ));
 
+            if (latestAnchorOpt.isPresent()) {
+                // Hubo eventos sellados y ya no queda ninguno: borrado completo de la cadena.
+                AuditAnchor anchor = latestAnchorOpt.get();
+                return new AuditVerificationResult(
+                        false, tenantId, 0, anchor.getChainSeq(), null,
+                        "CHAIN_DELETED: El ancla seq=" + anchor.getChainSeq() + " existe pero la cadena no tiene eventos",
+                        anchor.getRecordHash(), "NOT_FOUND", anchorStatus, now
+                );
+            }
             return new AuditVerificationResult(
                     true, tenantId, 0, null, null, null, null, null, anchorStatus, now
             );

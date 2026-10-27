@@ -70,10 +70,20 @@ services:
       STRIPE_PRICE_PRO_ANNUAL: ${STRIPE_PRICE_PRO_ANNUAL:-}
       STRIPE_PRICE_ENTERPRISE_MONTHLY: ${STRIPE_PRICE_ENTERPRISE_MONTHLY:-}
       STRIPE_PRICE_ENTERPRISE_ANNUAL: ${STRIPE_PRICE_ENTERPRISE_ANNUAL:-}
+      # C3: ancla externa en un volumen que solo monta el backend (el contenedor de PostgreSQL no lo ve).
+      AUDIT_ANCHOR_EXTERNAL_FILE: ${AUDIT_ANCHOR_EXTERNAL_FILE:-/var/lib/nexodocs/audit-anchor/anchors.jsonl}
+      AUDIT_ANCHOR_KEY_FILE: ${AUDIT_ANCHOR_KEY_FILE:-/var/lib/nexodocs/audit-anchor/anchor.key}
+      AUDIT_ANCHOR_SECRET: ${AUDIT_ANCHOR_SECRET:-}
+      AUDIT_ANCHOR_CRON: ${AUDIT_ANCHOR_CRON:-0 */15 * * * *}
+      AUDIT_ANCHOR_EXTERNAL_HTTP_URL: ${AUDIT_ANCHOR_EXTERNAL_HTTP_URL:-}
+      AUDIT_ANCHOR_EXTERNAL_HTTP_READ_URL: ${AUDIT_ANCHOR_EXTERNAL_HTTP_READ_URL:-}
+      AUDIT_ANCHOR_EXTERNAL_HTTP_METHOD: ${AUDIT_ANCHOR_EXTERNAL_HTTP_METHOD:-POST}
+      AUDIT_ANCHOR_EXTERNAL_HTTP_AUTH_HEADER: ${AUDIT_ANCHOR_EXTERNAL_HTTP_AUTH_HEADER:-}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     volumes:
       - nexodocs_document_storage:/data/storage
+      - nexodocs_audit_anchor:/var/lib/nexodocs/audit-anchor
 
   frontend:
     build:
@@ -88,3 +98,4 @@ services:
 volumes:
   nexodocs_postgres_data:
   nexodocs_document_storage:
+  nexodocs_audit_anchor:

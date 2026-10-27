@@ -4,7 +4,6 @@ import com.lta.gestdocum.backend.model.AuditAnchor;
 import com.lta.gestdocum.backend.model.AuditEvent;
 import com.lta.gestdocum.backend.repository.AuditAnchorRepository;
 import com.lta.gestdocum.backend.repository.AuditEventRepository;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,10 +24,19 @@ public class AuditAnchorService {
     private final AuditEventRepository auditEventRepository;
     private final String anchorSecret;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AuditAnchorService(
             AuditAnchorRepository anchorRepository,
             AuditEventRepository auditEventRepository,
-            @Value("${nexodocs.audit.anchor-secret:nexodocs-tamper-proof-anchor-master-key-2026}") String anchorSecret) {
+            AuditAnchorKeyProvider keyProvider) {
+        this(anchorRepository, auditEventRepository, keyProvider.secret());
+    }
+
+    /** Para pruebas: clave fija. */
+    public AuditAnchorService(
+            AuditAnchorRepository anchorRepository,
+            AuditEventRepository auditEventRepository,
+            String anchorSecret) {
         this.anchorRepository = anchorRepository;
         this.auditEventRepository = auditEventRepository;
         this.anchorSecret = anchorSecret;
@@ -79,20 +87,35 @@ public class AuditAnchorService {
         return anchorRepository.save(anchor);
     }
 
+    /** Firma que corresponde al ancla con la clave actual de la instalación. */
+    public String signatureFor(AuditAnchor anchor) {
+        return computeSignature(anchor.getTenantId(), anchor.getChainSeq(), anchor.getRecordHash(), anchor.getAnchoredAt());
+    }
+
     public boolean verifyAnchorIntegrity(AuditAnchor anchor) {
         if (anchor == null || anchor.getSignature() == null) {
             return false;
         }
-        String expectedSignature = computeSignature(
+        String expectedSignature = computeSignature(anchorSecret,
                 anchor.getTenantId(),
                 anchor.getChainSeq(),
                 anchor.getRecordHash(),
                 anchor.getAnchoredAt()
         );
-        return expectedSignature.equalsIgnoreCase(anchor.getSignature());
+        if (expectedSignature.equalsIgnoreCase(anchor.getSignature())) {
+            return true;
+        }
+        // Anclas emitidas antes de retirar la clave pública del repositorio (ver AuditAnchorKeyProvider).
+        return AuditAnchorKeyProvider.legacyAccepted(anchor.getAnchoredAt())
+                && computeSignature(AuditAnchorKeyProvider.LEGACY_PUBLIC_SECRET, anchor.getTenantId(), anchor.getChainSeq(),
+                        anchor.getRecordHash(), anchor.getAnchoredAt()).equalsIgnoreCase(anchor.getSignature());
     }
 
     private String computeSignature(UUID tenantId, Long chainSeq, String recordHash, OffsetDateTime timestamp) {
+        return computeSignature(anchorSecret, tenantId, chainSeq, recordHash, timestamp);
+    }
+
+    private static String computeSignature(String secret, UUID tenantId, Long chainSeq, String recordHash, OffsetDateTime timestamp) {
         try {
             String payload = String.join(":",
                     tenantId != null ? tenantId.toString() : "global",
@@ -102,7 +125,7 @@ public class AuditAnchorService {
             );
 
             Mac hmac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKey = new SecretKeySpec(anchorSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            SecretKeySpec secretKey = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             hmac.init(secretKey);
             byte[] signedBytes = hmac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(signedBytes);
