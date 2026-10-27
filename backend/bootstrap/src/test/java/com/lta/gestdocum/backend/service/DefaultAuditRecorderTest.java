@@ -188,4 +188,25 @@ class DefaultAuditRecorderTest {
         assertDoesNotThrow(() -> TransactionSynchronizationManager.getSynchronizations()
                 .forEach(TransactionSynchronization::afterCommit));
     }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("Oculta claves en español y dentro de listas, sin ocultar campos inocentes como keywords u opinion")
+    void sensitiveKeysSpanishListsAndNoFalsePositives() {
+        DefaultAuditRecorder recorder = new DefaultAuditRecorder(null, null, new com.fasterxml.jackson.databind.ObjectMapper());
+        assertTrue(recorder.isSensitive("contrasena"));
+        assertTrue(recorder.isSensitive("nueva_contraseña"));
+        assertTrue(recorder.isSensitive("clave"));
+        assertTrue(recorder.isSensitive("api-key"));
+        assertFalse(recorder.isSensitive("keywords"));
+        assertFalse(recorder.isSensitive("opinion"));
+        assertFalse(recorder.isSensitive("shipping"));
+
+        java.util.Map<String, Object> input = new java.util.LinkedHashMap<>();
+        input.put("users", java.util.List.of(java.util.Map.of("name", "Ana", "password", "x1")));
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> first = (java.util.Map<String, Object>)
+                ((java.util.List<Object>) recorder.sanitizeMap(input).get("users")).get(0);
+        assertEquals("[PROTECTED]", first.get("password"));
+        assertEquals("Ana", first.get("name"));
+    }
 }

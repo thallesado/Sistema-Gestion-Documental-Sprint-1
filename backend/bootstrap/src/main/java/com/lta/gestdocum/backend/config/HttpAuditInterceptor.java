@@ -1,6 +1,7 @@
 package com.lta.gestdocum.backend.config;
 
 import com.lta.gestdocum.backend.security.AuthenticatedUser;
+import com.lta.gestdocum.backend.service.AuditClientIp;
 import com.lta.gestdocum.backend.service.HttpAuditRecorder;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,7 +33,7 @@ public class HttpAuditInterceptor implements HandlerInterceptor {
             String clientTimestamp = request.getHeader("X-Client-Timestamp");
             String clientTimezone = request.getHeader("X-Client-Timezone");
             auditService.record(user, request.getMethod(), request.getRequestURI(), response.getStatus(),
-                    forwarded == null ? request.getRemoteAddr() : forwarded,
+                    AuditClientIp.resolve(forwarded, request.getRemoteAddr()),
                     request.getHeader("User-Agent"),
                     clientTimestamp, clientTimezone);
         } catch (RuntimeException auditException) {

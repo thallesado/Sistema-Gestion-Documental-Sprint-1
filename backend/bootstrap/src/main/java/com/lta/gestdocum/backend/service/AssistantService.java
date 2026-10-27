@@ -65,13 +65,26 @@ public class AssistantService {
     }
 
     public AssistantChatResponse chat(UUID userId, AssistantChatRequest request) {
+        return chat(userId, null, request);
+    }
+
+    /**
+     * {@code serverPermissions}: permisos efectivos de la sesión autenticada. Si llegan, sustituyen a los que
+     * envía el navegador, que el cliente podría alterar para que el asistente sugiera acciones ajenas.
+     */
+    public AssistantChatResponse chat(UUID userId, java.util.Collection<String> serverPermissions, AssistantChatRequest request) {
         if (!gemini.isConfigured()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "El asistente no está disponible en este momento.");
         }
         consumeQuota(userId);
         try {
-            GeminiClient.TextResult result = gemini.generateText(request.message().trim(), systemPrompt(request.context()));
-            return new AssistantChatResponse(result.text().trim(), result.modelUsed());
+            GeminiClient.TextResult result = gemini.generateText(request.message().trim(),
+                    systemPrompt(request.context(), serverPermissions));
+            String reply = result.text() == null ? "" : result.text().trim();
+            if (reply.isEmpty()) {
+                throw new IllegalStateException("Respuesta vacía del modelo");
+            }
+            return new AssistantChatResponse(reply, result.modelUsed());
         } catch (RuntimeException e) {
             log.warn("Fallo del asistente contextual: {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "El asistente no pudo responder. Intenta nuevamente.");
@@ -94,6 +107,10 @@ public class AssistantService {
     }
 
     String systemPrompt(AssistantChatRequest.Context context) {
+        return systemPrompt(context, null);
+    }
+
+    String systemPrompt(AssistantChatRequest.Context context, java.util.Collection<String> serverPermissions) {
         StringBuilder prompt = new StringBuilder()
                 .append("Eres el asistente de uso de NexoDocs, un sistema de gestión documental clínica. ")
                 .append("Respondes en español, en pocas líneas y con pasos numerados cuando expliques cómo hacer algo. ")
@@ -123,7 +140,9 @@ public class AssistantService {
             prompt.append("Último error: ").append(method).append(' ').append(sanitizeRoute(error.url()))
                     .append(" -> HTTP ").append(error.status()).append('\n');
         }
-        String permissions = Objects.requireNonNullElse(context.permissions(), List.<String>of()).stream()
+        java.util.Collection<String> declared = serverPermissions != null
+                ? serverPermissions : Objects.requireNonNullElse(context.permissions(), List.<String>of());
+        String permissions = declared.stream().sorted()
                 .filter(code -> code != null && PERMISSION_CODE.matcher(code).matches())
                 .distinct()
                 .limit(MAX_PERMISSIONS)

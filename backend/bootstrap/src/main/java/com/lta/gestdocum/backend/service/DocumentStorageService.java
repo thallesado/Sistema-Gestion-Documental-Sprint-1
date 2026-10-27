@@ -21,6 +21,7 @@ import java.security.DigestInputStream;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -38,6 +39,14 @@ public class DocumentStorageService {
     private final AuthenticatedUserContext context;
     private final PlanEnforcementService planEnforcementService;
     private UserCustomizationService userCustomizationService;
+
+    /** C1: opcional; registra en la auditoría qué versión se subió, sin el contenido del archivo. */
+    private AuditRecorder auditRecorder;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAuditRecorder(AuditRecorder auditRecorder) {
+        this.auditRecorder = auditRecorder;
+    }
 
     /** B2: opcional para conservar el constructor existente; sin él no se restringe la acción. */
     private ComponentPermissionService componentPermissions;
@@ -102,12 +111,23 @@ public class DocumentStorageService {
             version.setCreatedAt(OffsetDateTime.now());
             versionRepository.saveAndFlush(version);
             DocumentVersion saved = versionRepository.findById(versionId).orElse(version);
+            recordVersion(documentId, saved);
             return toResponse(saved);
         } catch (Exception exception) {
             try { Files.deleteIfExists(temporary); Files.deleteIfExists(target); } catch (Exception ignored) { }
             if (exception instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("No se pudo almacenar el archivo", exception);
         }
+    }
+
+    private void recordVersion(UUID documentId, DocumentVersion saved) {
+        if (auditRecorder == null) return;
+        Map<String, Object> after = new java.util.LinkedHashMap<>();
+        after.put("versionNumber", saved.getVersionNumber());
+        after.put("fileName", saved.getFileName());
+        after.put("sha256", saved.getChecksumSha256());
+        after.put("reason", saved.getChangeReason());
+        auditRecorder.record("UPLOAD_VERSION", "DOCUMENTS", documentId, null, after);
     }
 
     /**
@@ -152,6 +172,7 @@ public class DocumentStorageService {
             version.setCreatedAt(OffsetDateTime.now());
             versionRepository.saveAndFlush(version);
             DocumentVersion saved = versionRepository.findById(versionId).orElse(version);
+            recordVersion(documentId, saved);
             return toResponse(saved);
         } catch (Exception exception) {
             try { Files.deleteIfExists(temporary); Files.deleteIfExists(target); } catch (Exception ignored) { }
