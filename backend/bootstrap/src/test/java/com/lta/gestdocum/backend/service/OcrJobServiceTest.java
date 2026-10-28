@@ -277,4 +277,41 @@ class OcrJobServiceTest {
         assertNull(stats.averageConfidence());
         assertNull(stats.averageProcessingSeconds());
     }
+
+    @Test
+    @DisplayName("S2: un PDF de varias paginas descuenta una pagina de OCR por cada pagina")
+    void pdfRecordsOnePagePerPdfPage() {
+        var limits = mock(PlanLimitService.class);
+        service.setPlanLimitService(limits);
+        when(ocrService.extract(any(), eq("application/pdf"), eq("lote.pdf"))).thenReturn(success());
+        String pdf = "%PDF-1.4\n1 0 obj<</Type /Pages /Count 3>>endobj\n"
+                + "2 0 obj<</Type /Page>>endobj\n3 0 obj<</Type /Page>>endobj\n4 0 obj<</Type/Page>>endobj";
+
+        OcrJobResponse response = service.process(new MockMultipartFile("file", "lote.pdf", "application/pdf",
+                pdf.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1)));
+
+        verify(limits).validateOcrLimit(tenant, 1);
+        verify(limits).validateOcrLimit(tenant, 3);
+        verify(limits).recordOcrUsage(tenant, 3);
+        assertEquals(3, store.get(response.id()).getPagesProcessed());
+    }
+
+    @Test
+    @DisplayName("S2: una imagen sigue consumiendo una pagina")
+    void imageStillRecordsOnePage() {
+        var limits = mock(PlanLimitService.class);
+        service.setPlanLimitService(limits);
+        when(ocrService.extract(any(), eq("image/png"), eq("informe.png"))).thenReturn(success());
+
+        service.process(png());
+
+        verify(limits).recordOcrUsage(tenant, 1);
+        verify(limits, times(1)).validateOcrLimit(any(), anyInt());
+    }
+
+    @Test
+    void countPagesHandlesPdfsWithoutMarkers() {
+        assertEquals(1, OcrService.countPages("%PDF-1.7 sin paginas legibles".getBytes(), "application/pdf"));
+        assertEquals(1, OcrService.countPages(new byte[] {1, 2}, "image/jpeg"));
+    }
 }

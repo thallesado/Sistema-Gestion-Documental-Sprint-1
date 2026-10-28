@@ -39,6 +39,8 @@ public class TenantTrialEnforcementInterceptor implements HandlerInterceptor {
         return "/api/v1/billing/checkout/initiate".equals(path)
                 || "/api/v1/billing/checkout/confirm".equals(path)
                 || "/api/v1/billing/webhooks/stripe".equals(path)
+                // Con un cobro fallido (PAST_DUE) el portal es donde se actualiza la tarjeta.
+                || "/api/v1/billing/portal".equals(path)
                 || path.startsWith("/api/v1/auth/")
                 || "/api/v1/public/onboarding".equals(path);
     }

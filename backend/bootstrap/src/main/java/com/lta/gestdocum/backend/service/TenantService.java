@@ -91,6 +91,30 @@ public class TenantService {
      */
     @Transactional
     public TenantResponse create(TenantCreateRequest r) {
+        return create(r, null);
+    }
+
+    /**
+     * Único recorrido de creación de organizaciones (alta por superadmin, /public/signup y /public/onboarding).
+     * Con {@code adminPassword} el administrador elige su contraseña: no queda marcada como temporal y no se
+     * envía correo con credenciales. Sin ella se genera una temporal que se envía por correo y debe cambiarse.
+     */
+    @Transactional
+    public TenantResponse create(TenantCreateRequest r, String adminPassword) {
+        return create(r, adminPassword, null);
+    }
+
+    /** Alta pagada con Stripe: la contraseña elegida llega como hash BCrypt guardado antes del pago. */
+    @Transactional
+    public TenantResponse createWithPasswordHash(TenantCreateRequest r, String adminPasswordHash) {
+        if (adminPasswordHash == null || adminPasswordHash.isBlank()) {
+            throw new IllegalArgumentException("El alta no conserva la contraseña del administrador");
+        }
+        return create(r, null, adminPasswordHash);
+    }
+
+    private TenantResponse create(TenantCreateRequest r, String adminPassword, String adminPasswordHash) {
+        boolean ownPassword = (adminPassword != null && !adminPassword.isBlank()) || adminPasswordHash != null;
         UUID tenantId = UUID.randomUUID();
         Tenant t = new Tenant();
         t.setId(tenantId);
@@ -135,17 +159,18 @@ public class TenantService {
 
         String suffix = tenantId.toString().substring(0, 8);
         String username = deriveUsername(adminEmail, suffix);
-        String tempPassword = generateTemporaryPassword();
+        String tempPassword = ownPassword ? null : generateTemporaryPassword();
 
         User adminUser = User.builder()
                 .tenantId(tenantId)
                 .username(username)
                 .email(adminEmail)
-                .passwordHash(passwordEncoder.encode(tempPassword))
+                .passwordHash(adminPasswordHash != null ? adminPasswordHash
+                        : passwordEncoder.encode(ownPassword ? adminPassword : tempPassword))
                 .firstName(firstName)
                 .lastName(lastName)
                 .status(UserStatus.ACTIVE)
-                .mustChangePassword(true)
+                .mustChangePassword(!ownPassword)
                 .preferredLanguage("es")
                 .build();
         userRepository.save(adminUser);
@@ -168,20 +193,66 @@ public class TenantService {
                     .toList();
             java.util.Set<String> featureSet = new java.util.HashSet<>(enabledFeatures);
 
-            permissionRepository.findByIsActiveTrueOrderByModuleAscActionAsc().stream()
+            List<Permission> allowed = permissionRepository.findByIsActiveTrueOrderByModuleAscActionAsc().stream()
                     .filter(perm -> PlanFeatureMatrix.isPermissionAllowed(perm.getModule(), perm.getCode(), featureSet))
-                    .forEach(perm -> roleRepository.grantPermission(tenantId, adminRole.getId(), perm.getId()));
+                    .toList();
+            allowed.forEach(perm -> roleRepository.grantPermission(tenantId, adminRole.getId(), perm.getId()));
+            createDefaultGroups(tenantId, allowed);
         } catch (Exception ex) {
             log.warn("Aviso al otorgar permisos al rol de tenant admin: {}", ex.getMessage());
         }
 
         // Enviar correo con credenciales de acceso de forma defensiva
-        sendWelcomeEmail(saved, adminUser, tempPassword);
+        if (!ownPassword) sendWelcomeEmail(saved, adminUser, tempPassword);
 
         // Sembrar catálogos base (departamentos, categorías y tipos documentales)
         seedDefaultCatalogs(saved.getId());
 
         return map(saved);
+    }
+
+    /**
+     * Grupos por defecto de una organización nueva desde default_role_templates (063), editables por el
+     * administrador global. Cada grupo recibe solo los códigos de su plantilla que existen y que el plan
+     * habilita; sin la tabla (base anterior a 063) no se crea ninguno.
+     */
+    void createDefaultGroups(UUID tenantId, List<Permission> allowedPermissions) {
+        if (jdbcTemplate == null) return;
+        List<java.util.Map<String, Object>> templates;
+        try {
+            templates = jdbcTemplate.queryForList("""
+                    select name, description, permission_codes from default_role_templates
+                    where is_active order by sort_order, name
+                    """);
+        } catch (org.springframework.dao.DataAccessException ex) {
+            log.warn("No se pudieron leer las plantillas de grupos por defecto: {}", ex.getMessage());
+            return;
+        }
+        java.util.Map<String, Permission> byCode = new java.util.HashMap<>();
+        allowedPermissions.forEach(perm -> byCode.put(perm.getCode(), perm));
+        for (java.util.Map<String, Object> template : templates) {
+            Role role = roleRepository.save(Role.builder()
+                    .tenantId(tenantId)
+                    .name((String) template.get("name"))
+                    .description((String) template.get("description"))
+                    .isSystem(false)
+                    .isActive(true)
+                    .build());
+            for (String code : permissionCodes(template.get("permission_codes"))) {
+                Permission perm = byCode.get(code);
+                if (perm != null) roleRepository.grantPermission(tenantId, role.getId(), perm.getId());
+            }
+        }
+    }
+
+    static List<String> permissionCodes(Object value) {
+        try {
+            if (value instanceof java.sql.Array array) return List.of((String[]) array.getArray());
+        } catch (java.sql.SQLException ex) {
+            return List.of();
+        }
+        if (value instanceof String[] array) return List.of(array);
+        return List.of();
     }
 
     public void seedDefaultCatalogs(UUID tenantId) {
@@ -249,8 +320,19 @@ public class TenantService {
     @Transactional
     public TenantResponse changeStatus(UUID id, String value) {
         Tenant t = repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Tenant no encontrado"));
-        t.setStatus(Tenant.Status.valueOf(value.toUpperCase(Locale.ROOT)));
-        return map(repository.save(t));
+        Tenant.Status next = Tenant.Status.valueOf(value.toUpperCase(Locale.ROOT));
+        if (jdbcTemplate != null && Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                "select purged_at is not null from tenants where id = ?", Boolean.class, id))) {
+            throw new IllegalStateException("La organización fue eliminada definitivamente y no puede reactivarse");
+        }
+        t.setStatus(next);
+        TenantResponse response = map(repository.saveAndFlush(t));
+        // Reactivar dentro del período de gracia anula el borrado programado.
+        if (next == Tenant.Status.ACTIVE && jdbcTemplate != null) {
+            jdbcTemplate.update("update tenants set canceled_at = null, deletion_scheduled_at = null,"
+                    + " cancellation_reason = null, cancel_at_period_end = false where id = ?", id);
+        }
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -296,8 +378,9 @@ public class TenantService {
 
     private void sendWelcomeEmail(Tenant tenant, User adminUser, String tempPassword) {
         if (mailSender == null) {
-            log.info("JavaMailSender no disponible; credenciales de {} para {}: usuario={}, clave={}",
-                    tenant.getName(), adminUser.getEmail(), adminUser.getUsername(), tempPassword);
+            log.warn("JavaMailSender no disponible; no se envió la contraseña temporal de {} a {} (usuario={}). "
+                            + "Usa la recuperación de contraseña para definir una nueva.",
+                    tenant.getName(), adminUser.getEmail(), adminUser.getUsername());
             return;
         }
         try {

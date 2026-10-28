@@ -1,5 +1,5 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChangeDetection } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, withInMemoryScrolling } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 
 import { routes } from '../routes/app.routes';
@@ -11,7 +11,8 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes),
+    // Anchor scrolling only acts on URLs with a fragment (marketing links such as /welcome#pricing).
+    provideRouter(routes, withInMemoryScrolling({ anchorScrolling: 'enabled' })),
     // The error recorder goes first (outermost) so it only sees the final outcome, after the token refresh retry.
     provideHttpClient(withInterceptors([assistantErrorInterceptor, authInterceptor, clientTimestampInterceptor]))
   ]

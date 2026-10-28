@@ -95,13 +95,14 @@ SELECT md5(string_agg(row_data, '' ORDER BY row_data)) FROM (
         $null = Invoke-SqlFile -Database 'upgrade' -File ("/workspace/init/" + $file.Name)
     }
     $afterMigrations = Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql
+    $migrationVersionsAfterFirstPass = Invoke-Sql -Database 'upgrade' -Sql "SELECT string_agg(version, E'\\n' ORDER BY version) FROM app.schema_migrations"
     foreach ($file in @('004_saas_hardening.sql', '005_demo_users.sql', '006_password_recovery.sql', '007_tenant_user_management.sql', '008_tenant_status_compatibility.sql', '009_clinical_domain_extensions.sql', '010_medical_notes.sql', '011_persistent_auth_sessions.sql', '012_http_access_audit.sql', '013_document_checksum_compatibility.sql', '014_auth_user_password_hash_privilege.sql', '015_acme_superadmin_demo_users.sql', '016_finocode_tenant_name.sql', '017_revoked_access_tokens.sql')) {
         $null = Invoke-SqlFile -Database 'upgrade' -File "/workspace/init/$file"
     }
     foreach ($file in $laterMigrations) {
         $null = Invoke-SqlFile -Database 'upgrade' -File ("/workspace/init/" + $file.Name)
     }
-    Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql 'SELECT count(*) FROM app.schema_migrations') '32' 'Repetición de migraciones'
+    Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql "SELECT string_agg(version, E'\\n' ORDER BY version) FROM app.schema_migrations") $migrationVersionsAfterFirstPass 'Repetición alteró el historial de migraciones'
     Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql) $afterMigrations 'Repetición alteró datos'
     $upgrade = Invoke-SqlFile -Database 'upgrade' -File '/workspace/tests/validate.sql'
     if (!$upgrade.Output.Contains('VALIDATION_OK')) { throw $upgrade.Output }

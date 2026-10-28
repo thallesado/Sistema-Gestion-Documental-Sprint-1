@@ -17,6 +17,8 @@ public class UserResponse {
     private String tenantName;
     private String tenantLogoUrl;
     private boolean platformAdmin;
+    /** true si la contraseña es temporal y debe cambiarse antes de usar el sistema. */
+    private boolean mustChangePassword;
     private String staffType;
     private String specialty;
     private String phone;
@@ -30,5 +32,7 @@ public class UserResponse {
     private java.util.List<String> permissions;
     private String planCode;
     private java.util.List<String> enabledFeatures;
+    /** Solo en /auth/me: personalización definida por un administrador (user:customize). */
+    private UserCustomizationDtos.CurrentUserCustomization customization;
 }
 

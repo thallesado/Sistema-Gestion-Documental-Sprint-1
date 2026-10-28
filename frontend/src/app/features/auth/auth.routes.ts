@@ -1,11 +1,21 @@
 import { Routes } from '@angular/router';
-import { publicGuard } from '../../core/auth/auth.guard';
+import { changePasswordPageGuard, publicGuard } from '../../core/auth/auth.guard';
 
 export const autenticacionRoutes: Routes = [
   {
     path: 'welcome',
     loadComponent: () => import('../marketing/pages/welcome-page').then((m) => m.WelcomePage),
     title: 'NexoDocs - Gestión documental inteligente',
+  },
+  {
+    path: 'nosotros',
+    loadComponent: () => import('../marketing/pages/about-page').then((m) => m.AboutPage),
+    title: 'Nosotros - NexoDocs',
+  },
+  {
+    path: 'contacto',
+    loadComponent: () => import('../marketing/pages/contact-page').then((m) => m.ContactPage),
+    title: 'Contáctanos - NexoDocs',
   },
   {
     path: 'register',
@@ -17,6 +27,12 @@ export const autenticacionRoutes: Routes = [
     loadComponent: () => import('./pages/login-page').then((m) => m.LoginPage),
     title: 'Login - NexoDocs',
     canActivate: [publicGuard],
+  },
+  {
+    path: 'change-password',
+    loadComponent: () => import('./pages/change-password-page').then((m) => m.ChangePasswordPage),
+    title: 'Cambiar contraseña temporal - NexoDocs',
+    canActivate: [changePasswordPageGuard],
   },
   {
     path: 'forgot-password',

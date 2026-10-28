@@ -58,22 +58,33 @@ test('login page provides a direct link to create enterprise accounts via /plane
   assert.match(loginCode, /Crear cuenta de empresa/);
 });
 
-test('pricing page is fully implemented with simulated payment notice and calls public signup API', async () => {
+test('pricing page collects the organization form and pays through Stripe Checkout', async () => {
   const pricingCode = await read('src/app/features/pricing/pages/pricing-page.ts');
 
   // Must not have under construction placeholder
   assert.doesNotMatch(pricingCode, /<app-under-construction/);
 
-  // Must mention simulated payment clearly
-  assert.match(pricingCode, /PAGO SIMULADO/i);
-  assert.match(pricingCode, /ENTORNO DE PAGO SIMULADO/i);
+  // Organization and administrator form precede the payment
+  assert.match(pricingCode, /signupForm\.companyName/);
+  assert.match(pricingCode, /signupForm\.adminPassword/);
 
-  // Must call public signup endpoint
-  assert.match(pricingCode, /\/api\/v1\/public\/signup/);
+  // Real recurring payment: no card fields in the page, no simulated signup, no client-side price
+  assert.match(pricingCode, /\/api\/v1\/public\/subscriptions\/checkout/);
+  assert.match(pricingCode, /window\.location\.assign\(session\.url\)/);
+  assert.doesNotMatch(pricingCode, /\/api\/v1\/public\/signup/);
+  assert.doesNotMatch(pricingCode, /simulatedCard|amountUsd/);
 
   // Must have monthly and annual billing cycle toggle
   assert.match(pricingCode, /MONTHLY/);
   assert.match(pricingCode, /ANNUAL/);
+});
+
+test('Stripe return page polls the signup status instead of trusting the redirect', async () => {
+  const routes = await read('src/app/features/pricing/pricing.routes.ts');
+  const page = await read('src/app/features/pricing/pages/checkout-success-page.ts');
+  assert.match(routes, /path: 'planes\/exito'/);
+  assert.match(page, /\/api\/v1\/public\/subscriptions\/checkout\/\$\{encodeURIComponent\(sessionId\)\}\/status/);
+  assert.match(page, /status !== 'COMPLETED'/);
 });
 
 test('appearance page is implemented with color presets, preview and settings PATCH', async () => {

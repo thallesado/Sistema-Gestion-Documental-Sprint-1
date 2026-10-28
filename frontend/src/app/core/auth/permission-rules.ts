@@ -24,6 +24,30 @@ export function hasPermission(
   return codes.some((code) => grantedSet.has(code));
 }
 
+/**
+ * Pantalla de inicio personalizada (user:customize) si el usuario puede abrirla; si no, null.
+ * `routes` son las entradas de menú con su permiso efectivo (navigationRoutes).
+ */
+export function permittedLandingPage(
+  landingPage: string | null | undefined,
+  granted: Iterable<string> | null | undefined,
+  routes: ReadonlyArray<{ href: string; permission?: PermissionRequirement }>,
+): string | null {
+  if (!landingPage || landingPage === '/') return null;
+  const route = routes.find((entry) => entry.href === landingPage);
+  return route && hasPermission(granted, route.permission) ? landingPage : null;
+}
+
+/** Tipos documentales que el usuario puede usar al crear; sin lista personalizada, todos. */
+export function allowedDocumentTypes<T extends { id: string }>(
+  types: readonly T[],
+  allowedIds: readonly string[] | null | undefined,
+): T[] {
+  if (!allowedIds?.length) return [...types];
+  const allowed = new Set(allowedIds);
+  return types.filter((type) => allowed.has(type.id));
+}
+
 type PermissionGated = { permission?: PermissionRequirement };
 type GatedNavItem<C extends PermissionGated> = PermissionGated & { children: C[] };
 

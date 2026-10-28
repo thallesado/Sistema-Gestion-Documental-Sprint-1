@@ -37,3 +37,15 @@ Auditoría 2026-10-14: Maven 46 pasan; Node 35 pasan/1 omitida; typecheck/build 
 La revisión documental ejecuta el verificador y sus pruebas; el resultado vigente se comunica al terminar, sin prometer salud de producción.
 
 Verificación de publicación 2026-10-16: nueve pruebas del verificador y 18 contratos/107 enlaces pasan. Frontend con Node 22.16 necesita --experimental-strip-types: con esa opción pasan 69 pruebas y se omite una HTTP por falta de APP_URL; sin opción fallan dos archivos que importan TS. No se ejecutaron nuevamente integración SQL, Maven, Flutter ni despliegue como parte de publicar la wiki.
+
+## Actualización parcial de la sesión al 2026-10-21
+
+El snapshot anterior es histórico. Consultar [cambios locales y pendientes de Respaldos](../06-operacion/cambios-locales-2026-10-21.md) para el checkout 8c3dcb8 más cambios locales: sidebar y paneles sin API, corrección de Configuración, mapeos CHAR de Java, migración 044 y puertos 4200/4201 compartiendo backend/base. Las pruebas y comprobaciones de ejecución allí citadas pertenecen a sus operaciones previas; no implican nuevas pruebas de negocio al editar documentación. No se publicó en GitHub ni EC2.
+
+## Integración de colegas y corrección de permisos
+
+Se integraron 15 commits hasta c93a8b4 preservando los cambios locales. Posteriormente se actualizaron contenedores y migraciones locales para alinear permisos de sesión con el sidebar nuevo. Ver [integración y evidencia](../06-operacion/integracion-main-c93a8b4.md): registro manual transaccional de 048, migración correctiva local 049 y controles bajo contexto de Laura. La actualización de Docker es posterior a la descarga; no asumir que un pull actualiza servicios. No se verificó EC2 ni se publicó esta entrega.
+
+## Respaldos operativos: actualización posterior
+
+Se implementó el backend interno y la conexión real de la pantalla, con migración 050. Los pendientes de la fase de diseño ya no son el estado actual. Ver [funcionamiento y pruebas](../04-dominio-y-negocio/respaldos-y-restauracion.md), con límites y excepciones explícitos. La recuperación se probó en copias aisladas, no sobre la base de trabajo.

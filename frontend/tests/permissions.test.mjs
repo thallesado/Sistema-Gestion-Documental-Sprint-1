@@ -48,6 +48,7 @@ test('permittedChildren: los hijos heredan el permiso del padre y aplican el pro
 
 test('un rol personalizado con solo document:read ve unicamente lo que ese permiso habilita', () => {
   const menu = visibleMenu(['document:read']);
+  // Backups now require their own permission.
   assert.deepEqual(menu.map((item) => item.label), ['Inicio', 'Documentos']);
   const documents = menu.find((item) => item.label === 'Documentos').children;
   assert.ok(documents.includes('/documents'));
@@ -98,3 +99,22 @@ test('planes, precios y facturación solo para el administrador del tenant', () 
   assert.equal(billing(['platform:tenant:manage']), true);
   assert.equal(billing(MEDICO_ESPECIALISTA), false);
 });
+
+test('audit read permission shows every audit entry in the menu', () => {
+  const audit = visibleMenu(new Set(['audit:read_tenant'])).find((item) => item.label === 'Auditoria');
+  assert.deepEqual(audit?.children, [
+    '/audit',
+    '/audit/access',
+    '/audit/document-creation',
+    '/audit/modifications',
+    '/audit/downloads',
+    '/audit/approvals',
+    '/audit/deletions',
+    '/audit/permissions',
+  ]);
+});
+
+ test('respaldos requiere backup:read para aparecer en el menu', () => {
+ assert.ok(!visibleMenu(['document:read']).some(i => i.label === 'Respaldos'));
+ assert.ok(visibleMenu(['backup:read']).some(i => i.label === 'Respaldos'));
+ });

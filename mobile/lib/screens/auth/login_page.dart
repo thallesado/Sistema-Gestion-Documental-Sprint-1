@@ -32,12 +32,47 @@ class _LoginPageState extends State<LoginPage> {
   String? tenantsError;
   bool submitting = false;
   bool showPassword = false;
+  bool biometricEnabled = false;
   String? error;
 
   @override
   void initState() {
     super.initState();
     loadTenants();
+    _checkBiometrics();
+  }
+
+  Future<void> _checkBiometrics() async {
+    final enabled = await widget.authApi.biometrics.isEnabled();
+    final hasSession = await widget.authApi.client.hasSession();
+    if (mounted) {
+      setState(() => biometricEnabled = enabled && hasSession);
+    }
+  }
+
+  Future<void> _unlockWithBiometrics() async {
+    setState(() {
+      submitting = true;
+      error = null;
+    });
+    try {
+      final authenticated = await widget.authApi.biometrics.authenticate(
+        reason: 'Usa tu biometría para acceder a NexoDocs',
+      );
+      if (!authenticated) {
+        if (mounted) setState(() => submitting = false);
+        return;
+      }
+      await widget.authApi.loadPermissions();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => MainShellPage(api: widget.authApi)),
+      );
+    } on ApiException catch (e) {
+      if (mounted) setState(() => error = e.message);
+    } finally {
+      if (mounted) setState(() => submitting = false);
+    }
   }
 
   @override
@@ -249,6 +284,20 @@ class _LoginPageState extends State<LoginPage> {
                         onPressed: submitting ? null : submit,
                         child: Text(submitting ? 'Validando…' : 'Iniciar sesión'),
                       ),
+                      if (biometricEnabled) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          key: const Key('biometrics-login'),
+                          onPressed: submitting ? null : _unlockWithBiometrics,
+                          icon: const Icon(Icons.fingerprint, color: AppTheme.teal),
+                          label: const Text('Desbloquear con biometría'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.teal,
+                            side: const BorderSide(color: AppTheme.teal),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

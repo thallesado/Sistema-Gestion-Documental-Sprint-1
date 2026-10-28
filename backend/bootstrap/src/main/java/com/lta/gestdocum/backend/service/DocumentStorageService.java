@@ -37,6 +37,12 @@ public class DocumentStorageService {
     private final DocumentVersionRepository versionRepository;
     private final AuthenticatedUserContext context;
     private final PlanEnforcementService planEnforcementService;
+    private UserCustomizationService userCustomizationService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setUserCustomizationService(UserCustomizationService userCustomizationService) {
+        this.userCustomizationService = userCustomizationService;
+    }
 
     public DocumentStorageService(@Value("${app.storage.local-path:./data/storage}") String storagePath,
                                   DocumentRepository documentRepository,
@@ -58,6 +64,7 @@ public class DocumentStorageService {
                 .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
         validate(file, reason);
         planEnforcementService.validateStorageLimit(tenantId, file.getSize());
+        if (userCustomizationService != null) userCustomizationService.validateUpload(tenantId, file.getSize());
         UUID versionId = UUID.randomUUID();
         Path relative = Path.of(tenantId.toString(), documentId.toString(), versionId.toString());
         Path target = safePath(relative);
@@ -111,6 +118,7 @@ public class DocumentStorageService {
         try {
             long sourceSize = Files.size(source);
             planEnforcementService.validateStorageLimit(tenantId, sourceSize);
+            if (userCustomizationService != null) userCustomizationService.validateUpload(tenantId, sourceSize);
             Files.createDirectories(target.getParent());
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             long size;

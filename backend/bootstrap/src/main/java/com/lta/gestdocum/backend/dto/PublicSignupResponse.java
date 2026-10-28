@@ -7,6 +7,7 @@ public record PublicSignupResponse(
     String tenantName,
     String adminUsername,
     String adminEmail,
+    /** Obsoleto: nunca se devuelve una contraseña; siempre null (se mantiene por compatibilidad del contrato). */
     String temporaryPassword,
     boolean simulatedPayment,
     String paymentReference,

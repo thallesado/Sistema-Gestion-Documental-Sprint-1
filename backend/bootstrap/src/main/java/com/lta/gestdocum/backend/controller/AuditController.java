@@ -1,11 +1,13 @@
 package com.lta.gestdocum.backend.controller;
 
+import com.lta.gestdocum.backend.dto.AuditAnchorJobStatus;
 import com.lta.gestdocum.backend.dto.AuditEventFilter;
 import com.lta.gestdocum.backend.dto.AuditEventResponse;
 import com.lta.gestdocum.backend.dto.AuditVerificationResult;
 import com.lta.gestdocum.backend.model.AuditAnchor;
 import com.lta.gestdocum.backend.security.AuthenticatedUser;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
+import com.lta.gestdocum.backend.service.AuditAnchorScheduler;
 import com.lta.gestdocum.backend.service.AuditAnchorService;
 import com.lta.gestdocum.backend.service.AuditQueryUseCase;
 import com.lta.gestdocum.backend.service.AuditVerificationService;
@@ -30,16 +32,19 @@ public class AuditController {
     private final AuditVerificationService verificationService;
     private final AuditAnchorService anchorService;
     private final AuthenticatedUserContext userContext;
+    private final AuditAnchorScheduler anchorScheduler;
 
     public AuditController(
             AuditQueryUseCase queryService,
             AuditVerificationService verificationService,
             AuditAnchorService anchorService,
-            AuthenticatedUserContext userContext) {
+            AuthenticatedUserContext userContext,
+            AuditAnchorScheduler anchorScheduler) {
         this.queryService = queryService;
         this.verificationService = verificationService;
         this.anchorService = anchorService;
         this.userContext = userContext;
+        this.anchorScheduler = anchorScheduler;
     }
 
     @GetMapping
@@ -78,6 +83,13 @@ public class AuditController {
             targetTenantId = user.tenantId();
         }
         return verificationService.verifyTenantChain(targetTenantId);
+    }
+
+    /** Read-only status of the external anchoring job (no paths, URLs or credentials). */
+    @GetMapping("/anchor/status")
+    @PreAuthorize("hasAnyAuthority('audit:read_global','audit:read_tenant')")
+    public AuditAnchorJobStatus anchorStatus() {
+        return anchorScheduler.status();
     }
 
     @PostMapping("/anchor")

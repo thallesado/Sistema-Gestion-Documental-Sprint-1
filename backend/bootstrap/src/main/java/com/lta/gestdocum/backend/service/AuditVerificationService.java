@@ -1,5 +1,7 @@
 package com.lta.gestdocum.backend.service;
 
+import com.lta.gestdocum.backend.dto.AuditExternalAnchor;
+import com.lta.gestdocum.backend.dto.AuditExternalLookup;
 import com.lta.gestdocum.backend.dto.AuditVerificationResult;
 import com.lta.gestdocum.backend.model.AuditAnchor;
 import com.lta.gestdocum.backend.model.AuditEvent;
@@ -26,9 +28,13 @@ public class AuditVerificationService {
     private final AuditEventRepository auditEventRepository;
     private final AuditAnchorService auditAnchorService;
 
-    public AuditVerificationService(AuditEventRepository auditEventRepository, AuditAnchorService auditAnchorService) {
+    private final AuditAnchorExternalGateway externalGateway;
+
+    public AuditVerificationService(AuditEventRepository auditEventRepository, AuditAnchorService auditAnchorService,
+                                    AuditAnchorExternalGateway externalGateway) {
         this.auditEventRepository = auditEventRepository;
         this.auditAnchorService = auditAnchorService;
+        this.externalGateway = externalGateway;
     }
 
     public String computeCanonicalPayload(AuditEvent event) {
@@ -121,7 +127,73 @@ public class AuditVerificationService {
         List<AuditEvent> events = tenantId != null
                 ? auditEventRepository.findByTenantIdOrderByChainSeqAsc(tenantId)
                 : auditEventRepository.findByTenantIdIsNullOrderByChainSeqAsc();
+        AuditVerificationResult internal = verifyEvents(tenantId, events);
+        if (externalGateway == null || !externalGateway.isConfigured()) {
+            return internal;
+        }
+        return applyExternalAnchor(tenantId, events, internal);
+    }
 
+    /**
+     * Compares the chain with the latest anchor published OUTSIDE the database. A DBA who rewrites the whole
+     * chain and recomputes the internal anchor cannot also rewrite the external destination.
+     */
+    private AuditVerificationResult applyExternalAnchor(UUID tenantId, List<AuditEvent> events, AuditVerificationResult internal) {
+        AuditExternalLookup lookup = externalGateway.lookup(tenantId);
+        String dest = lookup.destination();
+        switch (lookup.status()) {
+            case UNREACHABLE:
+                return withExternal(internal, internal.valid(), null, null, null,
+                        status(false, null, "UNREACHABLE", lookup.detail(), dest));
+            case UNVERIFIABLE:
+                return withExternal(internal, internal.valid(), null, null, null,
+                        status(false, null, "UNVERIFIABLE", lookup.detail(), dest));
+            case NONE:
+            case NOT_CONFIGURED:
+                return withExternal(internal, internal.valid(), null, null, null,
+                        status(false, null, "NO_EXTERNAL_ANCHOR", lookup.detail(), dest));
+            default:
+                break;
+        }
+        AuditExternalAnchor a = lookup.anchor();
+        if (!auditAnchorService.verifyAnchorIntegrity(a.toAnchor())) {
+            return withExternal(internal, false, "EXTERNAL_ANCHOR_TAMPERED: La firma del ancla externa es inválida",
+                    "VALID_SIGNATURE", "INVALID_SIGNATURE",
+                    status(true, a, "ANCHOR_SIGNATURE_INVALID", "External anchor signature does not verify", dest));
+        }
+        AuditEvent at = events.stream().filter(e -> Objects.equals(e.getChainSeq(), a.chainSeq())).findFirst().orElse(null);
+        String current = at == null || at.getRecordHash() == null ? "NOT_FOUND" : at.getRecordHash().trim();
+        if (at == null || !a.recordHash().trim().equalsIgnoreCase(current)) {
+            return withExternal(internal, false,
+                    "EXTERNAL_ANCHOR_MISMATCH: La cadena difiere del ancla publicada fuera de la base de datos (seq=" + a.chainSeq() + ")",
+                    a.recordHash().trim(), current,
+                    status(true, a, "ANCHOR_MISMATCH", "Chain differs from the externally published anchor", dest));
+        }
+        return withExternal(internal, internal.valid(), null, null, null, status(true, a, "ANCHORED_MATCH", null, dest));
+    }
+
+    private static AuditVerificationResult.ExternalAnchorStatus status(boolean found, AuditExternalAnchor a, String code, String detail, String dest) {
+        return new AuditVerificationResult.ExternalAnchorStatus(
+                found, a == null ? null : a.chainSeq(), a == null ? null : a.recordHash(), "ANCHORED_MATCH".equals(code),
+                a == null ? null : a.anchorType(), a == null ? null : a.anchorReference(),
+                a == null ? null : java.time.Instant.ofEpochMilli(a.anchoredAtMs()).atOffset(java.time.ZoneOffset.UTC),
+                code, detail, true, dest);
+    }
+
+    private static AuditVerificationResult withExternal(AuditVerificationResult r, boolean valid, String failureReason,
+                                                        String expected, String actual,
+                                                        AuditVerificationResult.ExternalAnchorStatus st) {
+        boolean newFailure = failureReason != null && r.valid();
+        return new AuditVerificationResult(valid, r.tenantId(), r.totalVerified(),
+                newFailure ? Long.valueOf(Math.max(1, st.anchoredChainSeq() == null ? 0 : st.anchoredChainSeq())) : r.brokenChainSeq(),
+                r.brokenRecordId(),
+                newFailure ? failureReason : r.failureReason(),
+                newFailure ? expected : r.expectedHash(),
+                newFailure ? actual : r.actualHash(),
+                st, r.verifiedAt());
+    }
+
+    private AuditVerificationResult verifyEvents(UUID tenantId, List<AuditEvent> events) {
         Optional<AuditAnchor> latestAnchorOpt = auditAnchorService.getLatestAnchor(tenantId);
         OffsetDateTime now = OffsetDateTime.now();
 

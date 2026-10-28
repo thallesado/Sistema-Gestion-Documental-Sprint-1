@@ -17,6 +17,40 @@ export interface ApiUser {
   roleIds?: number[];
 }
 
+/** Personalización de un usuario (GET/PUT /users/{id}/customization, permiso user:customize). */
+export interface UserCustomizationPayload {
+  jobTitle: string | null;
+  phone: string | null;
+  biography: string | null;
+  language: 'es' | 'en' | 'fr' | 'zh' | null;
+  landingPage: string | null;
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  mustChangePassword: boolean;
+  /** Fecha ISO (yyyy-MM-dd) hasta la que el usuario puede iniciar sesión, inclusive. */
+  accessExpiresOn: string | null;
+  /** Días ISO: 1 = lunes ... 7 = domingo. Vacío = todos. */
+  accessWeekdays: number[];
+  /** Hora HH:mm en la zona horaria del tenant; ambas o ninguna. */
+  accessStartTime: string | null;
+  accessEndTime: string | null;
+  maxUploadMb: number | null;
+  storageQuotaMb: number | null;
+  /** Vacío = todos los tipos documentales. */
+  allowedDocumentTypeIds: string[];
+}
+
+export interface ApiUserCustomization extends UserCustomizationPayload {
+  userId: string;
+  username: string;
+  fullName: string;
+  storageUsedBytes: number;
+  timezone: string;
+  hasActiveSession: boolean;
+  /** true si el usuario personalizado es quien está autenticado. */
+  self: boolean;
+}
+
 export interface PageResponse<T> {
   content: T[];
   totalElements: number;
@@ -142,6 +176,18 @@ export class AdministrationApiService {
     return this.http.put<ApiUser>(`${API_URL}/users/${id}`, payload);
   }
 
+  userCustomization(id: string): Observable<ApiUserCustomization> {
+    return this.http.get<ApiUserCustomization>(`${API_URL}/users/${id}/customization`);
+  }
+
+  updateUserCustomization(id: string, payload: UserCustomizationPayload): Observable<ApiUserCustomization> {
+    return this.http.put<ApiUserCustomization>(`${API_URL}/users/${id}/customization`, payload);
+  }
+
+  revokeUserSessions(id: string): Observable<void> {
+    return this.http.post<void>(`${API_URL}/users/${id}/sessions/revoke`, null);
+  }
+
   deactivateUser(id: string): Observable<void> {
     return this.http.delete<void>(`${API_URL}/users/${id}`);
   }
@@ -150,11 +196,12 @@ export class AdministrationApiService {
     return this.http.get<ApiTenant[]>(`${API_URL}/tenants`);
   }
 
-  changeTenantStatus(id: string, value: string): Observable<ApiTenant> {
-    return this.http.patch<ApiTenant>(`${API_URL}/tenants/${id}/status`, null, { params: { value } });
+  /** Suspender o reactivar exige motivo (auditoría de plataforma, migración 062). */
+  changeTenantStatus(id: string, value: string, reason: string): Observable<ApiTenant> {
+    return this.http.patch<ApiTenant>(`${API_URL}/tenants/${id}/status`, null, { params: { value, reason } });
   }
 
-  createTenant(payload: CreateTenantPayload): Observable<ApiTenant> {
-    return this.http.post<ApiTenant>(`${API_URL}/tenants`, payload);
+  createTenant(payload: CreateTenantPayload, reason: string): Observable<ApiTenant> {
+    return this.http.post<ApiTenant>(`${API_URL}/tenants`, payload, { params: { reason } });
   }
 }

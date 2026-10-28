@@ -137,6 +137,25 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
         _row('Fecha de emisión', formatDate(doc['issueDate'])),
         _row('Fecha de vencimiento', formatDate(doc['expiryDate'])),
         _row('Última actualización', formatDate(doc['updatedAt'], withTime: true)),
+        if (versions.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const Key('download-latest-version'),
+              onPressed: downloadingId != null ? null : () => download(versions.first),
+              icon: downloadingId == versions.first['id']
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.download, size: 20),
+              label: Text(downloadingId == versions.first['id'] ? 'Descargando...' : 'Descargar archivo (v${versions.first['versionNumber']})'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.teal,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: Text('Versiones (${versions.length})', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.ink))),

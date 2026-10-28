@@ -1,6 +1,8 @@
 package com.lta.gestdocum.backend.service;
 
 import com.lta.gestdocum.backend.dto.*;
+import com.lta.gestdocum.backend.model.ComponentState;
+import com.lta.gestdocum.backend.repository.ComponentPermissionRepository;
 import com.lta.gestdocum.backend.repository.DashboardRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +40,9 @@ class DashboardServiceTest {
     @Mock
     private ExpedientService expedientService;
 
+    @Mock
+    private ComponentPermissionService componentPermissions;
+
     @InjectMocks
     private DashboardService dashboardService;
 
@@ -48,6 +53,8 @@ class DashboardServiceTest {
     void setUp() {
         when(context.requireTenantId()).thenReturn(tenantId);
         when(context.requireUserId()).thenReturn(userId);
+        lenient().when(componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM)).thenReturn(
+                ComponentFormAccess.unrestricted(ComponentFormCatalog.require(ComponentFormCatalog.DOCUMENT_FORM)));
     }
 
     @Test
@@ -140,5 +147,30 @@ class DashboardServiceTest {
         // Case 100 -> 50
         dashboardService.load(100);
         verify(repository).findMyTasks(tenantId, userId, 50);
+    }
+
+    @Test
+    @DisplayName("load() omits the document code and name hidden for the user's groups (B2) and keeps them for others")
+    void hidesHiddenDocumentComponentsInRecentDocuments() {
+        ComponentFormCatalog.Form form = ComponentFormCatalog.require(ComponentFormCatalog.DOCUMENT_FORM);
+        Object[] rawDoc = new Object[]{UUID.randomUUID(), UUID.randomUUID(), "DOC-001", "Consentimiento", "APPROVED",
+                Timestamp.from(Instant.now())};
+        when(repository.findMyTasks(any(), any(), anyInt())).thenReturn(List.of());
+        when(repository.findRecentActivity(any(), anyInt())).thenReturn(List.of());
+        when(repository.findRecentDocuments(any(), anyInt())).thenReturn(Collections.singletonList(rawDoc));
+        when(expedientService.find(any(), any())).thenReturn(new PageImpl<>(List.of()));
+
+        // Un grupo lo oculta, otro no tiene configuración: gana el más permisivo (visible).
+        when(componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM)).thenReturn(ComponentFormAccess.resolve(
+                form, List.of(10L, 11L), List.of(new ComponentPermissionRepository.Row(10L, "codigo", ComponentState.HIDDEN))));
+        assertEquals("DOC-001", dashboardService.load(10).recentDocuments().get(0).code());
+
+        when(componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM)).thenReturn(ComponentFormAccess.resolve(
+                form, List.of(10L), List.of(new ComponentPermissionRepository.Row(10L, "codigo", ComponentState.HIDDEN),
+                        new ComponentPermissionRepository.Row(10L, "nombre", ComponentState.HIDDEN))));
+        DashboardDocumentResponse hidden = dashboardService.load(10).recentDocuments().get(0);
+        assertNull(hidden.code());
+        assertNull(hidden.name());
+        assertEquals("APPROVED", hidden.status());
     }
 }

@@ -21,8 +21,33 @@ public class WorkflowEngineService {
     private final NamedParameterJdbcTemplate db;
     private final AuthenticatedUserContext context;
     private final ObjectMapper mapper;
-    public WorkflowEngineService(NamedParameterJdbcTemplate db,AuthenticatedUserContext context,ObjectMapper mapper) {
-        this.db=db;this.context=context;this.mapper=mapper;
+    private final ComponentPermissionService componentPermissions;
+    public WorkflowEngineService(NamedParameterJdbcTemplate db,AuthenticatedUserContext context,ObjectMapper mapper,
+                                 ComponentPermissionService componentPermissions) {
+        this.db=db;this.context=context;this.mapper=mapper;this.componentPermissions=componentPermissions;
+    }
+    /** Columnas de las consultas de workflows que exponen un componente del formulario de documentos (B2). */
+    private static final Map<String,String> DOCUMENT_COLUMNS=Map.of(
+        "document_name","nombre","document_code","codigo","document_description","descripcion");
+    private ComponentFormAccess documentAccess() {
+        return componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM);
+    }
+    /** Los componentes ocultos para el perfil no salen por ninguna vista de workflow que incruste el documento. */
+    private void hideDocumentComponents(List<Map<String,Object>> rows) {
+        ComponentFormAccess access=null;
+        for(Map<String,Object> row:rows) for(Map.Entry<String,String> column:DOCUMENT_COLUMNS.entrySet()) {
+            if(!row.containsKey(column.getKey()))continue;
+            if(access==null)access=documentAccess();
+            if(!access.visible(column.getValue()))row.put(column.getKey(),null);
+        }
+    }
+    /** Evita inferir un valor oculto filtrando por él en la búsqueda. */
+    private String searchableDocument(String nameColumn,String codeColumn) {
+        ComponentFormAccess access=documentAccess();
+        List<String> columns=new ArrayList<>();
+        if(access.visible("nombre"))columns.add(nameColumn);
+        if(codeColumn!=null&&access.visible("codigo"))columns.add(codeColumn);
+        return columns.isEmpty()?"":","+String.join(",",columns);
     }
     private Map<String,Object> scope() {
         context.establishDatabaseContext();
@@ -52,6 +77,7 @@ public class WorkflowEngineService {
             }
             else if(value instanceof java.sql.Timestamp timestamp)row.put(key,timestamp.toInstant().toString());
         }
+        hideDocumentComponents(rows);
         return rows;
     }
     private Map<String,Object> one(String sql,Map<String,Object> p) {
@@ -170,7 +196,7 @@ public class WorkflowEngineService {
             case "completed"->" AND w.status='COMPLETED'";
             case "draft"->" AND w.status='DRAFT'";default->"";});
         String search=filters.getOrDefault("search","").trim();p.put("search","%"+search+"%");
-        if(!search.isEmpty())where.append(" AND concat_ws(' ',w.title,w.code,doc.document_name,doc.document_code,e.name,active.responsible_name,t.name,w.category) ILIKE :search");
+        if(!search.isEmpty())where.append(" AND concat_ws(' ',w.title,w.code"+searchableDocument("doc.document_name","doc.document_code")+",e.name,active.responsible_name,t.name,w.category) ILIKE :search");
         for(String key:List.of("createdFrom","createdTo","startedFrom","startedTo","completedFrom","completedTo","dateFrom","dateTo","dueFrom","dueTo"))if(filters.get(key)!=null&&!filters.get(key).isBlank()) {
             p.put(key,filters.get(key));where.append(" AND ").append(key.startsWith("due")?"w.due_at":key.startsWith("completed")?"w.completed_at":key.startsWith("started")?"w.started_at":"w.created_at")
               .append(key.endsWith("From")?">=CAST(:":"<CAST(:").append(key).append(key.endsWith("From")?" AS date)":" AS date)+interval '1 day'");
@@ -490,7 +516,7 @@ public class WorkflowEngineService {
             p.put(key,f.get(key));where.append(" AND ").append(key.startsWith("due")?"q.due_at":"q.created_at")
                 .append(key.endsWith("From")?">=CAST(:":"<CAST(:").append(key).append(key.endsWith("From")?" AS date)":" AS date)+interval '1 day'");
         }
-        p.put("search","%"+f.getOrDefault("search","")+"%");where.append(" AND concat_ws(' ',q.title,w.code,w.title,d.name) ILIKE :search");
+        p.put("search","%"+f.getOrDefault("search","")+"%");where.append(" AND concat_ws(' ',q.title,w.code,w.title"+searchableDocument("d.name",null)+") ILIKE :search");
         return page(TASK_SELECT,where.toString(),p,f,"q.due_at");
     }
     public Map<String,Object> task(UUID id) {

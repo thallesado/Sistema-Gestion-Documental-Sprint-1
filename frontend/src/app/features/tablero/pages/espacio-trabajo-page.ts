@@ -15,6 +15,7 @@ import { RoleFormModal } from '../../users/components/role-form-modal';
 import { RolePermissionsModal } from '../../users/components/role-permissions-modal';
 import { activeLocale } from '../../../core/i18n/i18n.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { allowedDocumentTypes } from '../../../core/auth/permission-rules';
 import { PermissionService } from '../../../core/auth/permission.service';
 import { DocumentApiService, ApiDocument, ApiDocumentType, ApiDepartment } from '../../../core/api/document-api.service';
 import { WorkspaceApiService, ApiActivity, ApiTask } from '../../../core/api/workspace-api.service';
@@ -2136,7 +2137,7 @@ export class WorkspacePage implements OnDestroy {
   private loadIndexOptions(): void {
     if (this.documentTypes().length === 0) {
       this.documentApi.documentTypes('', 0, 100).subscribe({
-        next: (page) => this.documentTypes.set(page.content ?? []),
+        next: (page) => this.documentTypes.set(allowedDocumentTypes(page.content ?? [], this.auth.user()?.customization?.allowedDocumentTypeIds)),
         error: () => (this.actionMessage = 'No se pudieron cargar los tipos documentales'),
       });
     }

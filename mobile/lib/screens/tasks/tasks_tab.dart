@@ -16,6 +16,15 @@ const taskFilters = <String, Map<String, dynamic>>{
   'Todas': {},
 };
 
+String taskActionLabel(String action) => switch (action) {
+  'APPROVE' => 'Aprobar',
+  'REVIEW' => 'Revisar',
+  'COMPLETE' => 'Completar',
+  'REJECT' => 'Rechazar',
+  'RETURN' => 'Devolver',
+  _ => action,
+};
+
 class TasksTab extends StatefulWidget {
   const TasksTab({super.key, required this.api});
 
@@ -30,6 +39,7 @@ class _TasksTabState extends State<TasksTab> {
   bool loading = true;
   String? error;
   String selectedFilter = 'Pendientes';
+  String? processingTaskId;
 
   @override
   void initState() {
@@ -49,6 +59,39 @@ class _TasksTabState extends State<TasksTab> {
       if (mounted) setState(() => error = exception.message);
     } finally {
       if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> quickAction(Map<String, dynamic> task, String action) async {
+    final taskId = task['id'] as String;
+    setState(() => processingTaskId = taskId);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await widget.api.workflows.act(taskId, action);
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text('Operación "${taskActionLabel(action)}" completada con éxito.'),
+      ));
+      await loadTasks();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(e.message),
+        backgroundColor: Colors.red.shade700,
+        action: SnackBarAction(
+          label: 'Ver detalle',
+          textColor: Colors.white,
+          onPressed: () => openTask(task),
+        ),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text('Error: $e'),
+        backgroundColor: Colors.red.shade700,
+      ));
+    } finally {
+      if (mounted) setState(() => processingTaskId = null);
     }
   }
 
@@ -104,7 +147,15 @@ class _TasksTabState extends State<TasksTab> {
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: tasks.length,
-                  itemBuilder: (context, index) => _TaskCard(task: tasks[index], onTap: () => openTask(tasks[index])),
+                  itemBuilder: (context, index) {
+                    final t = tasks[index];
+                    return _TaskCard(
+                      task: t,
+                      onTap: () => openTask(t),
+                      isProcessing: processingTaskId == t['id'],
+                      onQuickAction: (action) => quickAction(t, action),
+                    );
+                  },
                 ),
         ),
       ),
@@ -113,15 +164,35 @@ class _TasksTabState extends State<TasksTab> {
 }
 
 class _TaskCard extends StatelessWidget {
-  const _TaskCard({required this.task, required this.onTap});
+  const _TaskCard({
+    required this.task,
+    required this.onTap,
+    this.isProcessing = false,
+    this.onQuickAction,
+  });
 
   final Map<String, dynamic> task;
   final VoidCallback onTap;
+  final bool isProcessing;
+  final ValueChanged<String>? onQuickAction;
 
   @override
   Widget build(BuildContext context) {
     final status = task['status'] as String?;
     final overdue = status != 'COMPLETED' && isPast(task['due_at']);
+    final canAct = task['can_act'] == true && status != 'COMPLETED' && status != 'REJECTED' && status != 'CANCELED';
+    final stageType = task['stage_type'] as String? ?? 'TASK';
+    final action = switch (stageType) {
+      'APPROVAL' => 'APPROVE',
+      'REVIEW' => 'REVIEW',
+      _ => 'COMPLETE',
+    };
+    final actionLabel = switch (action) {
+      'APPROVE' => 'Aprobar',
+      'REVIEW' => 'Revisar',
+      _ => 'Completar',
+    };
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -135,20 +206,49 @@ class _TaskCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text(
-                      task['title'] as String? ?? 'Tarea',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.ink),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          task['title'] as String? ?? 'Tarea',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.ink),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${task['workflow_title'] ?? ''} · ${task['workflow_code'] ?? ''}',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                      ],
                     ),
                   ),
+                  if (canAct && onQuickAction != null) ...[
+                    const SizedBox(width: 8),
+                    if (isProcessing)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.teal)),
+                      )
+                    else
+                      OutlinedButton.icon(
+                        key: Key('quick-action-${task['id']}'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.teal,
+                          side: const BorderSide(color: AppTheme.teal),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: const Size(0, 32),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Icons.check_circle_outline, size: 16),
+                        label: Text(actionLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        onPressed: () => onQuickAction!(action),
+                      ),
+                  ],
+                  const SizedBox(width: 4),
                   const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
                 ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${task['workflow_title'] ?? ''} · ${task['workflow_code'] ?? ''}',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -174,3 +274,4 @@ class _TaskCard extends StatelessWidget {
     );
   }
 }
+

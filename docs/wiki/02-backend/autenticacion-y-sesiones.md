@@ -1,6 +1,6 @@
 # Autenticación, sesiones y permisos
 
-> Revisión documental: 2026-10-16. Base de código: `a590a6d`; ver [estado verificado](../05-guias-ia/estado-verificado-y-pendientes.md). Descripción del código inspeccionado, no certificación de producción.
+> Revisión documental: 2026-10-21. Base de código: `c93a8b4` más cambios locales; ver [estado verificado](../05-guias-ia/estado-verificado-y-pendientes.md). Descripción del código inspeccionado, no certificación de producción.
 
 ## Contratos exactos
 
@@ -29,10 +29,32 @@
 
 El frontend usa `permissions` solo para decidir qué mostrar (menú, botones y guards); la autorización sigue en `@PreAuthorize` y RLS. Los nombres visibles de roles no sustituyen permisos; revisar los catálogos/migraciones y controladores. No inventar `clinical:history:read` o `workflow:task:approve`.
 
+## Contraseña temporal obligatoria (S1)
+
+Un administrador de organización creado con contraseña generada (alta por superadmin o `/public/signup` sin `adminPassword`) tiene `users.must_change_password = true`. `AuthService` expone `mustChangePassword` en la respuesta de login y refresh y en `GET /api/v1/auth/me`, y añade al JWT la authority interna `ROLE_MUST_CHANGE_PASSWORD` (no se devuelve en `permissions`). `MustChangePasswordFilter`, registrado tras `JwtAuthenticationFilter` en `SecurityConfig`, responde 403 con `code: MUST_CHANGE_PASSWORD` a cualquier petición salvo `GET /auth/me`, `POST /auth/logout`, `POST /auth/refresh` y `PUT /auth/me/password`. `PUT /auth/me/password` limpia el indicador y, si era temporal, cierra las sesiones emitidas para que se inicie sesión de nuevo. Cuando el administrador elige su contraseña (`adminPassword` en el alta o en `/public/onboarding`) el indicador es false y no se envía correo. Ninguna respuesta de alta devuelve contraseñas (`temporaryPassword` es siempre null) y el log nunca las imprime; sin SMTP la contraseña temporal no se entrega y hay que usar la recuperación de contraseña. `/public/signup` y `/public/onboarding` crean la organización por el único recorrido `TenantService.create(request, adminPassword)` y tienen límite propio por IP (`app.rate-limit.public-signup.*`, 10 por hora por defecto, 429 con `Retry-After`).
+
+## Cupos del plan (S2)
+
+Reactivar un usuario (`UserService.updateUser`, de inactivo/bloqueado a ACTIVE) ejecuta `validateUserLimit`. El OCR cuenta una página por página de PDF (`OcrService.countPages`, sin dependencia de PDFBox: cuenta objetos `/Type /Page` o el mayor `/Count`) y, si no se puede leer el consumo mensual, `PlanLimitService.validateOcrLimit` falla cerrado con `PlanLimitExceededException`. La bitácora `UPDATE USERS` registra antes y después nombres, apellidos, correo, estado y grupos (`roleIds`), nunca credenciales.
+
 ## Límites conocidos
+
+### Login fallido y bloqueo local (2026-10-21)
+
+`LoginAttemptRateLimitFilter` limita `POST /api/v1/auth/login` a cinco intentos fallidos por ventana de 60 segundos por IP y por identificador de cuenta/organización enviada. El cupo se reserva antes de procesar y se devuelve si la respuesta es correcta (< 400): un inicio de sesión exitoso no lo consume. El sexto fallo recibe 429 con `Retry-After`; la ventana se libera sin intervención. Los contadores están en memoria, se reinician con el backend y no coordinan réplicas. Distintos alias de organización o username/email representan claves de cuenta distintas; el límite por IP se aplica igualmente. La capacidad del mapa está acotada y al saturarse rechaza claves nuevas hasta que caduquen entradas.
+
+El controlador registra credenciales inválidas, organización inexistente y acceso denegado. Los rechazos del filtro también registran `LOGIN_FAILED`/`FAILURE`, IP, agente e identificador intentado. No se entrega la contraseña al servicio de auditoría. La migración `052_login_failure_audit.sql` habilita una función restringida de inserción previa a la autenticación, conservando los triggers de hash. Si falla la auditoría, se registra una advertencia: requiere vigilancia operativa y no hay cola de reintentos.
+
+El proxy Nginx sustituye `X-Forwarded-For` por la IP del socket y elimina `Forwarded`. El puerto Docker del backend se publica solo en loopback; debe accederse desde el proxy para preservar IP por cliente. No exponer directamente un backend configurado con `forward-headers-strategy: framework`. Detrás de otro proxy hay que configurar explícitamente su confianza antes de cambiar este esquema.
 
 La comprobación de sesión de acceso es por usuario, no sesión específica. La revocación en la ruta de reutilización de refresh puede revertirse con rollback. Cambio de contraseña desde perfil y logout UI por inactividad requieren pruebas de revocación. Son hallazgos abiertos de la revisión, no garantías corregidas por esta wiki.
 
 El frontend guarda los tokens en sessionStorage. No registrar ni compartir tokens de sesión. Esta página describe contratos, no procedimientos para extraer credenciales.
 
 Fuentes: [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AuthRequest.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AuthRequest.java), [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AuthResponse.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AuthResponse.java), [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/JwtService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/JwtService.java), [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AuthSessionService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AuthSessionService.java), [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AccessTokenRevocationService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AccessTokenRevocationService.java), [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/config/SecurityConfig.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/config/SecurityConfig.java). Ver [estado y pendientes](../05-guias-ia/estado-verificado-y-pendientes.md).
+
+## Corrección local del perfil tras integrar 046 (2026-10-21)
+
+En `c93a8b4` más cambios locales, la migración 046 concede UPDATE pero omite SELECT sobre `users.preferred_language` y `users.must_change_password`. Hibernate incluye ambas columnas al cargar `GET /api/v1/auth/me`; PostgreSQL devuelve `permission denied for table users`. El login puede emitir tokens, pero el perfil falla y el sidebar muestra los valores por defecto (Usuario, organización sin asignar y pocas opciones). No demuestra que se hayan eliminado los roles.
+
+La migración [051_user_profile_select_privileges.sql](../../../database/init/051_user_profile_select_privileges.sql) concede únicamente SELECT sobre esas dos columnas a `nexodocs_app`, sin cambiar roles de usuarios ni políticas RLS. Se aplicó en Docker local después de un respaldo PostgreSQL verificado. Con el rol de aplicación y contexto de Laura se verificaron lectura de todas las columnas de usuario, nombre Laura Martínez, organización FinoCode, rol Administrador de tenant y permisos document:read, expedient:read y backup:read. Esta prueba SQL no sustituye una comprobación visual de la sesión del navegador. Recargar fuerza una nueva consulta del perfil; si el JWT conserva permisos anteriores, cerrar sesión e ingresar de nuevo.

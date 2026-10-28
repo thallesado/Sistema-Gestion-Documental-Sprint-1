@@ -1,0 +1,17 @@
+[Unit]
+Description=NexoDocs platform backup request operator
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/nexodocs
+Environment=BACKUP_DESTINATION=/mnt/nexodocs-backups
+Environment=BACKUP_QUEUE=/var/lib/nexodocs-backup-queue
+ExecStart=/usr/bin/bash /opt/nexodocs/infrastructure/backup-worker.sh
+UMask=0077
+TimeoutStartSec=2h
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/nexodocs-backup-queue /mnt/nexodocs-backups /run/lock

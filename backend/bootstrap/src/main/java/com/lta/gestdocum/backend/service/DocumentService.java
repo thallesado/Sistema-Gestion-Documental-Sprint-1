@@ -74,6 +74,13 @@ public class DocumentService {
         this.planLimitService = planLimitService;
     }
 
+    private UserCustomizationService userCustomizationService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setUserCustomizationService(UserCustomizationService userCustomizationService) {
+        this.userCustomizationService = userCustomizationService;
+    }
+
     @Transactional(readOnly = true)
     public Page<DocumentResponse> find(String filter, Document.DocumentStatus status, Pageable pageable) {
         UUID tenantId = userContext.requireTenantId();
@@ -124,6 +131,9 @@ public class DocumentService {
         userContext.establishDatabaseContext();
         if (planLimitService != null) {
             planLimitService.validateDocumentLimit(tenantId);
+        }
+        if (userCustomizationService != null) {
+            userCustomizationService.validateDocumentType(tenantId, request.documentTypeId());
         }
         ComponentFormAccess access = documentAccess();
         requireEditableComponents(access, request);
@@ -335,7 +345,7 @@ public class DocumentService {
                 access.reveal("paciente", document.getPatientId()),
                 access.reveal("especialidad", document.getSpecialty()),
                 access.reveal("proceso", document.getInstitutionalProcess()),
-                document.getMetadata(),
+                hideMetadata(access, document.getMetadata()),
                 access.reveal("codigo", document.getCode()),
                 access.reveal("nombre", document.getName()),
                 access.reveal("descripcion", document.getDescription()),
@@ -356,6 +366,23 @@ public class DocumentService {
                 access.reveal("paciente", patName),
                 access.reveal("expediente", expCode)
         );
+    }
+
+    /** Claves de metadata (p. ej. las que rellena el OCR) que duplican un componente configurable del formulario. */
+    private static final java.util.Map<String, String> METADATA_COMPONENTS = java.util.Map.of(
+            "patientName", "paciente",
+            "patientDocumentNumber", "paciente",
+            "doctorName", "responsable",
+            "issueDate", "emision");
+
+    /** La metadata no puede devolver por la puerta de atrás un valor cuyo componente está oculto. */
+    static java.util.Map<String, Object> hideMetadata(ComponentFormAccess access, java.util.Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty()) return metadata;
+        java.util.Map<String, Object> visible = new java.util.LinkedHashMap<>(metadata);
+        METADATA_COMPONENTS.forEach((key, component) -> {
+            if (!access.visible(component)) visible.remove(key);
+        });
+        return visible;
     }
 
     private String formatUserName(User user) {

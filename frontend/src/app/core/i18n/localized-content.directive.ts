@@ -1,4 +1,4 @@
-import { AfterViewInit, Directive, DoCheck, ElementRef, OnDestroy, effect, inject } from '@angular/core';
+import { AfterViewInit, Directive, DoCheck, ElementRef, NgZone, OnDestroy, effect, inject } from '@angular/core';
 import { featureText } from './ui-translations';
 import { I18nService } from './i18n.service';
 
@@ -8,6 +8,7 @@ const TRANSLATABLE_ATTRIBUTES = ['placeholder', 'title', 'aria-label', 'alt'];
 export class LocalizedContentDirective implements AfterViewInit, DoCheck, OnDestroy {
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly i18n = inject(I18nService);
+  private readonly zone = inject(NgZone);
   private readonly textSources = new WeakMap<Text, string>();
   private readonly translatedTexts = new WeakMap<Text, string>();
   private readonly attributeSources = new WeakMap<Element, Map<string, string>>();
@@ -27,8 +28,13 @@ export class LocalizedContentDirective implements AfterViewInit, DoCheck, OnDest
 
   ngAfterViewInit(): void {
     this.translateTree(this.i18n.language());
-    this.observer = new MutationObserver(() => this.translateTree(this.i18n.language()));
-    this.observer.observe(this.host.nativeElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: TRANSLATABLE_ATTRIBUTES });
+    // Outside Angular's zone: the observer only rewrites DOM text, so it must not trigger change
+    // detection. Inside the zone, any view that re-renders nodes on each check (e.g. an *ngFor over a
+    // freshly built array) fed an endless observer -> change detection -> observer loop that froze the page.
+    this.zone.runOutsideAngular(() => {
+      this.observer = new MutationObserver(() => this.translateTree(this.i18n.language()));
+      this.observer.observe(this.host.nativeElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: TRANSLATABLE_ATTRIBUTES });
+    });
     this.host.nativeElement.addEventListener('input', this.markEdited, true);
   }
 

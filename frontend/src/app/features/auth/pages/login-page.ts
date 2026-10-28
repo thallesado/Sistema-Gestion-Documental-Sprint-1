@@ -609,9 +609,17 @@ export class LoginPage implements OnInit {
   ngOnInit(): void {
     if (this.route.snapshot.queryParamMap.get('reason') === 'inactivity') {
       this.sessionNotice.set('Desconectado por inactividad. Inicia sesión nuevamente.');
+    } else if (this.route.snapshot.queryParamMap.get('reason') === 'password-changed') {
+      this.sessionNotice.set('Contraseña actualizada. Inicia sesión con tu nueva contraseña.');
     }
     this.auth.publicTenants().subscribe({
-      next: (list) => { this.tenants.set(list); this.tenantsLoading.set(false); },
+      next: (list) => {
+        this.tenants.set(list);
+        this.tenantsLoading.set(false);
+        // After a paid signup the return page links here with the new organization preselected.
+        const requested = this.route.snapshot.queryParamMap.get('tenant');
+        if (requested && list.some((tenant) => tenant.id === requested)) this.tenantId = requested;
+      },
       error: (error: { status?: number }) => {
         this.tenantsError.set(error.status === 429
           ? 'Demasiadas solicitudes. Espera un minuto e inténtalo de nuevo.'
@@ -631,14 +639,18 @@ export class LoginPage implements OnInit {
       password: this.password,
     }).subscribe({
       next: () => {
-        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/';
+        // A platform login (no organization chosen) lands on the platform dashboard.
+        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? (this.tenantId ? '/' : '/platform/dashboard');
         void this.router.navigateByUrl(returnUrl, { replaceUrl: true });
         this.isSubmitting.set(false);
       },
-      error: (error: { status?: number }) => {
+      error: (error: { status?: number; error?: { message?: string } }) => {
+        // 403: credenciales válidas pero acceso vencido o fuera del horario personalizado.
         this.errorMessage.set(error.status === 401
           ? this.i18n.t('auth.invalidCredentials')
-          : this.i18n.t('auth.connectError'));
+          : error.status === 403 && error.error?.message
+            ? error.error.message
+            : this.i18n.t('auth.connectError'));
         this.isSubmitting.set(false);
       },
     });

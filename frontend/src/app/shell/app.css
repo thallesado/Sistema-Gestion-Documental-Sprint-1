@@ -1,14 +1,12 @@
 :root, :host, app-root {
   --ink: #102d2a;
   --muted: #648280;
-  --line: #e2ece9;
   --surface: #ffffff;
-  --canvas: #f4f8f7;
-  --teal: #0e6b66;
-  --teal-strong: #0a5652;
+  --teal: var(--tenant-teal, #0e6b66);
+  --teal-strong: var(--tenant-teal-strong, #0a5652);
   --teal-text: #eafffc;
   --teal-muted: #88b7b2;
-  --sidebar-bg: #0b2524;
+  --sidebar-bg: var(--tenant-sidebar-bg, #0b2524);
   --sidebar-card-bg: rgba(255, 255, 255, 0.04);
   --sidebar-border: rgba(255, 255, 255, 0.07);
 }
@@ -24,7 +22,7 @@
 
 /* Sidebar Oscura Premium */
 .sidebar {
-  background-color: #0b2524 !important;
+  background-color: var(--sidebar-bg) !important;
   bottom: 0;
   color: #ffffff !important;
   display: flex;
@@ -195,7 +193,7 @@
 }
 
 .nav-item.active {
-  background: linear-gradient(90deg, #0e6b66 0%, #0d5f5b 100%);
+  background: linear-gradient(90deg, var(--teal) 0%, var(--teal-strong) 100%);
   color: #ffffff;
   font-weight: 700;
   box-shadow: 0 4px 14px rgba(14, 107, 102, 0.35);
@@ -677,8 +675,8 @@
 .profile-summary dd { color: #173a37; font-size: 13px; font-weight: 700; margin: 4px 0 0; overflow-wrap: anywhere; }
 .profile-summary > small { color: #66837f; font-size: 10px; }
 .profile-form { display: flex; flex-direction: column; min-width: 0; }
-.profile-tabs { border-bottom: 1px solid #dce9e7; display: grid; grid-template-columns: repeat(4, 1fr); margin-bottom: 22px; }
-.profile-tabs button { align-items: center; background: transparent; border: 0; border-bottom: 3px solid transparent; color: #66837f; cursor: pointer; display: flex; font: inherit; font-size: 13px; font-weight: 700; gap: 8px; justify-content: center; padding: 0 5px 12px; }
+.profile-tabs { border-bottom: 1px solid #dce9e7; display: grid; grid-template-columns: repeat(5, 1fr); margin-bottom: 22px; }
+.profile-tabs button { align-items: center; background: transparent; border: 0; border-bottom: 3px solid transparent; color: #66837f; cursor: pointer; display: flex; font: inherit; font-size: 12px; font-weight: 700; gap: 6px; justify-content: center; padding: 0 2px 12px; }
 .profile-tabs button svg { fill: none; height: 20px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 20px; }
 .profile-tabs button.active { border-bottom-color: #0e8a82; color: #087f7b; }
 .profile-tabs button:hover { background: #f1faf8; color: #087f7b; }

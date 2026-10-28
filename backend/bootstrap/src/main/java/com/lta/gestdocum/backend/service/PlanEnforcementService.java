@@ -72,7 +72,7 @@ public class PlanEnforcementService {
     public void validateUserLimit(UUID tenantId) {
         validateWriteAccess(tenantId);
         UUID planId = requireCurrentTenantPlan(tenantId);
-        long maxUsers = requiredLimit(planId, MAX_USERS);
+        long maxUsers = effectiveLimit(tenantId, planId, MAX_USERS);
         if (maxUsers == -1) {
             return;
         }
@@ -96,7 +96,7 @@ public class PlanEnforcementService {
 
         validateWriteAccess(tenantId);
         UUID planId = requireCurrentTenantPlan(tenantId);
-        long maxStorageMb = requiredLimit(planId, MAX_STORAGE_MB);
+        long maxStorageMb = effectiveLimit(tenantId, planId, MAX_STORAGE_MB);
         if (maxStorageMb == -1) {
             return;
         }
@@ -168,6 +168,13 @@ public class PlanEnforcementService {
     public MySubscriptionResponse changeCurrentPlan(PlanChangeRequest request) {
         UUID tenantId = authenticatedUserContext.requireTenantId();
         requireCurrentTenantPlan(tenantId); // establishes tenant context and serializes plan changes
+        // Cambiar de plan sin cobro solo vale durante la prueba; una suscripción pagada cambia de plan
+        // desde Facturación > Gestionar suscripción (pago inmediato o cambio al próximo período).
+        var tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new IllegalStateException(message("plan.subscription.missing")));
+        if (tenant.getStatus() != com.lta.gestdocum.backend.model.Tenant.Status.TRIAL) {
+            throw new IllegalStateException("El plan de una suscripción pagada se cambia desde Facturación > Gestionar suscripción");
+        }
         String code = normalizeSelfServicePlan(request.planCode());
         Plan target = planRepository.findFirstByCodeIgnoreCaseAndActiveTrue(code)
                 .orElseThrow(() -> new IllegalArgumentException(message("plan.change.unavailable")));
@@ -179,7 +186,8 @@ public class PlanEnforcementService {
         return getCurrentSubscription();
     }
 
-    private void grantNewPlanPermissionsToAdminRole(UUID tenantId, UUID planId) {
+    /** Concede al grupo administrador los permisos que habilita el plan; llamar con el contexto RLS establecido. */
+    public void grantNewPlanPermissionsToAdminRole(UUID tenantId, UUID planId) {
         if (roleRepository == null || permissionRepository == null) return;
         try {
             com.lta.gestdocum.backend.model.Role adminRole = roleRepository.findByTenantIdAndNameIgnoreCase(tenantId, "Administrador de tenant")
@@ -254,14 +262,31 @@ public class PlanEnforcementService {
                 .orElseThrow(() -> new PlanLimitExceededException(message("plan.limit.missing", resourceKey)));
     }
 
-    private void assertCurrentUsageFits(UUID tenantId, UUID planId) {
-        long maxUsers = requiredLimit(planId, MAX_USERS);
+    /**
+     * Límite del plan más los complementos activos del tenant (064). Llamar con el contexto RLS del tenant
+     * o con el usuario de conexión; un límite ausente en el plan se trata como en {@link #requiredLimit}.
+     */
+    public long effectiveLimit(UUID tenantId, UUID planId, String resourceKey) {
+        return EffectiveLimits.effectiveLimit(requiredLimit(planId, resourceKey), resourceKey, addonGrants(tenantId), Instant.now());
+    }
+
+    public List<EffectiveLimits.Grant> addonGrants(UUID tenantId) {
+        List<com.lta.gestdocum.backend.repository.AddonGrantProjection> rows = planRepository.findActiveAddonGrants(tenantId);
+        return rows == null ? List.of() : rows.stream().map(com.lta.gestdocum.backend.repository.AddonGrantProjection::toGrant).toList();
+    }
+
+    /**
+     * Rechaza un plan cuyos límites no admiten el uso actual; llamar con el contexto RLS establecido.
+     * Cuenta los complementos que la organización conserva al cambiar de plan.
+     */
+    public void assertCurrentUsageFits(UUID tenantId, UUID planId) {
+        long maxUsers = effectiveLimit(tenantId, planId, MAX_USERS);
         long activeUsers = userRepository.countByTenantIdAndStatusAndDeletedAtIsNull(
                 tenantId, com.lta.gestdocum.backend.model.UserStatus.ACTIVE);
         if (maxUsers != -1 && activeUsers > maxUsers) {
             throw new PlanLimitExceededException(message("plan.change.users", maxUsers));
         }
-        long maxStorageMb = requiredLimit(planId, MAX_STORAGE_MB);
+        long maxStorageMb = effectiveLimit(tenantId, planId, MAX_STORAGE_MB);
         long usedBytes = documentVersionRepository.sumFileSizeBytesByTenantId(tenantId);
         if (maxStorageMb != -1 && usedBytes > toBytes(maxStorageMb)) {
             throw new PlanLimitExceededException(message("plan.change.storage", maxStorageMb));

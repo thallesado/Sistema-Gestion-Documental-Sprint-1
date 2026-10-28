@@ -32,11 +32,14 @@ Base `/api/v1`. Ver controladores para métodos, DTOs y permisos exactos:
 | PatientQuickSummaryController | /patients/{id}/quick-summary |
 | WorkflowController | /workflows |
 | AuditController / DashboardController | /audit, /dashboard |
+| ReportController | /reports (documentos, usuarios, workflows, expedientes, auditoría y exportación CSV) |
 | OcrController | /ocr/process, jobs, stats y decisiones persistidas |
 
 No interpretar la lista como CRUD completo. DocumentController no tiene edición general de metadatos en la base local.
 
 ## Patrón para cambios
+
+Compatibilidad de facturación (2026-10-19): `BillingTransaction.currency` usa `@JdbcTypeCode(SqlTypes.CHAR)` y longitud 3 para coincidir con `currency char(3)` de la migración 036. La validación de esquema permanece activa; no usar actualización automática de tablas para ocultar diferencias de mapeo.
 
 1. Inspeccionar controlador, DTO y permisos equivalentes existentes.
 2. Validar entradas, relaciones y estado; no confiar en campos ocultos del cliente.

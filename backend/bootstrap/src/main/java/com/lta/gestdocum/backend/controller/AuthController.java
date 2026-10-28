@@ -11,6 +11,8 @@ import com.lta.gestdocum.backend.security.AuthenticatedUser;
 import com.lta.gestdocum.backend.service.AuthenticationAuditService;
 import com.lta.gestdocum.backend.service.AuthService;
 import com.lta.gestdocum.backend.service.UserService;
+import com.lta.gestdocum.backend.exception.InvalidCredentialsException;
+import com.lta.gestdocum.backend.exception.NotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -20,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
@@ -41,9 +44,16 @@ public class AuthController {
     @Operation(summary = "Iniciar Sesión", description = "Autentica al usuario y retorna token JWT")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody AuthRequest request,
                                               HttpServletRequest httpRequest) {
-        AuthResponse response = authService.login(request);
-        authenticationAuditService.recordSuccessfulAuthentication(response, httpRequest);
-        return ResponseEntity.ok(response);
+        try {
+            AuthResponse response = authService.login(request);
+            authenticationAuditService.recordSuccessfulAuthentication(response, httpRequest);
+            return ResponseEntity.ok(response);
+        } catch (InvalidCredentialsException | NotFoundException | AccessDeniedException failure) {
+            authenticationAuditService.recordFailedAuthentication(
+                    request.getUsernameOrEmail(),
+                    request.getTenantId() == null ? null : request.getTenantId().toString(), httpRequest);
+            throw failure;
+        }
     }
 
     @PostMapping("/refresh")

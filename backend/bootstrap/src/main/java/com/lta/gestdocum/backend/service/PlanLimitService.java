@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -58,7 +59,7 @@ public class PlanLimitService {
         if (tenantId == null) return;
         planEnforcementService.validateWriteAccess(tenantId);
         UUID planId = getPlanId(tenantId);
-        long maxUsers = getLimitValue(planId, MAX_USERS);
+        long maxUsers = effectiveLimit(tenantId, planId, MAX_USERS);
         if (maxUsers <= 0 && maxUsers != -1) return;
         if (maxUsers == -1) return;
 
@@ -97,14 +98,53 @@ public class PlanLimitService {
         if (tenantId == null) return;
         planEnforcementService.validateWriteAccess(tenantId);
         UUID planId = getPlanId(tenantId);
-        long maxOcr = getLimitValue(planId, MAX_OCR_PAGES);
-        if (maxOcr <= 0 && maxOcr != -1) return;
+        long maxOcr = effectiveLimit(tenantId, planId, MAX_OCR_PAGES);
         if (maxOcr == -1) return;
+        // Una cuota de 0 sin paquetes mantiene el comportamiento anterior (el plan no limita por páginas).
+        List<EffectiveLimits.Grant> grants = addonGrants(tenantId);
+        long packs = EffectiveLimits.ocrPackBalance(grants, Instant.now());
+        if (maxOcr <= 0 && packs == 0) return;
 
-        long currentMonthPages = getCurrentMonthOcrPages(tenantId);
-        if ((currentMonthPages + pagesToProcess) > maxOcr) {
-            throw new PlanLimitExceededException("Tu plan permite un máximo de " + maxOcr + " páginas de OCR al mes.");
+        long currentMonthPages = getCurrentMonthOcrPagesStrict(tenantId);
+        long overflow = EffectiveLimits.overflow(currentMonthPages, pagesToProcess, maxOcr);
+        if (overflow > packs) {
+            throw new PlanLimitExceededException("Tu plan permite un máximo de " + maxOcr + " páginas de OCR al mes"
+                    + (packs > 0 ? " y tus paquetes OCR tienen " + packs + " páginas disponibles." : "."));
         }
+    }
+
+    /**
+     * Registra las páginas del mes y descuenta de los paquetes OCR (064) las que exceden la cuota mensual.
+     * Llamar con el contexto RLS del tenant establecido, como el resto de la contabilidad de uso.
+     */
+    @Transactional
+    public void recordOcrUsage(UUID tenantId, int pages) {
+        if (tenantId == null || pages <= 0) return;
+        long overflow = 0;
+        try {
+            UUID planId = getPlanId(tenantId);
+            long maxOcr = effectiveLimit(tenantId, planId, MAX_OCR_PAGES);
+            overflow = maxOcr <= 0 && maxOcr != -1 && EffectiveLimits.ocrPackBalance(addonGrants(tenantId), Instant.now()) == 0
+                    ? 0 : EffectiveLimits.overflow(getCurrentMonthOcrPages(tenantId), pages, maxOcr);
+        } catch (RuntimeException exception) {
+            log.warn("No se pudo calcular el exceso de OCR del tenant {}: {}", tenantId, exception.getMessage());
+        }
+        recordMonthlyUsage(tenantId, 0, 0L, pages);
+        if (overflow > 0) {
+            entityManager.createNativeQuery("SELECT app.consume_ocr_pack_pages(?1)")
+                    .setParameter(1, overflow).getSingleResult();
+        }
+    }
+
+    private long effectiveLimit(UUID tenantId, UUID planId, String resourceKey) {
+        if (planId == null) return -1;
+        long planLimit = getLimitValue(planId, resourceKey);
+        return EffectiveLimits.effectiveLimit(planLimit, resourceKey, addonGrants(tenantId), Instant.now());
+    }
+
+    private List<EffectiveLimits.Grant> addonGrants(UUID tenantId) {
+        var rows = planRepository.findActiveAddonGrants(tenantId);
+        return rows == null ? List.of() : rows.stream().map(com.lta.gestdocum.backend.repository.AddonGrantProjection::toGrant).toList();
     }
 
     /** Registra la creación de un nuevo documento en el uso mensual. */
@@ -117,12 +157,6 @@ public class PlanLimitService {
     @Transactional
     public void recordStorageUsage(UUID tenantId, long bytes) {
         recordMonthlyUsage(tenantId, 0, bytes, 0);
-    }
-
-    /** Registra páginas procesadas por OCR en el uso mensual. */
-    @Transactional
-    public void recordOcrUsage(UUID tenantId, int pages) {
-        recordMonthlyUsage(tenantId, 0, 0L, pages);
     }
 
     /** Actualiza los contadores de la tabla tenant_usage_monthly mediante la función SQL segura. */
@@ -150,11 +184,11 @@ public class PlanLimitService {
         UUID planId = tenant.getPlanId() != null ? tenant.getPlanId() : getPlanId(tenantId);
         Plan plan = planRepository.findById(planId).orElse(null);
 
-        long maxUsers = getLimitValue(planId, MAX_USERS);
+        long maxUsers = effectiveLimit(tenantId, planId, MAX_USERS);
         long maxDocs = getLimitValue(planId, MAX_DOCUMENTS);
-        long maxStorageMb = getLimitValue(planId, MAX_STORAGE_MB);
+        long maxStorageMb = effectiveLimit(tenantId, planId, MAX_STORAGE_MB);
         long maxStorageBytes = maxStorageMb == -1 ? -1 : maxStorageMb * 1024L * 1024L;
-        long maxOcr = getLimitValue(planId, MAX_OCR_PAGES);
+        long maxOcr = effectiveLimit(tenantId, planId, MAX_OCR_PAGES);
 
         long currentUsers = userRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, UserStatus.ACTIVE);
         long currentDocs = documentRepository.countByTenantId(tenantId);
@@ -196,6 +230,26 @@ public class PlanLimitService {
     private long getLimitValue(UUID planId, String resourceKey) {
         if (planId == null) return -1;
         return planRepository.findLimitValue(planId, resourceKey).orElse(-1L);
+    }
+
+    /** Igual que la consulta de resumen, pero falla cerrado: si no se puede leer el consumo no se omite la cuota. */
+    private long getCurrentMonthOcrPagesStrict(UUID tenantId) {
+        try {
+            LocalDate startOfMonth = LocalDate.now().withDayOfMonth(1);
+            Object result = entityManager.createNativeQuery(
+                    "SELECT coalesce(ocr_pages, 0) FROM tenant_usage_monthly " +
+                    "WHERE tenant_id = ?1 AND year_month = ?2")
+                    .setParameter(1, tenantId)
+                    .setParameter(2, startOfMonth)
+                    .getSingleResult();
+            if (result instanceof Number num) return num.longValue();
+        } catch (jakarta.persistence.NoResultException noUsageYet) {
+            return 0L;
+        } catch (Exception ex) {
+            log.error("No se pudo consultar el consumo de OCR del tenant {}: {}", tenantId, ex.getMessage());
+        }
+        throw new PlanLimitExceededException(
+                "No se pudo verificar el consumo de OCR de tu plan. Inténtalo de nuevo en unos minutos.");
     }
 
     private long getCurrentMonthOcrPages(UUID tenantId) {

@@ -28,6 +28,44 @@ export class AppCurrencyPipe implements PipeTransform {
   }
 }
 
+export type TenantDateFormat = 'YYYY-MM-DD' | 'DD/MM/YYYY' | 'MM/DD/YYYY';
+
+/**
+ * Formatea una fecha con la zona horaria y el formato de fecha del tenant (pura, sin Angular).
+ * Los formatos admitidos son los que ofrece la pantalla Apariencia; uno desconocido usa YYYY-MM-DD.
+ */
+export function formatTenantDate(
+  date: Date,
+  timezone: string | null | undefined,
+  dateFormat: string | null | undefined,
+  withTime = false,
+): string {
+  const zone = timezone || 'America/La_Paz';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: zone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  const [year, month, day] = [get('year'), get('month'), get('day')];
+  let formatted: string;
+  switch (dateFormat) {
+    case 'DD/MM/YYYY':
+      formatted = `${day}/${month}/${year}`;
+      break;
+    case 'MM/DD/YYYY':
+      formatted = `${month}/${day}/${year}`;
+      break;
+    default:
+      formatted = `${year}-${month}-${day}`;
+  }
+  return withTime ? `${formatted} ${get('hour')}:${get('minute')}` : formatted;
+}
+
 /**
  * Pipe que formatea fechas respetando la zona horaria y formato configurados en el tenant (E2).
  */
@@ -40,29 +78,9 @@ export class AppDatePipe implements PipeTransform {
     const date = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(date.getTime())) return String(value);
 
-    const timezone = this.themeService.settings().timezone || 'America/La_Paz';
-    const dateFormat = this.themeService.settings().dateFormat || 'YYYY-MM-DD';
-
+    const { timezone, dateFormat } = this.themeService.settings();
     try {
-      const options: Intl.DateTimeFormatOptions = {
-        timeZone: timezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      };
-
-      if (formatOption === 'medium' || formatOption === 'long') {
-        options.hour = '2-digit';
-        options.minute = '2-digit';
-      }
-
-      const formatted = new Intl.DateTimeFormat('es-ES', options).format(date);
-      // Ajustar separadores si el tenant configuró YYYY-MM-DD
-      if (dateFormat === 'YYYY-MM-DD' && !formatOption) {
-        const parts = formatted.split('/');
-        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-      }
-      return formatted;
+      return formatTenantDate(date, timezone, dateFormat, formatOption === 'medium' || formatOption === 'long');
     } catch {
       return date.toLocaleDateString();
     }

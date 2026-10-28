@@ -33,13 +33,17 @@ public class BillingService {
     private final Map<BillingTransaction.PaymentMethod, PaymentGatewayProvider> gateways;
     private final EntityManager entityManager;
     private final ObjectMapper objectMapper;
+    private final StripeSubscriptionService subscriptions;
+    /** Paquetes consumibles pagados con Checkout (064); opcional para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    TenantAddonService addons;
 
     public BillingService(AuthenticatedUserContext context, TenantRepository tenants, PlanRepository plans,
                           BillingTransactionRepository transactions, List<PaymentGatewayProvider> providers,
-                          EntityManager entityManager, ObjectMapper objectMapper) {
+                          EntityManager entityManager, ObjectMapper objectMapper, StripeSubscriptionService subscriptions) {
         this.context = context; this.tenants = tenants; this.plans = plans; this.transactions = transactions;
         this.gateways = providers.stream().collect(Collectors.toMap(PaymentGatewayProvider::method, Function.identity()));
-        this.entityManager = entityManager; this.objectMapper = objectMapper;
+        this.entityManager = entityManager; this.objectMapper = objectMapper; this.subscriptions = subscriptions;
     }
 
     @SuppressWarnings("null")
@@ -49,12 +53,18 @@ public class BillingService {
         context.establishDatabaseContext();
         Tenant tenant = tenants.findById(tenantId).orElseThrow(() -> new IllegalStateException("Tenant no disponible"));
         String code = request.planCode().trim().toUpperCase(Locale.ROOT);
-        if (!Set.of("BASIC", "PRO").contains(code)) throw new IllegalArgumentException("Solo Básico y Pro permiten checkout directo");
+        if (!Set.of("BASIC", "PRO", "ENTERPRISE").contains(code)) throw new IllegalArgumentException("Plan no disponible para checkout directo");
         Plan plan = plans.findFirstByCodeIgnoreCaseAndActiveTrue(code).orElseThrow(() -> new IllegalArgumentException("Plan no disponible"));
         BillingTransaction.PaymentMethod method = BillingTransaction.PaymentMethod.valueOf(request.paymentMethod());
         BillingTransaction.BillingCycle cycle = BillingTransaction.BillingCycle.valueOf(request.billingCycle());
         BigDecimal amount = cycle == BillingTransaction.BillingCycle.ANNUAL ? plan.getPriceYearly() : plan.getPriceMonthly();
         if (amount == null || amount.signum() <= 0) throw new IllegalStateException("El plan no tiene un precio de pago configurado");
+        if (method == BillingTransaction.PaymentMethod.STRIPE_CARD && subscriptions.configured()) {
+            // Suscripción recurrente: Stripe cobra y renueva; cada factura pagada se registra desde el webhook.
+            SubscriptionCheckoutSessionResponse session = subscriptions.createTenantCheckout(tenant.getId(), plan, cycle.name());
+            return new BillingCheckoutResponse(null, method.name(), amount, "USD", session.sessionId(),
+                    Instant.now().plus(24, ChronoUnit.HOURS), Map.of("mode", "stripe_checkout", "checkoutUrl", session.url()));
+        }
         PaymentGatewayProvider gateway = Optional.ofNullable(gateways.get(method)).orElseThrow(() -> new IllegalStateException("Método de pago no disponible"));
         UUID id = UUID.randomUUID();
         PaymentGatewayProvider.GatewayPayment payment = gateway.initiate(id, amount, cycle, request.cryptoNetwork());
@@ -86,6 +96,14 @@ public class BillingService {
             throw new IllegalArgumentException("La confirmación del pago no es válida");
         }
         transaction.setStatus(BillingTransaction.PaymentStatus.COMPLETED); transaction.setCompletedAt(Instant.now()); transactions.save(transaction);
+        if (transaction.getMetadata() != null && "addon".equals(transaction.getMetadata().get("kind"))) {
+            // Orden de un complemento (064): no toca el plan; la función crea el complemento desde la orden pagada.
+            entityManager.flush();
+            Object granted = entityManager.createNativeQuery("select app.grant_addon_from_payment(cast(:id as uuid))")
+                    .setParameter("id", transaction.getId()).getSingleResult();
+            if (!(granted instanceof Boolean ok) || !ok) throw new IllegalStateException("No se pudo activar el complemento");
+            return overview(tenantId);
+        }
         Instant periodEnd = Instant.now().plus(transaction.getBillingPeriod() == BillingTransaction.BillingCycle.ANNUAL ? 365 : 30, ChronoUnit.DAYS);
         if (plans.activateTenantSubscription(tenantId, transaction.getPlanId(), "ACTIVE", periodEnd,
                 transaction.getBillingPeriod().name(), transaction.getPaymentMethod().name()) != 1) {
@@ -99,6 +117,8 @@ public class BillingService {
     public void confirmStripeWebhook(String rawPayload) {
         try {
             JsonNode event = objectMapper.readTree(rawPayload);
+            if (subscriptions.handleEvent(event)) return;
+            if (addons != null && addons.handleStripeEvent(event)) return;
             String type = event.path("type").asText();
             if (!"payment_intent.succeeded".equals(type) && !"checkout.session.completed".equals(type)) return;
             JsonNode payment = event.path("data").path("object");
@@ -129,7 +149,15 @@ public class BillingService {
         Tenant tenant = tenants.findById(tenantId).orElseThrow(() -> new IllegalStateException("Tenant no disponible"));
         List<BillingInvoiceResponse> invoices = transactions.findByTenantIdOrderByCreatedAtDesc(tenantId).stream().map(this::invoice).toList();
         long days = tenant.getTrialEndsAt() == null ? 0 : Math.max(0, (java.time.Duration.between(Instant.now(), tenant.getTrialEndsAt()).getSeconds() + 86399) / 86400);
-        return new BillingOverviewResponse(tenant.getStatus().name(), days, tenant.getTrialEndsAt(), tenant.getCurrentPeriodEnd(), invoices);
+        return new BillingOverviewResponse(tenant.getStatus().name(), days, tenant.getTrialEndsAt(), tenant.getCurrentPeriodEnd(), invoices,
+                subscriptions.isStripeManaged(tenantId));
+    }
+
+    public BillingPortalResponse portal() { return subscriptions.createPortalSession(); }
+
+    public String confirmStripeCheckout(String sessionId) {
+        if (sessionId == null || !sessionId.matches("cs_[A-Za-z0-9_]{8,200}")) throw new IllegalArgumentException("Sesión de pago inválida");
+        return subscriptions.confirmTenantCheckout(sessionId);
     }
 
     private BillingInvoiceResponse invoice(BillingTransaction tx) { return new BillingInvoiceResponse(tx.getId(), tx.getAmountUsd(), tx.getCurrency(), tx.getPaymentMethod().name(), tx.getStatus().name(), tx.getExternalReference(), tx.getBillingPeriod().name(), tx.getCreatedAt(), tx.getCompletedAt()); }

@@ -27,103 +27,271 @@ export interface HelpFaq {
 const ARTICLES: HelpArticle[] = [
   {
     id: 'ocr',
-    title: 'Digitalización y OCR Clínico',
-    description: 'Aprende a capturar documentos con cámara o escáner y extraer datos médicos con IA.',
+    title: 'Digitalización y OCR',
+    description: 'Aprende a capturar documentos con cámara o archivo y extraer su texto con IA.',
     category: 'Digitalización',
     badge: 'OCR & IA',
     tags: ['ocr', 'digitalizacion', 'digitalización', 'camara', 'cámara', 'escaner', 'escáner', 'recetas', 'ia', 'reconocimiento'],
     content: `
 ### Digitalización y Reconocimiento Óptico (OCR)
-El módulo de **Digitalización y OCR Clínico** de NexoDocs permite transformar documentos físicos, recetas médicas, informes de laboratorio e historias clínicas escaneadas o fotografiadas en registros digitales indexados.
+El módulo de **Digitalización** de NexoDocs convierte documentos físicos (recetas, informes, formularios, facturas, contratos) escaneados o fotografiados en documentos digitales indexados. Sirve a cualquier rubro, no solo al clínico.
 
 #### 1. ¿Cómo procesar un documento?
-1. **Captura o Carga**: Sube archivos en formato PDF, TIFF, PNG o JPEG, o usa la cámara web integrada para capturar recetas y hojas clínicas en tiempo real.
-2. **Preprocesamiento Óptico**: El motor realiza corrección de perspectiva, eliminación de sombras, binarización y normalización del contraste.
-3. **Reconocimiento Inteligente**: Los modelos de IA extraen texto y campos clínicos estructurados (paciente, diagnóstico CIE-10, médico, fecha, posología).
-4. **Revisión Humana**: Revisa y corrige el texto en la pantalla comparativa antes de la indexación final en el expediente.
+1. **Captura o carga**: En Digitalización > Escanear documento sube un PDF, JPEG, PNG o WebP, o captura el documento con la cámara del equipo.
+2. **Reconocimiento con IA**: Un modelo de IA lee la imagen y extrae el texto y los campos que identifica. El resultado depende de la calidad de la imagen.
+3. **Revisión humana**: En Digitalización > Procesamiento OCR el trabajo queda "Por validar". Corrige los campos y pulsa "Confirmar extracción", o "Rechazar resultado" si no sirve.
+4. **Indexación**: En Indexación pulsa "Indexar Documento" para crear el documento en el repositorio con su versión 1. Después puedes ajustar sus metadatos en Corrección de metadatos mientras siga en borrador.
 
-#### 2. Límites de Páginas por Mes
-Cada página procesada se descuenta de la cuota mensual de tu plan (*maxOcrPagesPerMonth*). Puedes revisar tu consumo actual en **Configuración > Apariencia y Uso**.
+#### 2. Límites de páginas por mes
+Cada página procesada (en un PDF, cada página cuenta) se descuenta de la cuota mensual de tu plan (*maxOcrPagesPerMonth*). Si se alcanza el límite, el sistema rechaza nuevos trabajos hasta el mes siguiente o hasta cambiar de plan.
+
+#### 3. Consejos para mejorar la precisión
+- **Iluminación**: evita reflejos y zonas oscuras al fotografiar.
+- **Enfoque y resolución**: usa texto nítido; en escaneos se recomienda 300 DPI o más.
+- **Encuadre**: el documento debe verse completo, derecho y sin recortes. El sistema no endereza ni corrige imágenes torcidas.
+- El OCR solo transcribe texto; no interpreta imágenes médicas como radiografías.
     `,
   },
   {
     id: 'workflows',
     title: 'Flujos de Trabajo y Aprobaciones',
-    description: 'Automatiza revisiones colegiadas, comités médicos y firmas de documentos.',
+    description: 'Revisiones y aprobaciones por etapas con trazabilidad de cada decisión.',
     category: 'Procesos',
     badge: 'Workflows',
     tags: ['workflow', 'workflows', 'flujo', 'flujos', 'aprobacion', 'aprobación', 'revision', 'revisión', 'tareas', 'bandeja'],
     content: `
 ### Flujos de Trabajo y Aprobaciones Documentales
-El motor de **Workflows** automatiza el ciclo de vida de los documentos clínicos y administrativos dentro de la organización de salud.
+El motor de **Workflows** guía un documento, un expediente o un proceso por etapas de revisión y aprobación, y deja el rastro de cada decisión. Sirve para cualquier sector.
 
-#### 1. Ciclo de Vida del Documento
-- **Borrador (Draft)**: Redacción inicial y versionado colaborativo.
-- **En Revisión**: Revisión técnica por especialistas o auditores de calidad.
-- **En Aprobación**: Visto bueno formal de las autoridades médicas designadas.
-- **Aprobado / Publicado**: Adquiere validez legal e integración al expediente.
-- **Rechazado**: Vuelve al autor con observaciones detalladas para subsanación.
+#### 1. Ciclo de vida del documento
+- **Borrador**: redacción inicial y versionado.
+- **En revisión**: el documento llega a los revisores asignados según la plantilla del flujo.
+- **En aprobación**: espera la decisión del aprobador de la etapa.
+- **Aprobado**: la aprobación queda registrada con quién, cuándo y sobre qué versión. Es un estado del sistema; no sustituye una firma electrónica ni un trámite legal.
+- **Rechazado o devuelto**: el aprobador deja un comentario y el documento vuelve al autor para corregirlo.
 
-#### 2. Bandeja de Tareas Personales
-En **Workflows > Mis tareas** encontrarás las solicitudes que requieren tu visto bueno, con comparador de versiones, checklist y registro de comentarios.
+#### 2. Mis tareas
+- En Workflows > Mis tareas encuentras las solicitudes pendientes de tu revisión o aprobación.
+- Puedes filtrar, comparar la versión actual con las anteriores, ver el checklist y comentar antes de decidir.
+
+#### 3. Plantillas de flujo
+- Los administradores diseñan plantillas en Workflows > Diseñador (requiere el permiso \`workflow:designer\`) con nodos de Inicio, Tarea, Revisión, Aprobación, Decisión, Notificación, Archivo y Fin.
+- Las etapas se ejecutan en secuencia, con un aprobador por etapa. Para varios aprobadores se encadenan etapas consecutivas.
+- El nodo Notificación genera un aviso dentro de NexoDocs (campana de notificaciones). El sistema no envía correos electrónicos.
+- Editar una plantilla crea una versión nueva; los flujos ya iniciados conservan la suya.
     `,
   },
   {
     id: 'expedientes',
-    title: 'Expedientes e Historias Clínicas',
-    description: 'Gestión integral del historial médico, confidencialidad y retención legal.',
-    category: 'Clínica',
-    badge: 'Historias',
+    title: 'Expedientes',
+    description: 'Agrupa los documentos de un caso, cliente o paciente y controla su cierre.',
+    category: 'Expedientes',
+    badge: 'Expedientes',
     tags: ['expediente', 'expedientes', 'historia', 'clinica', 'clínica', 'paciente', 'pacientes', 'salud', 'custodia', 'archivo'],
     content: `
-### Expedientes e Historias Clínicas Digitales
-Centraliza toda la documentación asistencial asociada a un paciente o proceso hospitalario de forma unificada y segura.
+### Expedientes
+Un **expediente** reúne los documentos de un caso, cliente, paciente, proyecto o trámite en un solo lugar. En organizaciones de salud, el módulo clínico (Módulo Clínico > Pacientes) añade pacientes, antecedentes y notas médicas; es opcional y otros sectores no lo necesitan.
 
-#### 1. Estructura del Expediente
-- **Ficha Demográfica del Paciente**: Identificación, contactos de urgencia y antecedentes.
-- **Árbol Documental**: Consultas médicas, consentimientos informados, analíticas de laboratorio, imagenología y epicrisis.
-- **Versionado Inmutable**: Cada cambio genera una versión sellada en tiempo (timestamp de auditoría).
+#### 1. Estructura
+- **Ficha del expediente**: título, estado y datos de identificación.
+- **Documentos asociados**: los documentos se vinculan al expediente y se clasifican por tipo documental.
+- **Versiones**: cada actualización de un documento crea una versión nueva, con autor y fecha, y las anteriores se conservan.
 
-#### 2. Confidencialidad y Retención
-El acceso está protegido por políticas estrictas de RBAC y RLS en la base de datos. Toda consulta o descarga queda auditada para garantizar el cumplimiento normativo.
+#### 2. Acceso y trazabilidad
+- Cada usuario ve solo lo que sus permisos permiten, y los datos de cada organización están aislados de las demás.
+- Las acciones relevantes (consultas, descargas, modificaciones) quedan registradas en Auditoría. El sistema no declara por sí mismo el cumplimiento de ninguna normativa; eso depende de cómo lo configure y opere cada organización.
+
+#### 3. Cierre y archivo
+- Un expediente puede pasar a los estados **Cerrado** o **Archivado** al terminar su ciclo.
     `,
   },
   {
     id: 'usuarios-roles',
-    title: 'Gestión de Usuarios, Grupos y Roles',
-    description: 'Administración de cuentas, perfiles clínicos y permisos granulares RBAC.',
+    title: 'Gestión de Usuarios, Grupos y Permisos',
+    description: 'Administración de cuentas, grupos y permisos (RBAC).',
     category: 'Seguridad',
     badge: 'RBAC',
-    tags: ['usuario', 'usuarios', 'rol', 'roles', 'grupo', 'grupos', 'permisos', 'seguridad', 'acceso', 'rbac', 'admin'],
+    tags: ['usuario', 'usuarios', 'rol', 'roles', 'grupo', 'grupos', 'permisos', 'seguridad', 'acceso', 'rbac', 'admin', 'bloqueo', 'contraseña'],
     content: `
-### Gestión de Usuarios, Grupos y Roles (RBAC)
-NexoDocs implementa un modelo de control de acceso por roles que permite definir exactamente qué puede hacer cada colaborador.
+### Gestión de Usuarios, Grupos y Permisos (RBAC)
+NexoDocs controla el acceso por roles (**RBAC**): los permisos se asignan a grupos (perfiles) y los grupos a los usuarios.
 
-#### 1. Perfiles y Grupos Típicos
-- **Administrador de Tenant**: Configura la empresa, marca, límites y gestiona usuarios.
-- **Médico Especialista**: Consulta y crea historias clínicas, aprueba órdenes.
-- **Enfermería**: Registro de signos vitales, administración de fármacos.
-- **Auditor Clínico**: Lectura y verificación de registros y auditoría.
+#### 1. Grupos y perfiles típicos
+- **Administrador del tenant**: configura la organización, la marca, y gestiona usuarios.
+- **Perfiles de trabajo** (por ejemplo revisor, aprobador, operador o personal clínico): se crean según el rubro en Usuarios y equipos > Grupos de usuarios (perfiles).
+- **Auditor**: acceso de consulta a la auditoría y los reportes.
+- Un usuario puede pertenecer a varios grupos; ve el menú y las acciones de la suma de sus permisos.
 
-#### 2. Límite de Usuarios por Plan
-Tu plan contratado establece un número máximo de usuarios (*maxUsers*). Las cuentas inactivas pueden suspenderse para liberar cupos sin perder el historial.
+#### 2. Límite de usuarios por plan
+Tu plan establece un máximo de usuarios activos (*maxUsers*). Al alcanzarlo no se pueden crear ni reactivar cuentas hasta desactivar otras o cambiar de plan.
+
+#### 3. Contraseñas y acceso
+- Al crear un usuario se define una contraseña temporal que debe cambiarse en el primer inicio de sesión. El sistema no envía correos: el administrador entrega la contraseña temporal por un canal seguro.
+- Tras varios intentos de inicio de sesión fallidos en poco tiempo el acceso se bloquea temporalmente (error 429); espera el tiempo indicado y reintenta.
+- Las cuentas pueden desactivarse sin perder el historial que generaron.
+- Para ocultar o bloquear campos concretos de un formulario por grupo, consulta el artículo Privilegios por formulario.
     `,
   },
   {
     id: 'primer-uso',
     title: 'Guía de Primer Uso de NexoDocs',
-    description: 'Pasos fundamentales para configurar tu clínica e iniciar la gestión documental.',
+    description: 'Pasos fundamentales para configurar tu organización e iniciar la gestión documental.',
     category: 'Inicio',
     badge: 'Onboarding',
-    tags: ['primer uso', 'inicio', 'bienvenida', 'onboarding', 'empezar', 'configuracion', 'configuración', 'guia', 'guía'],
+    tags: ['primer uso', 'inicio', 'bienvenida', 'onboarding', 'empezar', 'configuracion', 'configuración', 'guia', 'guía', 'plan', 'planes', 'registro'],
     content: `
 ### Guía Rápida de Primer Uso
-¡Bienvenido a **NexoDocs**! Sigue estos sencillos pasos para iniciar:
+¡Bienvenido a **NexoDocs**! Si tu organización aún no tiene cuenta, en la pantalla de inicio de sesión pulsa "Crear cuenta de empresa", elige un plan y completa los datos; la cuenta que se crea es la de administrador. Después sigue estos pasos:
 
-1. **Personaliza tu Marca**: Entra a **Configuración > Apariencia** y sube el logotipo de tu clínica, selecciona tu color corporativo y fija tu moneda y zona horaria.
-2. **Invita a tu Equipo**: Ve a **Gestión > Usuarios y equipos** y da de alta a tus médicos y personal administrativo con sus perfiles correspondientes.
-3. **Sube o Digitaliza Documentos**: Carga tus primeros archivos o utiliza la cámara web en el módulo de OCR para digitalizar recetas en segundos.
-4. **Organiza Expedientes**: Asocia los documentos a los expedientes de tus pacientes para tener el historial centralizado.
+1. **Personaliza tu marca**: Entra a Configuración > Apariencia, elige el color primario, indica la URL del logotipo y fija moneda, zona horaria y formato de fecha.
+2. **Invita a tu equipo**: Ve a Usuarios y equipos > Todos los usuarios, crea las cuentas y asigna a cada persona sus grupos. Cada usuario recibe una contraseña temporal que debe cambiar al ingresar.
+3. **Sube o digitaliza documentos**: Documentos > Subir archivo, o Digitalización > Escanear documento para extraer el texto de un documento físico con OCR.
+4. **Organiza expedientes**: Asocia los documentos a expedientes para tener cada caso centralizado.
+5. **Protege tus datos**: Revisa en Respaldos > Respaldos y restauración que haya copias automáticas y crea un respaldo manual antes de cambios grandes.
+    `,
+  },
+  {
+    id: 'respaldos',
+    title: 'Respaldos y restauración',
+    description: 'Crea, descarga y restaura copias de los datos de tu organización.',
+    category: 'Seguridad',
+    badge: 'Respaldos',
+    tags: ['respaldo', 'respaldos', 'backup', 'restaurar', 'restauración', 'restauracion', 'copia', 'retención', 'retencion'],
+    content: `
+### Respaldos y restauración
+Los respaldos guardan una copia de los datos y archivos de tu organización para poder recuperarla. Están en Respaldos > Respaldos y restauración (\`/settings/backups\`) y requieren el permiso \`backup:read\` para verse.
+
+#### 1. Crear un respaldo
+1. Entra a Respaldos > Respaldos y restauración.
+2. Pulsa "Crear respaldo" (requiere \`backup:create\`).
+3. Espera a que el estado sea Completado; el sistema calcula una huella SHA-256 para comprobar su integridad.
+
+#### 2. Respaldo automático y retención
+- En "Configuración" (requiere \`backup:configure\`) defines la hora diaria, la zona horaria y los días de retención (de 1 a 365).
+- Cada día se genera una copia automática a esa hora. Si el servidor estaba apagado, hace la copia del día al volver, sin inventar las de días anteriores.
+- La retención elimina los respaldos ordinarios vencidos. Los respaldos de seguridad y la evidencia de restauraciones no se eliminan.
+
+#### 3. Descargar un respaldo
+- Abre el Detalle del respaldo y pulsa "Descargar ZIP" (requiere \`backup:download\`). El sistema verifica el paquete antes de habilitar la descarga.
+- El ZIP contiene datos de tu organización sin cifrar: guárdalo en un lugar seguro. Los respaldos viven en el mismo servidor que el sistema, por lo que conviene guardar también una copia externa.
+
+#### 4. Restaurar un respaldo
+1. Abre el respaldo y pulsa "Restaurar" (requiere \`backup:restore\`).
+2. El sistema verifica que el paquete sea válido y compatible.
+3. Escribe exactamente el nombre de la organización para confirmar y pulsa "Restaurar respaldo".
+4. Antes de restaurar se crea automáticamente un respaldo de seguridad protegido, y las modificaciones de tu organización se suspenden temporalmente. Las demás organizaciones no se ven afectadas.
+5. Los cambios hechos después del respaldo dejan de estar vigentes. La auditoría original se conserva, y el estado anterior queda disponible en el respaldo de seguridad (Consultar evidencia).
+
+Si cambió la estructura del sistema después de crear un respaldo, ese respaldo puede ser incompatible y no podrá restaurarse; crea uno nuevo.
+    `,
+  },
+  {
+    id: 'personalizar-usuarios',
+    title: 'Personalizar usuarios',
+    description: 'Ajusta a cada usuario su perfil, idioma, pantalla de inicio, horario y vigencia de acceso, y límites de documentos.',
+    category: 'Seguridad',
+    badge: 'Usuarios',
+    tags: ['personalizar', 'personalización', 'usuario', 'horario', 'vigencia', 'acceso', 'cuota', 'idioma', 'pantalla de inicio', 'tipos documentales', 'sesiones'],
+    content: `
+### Personalizar usuarios
+Permite ajustar, para cada persona de tu organización, su perfil, su interfaz, sus avisos, cuándo puede entrar y qué puede subir. Está en Usuarios y equipos > Todos los usuarios (\`/users\`): en la fila del usuario pulsa "Personalizar". Requiere el permiso \`user:customize\` (además de \`user:read\` para ver la lista). El permiso se asigna a un grupo desde Grupos de usuarios (perfiles) > Permisos.
+
+#### 1. Perfil
+- Cargo o puesto, teléfono y biografía.
+- El nombre, el correo, el estado y los grupos se cambian con "Editar".
+
+#### 2. Interfaz
+- **Idioma predeterminado**: se aplica al iniciar sesión; después la persona puede cambiarlo.
+- **Pantalla de inicio**: la pantalla que abre al entrar (por ejemplo Documentos, Mis tareas o Expedientes). Si no tiene permiso para esa pantalla, entra al tablero.
+
+#### 3. Notificaciones
+- Activa o desactiva los avisos por correo electrónico y los avisos push.
+
+#### 4. Seguridad y acceso
+- **Exigir cambio de contraseña** en el próximo inicio de sesión.
+- **Acceso válido hasta**: después de esa fecha no puede iniciar sesión. Útil para personal temporal o auditores externos.
+- **Días y horario permitidos**: fuera de ellos el inicio de sesión se rechaza con el motivo. Se usa la zona horaria de la organización; si la hora de fin es anterior a la de inicio, la franja cruza la medianoche (turno nocturno). Sin días marcados se permiten todos.
+- **Cerrar todas sus sesiones**: lo desconecta en todos sus dispositivos.
+- Al guardar un cambio de acceso, sus sesiones abiertas se cierran para que la regla se aplique de inmediato. Nadie puede cambiar su propio acceso: pídeselo a otro administrador.
+
+#### 5. Documentos
+- **Tamaño máximo por archivo** (de 1 a 25 MB) y **cuota de almacenamiento** en MB para las versiones que sube. Se muestra el espacio que ya usa.
+- **Tipos documentales permitidos**: solo podrá crear documentos de los tipos marcados. Sin selección, puede usar todos.
+- Los límites del plan de la organización se aplican siempre, además de estos.
+    `,
+  },
+  {
+    id: 'privilegios-formulario',
+    title: 'Privilegios por formulario',
+    description: 'Decide qué componentes ve o edita cada grupo: Visible y editable, Solo lectura o No visible.',
+    category: 'Seguridad',
+    badge: 'Privilegios',
+    tags: ['privilegios', 'formulario', 'formularios', 'solo lectura', 'no visible', 'componente', 'permisos', 'campos'],
+    content: `
+### Privilegios por formulario
+Permiten decidir, por grupo de usuarios, qué componentes de cada formulario se ven o se pueden editar. Están en Usuarios y equipos > Privilegios por formulario (\`/users/form-permissions\`) y requieren el permiso \`component_permission:manage\`.
+
+#### 1. Los tres estados
+- **Visible y editable**: el componente se muestra y se puede modificar.
+- **Solo lectura**: se muestra, pero no se puede modificar.
+- **No visible**: el componente no se muestra.
+
+#### 2. Cómo se resuelven
+- Por defecto todo es Visible y editable: sin configuración, nada se restringe.
+- Si un usuario pertenece a varios grupos, gana el grupo más permisivo (Visible y editable sobre Solo lectura, y este sobre No visible).
+
+#### 3. Cómo configurarlos
+1. Abre Privilegios por formulario y elige el formulario y el grupo.
+2. Fija el estado de cada componente.
+3. Guarda los cambios.
+    `,
+  },
+  {
+    id: 'auditoria',
+    title: 'Auditoría e integridad',
+    description: 'Consulta quién hizo qué y verifica que el registro no fue alterado.',
+    category: 'Seguridad',
+    badge: 'Auditoría',
+    tags: ['auditoria', 'auditoría', 'integridad', 'verificar', 'hash', 'registro', 'accesos', 'trazabilidad'],
+    content: `
+### Auditoría
+El menú Auditoría registra quién hizo qué, cuándo, desde qué IP y qué cambió. Se ve con el permiso \`audit:read_tenant\` (tu organización) o \`audit:read_global\` (plataforma).
+
+#### 1. Pantallas
+- Registro general (\`/audit\`) y Accesos (\`/audit/access\`).
+- Creación de documentos, Modificaciones, Descargas, Aprobaciones, Eliminaciones y Cambios de permisos, cada una filtrada por tipo de acción.
+
+#### 2. Verificar integridad
+- En el Registro general, el botón "Verificar integridad" recorre la cadena de eventos y comprueba que los hashes SHA-256 encadenados siguen coincidiendo, y la compara con el ancla externa cuando está configurada.
+- Si la cadena es íntegra, indica cuántos eventos verificó: no se detectó ninguna alteración ni borrado de eventos pasados.
+- Si falla, hay un evento modificado o eliminado y debes avisar a un administrador.
+- Qué no demuestra: no prueba que el contenido de cada evento sea correcto, solo que no cambió después de registrarse.
+    `,
+  },
+  {
+    id: 'apariencia',
+    title: 'Apariencia y Regionalización',
+    description: 'Color, logotipo, moneda, zona horaria y formato de fecha de tu organización.',
+    category: 'Configuración',
+    badge: 'Apariencia',
+    tags: ['apariencia', 'color', 'logo', 'logotipo', 'moneda', 'zona horaria', 'fecha', 'marca', 'regionalización', 'regionalizacion'],
+    content: `
+### Apariencia y Regionalización
+La pantalla Configuración > Apariencia (\`/settings/appearance\`) personaliza la identidad y los formatos de tu organización. Se ve con el permiso \`configuration:read\`.
+
+#### 1. Identidad visual
+- **Color primario de la marca**: elige un color con el selector; la vista previa lo muestra antes de guardar.
+- **URL del Logotipo**: pega la dirección pública de una imagen (por ejemplo \`https://ejemplo.com/logo.png\`). NexoDocs no sube archivos de logo: solo guarda la dirección. Si la imagen no carga, el campo se limpia.
+
+#### 2. Regionalización
+- **Moneda**: la que se usa para mostrar importes.
+- **Zona horaria**: la que se usa para mostrar y agrupar fechas y horas.
+- **Formato de fecha**: cómo se escriben las fechas.
+
+#### 3. Guardar
+1. Ajusta los campos.
+2. Pulsa el botón de guardar de la pantalla.
+3. Recarga si no ves el cambio de inmediato.
     `,
   },
 ];
@@ -131,38 +299,80 @@ Tu plan contratado establece un número máximo de usuarios (*maxUsers*). Las cu
 const FAQS: HelpFaq[] = [
   {
     id: 'faq-ocr',
-    question: '¿Cómo digitalizo una receta o documento físico con la cámara?',
-    answer: 'Ingresa a la sección de Digitalización y pulsa en "Abrir cámara" o sube una fotografía. El sistema corregirá la perspectiva y extraerá los datos médicos automáticamente con OCR e IA.',
+    question: '¿Cómo digitalizo un documento físico?',
+    answer: 'Entra a Digitalización > Escanear documento y sube un PDF o imagen (JPEG, PNG, WebP) o captura con la cámara. Luego revisa el resultado en Procesamiento OCR, confírmalo e indéxalo. Usa imágenes nítidas, derechas y bien iluminadas.',
     articleId: 'ocr',
     tags: ['ocr', 'digitalización', 'cámara', 'receta', 'escanear'],
   },
   {
     id: 'faq-limits',
     question: '¿Qué ocurre si mi organización supera los límites de su plan?',
-    answer: 'El sistema te notificará mediante un aviso claro indicando el límite alcanzado (usuarios, documentos, almacenamiento u OCR). El administrador puede solicitar un upgrade de plan desde la pantalla de planes.',
+    answer: 'El sistema rechaza la acción que excede el límite (usuarios, documentos, almacenamiento u OCR) y muestra un aviso. Libera cupo o cambia de plan para continuar.',
     articleId: 'primer-uso',
     tags: ['limites', 'límites', 'plan', 'cuota', 'usuarios', 'documentos', 'almacenamiento'],
   },
   {
     id: 'faq-workflows',
-    question: '¿Cómo enviar un documento a aprobación colegiada?',
-    answer: 'Desde el visor del documento o en la sección de Workflows, haz clic en "Iniciar flujo", elige la plantilla correspondiente y selecciona a los revisores médicos necesarios.',
+    question: '¿Cómo envío un documento a aprobación?',
+    answer: 'Desde el detalle del documento o en Workflows, inicia un flujo, elige la plantilla y confirma los responsables. Las etapas se ejecutan en orden, una tras otra.',
     articleId: 'workflows',
-    tags: ['workflow', 'flujo', 'aprobación', 'comité', 'revisión'],
+    tags: ['workflow', 'flujo', 'aprobación', 'revisión'],
   },
   {
     id: 'faq-branding',
-    question: '¿Cómo personalizar el logotipo, color y moneda de la clínica?',
-    answer: 'El Administrador del Tenant puede ingresar a Configuración > Apariencia para cambiar el color primario, subir el logo en PNG o SVG, y establecer la moneda y zona horaria.',
-    articleId: 'primer-uso',
+    question: '¿Cómo personalizo el logotipo, color y moneda?',
+    answer: 'En Configuración > Apariencia: elige el color primario, pega la URL del logotipo y define moneda, zona horaria y formato de fecha. Requiere el permiso configuration:read.',
+    articleId: 'apariencia',
     tags: ['marca', 'logo', 'color', 'apariencia', 'moneda', 'zona horaria'],
   },
   {
+    id: 'faq-customize-user',
+    question: '¿Cómo limito el horario de acceso o la cuota de un usuario?',
+    answer: 'En Usuarios y equipos > Todos los usuarios pulsa "Personalizar" en su fila. En Seguridad y acceso defines días, horario y fecha límite; en Documentos, el tamaño máximo por archivo, la cuota y los tipos documentales. Requiere el permiso user:customize.',
+    articleId: 'personalizar-usuarios',
+    tags: ['personalizar', 'horario', 'acceso', 'cuota', 'vigencia', 'usuarios'],
+  },
+  {
     id: 'faq-users',
-    question: '¿Quién puede dar de alta nuevos usuarios y cómo reciben sus claves?',
-    answer: 'Solo los usuarios con rol de Administrador pueden crear cuentas. El sistema genera una contraseña temporal y envía un correo electrónico de bienvenida obligando a cambiarla en el primer inicio de sesión.',
+    question: '¿Quién puede dar de alta usuarios y cómo reciben su clave?',
+    answer: 'Quien tenga permisos de gestión de usuarios (normalmente el administrador). Se asigna una contraseña temporal que el usuario debe cambiar en su primer inicio de sesión; el administrador se la entrega, el sistema no envía correos.',
     articleId: 'usuarios-roles',
     tags: ['usuarios', 'alta', 'invitacion', 'contraseña', 'credenciales'],
+  },
+  {
+    id: 'faq-backup-restore',
+    question: '¿Cómo restauro un respaldo?',
+    answer: 'En Respaldos > Respaldos y restauración abre el respaldo, pulsa "Restaurar", escribe exactamente el nombre de la organización y confirma. Antes se crea un respaldo de seguridad automático. Requiere el permiso backup:restore.',
+    articleId: 'respaldos',
+    tags: ['respaldo', 'restaurar', 'backup', 'copia'],
+  },
+  {
+    id: 'faq-backup-create',
+    question: '¿Cómo creo o programo un respaldo?',
+    answer: 'En Respaldos > Respaldos y restauración pulsa "Crear respaldo". Para el automático diario, usa "Configuración" y define hora, zona horaria y días de retención (1 a 365).',
+    articleId: 'respaldos',
+    tags: ['respaldo', 'crear', 'automático', 'retención', 'programar'],
+  },
+  {
+    id: 'faq-privileges',
+    question: '¿Cómo oculto un campo a un grupo?',
+    answer: 'En Usuarios y equipos > Privilegios por formulario elige formulario y grupo, y pon el componente en No visible (o Solo lectura). Si el usuario está en varios grupos, gana el más permisivo. Por defecto todo es visible y editable.',
+    articleId: 'privilegios-formulario',
+    tags: ['privilegios', 'formulario', 'oculto', 'solo lectura', 'grupo'],
+  },
+  {
+    id: 'faq-audit-verify',
+    question: '¿Qué hace "Verificar integridad" en Auditoría?',
+    answer: 'Comprueba que la cadena de hashes SHA-256 de los eventos no se haya alterado y la compara con el ancla externa si está configurada. Prueba que los eventos no cambiaron tras registrarse, no que su contenido sea correcto.',
+    articleId: 'auditoria',
+    tags: ['auditoría', 'integridad', 'verificar', 'hash'],
+  },
+  {
+    id: 'faq-lockout',
+    question: 'No puedo iniciar sesión y veo un error 429',
+    answer: 'Se superó el máximo de intentos de inicio de sesión fallidos en poco tiempo. Espera el tiempo indicado y vuelve a intentarlo.',
+    articleId: 'usuarios-roles',
+    tags: ['login', 'bloqueo', '429', 'intentos', 'contraseña'],
   },
 ];
 
@@ -862,6 +1072,10 @@ export class HelpDrawer {
     const url = (this.router.url || '').toLowerCase();
     const arts = this.articles();
 
+    if (url.includes('/settings/backups')) return arts.find((a) => a.id === 'respaldos') ?? null;
+    if (url.includes('/form-permissions')) return arts.find((a) => a.id === 'privilegios-formulario') ?? null;
+    if (url.startsWith('/audit')) return arts.find((a) => a.id === 'auditoria') ?? null;
+    if (url.includes('/settings/appearance')) return arts.find((a) => a.id === 'apariencia') ?? null;
     if (url.includes('/ocr') || url.includes('/digitalizacion') || url.includes('/digitalización')) {
       return arts.find((a) => a.id === 'ocr') ?? null;
     }
@@ -956,10 +1170,6 @@ export class HelpDrawer {
           source: 'help_drawer',
         },
       }));
-      const botpress = (window as unknown as { botpress?: { open?: () => void } }).botpress;
-      if (typeof botpress?.open === 'function') {
-        botpress.open();
-      }
     }
     this.help.close();
   }

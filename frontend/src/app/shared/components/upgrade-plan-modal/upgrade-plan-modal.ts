@@ -32,19 +32,13 @@ export class UpgradePlanModalComponent {
   featureEnabled(plan: SubscriptionPlan, feature: string): boolean { return plan.features.some(item => item.featureKey === feature && item.enabled); }
   choose(plan: SubscriptionPlan): void {
     if (this.isCurrent(plan)) return;
-    if (plan.code === 'ENTERPRISE') {
-      this.close();
-      void this.router.navigateByUrl('/plans/contact-sales');
-      return;
-    }
     this.close();
-    void this.router.navigate(['/billing'], { queryParams: { plan: plan.code } });
+    void this.router.navigate(['/billing/subscription'], { queryParams: { plan: plan.code } });
   }
 
   actionLabel(plan: SubscriptionPlan): string {
     if (this.isCurrent(plan)) return this.i18n.t('subscription.current');
     if (this.changingPlan() === plan.code) return this.i18n.t('subscription.changing');
-    if (plan.code === 'ENTERPRISE') return this.i18n.t('subscription.sales');
     return this.i18n.t('billing.activate');
   }
 }

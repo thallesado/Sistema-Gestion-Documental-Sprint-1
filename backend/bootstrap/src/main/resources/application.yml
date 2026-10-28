@@ -1,9 +1,15 @@
 server:
   port: ${BACKEND_PORT:8080}
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:framework}
 
 spring:
   application:
     name: nexodocs-backend
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+      - optional:file:../../.env[.properties]
 
   jackson:
     serialization:
@@ -64,16 +70,24 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost}
   rate-limit:
+    login:
+      max-attempts: ${LOGIN_RATE_LIMIT_MAX_ATTEMPTS:5}
+      window-seconds: ${LOGIN_RATE_LIMIT_WINDOW_SECONDS:60}
     public-tenants:
       max-requests: ${PUBLIC_TENANTS_RATE_LIMIT:10}
       window-seconds: ${PUBLIC_TENANTS_RATE_WINDOW_SECONDS:60}
+    public-signup:
+      max-requests: ${PUBLIC_SIGNUP_RATE_LIMIT:10}
+      window-seconds: ${PUBLIC_SIGNUP_RATE_WINDOW_SECONDS:3600}
   frontend-url: ${FRONTEND_URL:http://nexodocs-si2.duckdns.org}
   mail-from: ${MAIL_FROM:diegoastetepaz@gmail.com}
+  # Buzón que recibe el formulario público «Contáctanos»; vacío = el mismo MAIL_FROM.
+  contact-email: ${CONTACT_EMAIL:}
   password-recovery-expiration-minutes: ${PASSWORD_RECOVERY_EXPIRATION_MINUTES:30}
   storage:
     local-path: ${STORAGE_LOCAL_PATH:./data/storage}
   gemini:
-    api-key: ${GEMINI_API_KEY:}
+    api-key: ${GEMINI_API_KEY:${gemini_api_key:${gemini.api-key:}}}
     model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
     timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:35}
     base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
@@ -86,3 +100,18 @@ app:
     api-url: ${REPORTIQ_API_URL:http://localhost:8001}
     frontend-url: ${REPORTIQ_FRONTEND_URL:http://localhost:3001}
     api-key: ${REPORTIQ_API_KEY:f0792c45-16c2-4a3c-ab0e-3a4adbc2791d.ri_live_5EEny7JHy4pjzD55d5t6px_cFMgyDZj5HbyN8Al34Y0}
+
+# Anclaje externo de la cadena de auditoria (C3). Sin destino configurado el job queda DISABLED.
+nexodocs:
+  audit:
+    anchor-secret: ${AUDIT_ANCHOR_SECRET:nexodocs-tamper-proof-anchor-master-key-2026}
+    external-anchor:
+      file-path: ${AUDIT_ANCHOR_EXTERNAL_FILE:}
+      cron: ${AUDIT_ANCHOR_CRON:0 */15 * * * *}
+      http:
+        url: ${AUDIT_ANCHOR_EXTERNAL_HTTP_URL:}
+        read-url: ${AUDIT_ANCHOR_EXTERNAL_HTTP_READ_URL:}
+        method: ${AUDIT_ANCHOR_EXTERNAL_HTTP_METHOD:POST}
+        auth-header: ${AUDIT_ANCHOR_EXTERNAL_HTTP_AUTH_HEADER:}
+        timeout-ms: ${AUDIT_ANCHOR_EXTERNAL_HTTP_TIMEOUT_MS:5000}
+

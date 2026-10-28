@@ -1,6 +1,8 @@
 package com.lta.gestdocum.backend.config;
 
 import com.lta.gestdocum.backend.security.JwtAuthenticationFilter;
+import com.lta.gestdocum.backend.security.LoginAttemptRateLimitFilter;
+import com.lta.gestdocum.backend.security.MustChangePasswordFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -13,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.beans.factory.annotation.Value;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.cors.CorsConfiguration;
@@ -27,12 +30,18 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
+    private final LoginAttemptRateLimitFilter loginAttemptRateLimitFilter;
+    private final MustChangePasswordFilter mustChangePasswordFilter;
     private final List<String> allowedOrigins;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthFilter,
+            LoginAttemptRateLimitFilter loginAttemptRateLimitFilter,
+            MustChangePasswordFilter mustChangePasswordFilter,
             @Value("${app.cors.allowed-origins}") String configuredOrigins) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.loginAttemptRateLimitFilter = loginAttemptRateLimitFilter;
+        this.mustChangePasswordFilter = mustChangePasswordFilter;
         this.allowedOrigins = Arrays.stream(configuredOrigins.split(","))
                 .map(String::trim)
                 .filter(origin -> !origin.isBlank())
@@ -55,6 +64,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/plans").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/public/onboarding").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/public/signup").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/public/subscriptions/checkout").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/public/contact").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/public/subscriptions/checkout/*/status").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/billing/webhooks/stripe").permitAll()
                 .requestMatchers(
                         "/api/v1/auth/login",
@@ -78,7 +90,26 @@ public class SecurityConfig {
                 }))
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
+        http.addFilterBefore(loginAttemptRateLimitFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterAfter(mustChangePasswordFilter, JwtAuthenticationFilter.class);
+
         return http.build();
+    }
+
+    @Bean
+    public FilterRegistrationBean<LoginAttemptRateLimitFilter> loginAttemptRateLimitServletRegistration(
+            LoginAttemptRateLimitFilter filter) {
+        FilterRegistrationBean<LoginAttemptRateLimitFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<MustChangePasswordFilter> mustChangePasswordServletRegistration(
+            MustChangePasswordFilter filter) {
+        FilterRegistrationBean<MustChangePasswordFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

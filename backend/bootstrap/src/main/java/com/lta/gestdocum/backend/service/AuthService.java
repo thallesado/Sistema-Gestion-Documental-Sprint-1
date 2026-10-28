@@ -29,6 +29,18 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthSessionService authSessionService;
     private final AccessTokenRevocationService accessTokenRevocationService;
+    private UserCustomizationService userCustomizationService;
+    private SubscriptionLifecycleService subscriptionLifecycleService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setSubscriptionLifecycleService(SubscriptionLifecycleService subscriptionLifecycleService) {
+        this.subscriptionLifecycleService = subscriptionLifecycleService;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setUserCustomizationService(UserCustomizationService userCustomizationService) {
+        this.userCustomizationService = userCustomizationService;
+    }
 
     public AuthService(UserRepository userRepository,
                        TenantRepository tenantRepository,
@@ -75,6 +87,10 @@ public class AuthService {
         if (user.getDeletedAt() != null || user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException();
         }
+        // Organización cancelada (período de gracia) o eliminada; 403 con el motivo.
+        if (subscriptionLifecycleService != null) subscriptionLifecycleService.assertTenantAccess(user);
+        // Vigencia y horario de acceso personalizados (user:customize); 403 con el motivo.
+        if (userCustomizationService != null) userCustomizationService.assertAccessAllowed(user);
 
         List<String> authorities = resolveAuthorities(user);
         if (authorities.isEmpty()) {
@@ -82,11 +98,12 @@ public class AuthService {
                     "El usuario no tiene permisos activos asignados");
         }
         String token = jwtService.generateToken(
-                user.getId(), user.getTenantId(), user.getUsername(), authorities);
+                user.getId(), user.getTenantId(), user.getUsername(), tokenAuthorities(user, authorities));
         String refreshToken = jwtService.generateRefreshToken(
                 user.getId(), user.getTenantId(), user.getUsername());
         authSessionService.issue(user, refreshToken, jwtService.getRefreshExpiration());
-        return new AuthResponse(token, "Bearer", refreshToken, jwtService.getExpiration(), authorities);
+        return new AuthResponse(token, "Bearer", refreshToken, jwtService.getExpiration(), authorities,
+                user.isMustChangePassword());
     }
 
     public AuthResponse refresh(RefreshTokenRequest request) {
@@ -100,18 +117,29 @@ public class AuthService {
                 || user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException();
         }
+        if (subscriptionLifecycleService != null) subscriptionLifecycleService.assertTenantAccess(user);
+        if (userCustomizationService != null) userCustomizationService.assertAccessAllowed(user);
         List<String> authorities = resolveAuthorities(user);
         if (authorities.isEmpty()) {
             throw new org.springframework.security.access.AccessDeniedException(
                     "El usuario no tiene permisos activos asignados");
         }
         String token = jwtService.generateToken(
-                user.getId(), user.getTenantId(), user.getUsername(), authorities);
+                user.getId(), user.getTenantId(), user.getUsername(), tokenAuthorities(user, authorities));
         String replacementRefreshToken = jwtService.generateRefreshToken(
                 user.getId(), user.getTenantId(), user.getUsername());
         authSessionService.rotate(user, request.getRefreshToken(), replacementRefreshToken,
                 jwtService.getRefreshExpiration());
-        return new AuthResponse(token, "Bearer", replacementRefreshToken, jwtService.getExpiration(), authorities);
+        return new AuthResponse(token, "Bearer", replacementRefreshToken, jwtService.getExpiration(), authorities,
+                user.isMustChangePassword());
+    }
+
+    /** Con contraseña temporal el JWT lleva además la marca que usa MustChangePasswordFilter. */
+    private List<String> tokenAuthorities(User user, List<String> authorities) {
+        if (!user.isMustChangePassword()) return authorities;
+        List<String> marked = new java.util.ArrayList<>(authorities);
+        marked.add(com.lta.gestdocum.backend.security.MustChangePasswordFilter.MARKER_AUTHORITY);
+        return marked;
     }
 
     private List<String> resolveAuthorities(User user) {
