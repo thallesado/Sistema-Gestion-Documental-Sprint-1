@@ -5,13 +5,13 @@ export const reportesDinamicosRoutes: Routes = [
   {
     path: 'reports/queries',
     loadComponent: () => import('./qbe/qbe-page').then((m) => m.QbePage),
-    title: 'Consultas dinámicas - NexoDocs',
+    title: 'Consultas Dinámicas (QBE) - NexoDocs',
     canActivate: [authGuard],
   },
   {
     path: 'reports/voice',
     loadComponent: () => import('./voice/voice-report-page').then((m) => m.VoiceReportPage),
-    title: 'Reportes por voz - NexoDocs',
+    title: 'Reportes por Voz (IA) - NexoDocs',
     canActivate: [authGuard],
   },
 ];

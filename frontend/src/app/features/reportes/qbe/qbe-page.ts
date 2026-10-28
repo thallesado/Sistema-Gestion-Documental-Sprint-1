@@ -1,10 +1,29 @@
+import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
-import { UnderConstruction } from '../../../core/components/under-construction/under-construction';
+import { ReportiqEmbedComponent } from '../components/reportiq-embed';
 
-/** Placeholder created by the sprint scaffold; task D2 (Edixon) replaces it. */
 @Component({
   selector: 'app-qbe-page',
-  imports: [UnderConstruction],
-  template: `<app-under-construction title="Consultas dinámicas" />`,
+  standalone: true,
+  imports: [CommonModule, ReportiqEmbedComponent],
+  template: `
+    <section class="page reportiq-qbe-page">
+      <app-reportiq-embed
+        title="Consultas Dinámicas (QBE)"
+        subtitle="Constructor visual de consultas por ejemplo (Query By Example), filtros avanzados y visualización de datos"
+        tab="qbe"
+      />
+    </section>
+  `,
+  styles: [`
+    .reportiq-qbe-page {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+    }
+  `]
 })
 export class QbePage {}

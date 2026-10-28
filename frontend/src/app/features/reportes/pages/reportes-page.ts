@@ -8,6 +8,7 @@ import {
   ReportFilters,
   ReportHeader,
   ReportTable,
+  ReportiqEmbedComponent,
 } from '../components';
 import { ChartPoint, ReportDefinition, ReportRow, reportDefinition } from '../../../core/data/report-data';
 import { DemoSessionState } from '../../../core/state/demo-session';
@@ -18,78 +19,144 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
 @Component({
   selector: 'app-reports-page',
   standalone: true,
-  imports: [CommonModule, Pagination, KpiCard, ReportChart, ReportFilters, ReportHeader, ReportTable],
+  imports: [CommonModule, Pagination, KpiCard, ReportChart, ReportFilters, ReportHeader, ReportTable, ReportiqEmbedComponent],
   template: `
     <section class="page report-page">
-      <app-report-header
-        [title]="report.title"
-        [description]="report.description"
-        [tenant]="session.tenant()"
-        [role]="session.role()"
-        [filterSummary]="filterSummary()"
-        (tenantChange)="changeTenant($event)"
-        (export)="exportReport($event)"
-      />
+      <div class="report-mode-tabs">
+        <button
+          type="button"
+          class="mode-tab-btn"
+          [class.active]="viewMode() === 'reportiq'"
+          (click)="viewMode.set('reportiq')"
+        >
+          <span class="tab-icon">✨</span>
+          <span>ReportIQ · Analítica IA (Plug & Play)</span>
+        </button>
+        <button
+          type="button"
+          class="mode-tab-btn"
+          [class.active]="viewMode() === 'metrics'"
+          (click)="viewMode.set('metrics')"
+        >
+          <span class="tab-icon">📊</span>
+          <span>Métricas de {{ report.title }}</span>
+        </button>
+      </div>
 
-      @if (isSuperAdmin && session.tenant() === 'Todos los tenants') {
-        <div class="tenant-comparison-note"><span>◈</span><div><strong>Comparativo global disponible para Superadministrador</strong><small>La comparación es visual y usa datos simulados; no cambia el tenant autenticado ni representa persistencia.</small></div></div>
+      @if (viewMode() === 'reportiq') {
+        <app-reportiq-embed
+          [title]="'ReportIQ — Analítica IA & Consultas Dinámicas'"
+          [subtitle]="'Módulo plug-and-play de generación de reportes inteligentes con IA para ' + session.tenant()"
+          tab="visual"
+        />
+      } @else {
+        <app-report-header
+          [title]="report.title"
+          [description]="report.description"
+          [tenant]="session.tenant()"
+          [role]="session.role()"
+          [filterSummary]="filterSummary()"
+          (tenantChange)="changeTenant($event)"
+          (export)="exportReport($event)"
+        />
+
+        @if (isSuperAdmin && session.tenant() === 'Todos los tenants') {
+          <div class="tenant-comparison-note"><span>◈</span><div><strong>Comparativo global disponible para Superadministrador</strong><small>La comparación es visual y usa datos simulados; no cambia el tenant autenticado ni representa persistencia.</small></div></div>
+        }
+
+        <app-report-filters
+          [filters]="report.filters"
+          [values]="filterValues()"
+          (filtersChange)="changeFilter($event.key, $event.value)"
+          (reset)="resetFilters()"
+        />
+
+        <section class="report-kpis" aria-label="Indicadores clave">
+          @for (kpi of kpis(); track kpi.label) {
+            <app-kpi-card [icon]="kpi.icon" [label]="kpi.label" [value]="kpi.value" [detail]="kpi.detail" [tone]="kpi.tone" />
+          }
+        </section>
+
+        <section class="report-charts" aria-label="Visualizaciones del reporte">
+          <app-report-chart [title]="report.chartOne.title" [subtitle]="report.chartOne.subtitle" [kind]="report.chartOne.kind" [points]="chartPoints(report.chartOne.groupBy)" />
+          <app-report-chart [title]="report.chartTwo.title" [subtitle]="report.chartTwo.subtitle" [kind]="report.chartTwo.kind" [points]="chartPoints(report.chartTwo.groupBy)" />
+          @if (report.chartThree; as chartThree) {
+            <app-report-chart [title]="chartThree.title" [subtitle]="chartThree.subtitle" [kind]="chartThree.kind" [points]="chartPoints(chartThree.groupBy)" />
+          }
+          @if (report.key === 'storage' && isSuperAdmin) {
+            <app-report-chart title="Comparativo por tenant" subtitle="Solo visible para Superadministrador" kind="bars" [points]="tenantComparison" />
+          }
+        </section>
+
+        @if (report.key === 'areas' && selectedArea()) {
+          <div class="area-detail panel"><div><span class="side-kicker">DETALLE DEL ÁREA</span><h2>{{ selectedArea() }}</h2><p>Documentos, procesos y pendientes asociados al área seleccionada.</p></div><div class="area-detail-values"><strong>{{ areaValue('documents') }} <small>documentos</small></strong><strong>{{ areaValue('workflows') }} <small>workflows</small></strong><strong>{{ areaValue('tasks') }} <small>tareas</small></strong><strong>{{ areaValue('pending') }} <small>pendientes</small></strong></div><button type="button" class="text-button" (click)="selectedArea.set('')">Cerrar</button></div>
+        }
+
+        <app-report-table
+          [title]="tableTitle"
+          [subtitle]="tableSubtitle"
+          [columns]="report.columns"
+          [rows]="visibleRows()"
+          [actionLabel]="actionLabel"
+          (action)="tableAction($event)"
+        />
+        <app-pagination
+          [total]="filteredRows().length"
+          [page]="page()"
+          [pageSize]="pageSize()"
+          [label]="'Paginación de ' + report.title"
+          (pageChange)="page.set($event)"
+          (pageSizeChange)="changePageSize($event)"
+        />
+
+        @if (message()) { <div class="inline-toast" role="status">{{ message() }}</div> }
+        <footer class="demo-note"><span>ⓘ</span> Reporte de demostración con datos simulados de <b>{{ session.tenant() }}</b>. Los filtros y exportaciones son locales; no hay persistencia ni conexión directa con PostgreSQL.</footer>
       }
-
-      <app-report-filters
-        [filters]="report.filters"
-        [values]="filterValues()"
-        (filtersChange)="changeFilter($event.key, $event.value)"
-        (reset)="resetFilters()"
-      />
-
-      <section class="report-kpis" aria-label="Indicadores clave">
-        @for (kpi of kpis(); track kpi.label) {
-          <app-kpi-card [icon]="kpi.icon" [label]="kpi.label" [value]="kpi.value" [detail]="kpi.detail" [tone]="kpi.tone" />
-        }
-      </section>
-
-      <section class="report-charts" aria-label="Visualizaciones del reporte">
-        <app-report-chart [title]="report.chartOne.title" [subtitle]="report.chartOne.subtitle" [kind]="report.chartOne.kind" [points]="chartPoints(report.chartOne.groupBy)" />
-        <app-report-chart [title]="report.chartTwo.title" [subtitle]="report.chartTwo.subtitle" [kind]="report.chartTwo.kind" [points]="chartPoints(report.chartTwo.groupBy)" />
-        @if (report.chartThree; as chartThree) {
-          <app-report-chart [title]="chartThree.title" [subtitle]="chartThree.subtitle" [kind]="chartThree.kind" [points]="chartPoints(chartThree.groupBy)" />
-        }
-        @if (report.key === 'storage' && isSuperAdmin) {
-          <app-report-chart title="Comparativo por tenant" subtitle="Solo visible para Superadministrador" kind="bars" [points]="tenantComparison" />
-        }
-      </section>
-
-      @if (report.key === 'areas' && selectedArea()) {
-        <div class="area-detail panel"><div><span class="side-kicker">DETALLE DEL ÁREA</span><h2>{{ selectedArea() }}</h2><p>Documentos, procesos y pendientes asociados al área seleccionada.</p></div><div class="area-detail-values"><strong>{{ areaValue('documents') }} <small>documentos</small></strong><strong>{{ areaValue('workflows') }} <small>workflows</small></strong><strong>{{ areaValue('tasks') }} <small>tareas</small></strong><strong>{{ areaValue('pending') }} <small>pendientes</small></strong></div><button type="button" class="text-button" (click)="selectedArea.set('')">Cerrar</button></div>
-      }
-
-      <app-report-table
-        [title]="tableTitle"
-        [subtitle]="tableSubtitle"
-        [columns]="report.columns"
-        [rows]="visibleRows()"
-        [actionLabel]="actionLabel"
-        (action)="tableAction($event)"
-      />
-      <app-pagination
-        [total]="filteredRows().length"
-        [page]="page()"
-        [pageSize]="pageSize()"
-        [label]="'Paginación de ' + report.title"
-        (pageChange)="page.set($event)"
-        (pageSizeChange)="changePageSize($event)"
-      />
-
-      @if (message()) { <div class="inline-toast" role="status">{{ message() }}</div> }
-      <footer class="demo-note"><span>ⓘ</span> Reporte de demostración con datos simulados de <b>{{ session.tenant() }}</b>. Los filtros y exportaciones son locales; no hay persistencia ni conexión directa con PostgreSQL.</footer>
     </section>
   `,
+  styles: [`
+    .report-mode-tabs {
+      display: flex;
+      gap: 0.65rem;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.85rem;
+      border-bottom: 1px solid var(--border-color, #e2e8f0);
+    }
+    .mode-tab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 1.1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color, #cbd5e1);
+      background: #ffffff;
+      color: #475569;
+      font-weight: 600;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .mode-tab-btn:hover {
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    .mode-tab-btn.active {
+      background: #4f46e5;
+      color: #ffffff;
+      border-color: #4f46e5;
+      box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+    }
+    .tab-icon {
+      font-size: 0.95rem;
+    }
+  `]
 })
 export class ReportsPage {
   readonly session = inject(DemoSessionState);
   private readonly route = inject(ActivatedRoute);
   private readonly routeKey = this.route.snapshot.data['routeInfo']?.href ?? '/reports';
   readonly report: ReportDefinition = reportDefinition(this.keyFromRoute(this.routeKey));
+  readonly viewMode = signal<'reportiq' | 'metrics'>(this.routeKey === '/reports' ? 'reportiq' : 'metrics');
   readonly filterValues = signal<Record<string, string>>({});
   readonly page = signal(1);
   readonly pageSize = signal(10);
