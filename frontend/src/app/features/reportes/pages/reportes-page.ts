@@ -28,63 +28,29 @@ imports: [CommonModule, RouterLink, RouterLinkActive, Pagination, KpiCard, Repor
   `],
   template: `
     <section class="page report-page">
-      <app-report-header
-        [title]="viewMode() === 'analytics' ? 'Tablero Analítico y Business Intelligence' : report.title"
-        [description]="viewMode() === 'analytics' ? 'Métricas agregadas en tiempo real: evolución mensual, tiempos de ciclo, cuellos de botella y rendimiento de OCR.' : report.description"
-        [tenant]="isPlatformReport ? 'Todas las organizaciones' : sessionInfo().tenant"
-        [role]="sessionInfo().role"
-        [filterSummary]="filterSummary()"
-        (export)="exportReport($event)"
-      />
-
-      @if (!isPlatformReport) {
-      <div class="report-view-mode-tabs" style="display: flex; gap: 8px; margin-bottom: 16px;">
-        <button
-          type="button"
-          class="btn"
-          [style.background]="viewMode() === 'reportiq' ? '#4f46e5' : '#eef2ff'"
-          [style.color]="viewMode() === 'reportiq' ? '#ffffff' : '#4f46e5'"
-          (click)="setViewMode('reportiq')"
-          style="font-weight: 600; font-size: 13px; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
-        >
-          ✨ ReportIQ · Analítica IA (Plug & Play)
-        </button>
-        <button
-          type="button"
-          class="btn"
-          [style.background]="viewMode() === 'tabular' ? '#087f7b' : '#edf5f3'"
-          [style.color]="viewMode() === 'tabular' ? '#ffffff' : '#087f7b'"
-          (click)="setViewMode('tabular')"
-          style="font-weight: 600; font-size: 13px; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
-        >
-          📋 Reportes Tabulares Detallados
-        </button>
-        <button
-          type="button"
-          class="btn"
-          [style.background]="viewMode() === 'analytics' ? '#087f7b' : '#edf5f3'"
-          [style.color]="viewMode() === 'analytics' ? '#ffffff' : '#087f7b'"
-          (click)="setViewMode('analytics')"
-          style="font-weight: 600; font-size: 13px; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
-        >
-          📊 Tablero Analítico y BI
-        </button>
-      </div>
-      } @else {
-      <nav class="platform-report-links" aria-label="Reportes de plataforma">
-        <a routerLink="/platform/dashboard">← Dashboard de plataforma</a>
-        <a routerLink="/platform/reports/tenants" routerLinkActive="active">Tenants</a>
-        <a routerLink="/platform/reports/payments" routerLinkActive="active">Pagos y costos</a>
-      </nav>
-      }
-
       @if (viewMode() === 'reportiq') {
         <app-reportiq-embed
-          [title]="'ReportIQ — Analítica IA & Consultas Dinámicas'"
-          [subtitle]="'Módulo plug-and-play de generación de reportes inteligentes con IA para ' + sessionInfo().tenant"
+          title="Reportes & Analítica IA"
+          subtitle="Consultas en lenguaje natural, constructor QBE y métricas en tiempo real"
           tab="visual"
         />
       } @else {
+        <app-report-header
+          [title]="viewMode() === 'analytics' ? 'Tablero Analítico y Business Intelligence' : report.title"
+          [description]="viewMode() === 'analytics' ? 'Métricas agregadas en tiempo real: evolución mensual, tiempos de ciclo, cuellos de botella y rendimiento de OCR.' : report.description"
+          [tenant]="isPlatformReport ? 'Todas las organizaciones' : sessionInfo().tenant"
+          [role]="sessionInfo().role"
+          [filterSummary]="filterSummary()"
+          (export)="exportReport($event)"
+        />
+
+        @if (isPlatformReport) {
+          <nav class="platform-report-links" aria-label="Reportes de plataforma">
+            <a routerLink="/platform/dashboard">← Dashboard de plataforma</a>
+            <a routerLink="/platform/reports/tenants" routerLinkActive="active">Tenants</a>
+            <a routerLink="/platform/reports/payments" routerLinkActive="active">Pagos y costos</a>
+          </nav>
+        }
       <app-report-filters
         [filters]="report.filters"
         [values]="filterValues()"

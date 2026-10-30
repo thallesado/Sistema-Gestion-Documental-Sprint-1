@@ -1,11 +1,10 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ExportDropdown } from './export-dropdown';
-import { TenantSelector } from './tenant-selector';
 
 @Component({
   selector: 'app-report-header',
   standalone: true,
-  imports: [ExportDropdown, TenantSelector],
+  imports: [ExportDropdown],
   template: `
     <header class="report-header">
       <div class="report-heading">
@@ -14,7 +13,6 @@ import { TenantSelector } from './tenant-selector';
         <p>{{ description }}</p>
       </div>
       <div class="report-header-actions">
-        <app-tenant-selector [tenant]="tenant" [role]="role" />
         <app-export-dropdown [filterSummary]="filterSummary" (export)="export.emit($event)" />
       </div>
     </header>

@@ -19,14 +19,10 @@ export interface EmbedConfig {
       <!-- Toolbar Header -->
       <header class="reportiq-header">
         <div class="header-left">
-          <div class="title-row">
-            <h1 class="title">{{ title }}</h1>
-            <span class="status-badge" [class.offline]="errorMessage()">
-              <span class="status-dot"></span>
-              {{ errorMessage() ? 'ReportIQ Offline' : 'ReportIQ · Conectado' }}
-            </span>
-          </div>
-          <p class="subtitle">{{ subtitle }}</p>
+          <h1 class="title">{{ title }}</h1>
+          @if (subtitle) {
+            <span class="subtitle">{{ subtitle }}</span>
+          }
         </div>
 
         <div class="header-actions">
@@ -35,7 +31,7 @@ export interface EmbedConfig {
             class="btn-action"
             (click)="reloadIframe()"
             [disabled]="loading()"
-            title="Recargar módulo de reportes"
+            title="Recargar módulo"
           >
             <span class="action-icon" [class.spinning]="loading()">↻</span>
             <span class="action-text">Recargar</span>
@@ -70,8 +66,7 @@ export interface EmbedConfig {
         @if (loading()) {
           <div class="iframe-loader">
             <div class="loader-spinner"></div>
-            <p class="loader-text">Conectando con ReportIQ (Analítica IA)...</p>
-            <small class="loader-sub">Autenticando tenant y configurando sesión embebible</small>
+            <p class="loader-text">Cargando módulo de reportes...</p>
           </div>
         }
 
@@ -96,7 +91,7 @@ export interface EmbedConfig {
           <iframe
             #reportIframe
             [src]="safeUrl"
-            title="ReportIQ AI Reporting Module"
+            title="Módulo de Reportes"
             (load)="onIframeLoad()"
             allow="microphone; clipboard-write; display-capture"
             class="reportiq-iframe"
@@ -109,7 +104,7 @@ export interface EmbedConfig {
     .reportiq-wrapper {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.75rem;
       width: 100%;
       height: 100%;
     }
@@ -119,7 +114,7 @@ export interface EmbedConfig {
       inset: 0;
       z-index: 9999;
       background: var(--bg-surface, #ffffff);
-      padding: 1.25rem;
+      padding: 1rem 1.25rem;
       height: 100vh;
       width: 100vw;
     }
@@ -129,90 +124,47 @@ export interface EmbedConfig {
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: 1rem;
+      gap: 0.75rem;
       padding: 0.25rem 0;
     }
 
     .header-left {
       display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-
-    .title-row {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
+      align-items: baseline;
+      gap: 0.75rem;
       flex-wrap: wrap;
     }
 
     .title {
-      font-size: 1.45rem;
-      font-weight: 800;
+      font-size: 1.25rem;
+      font-weight: 700;
       color: var(--text-primary, #0f172a);
       margin: 0;
       letter-spacing: -0.02em;
     }
 
     .subtitle {
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       color: var(--text-secondary, #64748b);
       margin: 0;
-    }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.2rem 0.6rem;
-      background: #ecfdf5;
-      color: #047857;
-      border: 1px solid #a7f3d0;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-
-    .status-badge.offline {
-      background: #fef2f2;
-      color: #b91c1c;
-      border-color: #fecaca;
-    }
-
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #10b981;
-      animation: pulse 2s infinite;
-    }
-
-    .status-badge.offline .status-dot {
-      background: #ef4444;
-      animation: none;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(1.2); }
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
 
     .btn-action {
       display: inline-flex;
       align-items: center;
-      gap: 0.45rem;
-      padding: 0.5rem 0.85rem;
+      gap: 0.35rem;
+      padding: 0.38rem 0.75rem;
       background: #ffffff;
       border: 1px solid var(--border-color, #e2e8f0);
       border-radius: 8px;
-      font-size: 0.85rem;
-      font-weight: 600;
+      font-size: 0.8125rem;
+      font-weight: 500;
       color: var(--text-primary, #1e293b);
       cursor: pointer;
       transition: all 0.15s ease;
@@ -224,7 +176,7 @@ export interface EmbedConfig {
     }
 
     .btn-action:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
     }
 
@@ -236,6 +188,7 @@ export interface EmbedConfig {
 
     .btn-fullscreen:hover:not(:disabled) {
       background: #066360;
+      border-color: #066360;
     }
 
     .action-icon.spinning {
@@ -251,7 +204,9 @@ export interface EmbedConfig {
     .iframe-container {
       position: relative;
       flex: 1;
-      min-height: 640px;
+      width: 100%;
+      height: calc(100vh - 140px);
+      min-height: 680px;
       border: 1px solid var(--border-color, #e2e8f0);
       border-radius: 12px;
       overflow: hidden;
@@ -259,7 +214,15 @@ export interface EmbedConfig {
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
+    .reportiq-wrapper.is-fullscreen .iframe-container {
+      height: calc(100vh - 80px);
+      min-height: 0;
+    }
+
     .reportiq-iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
       border: none;
@@ -290,15 +253,10 @@ export interface EmbedConfig {
     }
 
     .loader-text {
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 600;
       color: #1e293b;
       margin: 0;
-    }
-
-    .loader-sub {
-      font-size: 0.8rem;
-      color: #64748b;
     }
 
     .error-icon {
@@ -351,7 +309,7 @@ export interface EmbedConfig {
 })
 export class ReportiqEmbedComponent implements OnInit, OnDestroy {
   @Input() title = 'Reportes & Analítica IA';
-  @Input() subtitle = 'Módulo inteligente de consultas en lenguaje natural, voz y constructor visual QBE';
+  @Input() subtitle = '';
   @Input() path = '';
   @Input() tab: 'visual' | 'qbe' | 'catalog' | '' = '';
   @Input() prompt = '';
@@ -374,11 +332,10 @@ export class ReportiqEmbedComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadEmbedConfig();
 
-    // Escuchar eventos emitidos por el iframe (como REPORTIQ_REPORT_GENERATED)
     this.messageListener = (event: MessageEvent) => {
       if (event.data?.type === 'REPORTIQ_REPORT_GENERATED') {
         const count = event.data?.payload?.rowCount ?? 0;
-        this.showToast(`Reporte analítico generado (${count} registros)`);
+        this.showToast(`Reporte generado (${count} registros)`);
       }
     };
     window.addEventListener('message', this.messageListener);
@@ -404,7 +361,6 @@ export class ReportiqEmbedComponent implements OnInit, OnDestroy {
           url += (url.includes('?') ? '&' : '?') + 'theme=light';
         }
 
-        // Resolver la pestaña a visualizar según tab o path (p.ej. qbe / queries)
         let resolvedTab = this.tab;
         if (!resolvedTab && this.path) {
           if (this.path.includes('qbe') || this.path.includes('queries')) {
@@ -429,7 +385,7 @@ export class ReportiqEmbedComponent implements OnInit, OnDestroy {
         const msg =
           err?.error?.message ||
           err?.message ||
-          'No se pudo conectar con el motor de Reportes ReportIQ.';
+          'No se pudo conectar con el motor de reportes.';
         this.errorMessage.set(msg);
       },
     });
