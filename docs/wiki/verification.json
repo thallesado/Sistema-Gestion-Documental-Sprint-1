@@ -247,7 +247,7 @@
                       },
                       {
                           "page": "06-operacion/anclaje-externo-auditoria.md",
-                          "path": "database/init/062_audit_chain_v2.sql",
+                          "path": "database/init/065_audit_chain_v2.sql",
                           "includes": ["canonical_audit_payload_v2", "NEW.hash_version := 2"]
                       },
                       {

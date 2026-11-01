@@ -1,6 +1,6 @@
 # Anclaje externo de la cadena de auditoría
 
-> Revisión documental: 2026-10-27 (C3 completo). Base de código: `4b1d203` más el ancla por defecto en Docker, la clave generada y la cadena v2 (migración 062). Probado localmente contra una base aislada migrada; el despliegue en el servidor queda pendiente.
+> Revisión documental: 2026-10-27 (C3 completo). Base de código: `4b1d203` más el ancla por defecto en Docker, la clave generada y la cadena v2 (migración 065). Probado localmente contra una base aislada migrada; el despliegue en el servidor queda pendiente.
 
 ## Qué resuelve
 
@@ -37,9 +37,9 @@ La pantalla de Auditoría muestra este estado, también al administrador del ten
 
 **Clave HMAC (`AuditAnchorKeyProvider`).** Ya no hay clave pública por defecto. Con `AUDIT_ANCHOR_SECRET` propio se usa tal cual (para compartirla entre réplicas). Sin él, el backend genera la primera vez una clave aleatoria de 256 bits en `AUDIT_ANCHOR_KEY_FILE` (por defecto `anchor.key` junto al archivo de anclas, permisos `rw-------`) y la reutiliza en cada arranque. El antiguo valor público se ignora si aparece en la variable. Las anclas firmadas con ese valor antes de `2026-10-28T00:00Z` se siguen aceptando para no marcar como manipuladas las instalaciones existentes; cualquier ancla posterior con esa clave se rechaza (`AuditAnchorHardeningTest`).
 
-## Cadena v2 (migración 062)
+## Cadena v2 (migración 065)
 
-`062_audit_chain_v2` agrega `audit_events.hash_version`. Las filas anteriores quedan en `1` sin reescribirse (su hash no cambia). El trigger fija `2` en cada evento nuevo y su contenido canónico (`app.canonical_audit_payload_v2`) añade, tras el de 041, `v2`, `platform_actor_id`, `user_agent`, `client_timestamp` (milisegundos) y `client_timezone`: un superusuario que cambie quién actuó como plataforma, el agente o la hora del cliente (C1) rompe la cadena. Cambiar `hash_version` de 2 a 1 sin recalcular tampoco pasa, porque el hash v1 no coincide con el guardado. La migración también crea un índice único `(tenant, chain_seq)` si no hay duplicados previos. Paridad Java/SQL probada en `AuditAnchorDbaAttackIntegrationTest.dbaChangingClientTimestampOrUserAgentIsDetectedByChainV2` sobre una base migrada desde cero (001-062).
+`065_audit_chain_v2` agrega `audit_events.hash_version`. Las filas anteriores quedan en `1` sin reescribirse (su hash no cambia). El trigger fija `2` en cada evento nuevo y su contenido canónico (`app.canonical_audit_payload_v2`) añade, tras el de 041, `v2`, `platform_actor_id`, `user_agent`, `client_timestamp` (milisegundos) y `client_timezone`: un superusuario que cambie quién actuó como plataforma, el agente o la hora del cliente (C1) rompe la cadena. Cambiar `hash_version` de 2 a 1 sin recalcular tampoco pasa, porque el hash v1 no coincide con el guardado. La migración también crea un índice único `(tenant, chain_seq)` si no hay duplicados previos. Paridad Java/SQL probada en `AuditAnchorDbaAttackIntegrationTest.dbaChangingClientTimestampOrUserAgentIsDetectedByChainV2` sobre una base migrada desde cero (001-062).
 
 `GET /api/v1/audit/verify` devuelve `CHAIN_DELETED` si existe un ancla pero la cadena quedó sin eventos. `GET /api/v1/audit/anchor/status` informa `MANUAL_ONLY` cuando hay destino pero `AUDIT_ANCHOR_CRON=-`. `POST /api/v1/audit/anchor` rechaza un `type` que no sea mayúsculas, dígitos y `_` (máximo 50).
 

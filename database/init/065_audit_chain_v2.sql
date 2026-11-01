@@ -1,16 +1,16 @@
 \set ON_ERROR_STOP on
 BEGIN;
 SET LOCAL lock_timeout = '10s';
-SELECT pg_advisory_xact_lock(726394, 62);
+SELECT pg_advisory_xact_lock(726394, 65);
 
 CREATE TABLE IF NOT EXISTS app.schema_migrations (
   version text PRIMARY KEY,
   applied_at timestamptz NOT NULL DEFAULT now()
 );
 
-SELECT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version = '062_audit_chain_v2') AS already_applied \gset
+SELECT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version = '065_audit_chain_v2') AS already_applied \gset
 \if :already_applied
-  \echo '062_audit_chain_v2 ya aplicada'
+  \echo '065_audit_chain_v2 ya aplicada'
 \else
 
   -- C3 v2: el hash de cada evento cubre también quién actuó como administrador de plataforma, el agente de
@@ -151,7 +151,7 @@ SELECT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version = '062_audit_ch
        GROUP BY COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid), chain_seq
       HAVING count(*) > 1
     ) THEN
-      RAISE NOTICE '062_audit_chain_v2: chain_seq duplicados; no se crea el índice único';
+      RAISE NOTICE '065_audit_chain_v2: chain_seq duplicados; no se crea el índice único';
     ELSE
       CREATE UNIQUE INDEX IF NOT EXISTS ux_audit_chain_seq
         ON public.audit_events (COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid), chain_seq)
@@ -160,8 +160,8 @@ SELECT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version = '062_audit_ch
   END;
   $$;
 
-  INSERT INTO app.schema_migrations(version) VALUES ('062_audit_chain_v2');
-  \echo '062_audit_chain_v2 aplicada exitosamente'
+  INSERT INTO app.schema_migrations(version) VALUES ('065_audit_chain_v2');
+  \echo '065_audit_chain_v2 aplicada exitosamente'
 \endif
 
 COMMIT;

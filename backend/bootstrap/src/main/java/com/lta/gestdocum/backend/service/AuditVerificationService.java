@@ -61,7 +61,7 @@ public class AuditVerificationService {
         if (event.getHashVersion() == null || event.getHashVersion() < 2) {
             return v1;
         }
-        // 062_audit_chain_v2: mismo orden y formato que app.canonical_audit_payload_v2.
+        // 065_audit_chain_v2: mismo orden y formato que app.canonical_audit_payload_v2.
         return String.join("|", v1, "v2",
                 event.getPlatformActorId() == null ? "" : event.getPlatformActorId().toString(),
                 event.getUserAgent() == null ? "" : event.getUserAgent(),
