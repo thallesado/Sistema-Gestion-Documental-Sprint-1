@@ -46,6 +46,12 @@ Menú Facturación e ingresos > "Gestionar suscripción" (`/billing/subscription
 - No renovar suscripción: mantiene el acceso hasta el fin del período pagado y no cobra más; se puede reanudar antes de esa fecha.
 - Cancelar suscripción: pide el nombre exacto de la organización, la contraseña y un motivo. Anula la suscripción ya, cierra todas las sesiones y conserva los datos 30 días; después se eliminan definitivamente documentos, expedientes, archivos y respaldos, y se anonimizan los usuarios. Facturas y auditoría se conservan. Descarga un respaldo antes de cancelar. Para recuperar la organización dentro del plazo hay que contactar al soporte.
 
+## Complementos
+- Gestionar suscripción → pestaña "Complementos" (`/billing/subscription`): almacenamiento adicional, usuarios adicionales o paquete de páginas OCR, sin cambiar de plan. Requiere la suscripción activa.
+- Con tarjeta, el complemento se agrega a la suscripción de Stripe y se cobra con el plan; el paquete OCR se paga una vez, vence a los meses indicados y se usa cuando se agota la cuota mensual. Sin tarjeta, orden de pago QR o USDT por un período.
+- Reducir o quitar solo si el uso actual cabe; se aplica al final del período pagado. No se puede cambiar de ciclo (mensual/anual) con complementos recurrentes: quítalos primero.
+- Plataforma: Tenants → Complementos (`/platform/addons`) para el catálogo y los precios; la ficha de organización concede o retira cortesías.
+
 ## Personalizar usuarios
 Menú Usuarios y equipos > Todos los usuarios (`/users`), botón "Personalizar" en la fila del usuario. Requiere `user:customize` y `user:read`.
 - Perfil: cargo, teléfono y biografía. Nombre, correo, estado y grupos se cambian con "Editar".
@@ -91,6 +97,13 @@ Menú Configuración > Apariencia (`/settings/appearance`); el menú Configuraci
 - Una empresa nueva se registra desde la pantalla de inicio de sesión con "Crear cuenta de empresa" (`/planes`): elige un plan y completa sus datos; la cuenta creada es de administrador.
 - Cada plan (por ejemplo Básico, Pro, Enterprise) fija límites: usuarios, almacenamiento, documentos y páginas de OCR por mes. Al superar un límite la acción se rechaza con un aviso; hay que liberar cupo o cambiar de plan.
 - Si se superan los intentos fallidos de inicio de sesión en poco tiempo, el acceso se bloquea temporalmente (error 429): espera el tiempo indicado y reintenta. Un inicio de sesión correcto no cuenta como intento fallido.
+
+## Administración global (solo cuentas de plataforma)
+- Ficha de organización: Tenants → Todos los tenants → "Ver ficha" (`/platform/tenants/{id}`), o desde la tabla del Panel de plataforma. Muestra suscripción, uso frente a límites, pagos e historial; nunca documentos ni pacientes.
+- Acciones de la ficha: suspender, reactivar (también en el período de gracia), extender la prueba (1 a 90 días, sin Stripe) y cambiar el plan sin cobro (sin Stripe; si el uso no cabe, pide confirmar). Todas exigen un motivo de al menos 5 caracteres, igual que el alta de una organización y el respaldo completo.
+- Auditoría de plataforma: Panel de plataforma → Auditoría de plataforma (`/platform/audit`), con filtros y exportación CSV. Los registros no se pueden editar ni borrar.
+
+- Planes y precios: Tenants → Planes y precios (`/platform/plans`). Edita nombre, descripción, venta, límites (-1 = ilimitado) y funcionalidades; bajar un límite que alguien supera o retirar una funcionalidad pide confirmar. Un precio nuevo se crea como versión en Stripe para nuevas ventas; los clientes actuales conservan el suyo y "Migrar clientes" los pasa al vigente con al menos 30 días de aviso. La pestaña "Grupos por defecto" define los grupos de las organizaciones nuevas.
 
 ## Otros
 - Reportes (`/reports`), Facturación e ingresos (`/billing`).

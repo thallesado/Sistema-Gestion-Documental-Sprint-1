@@ -6,7 +6,7 @@
 
 NexoDocs no cobra ni guarda tarjetas. **Stripe Billing** cobra el primer pago en Stripe Checkout (`mode=subscription`), guarda el medio de pago, renueva cada período y reintenta los cobros fallidos. El backend crea sesiones y refleja en PostgreSQL lo que informan los webhooks firmados. No hay cron de cobro.
 
-El navegador envía solo `planCode` y `billingPeriod`. El `price_...` se resuelve en `StripeBillingProperties` desde variables de entorno; nunca se acepta un precio del cliente. Un plan o ciclo sin precio configurado responde 503. BASIC, PRO y ENTERPRISE se compran igual, sin pasar por ventas: la bienvenida, el registro, `/billing` y el modal de cambio de plan ya no desvían Enterprise a `/plans/contact-sales` (la página sigue existiendo para consultas comerciales).
+El navegador envía solo `planCode` y `billingPeriod`. El `price_...` se resuelve en `StripeBillingProperties`: desde 2026-10-27 (migración 063) primero la versión vigente de `plan_prices` con `stripe_price_id` y, si no hay, las variables de entorno; nunca se acepta un precio del cliente. La búsqueda inversa (`planForPrice`) incluye versiones archivadas, así una suscripción con precio antiguo sigue en su plan. Ver [administración de plataforma](administracion-de-plataforma.md). Un plan o ciclo sin precio configurado responde 503. BASIC, PRO y ENTERPRISE se compran igual, sin pasar por ventas: la bienvenida, el registro, `/billing` y el modal de cambio de plan ya no desvían Enterprise a `/plans/contact-sales` (la página sigue existiendo para consultas comerciales).
 
 ## Compra directa (alta pública)
 
@@ -69,7 +69,7 @@ El alta pública y el webhook escriben con el usuario de conexión del backend, 
 
 ## Configuración
 
-Variables: `STRIPE_API_KEY` (clave restringida con permisos de escritura en Checkout Sessions y Customer Portal, y de lectura en Subscriptions e Invoices), `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_{BASIC,PRO,ENTERPRISE}_{MONTHLY,ANNUAL}` y `FRONTEND_URL` para las URL de retorno. En Stripe: un Product por plan con Prices recurrentes de los mismos montos que `plans` (el catálogo público muestra los de la base), el webhook con `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `customer.subscription.updated`, `customer.subscription.deleted` e `invoice.paid`, y el Customer Portal activado. En local: `stripe listen --forward-to localhost:8080/api/v1/billing/webhooks/stripe`.
+Variables: `STRIPE_API_KEY` (clave restringida con permisos de escritura en Checkout Sessions y Customer Portal, y de lectura en Subscriptions e Invoices), `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_{BASIC,PRO,ENTERPRISE}_{MONTHLY,ANNUAL}` y `FRONTEND_URL` para las URL de retorno. La clave también necesita escritura en Prices y Products para el catálogo editable (063) y en Subscription Items para los complementos (064). Desde 064 una suscripción puede tener ítems de complementos además del plan; el ítem del plan se identifica con `SubscriptionItems.planItem`. En Stripe: un Product por plan con Prices recurrentes de los mismos montos que `plans` (el catálogo público muestra los de la base), el webhook con `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `customer.subscription.updated`, `customer.subscription.deleted` e `invoice.paid`, y el Customer Portal activado. En local: `stripe listen --forward-to localhost:8080/api/v1/billing/webhooks/stripe`.
 
 ## Pendientes
 

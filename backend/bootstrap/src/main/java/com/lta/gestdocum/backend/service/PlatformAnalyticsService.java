@@ -65,10 +65,9 @@ public class PlatformAnalyticsService {
                   count(*) filter (where t.subscription_status = 'SUSPENDED') as suspended_tenants,
                   count(*) filter (where t.created_at >= now() - interval '30 days') as new_tenants_30d,
                   count(*) filter (where t.stripe_subscription_id is not null) as stripe_subscriptions,
-                  coalesce(sum(case when t.subscription_status in ('ACTIVE','PAST_DUE') then
-                    case when t.billing_cycle_v2 = 'ANNUAL' then pl.price_yearly / 12 else pl.price_monthly end end), 0) as mrr_usd
-                from tenants t left join plans pl on pl.id = t.plan_id
-                """, p));
+                  coalesce(sum(case when t.subscription_status in ('ACTIVE','PAST_DUE') then %s end), 0) as mrr_usd
+                from tenants t left join plans pl on pl.id = t.plan_id left join plan_prices pp on pp.id = t.plan_price_id
+                """.formatted(MONTHLY_PRICE_SQL), p));
         kpi.putAll(db.queryForMap("""
                 select coalesce(sum(amount_usd), 0) as revenue_total_usd,
                   coalesce(sum(amount_usd) filter (where completed_at >= now() - interval '30 days'), 0) as revenue_30d_usd,
@@ -251,11 +250,17 @@ public class PlatformAnalyticsService {
                   (select count(*) from documents d where d.tenant_id = t.id and d.deleted_at is null) as documents,
                   coalesce((select sum(b.amount_usd) from billing_transactions b where b.tenant_id = t.id and b.status = 'COMPLETED'), 0) as total_paid,
                   (select max(b.completed_at) from billing_transactions b where b.tenant_id = t.id and b.status = 'COMPLETED') as last_payment_at,
-                  case when t.subscription_status in ('ACTIVE','PAST_DUE') then
-                    case when t.billing_cycle_v2 = 'ANNUAL' then round(pl.price_yearly / 12, 2) else pl.price_monthly end else 0 end as mrr
-                from tenants t left join plans pl on pl.id = t.plan_id
-                """;
+                  case when t.subscription_status in ('ACTIVE','PAST_DUE') then round(%s, 2) else 0 end as mrr
+                from tenants t left join plans pl on pl.id = t.plan_id left join plan_prices pp on pp.id = t.plan_price_id
+                """.formatted(MONTHLY_PRICE_SQL);
     }
+
+    /**
+     * Ingreso mensual de una organización: la versión de precio que paga (063, grandfathering) y, si no
+     * tiene una registrada, el precio vigente del catálogo.
+     */
+    private static final String MONTHLY_PRICE_SQL = "case when coalesce(pp.billing_cycle, t.billing_cycle_v2) = 'ANNUAL'"
+            + " then coalesce(pp.amount_usd, pl.price_yearly) / 12 else coalesce(pp.amount_usd, pl.price_monthly) end";
 
     private String paymentSelect() {
         return """

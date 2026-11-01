@@ -64,6 +64,42 @@ public class StripeApiClient {
         return post("/v1/subscription_schedules/" + encode(scheduleId) + "/release", Map.of(), null);
     }
 
+    /** Precio recurrente nuevo (versión de precio del catálogo); los precios de Stripe son inmutables. */
+    public JsonNode createPrice(Map<String, String> form, String idempotencyKey) {
+        return post("/v1/prices", form, idempotencyKey);
+    }
+
+    public JsonNode retrievePrice(String priceId) { return get("/v1/prices/{id}", priceId); }
+
+    /** active=false archiva el precio para nuevas ventas; las suscripciones que lo usan siguen cobrándolo. */
+    public JsonNode updatePrice(String priceId, Map<String, String> form) {
+        return post("/v1/prices/" + encode(priceId), form, null);
+    }
+
+    public JsonNode createProduct(Map<String, String> form, String idempotencyKey) {
+        return post("/v1/products", form, idempotencyKey);
+    }
+
+    /** Ítem adicional (complemento) en una suscripción existente; se factura en la misma renovación. */
+    public JsonNode createSubscriptionItem(Map<String, String> form, String idempotencyKey) {
+        return post("/v1/subscription_items", form, idempotencyKey);
+    }
+
+    public JsonNode updateSubscriptionItem(String itemId, Map<String, String> form) {
+        return post("/v1/subscription_items/" + encode(itemId), form, null);
+    }
+
+    /** Quita el ítem; con proration_behavior=none no se reembolsa el período ya pagado. */
+    public JsonNode deleteSubscriptionItem(String itemId, String prorationBehavior) {
+        requireConfigured();
+        JsonNode result = stripeClient.delete()
+                .uri(uri -> uri.path("/v1/subscription_items/{id}").queryParam("proration_behavior", prorationBehavior).build(itemId))
+                .headers(headers -> headers.setBasicAuth(properties.apiKey(), ""))
+                .retrieve().body(JsonNode.class);
+        if (result == null) throw new IllegalStateException("Stripe no devolvió una respuesta válida");
+        return result;
+    }
+
     private JsonNode post(String path, Map<String, String> form, String idempotencyKey) {
         requireConfigured();
         String body = form.entrySet().stream()

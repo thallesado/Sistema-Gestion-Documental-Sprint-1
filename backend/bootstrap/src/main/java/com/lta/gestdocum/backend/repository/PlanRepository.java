@@ -16,6 +16,19 @@ public interface PlanRepository extends JpaRepository<Plan, UUID> {
 
     Optional<Plan> findFirstByCodeIgnoreCaseAndActiveTrue(String code);
 
+    /** Incluye planes retirados de la venta: quien ya los tiene los conserva (catálogo editable, 063). */
+    Optional<Plan> findFirstByCodeIgnoreCase(String code);
+
+    /** Complementos activos del tenant (064); funciona con el contexto RLS del tenant (lectura propia). */
+    @Query(value = """
+            select a.resource_key as resourceKey, a.kind as kind, ta.units as units, a.unit_quantity as unitQuantity,
+              cast(extract(epoch from ta.expires_at) as bigint) as expiresEpoch,
+              coalesce(ta.remaining_quantity, 0) as remaining
+            from tenant_addons ta join addons a on a.id = ta.addon_id
+            where ta.tenant_id = :tenantId and ta.status = 'ACTIVE'
+            """, nativeQuery = true)
+    List<AddonGrantProjection> findActiveAddonGrants(@Param("tenantId") UUID tenantId);
+
     @Modifying
     @Query(value = "update tenants set plan_id = :planId where id = :tenantId", nativeQuery = true)
     int updateTenantPlan(@Param("tenantId") UUID tenantId, @Param("planId") UUID planId);

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lta.gestdocum.backend.billing.StripeApiClient;
 import com.lta.gestdocum.backend.billing.StripeBillingProperties;
+import com.lta.gestdocum.backend.billing.SubscriptionItems;
 import com.lta.gestdocum.backend.dto.SubscriptionLifecycleDtos.SubscriptionCancelRequest;
 import com.lta.gestdocum.backend.dto.SubscriptionLifecycleDtos.SubscriptionDetailsResponse;
 import com.lta.gestdocum.backend.dto.SubscriptionLifecycleDtos.SubscriptionPlanRequest;
@@ -113,9 +114,10 @@ public class SubscriptionLifecycleService {
             throw new IllegalArgumentException("Para bajar de plan o cambiar de ciclo prográmalo para el próximo período");
         }
         String price = requireStripePrice((String) target.get("code"), cycle);
-        releaseScheduleIfAny(tenant);
         JsonNode subscription = stripe.retrieveSubscription(subscriptionId);
-        String itemId = subscription.path("items").path("data").path(0).path("id").asText();
+        requireSameCycleForAddons(subscription, cycle, currentCycle);
+        releaseScheduleIfAny(tenant);
+        String itemId = SubscriptionItems.planItem(subscription).path("id").asText();
         Map<String, String> form = new LinkedHashMap<>();
         form.put("items[0][id]", itemId);
         form.put("items[0][price]", price);
@@ -154,20 +156,25 @@ public class SubscriptionLifecycleService {
         String subscriptionId = (String) tenant.get("stripe_subscription_id");
         if (subscriptionId != null) {
             String newPrice = requireStripePrice((String) target.get("code"), cycle);
+            JsonNode subscription = stripe.retrieveSubscription(subscriptionId);
+            requireSameCycleForAddons(subscription, cycle, Objects.toString(tenant.get("billing_cycle_v2"), "MONTHLY"));
             releaseScheduleIfAny(tenant);
             JsonNode schedule = stripe.createScheduleFromSubscription(subscriptionId);
             JsonNode current = schedule.path("phases").path(0);
-            JsonNode currentItem = current.path("items").path(0);
-            String currentPrice = currentItem.path("price").isObject()
-                    ? currentItem.path("price").path("id").asText() : currentItem.path("price").asText();
+            JsonNode currentItem = SubscriptionItems.planItem(subscription);
+            String currentPrice = SubscriptionItems.priceId(currentItem);
+            List<JsonNode> addonItems = SubscriptionItems.addonItems(subscription);
             Map<String, String> form = new LinkedHashMap<>();
             form.put("end_behavior", "release");
             form.put("phases[0][items][0][price]", currentPrice);
             form.put("phases[0][items][0][quantity]", String.valueOf(currentItem.path("quantity").asLong(1)));
+            SubscriptionItems.putAddonItems(form, 0, 1, addonItems);
             form.put("phases[0][start_date]", String.valueOf(current.path("start_date").asLong()));
             form.put("phases[0][end_date]", String.valueOf(current.path("end_date").asLong()));
             form.put("phases[1][items][0][price]", newPrice);
             form.put("phases[1][items][0][quantity]", "1");
+            // Los complementos siguen en las facturas del plan nuevo (mismo ciclo, comprobado arriba).
+            SubscriptionItems.putAddonItems(form, 1, 1, addonItems);
             form.put("phases[1][duration][interval]", "ANNUAL".equals(cycle) ? "year" : "month");
             form.put("phases[1][duration][interval_count]", "1");
             form.put("phases[1][proration_behavior]", "none");
@@ -392,6 +399,17 @@ public class SubscriptionLifecycleService {
                 HttpStatus.SERVICE_UNAVAILABLE, "El plan " + planCode + " no tiene precio de Stripe para el ciclo " + cycle));
     }
 
+    /**
+     * Stripe exige el mismo intervalo en todos los ítems: con complementos recurrentes no se cambia de ciclo
+     * hasta quitarlos o volver a comprarlos en el ciclo nuevo.
+     */
+    private static void requireSameCycleForAddons(JsonNode subscription, String targetCycle, String currentCycle) {
+        if (!Objects.equals(targetCycle, currentCycle) && !SubscriptionItems.addonItems(subscription).isEmpty()) {
+            throw new IllegalStateException("Tienes complementos con ciclo " + ("ANNUAL".equals(currentCycle) ? "anual" : "mensual")
+                    + ": quítalos antes de cambiar de ciclo de facturación");
+        }
+    }
+
     private void releaseScheduleIfAny(Map<String, Object> tenant) {
         String scheduleId = (String) tenant.get("stripe_schedule_id");
         if (scheduleId == null) return;
@@ -401,6 +419,8 @@ public class SubscriptionLifecycleService {
             // Ya liberado o completado en Stripe: no impide la operación pedida.
             log.warn("No se pudo liberar el schedule {}: {}", scheduleId, exception.getMessage());
         }
+        // El schedule podía llevar una migración de precio del catálogo (063): sin él ya no se aplica.
+        jdbc.update("update tenants set price_change_price_id = null, price_change_at = null where stripe_schedule_id = ?", scheduleId);
     }
 
     private void grantPlanPermissions(UUID tenantId, UUID planId) {

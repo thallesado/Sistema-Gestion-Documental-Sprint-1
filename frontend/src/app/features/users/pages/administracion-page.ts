@@ -44,14 +44,15 @@ import { friendlyApiMessage } from '../../../core/http/tenant-session';
               </label>
               <label>Nombre del administrador inicial<input name="adminName" [(ngModel)]="tenantForm.adminName" placeholder="Ej. Administrador Sistema" /></label>
               <label>Correo del administrador inicial<input type="email" name="adminEmail" [(ngModel)]="tenantForm.adminEmail" placeholder="admin@empresa.com" /></label>
-            </div><div class="form-actions"><a routerLink="/tenants" class="admin-secondary">Cancelar</a><button class="admin-primary" type="submit" [disabled]="saving()">Crear tenant</button></div></form>
+              <label>Motivo del alta (queda en la auditoría de plataforma)<input name="tenantReason" [(ngModel)]="tenantForm.reason" required minlength="5" maxlength="1000" placeholder="Ej. Contrato firmado con el cliente" /></label>
+            </div><div class="form-actions"><a routerLink="/tenants" class="admin-secondary">Cancelar</a><button class="admin-primary" type="submit" [disabled]="saving() || tenantForm.reason.trim().length < 5">Crear tenant</button></div></form>
           } @else {
           <header class="admin-header"><div><p class="eyebrow">Administración global · Tenants</p><h1>Organizaciones</h1><p>Gestiona el ciclo de vida de los tenants de NexoDocs.</p></div><a class="admin-primary" routerLink="/tenants/new">＋ Crear tenant</a></header>
           @if (loading()) { <p class="admin-empty">Cargando tenants…</p> } @else if (error()) { <div class="admin-state error" role="alert"><b>Error al cargar tenants</b><span>{{ message() }}</span></div> } @else {
-            <section class="admin-table-wrap"><table><thead><tr><th>Organización</th><th>Código</th><th>Slug</th><th>Estado</th><th>Acción</th></tr></thead><tbody>@for (tenant of tenants(); track tenant.id) { <tr><td><b>{{ tenant.name }}</b></td><td>{{ tenant.code }}</td><td>{{ tenant.slug }}</td><td><span class="admin-status" [class.inactive]="tenant.status !== 'ACTIVE'">{{ tenant.status }}</span></td><td><button class="link-button" type="button" (click)="changeTenantStatus(tenant)">{{ tenant.status === 'ACTIVE' ? 'Suspender' : 'Activar' }}</button></td></tr> }</tbody></table></section>
+            <section class="admin-table-wrap"><table><thead><tr><th>Organización</th><th>Código</th><th>Slug</th><th>Estado</th><th>Acción</th></tr></thead><tbody>@for (tenant of tenants(); track tenant.id) { <tr><td><b>{{ tenant.name }}</b></td><td>{{ tenant.code }}</td><td>{{ tenant.slug }}</td><td><span class="admin-status" [class.inactive]="tenant.status !== 'ACTIVE'">{{ tenant.status }}</span></td><td><a class="link-button" [routerLink]="['/platform/tenants', tenant.id]">Ver ficha</a></td></tr> }</tbody></table></section>
           @if (confirmation()) { <div class="modal-backdrop" role="presentation"><section class="admin-modal confirmation" role="alertdialog" aria-modal="true" aria-labelledby="tenant-confirm-title"><h2 id="tenant-confirm-title">{{ confirmation()?.title }}</h2><p>{{ confirmation()?.message }}</p><div class="form-actions"><button class="admin-secondary" type="button" (click)="closeConfirmation()">Cancelar</button><button class="admin-primary" type="button" (click)="confirmAction()">Confirmar</button></div></section></div> }
           }
-          <p class="api-note">La edición de datos generales de tenants aún no está expuesta por el contrato; el estado sí puede activarse o suspenderse.</p>
+          <p class="api-note">Abre la ficha de cada organización para ver su suscripción y uso, suspenderla, reactivarla, extender la prueba o cambiar el plan. Cada acción exige un motivo y queda en la auditoría de plataforma.</p>
           }
         } @else {
           <div class="admin-state forbidden" role="alert"><b>Acceso restringido</b><span>La vista global de tenants solo está disponible para Superadministrador.</span></div>
@@ -186,7 +187,7 @@ export class AdministrationPage {
   readonly userPageSize = signal(10);
   readonly showCreateModal = signal(false);
   readonly plans = signal<any[]>([]);
-  tenantForm = { name: '', code: '', slug: '', email: '', planId: '', adminEmail: '', adminName: '' };
+  tenantForm = { name: '', code: '', slug: '', email: '', planId: '', adminEmail: '', adminName: '', reason: '' };
   readonly activeTab = signal<'users' | 'roles'>('users');
   readonly permissionsRoleId = signal<number | null>(null);
   readonly roleFormOpen = signal(false);
@@ -287,11 +288,6 @@ export class AdministrationPage {
     this.api.tenants().subscribe({ next: tenants => { this.tenants.set(tenants); this.loading.set(false); }, error: err => { this.loading.set(false); this.error.set(true); this.message.set(this.apiError(err, 'No se pudieron cargar los tenants.')); } });
   }
 
-  changeTenantStatus(tenant: ApiTenant): void {
-    const value = tenant.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-    this.confirmation.set({ title: value === 'SUSPENDED' ? 'Suspender organización' : 'Activar organización', message: `${value === 'SUSPENDED' ? '¿Quieres suspender' : '¿Quieres activar'} ${tenant.name}?`, action: () => this.api.changeTenantStatus(tenant.id, value).subscribe({ next: () => this.loadTenants(), error: err => { this.error.set(true); this.message.set(this.apiError(err, 'No se pudo cambiar el estado del tenant.')); } }) });
-  }
-
   openCreateUserModal(): void { this.showCreateModal.set(true); }
 
   onCustomizationSaved(): void {
@@ -318,11 +314,11 @@ export class AdministrationPage {
       adminEmail: this.tenantForm.adminEmail || undefined,
       adminName: this.tenantForm.adminName || undefined,
     };
-    this.api.createTenant(payload).subscribe({
+    this.api.createTenant(payload, this.tenantForm.reason.trim()).subscribe({
       next: () => {
         this.saving.set(false);
         this.message.set('Tenant creado correctamente.');
-        this.tenantForm = { name: '', code: '', slug: '', email: '', planId: '', adminEmail: '', adminName: '' };
+        this.tenantForm = { name: '', code: '', slug: '', email: '', planId: '', adminEmail: '', adminName: '', reason: '' };
       },
       error: err => {
         this.saving.set(false);

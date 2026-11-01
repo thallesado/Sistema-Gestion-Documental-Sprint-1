@@ -3,6 +3,7 @@ package com.lta.gestdocum.backend.controller;
 import com.lta.gestdocum.backend.dto.*;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
 import com.lta.gestdocum.backend.service.PlanLimitService;
+import com.lta.gestdocum.backend.service.PlatformTenantService;
 import com.lta.gestdocum.backend.service.TenantService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -18,14 +19,17 @@ public class TenantController {
 
     private final TenantService service;
     private final PlanLimitService planLimitService;
+    private final PlatformTenantService platformTenants;
     private final AuthenticatedUserContext userContext;
 
     public TenantController(
             TenantService service,
             PlanLimitService planLimitService,
+            PlatformTenantService platformTenants,
             AuthenticatedUserContext userContext) {
         this.service = service;
         this.planLimitService = planLimitService;
+        this.platformTenants = platformTenants;
         this.userContext = userContext;
     }
 
@@ -42,19 +46,21 @@ public class TenantController {
         return service.list();
     }
 
-    /** Alta de nueva organización con administrador inicial y plan seleccionado. */
+    /** Alta de nueva organización con administrador inicial y plan seleccionado; exige motivo (auditoría de plataforma). */
     @PostMapping
     @PreAuthorize("hasAuthority('platform:tenant:manage')")
     @ResponseStatus(HttpStatus.CREATED)
-    public TenantResponse create(@Valid @RequestBody TenantCreateRequest request) {
-        return service.create(request);
+    public TenantResponse create(@Valid @RequestBody TenantCreateRequest request, @RequestParam String reason) {
+        return platformTenants.create(request, reason);
     }
 
-    /** Cambio de estado de la organización (ACTIVE, SUSPENDED, etc.). */
+    /** Suspender (SUSPENDED) o reactivar (ACTIVE) con motivo; equivale a POST /platform/tenants/{id}/status. */
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAuthority('platform:tenant:manage')")
-    public TenantResponse status(@PathVariable UUID id, @RequestParam String value) {
-        return service.changeStatus(id, value);
+    public TenantResponse status(@PathVariable UUID id, @RequestParam String value, @RequestParam String reason) {
+        var overview = platformTenants.changeStatus(id, value, reason);
+        var summary = overview.summary();
+        return new TenantResponse(summary.id(), summary.name(), summary.code(), summary.slug(), overview.subscription().status());
     }
 
     /** Consulta de ajustes y personalización (E2) de la organización actual. */

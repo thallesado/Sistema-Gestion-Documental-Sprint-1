@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lta.gestdocum.backend.billing.StripeApiClient;
 import com.lta.gestdocum.backend.billing.StripeBillingProperties;
+import com.lta.gestdocum.backend.billing.SubscriptionItems;
 import com.lta.gestdocum.backend.dto.*;
 import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.model.Plan;
@@ -49,6 +50,8 @@ public class StripeSubscriptionService {
     private final EntityManager entityManager;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transaction;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    TenantAddonSync addonSync;
     /** Días entre la cancelación y el borrado definitivo de la organización. */
     @org.springframework.beans.factory.annotation.Value("${billing.cancellation.retention-days:30}")
     int retentionDays = 30;
@@ -346,9 +349,10 @@ public class StripeSubscriptionService {
         List<Map<String, Object>> rows = jdbc.queryForList("select id from tenants where stripe_subscription_id = ?", subscriptionId);
         if (rows.isEmpty()) return; // suscripción ajena o alta todavía en creación
         String stripeStatus = subscription.path("status").asText();
-        JsonNode price = subscription.path("items").path("data").path(0).path("price");
+        // Con complementos (064) la suscripción tiene varios ítems: el plan es el que no es complemento.
+        JsonNode price = SubscriptionItems.planItem(subscription).path("price");
         Optional<StripeBillingProperties.PlanPrice> planPrice = properties.planForPrice(price.path("id").asText());
-        UUID planId = planPrice.flatMap(p -> plans.findFirstByCodeIgnoreCaseAndActiveTrue(p.planCode())).map(Plan::getId).orElse(null);
+        UUID planId = planPrice.flatMap(p -> plans.findFirstByCodeIgnoreCase(p.planCode())).map(Plan::getId).orElse(null);
         String cycle = planPrice.map(StripeBillingProperties.PlanPrice::cycle)
                 .orElse("year".equals(price.path("recurring").path("interval").asText()) ? "ANNUAL" : "MONTHLY");
         String access = accessStatus(stripeStatus);
@@ -375,6 +379,30 @@ public class StripeSubscriptionService {
                 """, stripeStatus, access, planId, cycle, timestamp(periodEnd(subscription)),
                 cancelAtPeriodEnd, schedule, schedule, planId, schedule, planId, schedule, planId,
                 access, access, retentionDays, rows.get(0).get("id"));
+        syncPriceVersion(rows.get(0).get("id"), price.path("id").asText(), schedule);
+        if (addonSync != null) addonSync.sync((UUID) rows.get(0).get("id"), subscription, periodEnd(subscription));
+    }
+
+    /**
+     * Versión de precio que paga la organización (063) y fin de una migración de precio programada:
+     * se limpia al cobrarse ya el precio nuevo o si el schedule de Stripe desapareció.
+     */
+    private void syncPriceVersion(Object tenantId, String priceId, String schedule) {
+        try {
+            jdbc.update("""
+                    update tenants set
+                      plan_price_id = coalesce((select pp.id from plan_prices pp where pp.stripe_price_id = ?), plan_price_id),
+                      price_change_price_id = case when cast(? as text) is null
+                        or price_change_price_id = (select pp.id from plan_prices pp where pp.stripe_price_id = ?)
+                        then null else price_change_price_id end,
+                      price_change_at = case when cast(? as text) is null
+                        or price_change_price_id = (select pp.id from plan_prices pp where pp.stripe_price_id = ?)
+                        then null else price_change_at end
+                    where id = ?
+                    """, priceId, schedule, priceId, schedule, priceId, tenantId);
+        } catch (org.springframework.dao.DataAccessException exception) {
+            log.warn("No se pudo registrar la versión de precio de {}: {}", tenantId, exception.getMessage());
+        }
     }
 
     private void recordInvoice(UUID tenantId, UUID planId, String cycle, JsonNode invoice, String subscriptionId) {
@@ -459,7 +487,7 @@ public class StripeSubscriptionService {
     private static Instant periodEnd(JsonNode subscription) {
         if (subscription == null) return null;
         // Desde la API 2025-03 el período está en cada item; antes, en la suscripción.
-        long end = subscription.path("items").path("data").path(0).path("current_period_end").asLong(0);
+        long end = SubscriptionItems.planItem(subscription).path("current_period_end").asLong(0);
         if (end == 0) end = subscription.path("current_period_end").asLong(0);
         return end == 0 ? null : Instant.ofEpochSecond(end);
     }

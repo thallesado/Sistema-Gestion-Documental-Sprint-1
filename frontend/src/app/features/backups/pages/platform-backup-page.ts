@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { friendlyApiMessage } from '../../../core/http/tenant-session';
 import { PlatformBackupViewState, describeStartFailure, isTerminalStatus, viewStateForStatus } from './platform-backup.logic';
 
@@ -11,6 +12,7 @@ const POLL_MS = 3000;
 @Component({
   selector: 'app-platform-backup-page',
   standalone: true,
+  imports: [FormsModule],
   template: `
     <main class="platform-backup">
       <header>
@@ -57,9 +59,12 @@ const POLL_MS = 3000;
         <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="platform-backup-confirm-title">
           <h2 id="platform-backup-confirm-title">¿Iniciar el respaldo completo?</h2>
           <p>Se respaldarán todos los tenants. Puede tardar varios minutos y consumir recursos del servidor.</p>
+          <label class="reason">Motivo (queda en la auditoría de plataforma)
+            <textarea name="backupReason" rows="3" maxlength="1000" [(ngModel)]="reason"></textarea>
+          </label>
           <div class="dialog-actions">
             <button type="button" (click)="cancelConfirm()">Cancelar</button>
-            <button type="button" class="primary" (click)="start()">Sí, iniciar respaldo</button>
+            <button type="button" class="primary" (click)="start()" [disabled]="reason.trim().length < 5">Sí, iniciar respaldo</button>
           </div>
         </section>
       }
@@ -90,6 +95,8 @@ const POLL_MS = 3000;
     .overlay { background: rgba(9, 39, 38, .4); inset: 0; position: fixed; z-index: 90; }
     .dialog { background: #fff; border-radius: 14px; box-shadow: 0 24px 60px rgba(9, 39, 38, .3); left: 50%; max-width: 440px; padding: 22px; position: fixed; top: 50%; transform: translate(-50%, -50%); width: calc(100% - 32px); z-index: 91; }
     .dialog h2 { margin: 0 0 8px; }
+    .reason { display: grid; gap: 6px; font-size: 13px; font-weight: 700; margin-top: 12px; }
+    .reason textarea { border: 1px solid var(--line, #cce1e2); border-radius: 9px; font: inherit; font-weight: 400; padding: 8px 10px; resize: vertical; }
     .dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 16px; }
   `],
 })
@@ -102,6 +109,7 @@ export class PlatformBackupPage {
   readonly message = signal('');
   readonly starting = signal(false);
   readonly confirming = signal(false);
+  reason = '';
   readonly statusLabel = computed(() => {
     const status = String(this.current()?.status ?? '').toUpperCase();
     return ({ COMPLETED: 'Completado', SUCCESS: 'Completado', FAILED: 'Fallido', ERROR: 'Fallido', RUNNING: 'En proceso', PENDING: 'En cola', ACCEPTED: 'Aceptado' } as Record<string, string>)[status] || status || 'En proceso';
@@ -112,14 +120,14 @@ export class PlatformBackupPage {
     inject(DestroyRef).onDestroy(() => this.stopPolling());
   }
 
-  askConfirm(): void { this.confirming.set(true); }
+  askConfirm(): void { this.reason = ''; this.confirming.set(true); }
   cancelConfirm(): void { this.confirming.set(false); }
 
   start(): void {
     this.confirming.set(false);
     this.starting.set(true);
     this.message.set('');
-    this.http.post<PlatformBackupStatus>(API, {}).subscribe({
+    this.http.post<PlatformBackupStatus>(API, {}, { params: { reason: this.reason.trim() } }).subscribe({
       next: (backup) => {
         this.starting.set(false);
         this.current.set(backup);

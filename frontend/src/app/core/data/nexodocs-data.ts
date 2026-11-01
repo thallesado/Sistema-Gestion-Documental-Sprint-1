@@ -238,6 +238,7 @@ export const navSections: NavSection[] = [
           { label: 'Dashboard', href: '/platform/dashboard', sprintEnabled: true },
           { label: 'Reporte de tenants', href: '/platform/reports/tenants', sprintEnabled: true },
           { label: 'Reporte de pagos y costos', href: '/platform/reports/payments', sprintEnabled: true },
+          { label: 'Auditoría de plataforma', href: '/platform/audit', sprintEnabled: true },
         ],
       },
       {
@@ -250,7 +251,8 @@ export const navSections: NavSection[] = [
           { label: 'Crear tenant', href: '/tenants/new' },
           { label: 'Activos', href: '/tenants/active' },
           { label: 'Suspendidos', href: '/tenants/suspended' },
-          { label: 'Planes', href: '/tenants/plans' },
+          { label: 'Planes y precios', href: '/platform/plans', sprintEnabled: true },
+          { label: 'Complementos', href: '/platform/addons', sprintEnabled: true },
           { label: 'Uso de almacenamiento', href: '/tenants/storage' },
           { label: 'Branding', href: '/tenants/branding' },
         ],

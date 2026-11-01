@@ -112,6 +112,11 @@ interface PlanCatalog {
             <div class="spinner"></div>
             <p>Cargando planes vigentes…</p>
           </div>
+        } @else if (loadError()) {
+          <div class="plans-loading" role="alert">
+            <p>No se pudieron cargar los planes y precios vigentes.</p>
+            <button type="button" class="plans-retry" (click)="loadPlans()">Reintentar</button>
+          </div>
         } @else {
           <div class="plans-grid">
             @for (plan of plans(); track plan.id) {
@@ -545,6 +550,16 @@ interface PlanCatalog {
       padding: 4rem;
       color: var(--p-muted);
     }
+    .plans-retry {
+      border: 1px solid var(--p-line);
+      border-radius: 10px;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      padding: 0.6rem 1.2rem;
+    }
     .spinner {
       width: 40px;
       height: 40px;
@@ -977,6 +992,7 @@ export class PricingPage implements OnInit {
 
   readonly loading = signal(true);
   readonly plans = signal<PlanCatalog[]>([]);
+  readonly loadError = signal(false);
   readonly billingCycle = signal<'MONTHLY' | 'ANNUAL'>('MONTHLY');
 
   readonly selectedPlan = signal<PlanCatalog | null>(null);
@@ -1002,78 +1018,17 @@ export class PricingPage implements OnInit {
 
   loadPlans(): void {
     this.loading.set(true);
+    this.loadError.set(false);
     this.http.get<PlanCatalog[]>('/api/v1/plans').subscribe({
       next: (data) => {
         this.plans.set(data);
         this.loading.set(false);
         this.openRequestedPlan();
       },
+      // Sin catálogo no se muestran precios inventados: el precio debe coincidir con el vigente en Stripe.
       error: () => {
-        // Fallback a planes por defecto si la base está vacía o simulada
-        this.plans.set([
-          {
-            id: '11111111-1111-1111-1111-111111111111',
-            code: 'BASIC',
-            name: 'Plan Básico',
-            description: 'Para consultorios pequeños o profesionales independientes.',
-            priceMonthly: 29,
-            priceYearly: 290,
-            limits: [
-              { resourceKey: 'maxUsers', resourceValue: 3, unit: 'usuarios' },
-              { resourceKey: 'maxDocuments', resourceValue: 500, unit: 'documentos' },
-              { resourceKey: 'maxStorageMB', resourceValue: 1024, unit: 'MB' },
-              { resourceKey: 'maxOcrPagesPerMonth', resourceValue: 50, unit: 'páginas' },
-            ],
-            features: [
-              { featureKey: 'ocr', enabled: true, description: 'Digitalización OCR asistida' },
-              { featureKey: 'workflows', enabled: false, description: 'Flujos de trabajo personalizados' },
-              { featureKey: 'audit', enabled: true, description: 'Bitácora básica' },
-            ],
-          },
-          {
-            id: '22222222-2222-2222-2222-222222222222',
-            code: 'PRO',
-            name: 'Plan Intermedio (Pro)',
-            description: 'Para clínicas medianas con múltiples consultorios y flujos documentales.',
-            priceMonthly: 79,
-            priceYearly: 790,
-            limits: [
-              { resourceKey: 'maxUsers', resourceValue: 15, unit: 'usuarios' },
-              { resourceKey: 'maxDocuments', resourceValue: 5000, unit: 'documentos' },
-              { resourceKey: 'maxStorageMB', resourceValue: 10240, unit: 'MB' },
-              { resourceKey: 'maxOcrPagesPerMonth', resourceValue: 300, unit: 'páginas' },
-            ],
-            features: [
-              { featureKey: 'ocr', enabled: true, description: 'Digitalización OCR asistida' },
-              { featureKey: 'workflows', enabled: true, description: 'Diseñador de workflows' },
-              { featureKey: 'audit', enabled: true, description: 'Bitácora criptográfica C3' },
-              { featureKey: 'branding', enabled: true, description: 'Personalización de marca' },
-            ],
-          },
-          {
-            id: '33333333-3333-3333-3333-333333333333',
-            code: 'ENTERPRISE',
-            name: 'Plan Avanzado (Enterprise)',
-            description: 'Para redes hospitalarias y grandes centros con alta demanda.',
-            priceMonthly: 249,
-            priceYearly: 2490,
-            limits: [
-              { resourceKey: 'maxUsers', resourceValue: -1, unit: 'usuarios ilimitados' },
-              { resourceKey: 'maxDocuments', resourceValue: -1, unit: 'documentos ilimitados' },
-              { resourceKey: 'maxStorageMB', resourceValue: 102400, unit: 'MB' },
-              { resourceKey: 'maxOcrPagesPerMonth', resourceValue: 2000, unit: 'páginas' },
-            ],
-            features: [
-              { featureKey: 'ocr', enabled: true, description: 'OCR de alta velocidad con Gemini' },
-              { featureKey: 'workflows', enabled: true, description: 'Workflows multi-etapa ilimitados' },
-              { featureKey: 'audit', enabled: true, description: 'Bitácora criptográfica completa' },
-              { featureKey: 'branding', enabled: true, description: 'Marca blanca completa' },
-              { featureKey: 'support', enabled: true, description: 'Soporte prioritario 24/7' },
-            ],
-          },
-        ]);
         this.loading.set(false);
-        this.openRequestedPlan();
+        this.loadError.set(true);
       },
     });
   }
