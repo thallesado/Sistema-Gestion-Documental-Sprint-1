@@ -96,9 +96,7 @@ public class HttpAuditService implements HttpAuditRecorder {
     }
 
     private String normalizeIp(String value) {
-        if (value == null || value.isBlank()) return "0.0.0.0";
-        int comma = value.indexOf(',');
-        return (comma < 0 ? value : value.substring(0, comma)).trim();
+        return AuditClientIp.resolve(value, null);
     }
 
     private String json(Map<String, Object> details) {

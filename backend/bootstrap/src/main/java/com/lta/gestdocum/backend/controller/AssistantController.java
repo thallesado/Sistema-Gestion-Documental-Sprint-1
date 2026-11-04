@@ -31,6 +31,7 @@ public class AssistantController {
     @PostMapping("/chat")
     @Operation(summary = "Preguntar al asistente contextual")
     public ResponseEntity<AssistantChatResponse> chat(@Valid @RequestBody AssistantChatRequest request) {
-        return ResponseEntity.ok(service.chat(userContext.requireUserId(), request));
+        var user = userContext.require();
+        return ResponseEntity.ok(service.chat(user.userId(), user.authorities(), request));
     }
 }

@@ -21,6 +21,7 @@ import java.security.DigestInputStream;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -38,6 +39,22 @@ public class DocumentStorageService {
     private final AuthenticatedUserContext context;
     private final PlanEnforcementService planEnforcementService;
     private UserCustomizationService userCustomizationService;
+
+    /** C1: opcional; registra en la auditoría qué versión se subió, sin el contenido del archivo. */
+    private AuditRecorder auditRecorder;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAuditRecorder(AuditRecorder auditRecorder) {
+        this.auditRecorder = auditRecorder;
+    }
+
+    /** B2: opcional para conservar el constructor existente; sin él no se restringe la acción. */
+    private ComponentPermissionService componentPermissions;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setComponentPermissions(ComponentPermissionService componentPermissions) {
+        this.componentPermissions = componentPermissions;
+    }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setUserCustomizationService(UserCustomizationService userCustomizationService) {
@@ -62,6 +79,10 @@ public class DocumentStorageService {
         context.establishDatabaseContext();
         documentRepository.findByIdAndTenantIdAndDeletedAtIsNull(documentId, tenantId)
                 .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
+        // La primera versión forma parte del alta; las siguientes son la acción «Subir nueva versión».
+        if (componentPermissions != null && versionRepository.existsByTenantIdAndDocumentId(tenantId, documentId)) {
+            componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM).requireEditable("accion_subir_version");
+        }
         validate(file, reason);
         planEnforcementService.validateStorageLimit(tenantId, file.getSize());
         if (userCustomizationService != null) userCustomizationService.validateUpload(tenantId, file.getSize());
@@ -90,12 +111,26 @@ public class DocumentStorageService {
             version.setCreatedAt(OffsetDateTime.now());
             versionRepository.saveAndFlush(version);
             DocumentVersion saved = versionRepository.findById(versionId).orElse(version);
+            recordVersion(documentId, saved);
             return toResponse(saved);
         } catch (Exception exception) {
             try { Files.deleteIfExists(temporary); Files.deleteIfExists(target); } catch (Exception ignored) { }
             if (exception instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("No se pudo almacenar el archivo", exception);
         }
+    }
+
+    private void recordVersion(UUID documentId, DocumentVersion saved) {
+        if (auditRecorder == null) return;
+        Map<String, Object> after = new java.util.LinkedHashMap<>();
+        // version_number lo asigna un trigger: la entidad en memoria aún no lo tiene. Las versiones son
+        // inmutables y correlativas, así que su número es el total de versiones del documento.
+        after.put("versionNumber", saved.getVersionNumber() != null ? saved.getVersionNumber()
+                : versionRepository.countByTenantIdAndDocumentId(saved.getTenantId(), documentId));
+        after.put("fileName", saved.getFileName());
+        after.put("sha256", saved.getChecksumSha256());
+        after.put("reason", saved.getChangeReason());
+        auditRecorder.record("UPLOAD_VERSION", "DOCUMENTS", documentId, null, after);
     }
 
     /**
@@ -140,6 +175,7 @@ public class DocumentStorageService {
             version.setCreatedAt(OffsetDateTime.now());
             versionRepository.saveAndFlush(version);
             DocumentVersion saved = versionRepository.findById(versionId).orElse(version);
+            recordVersion(documentId, saved);
             return toResponse(saved);
         } catch (Exception exception) {
             try { Files.deleteIfExists(temporary); Files.deleteIfExists(target); } catch (Exception ignored) { }

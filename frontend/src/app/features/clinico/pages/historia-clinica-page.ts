@@ -36,7 +36,7 @@ export interface ConsultaMedicaItem {
 
 export function computeIMCStatus(imc: number | null | undefined): { label: string; color: string; bg: string } {
   if (!imc || isNaN(imc) || imc <= 0) return { label: 'Sin calcular', color: '#64748b', bg: '#f1f5f9' };
-  if (imc < 18.5) return { label: 'Bajo peso', color: '#0284c7', bg: '#e0f2fe' };
+  if (imc < 18.5) return { label: 'Bajo peso', color: '#0f7f6b', bg: '#e6f5ef' };
   if (imc < 25) return { label: 'Normal', color: '#16a34a', bg: '#dcfce7' };
   if (imc < 30) return { label: 'Sobrepeso', color: '#d97706', bg: '#fef3c7' };
   return { label: 'Obesidad', color: '#dc2626', bg: '#fee2e2' };
@@ -143,7 +143,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
             (ngModelChange)="onSearchInput($event)"
             placeholder="Escribe para buscar: Ej. Silvia, Yesenia, Condori, 93868..."
             style="width: 100%; border: 2px solid; border-radius: 8px; padding: 11px 14px; font-size: 14px; outline: none; transition: all .2s; box-sizing: border-box;"
-            [style.borderColor]="searchQuery().trim() ? (filteredPatients().length > 0 ? '#2563eb' : '#dc2626') : '#cbd5e1'"
+            [style.borderColor]="searchQuery().trim() ? (filteredPatients().length > 0 ? 'var(--teal)' : '#dc2626') : '#cbd5e1'"
             [style.background]="searchQuery().trim() ? '#fafcff' : '#ffffff'"
           />
         </div>
@@ -152,7 +152,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
           <small style="font-size: 12px;">
             @if (searchQuery().trim()) {
               @if (filteredPatients().length > 0) {
-                <span style="color: #2563eb; font-weight: 700;">
+                <span style="color: var(--teal); font-weight: 700;">
                   Coincidencias encontradas: {{ filteredPatients().length }} paciente(s) remarcado(s) en azul en la lista izquierda.
                 </span>
               } @else {
@@ -202,17 +202,17 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
               @for (p of filteredPatients(); track p.id) {
                 <div
                   (click)="onSelectPatient(p.id)"
-                  [style.borderColor]="isHighlighted(p) ? '#2563eb' : (p.id === selectedPatientId() ? '#087f7b' : '#e2e8f0')"
-                  [style.background]="isHighlighted(p) ? '#eff6ff' : (p.id === selectedPatientId() ? '#f0fdfa' : '#ffffff')"
-                  [style.boxShadow]="isHighlighted(p) ? '0 0 0 2px rgba(37, 99, 235, 0.25)' : 'none'"
+                  [style.borderColor]="isHighlighted(p) ? 'var(--teal)' : (p.id === selectedPatientId() ? '#087f7b' : '#e2e8f0')"
+                  [style.background]="isHighlighted(p) ? 'var(--mint)' : (p.id === selectedPatientId() ? '#f0fdfa' : '#ffffff')"
+                  [style.boxShadow]="isHighlighted(p) ? '0 0 0 2px rgba(8, 127, 123, 0.25)' : 'none'"
                   style="border-radius: 10px; padding: 12px 14px; border: 2px solid; cursor: pointer; transition: all .15s; display: flex; flex-direction: column; gap: 4px;"
                 >
                   <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-                    <strong [style.color]="isHighlighted(p) ? '#1d4ed8' : '#153a39'" style="font-size: 13px;">
+                    <strong [style.color]="isHighlighted(p) ? 'var(--teal-strong)' : '#153a39'" style="font-size: 13px;">
                       {{ p.firstName }} {{ p.lastName }}
                     </strong>
                     @if (isHighlighted(p)) {
-                      <span style="background: #2563eb; color: #fff; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
+                      <span style="background: var(--teal); color: #fff; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
                         Coincidencia
                       </span>
                     } @else if (p.id === selectedPatientId()) {
@@ -223,7 +223,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                   </div>
 
                   <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #64748b;">
-                    <span>C.I.: <strong [style.color]="isHighlighted(p) ? '#1e40af' : '#334155'">{{ p.documentNumber }}</strong></span>
+                    <span>C.I.: <strong [style.color]="isHighlighted(p) ? 'var(--teal-strong)' : '#334155'">{{ p.documentNumber }}</strong></span>
                     <span>{{ p.gender || 'Sin sexo' }}</span>
                   </div>
                 </div>
@@ -751,7 +751,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                     @for (doc of linkedDocuments(); track doc.id) {
                       <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                          <div style="background: #e0f2fe; color: #0284c7; font-weight: 800; font-size: 11px; padding: 4px 8px; border-radius: 6px;">
+                          <div style="background: #e6f5ef; color: #0f7f6b; font-weight: 800; font-size: 11px; padding: 4px 8px; border-radius: 6px;">
                             {{ doc.code }}
                           </div>
                           <div>

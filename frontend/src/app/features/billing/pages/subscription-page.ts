@@ -199,7 +199,7 @@ const CANCEL_REASONS = ['Es demasiado caro', 'No lo usamos lo suficiente', 'Nos 
     button{border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--teal-strong,#125a51);cursor:pointer;font:700 13px inherit;padding:10px 14px}
     button:disabled{cursor:not-allowed;opacity:.5}.primary{background:var(--teal);border-color:var(--teal);color:#fff}
     .danger-btn{background:#c53043;border-color:#c53043;color:#fff}
-    .notice{background:#eef7ff;border:1px solid #cfe3f5;border-radius:12px;color:#356d9e;display:grid;gap:6px;margin-bottom:16px;padding:14px 16px}
+    .notice{background:#ecf7f2;border:1px solid #cde8dc;border-radius:12px;color:#1f6b52;display:grid;gap:6px;margin-bottom:16px;padding:14px 16px}
     .notice.error{background:#fff4f3;border-color:#f3d2d0;color:#a65050}.notice button{justify-self:start}
     .empty{color:var(--muted);padding:30px 0}
     .current{display:grid;gap:16px;grid-template-columns:1.3fr 1fr;margin-bottom:26px}
@@ -208,16 +208,16 @@ const CANCEL_REASONS = ['Es demasiado caro', 'No lo usamos lo suficiente', 'Nos 
     dl{display:grid;gap:8px;margin:0}dl div{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:8px;font-size:13px}dt{color:var(--muted)}dd{margin:0;font-weight:700;text-align:right}
     .pay{background:var(--teal);border-radius:10px;color:#fff;display:inline-block;font-size:13px;font-weight:700;margin-top:14px;padding:10px 14px;text-decoration:none}
     .pill{border-radius:99px;font-size:11px;font-weight:800;padding:5px 10px;background:#e3f8eb;color:#218450}
-    .pill.trial{background:#eef7ff;color:#356d9e}.pill.past_due,.pill.expired{background:#fff1e4;color:#aa6d1c}.pill.canceled,.pill.suspended{background:#fff4f3;color:#a65050}
+    .pill.trial{background:#ecf7f2;color:#1f6b52}.pill.past_due,.pill.expired{background:#fff1e4;color:#aa6d1c}.pill.canceled,.pill.suspended{background:#fff4f3;color:#a65050}
     .current-side{display:grid;gap:12px;align-content:start}.callout b{display:block;margin-bottom:4px}.callout p{color:var(--muted);font-size:13px;line-height:1.5;margin:0 0 10px}
-    .callout.blue{background:#eff7ff;border-color:#d4e7fb}.callout.amber{background:#fff8e7;border-color:#f4df9e}.callout.red{background:#fff4f3;border-color:#f3d2d0}
+    .callout.blue{background:#ecf7f2;border-color:#d4e7fb}.callout.amber{background:#fff8e7;border-color:#f4df9e}.callout.red{background:#fff4f3;border-color:#f3d2d0}
     .plans-head{align-items:center;display:flex;justify-content:space-between;margin-bottom:12px}.plans-head h2{margin:0}
     .cycle{display:flex;gap:6px}.cycle .active{background:var(--teal);border-color:var(--teal);color:#fff}
     .plans{display:grid;gap:14px;grid-template-columns:repeat(3,1fr)}
     .plans article{display:flex;flex-direction:column}.plans article.current-plan{box-shadow:inset 0 0 0 2px var(--teal)}.plans article.highlight{box-shadow:0 0 0 3px var(--tint,#e6f7f4)}
     .plan-code{color:var(--teal);font-size:11px;font-weight:800;letter-spacing:.1em;margin:0}.plans h3{margin:4px 0}.plan-price{font-size:22px;font-weight:800;margin:4px 0 12px}
     ul{display:grid;gap:7px;list-style:none;margin:0 0 16px;padding:0;font-size:13px}li.off{color:#9badab}
-    .plan-actions{display:grid;gap:8px;margin-top:auto}.tag{background:var(--mint);border-radius:99px;color:var(--teal-strong);font-size:12px;font-weight:800;justify-self:start;padding:6px 12px}.tag.blue{background:#eff7ff;color:#356d9e}
+    .plan-actions{display:grid;gap:8px;margin-top:auto}.tag{background:var(--mint);border-radius:99px;color:var(--teal-strong);font-size:12px;font-weight:800;justify-self:start;padding:6px 12px}.tag.blue{background:#ecf7f2;color:#1f6b52}
     .note{color:var(--muted);font-size:12px;line-height:1.6;margin:12px 0 26px}
     .block{align-items:center;display:flex;gap:16px;justify-content:space-between;margin-bottom:14px}.block h2{font-size:17px;margin:0 0 4px}.block p{color:var(--muted);font-size:13px;margin:0}
     .block.danger{border-color:#f3d2d0}

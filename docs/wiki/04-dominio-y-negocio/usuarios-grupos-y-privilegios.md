@@ -52,6 +52,15 @@ Todas reutilizan `ComponentFormAccess` (gana el grupo más permisivo; sin config
 | `GET /dashboard` (documentos recientes) | `code` (codigo) y `name` (nombre) | `DashboardServiceTest` |
 | `DocumentSearchService` (búsqueda para el asistente) | Código y descripción; si `nombre` está oculto no busca por nombre | `HiddenComponentsReadPathsTest` |
 | `/workflows`, `/workflows/{id}`, `/workflows/tasks`, `/tasks/my`, `/tasks/{id}`, `/{id}/tasks` | `document_name`, `document_code`, `document_description`; la búsqueda no usa nombre/código ocultos | `HiddenComponentsReadPathsTest` |
+| Búsqueda libre de `GET /documents` (`?filter=`) y de `GET /users` (2026-10-27) | El filtro solo compara contra los campos visibles (`DocumentRepository.SearchFields`, `UserRepository.SearchFields`), para que un valor oculto no se pueda inferir buscando | `HiddenComponentsRemainingPathsTest` |
+| `GET /clinical-histories/{id}/timeline` (2026-10-27) | Tipo y contenido de las notas (formulario `nota_medica`); código y nombre de los documentos | `HiddenComponentsRemainingPathsTest` |
+| `GET /patients/{id}/quick-summary`, que usa la app móvil (2026-10-27) | Tipo y contenido de las notas recientes | `HiddenComponentsRemainingPathsTest` |
+| Respuesta de `POST /users` y `PUT /users/{id}` (2026-10-27) | Los mismos componentes que el listado (`UserFormPolicy.hideComponents`) | `HiddenComponentsRemainingPathsTest` |
+| `GET /reports/analytics/by-area` (2026-10-27) | Con `departamento` oculto, una sola fila «Área no visible para tu perfil» con el total | `HiddenComponentsRemainingPathsTest` |
+
+Botones (2026-10-27): el formulario `documento.nuevo` incluye `accion_cambiar_estado` y `accion_subir_version`. Con estado oculto el botón no se muestra y con solo lectura queda deshabilitado (`[appField]` en `documentos-page.ts`). El servidor rechaza con 403 `PATCH /documents/{id}/status` y la subida de una versión cuando el documento ya tiene versiones (`ComponentFormAccess.requireEditable`); la primera versión del alta no depende del botón.
+
+Excepción deliberada: la auditoría (`audit:read_tenant`) conserva código y nombre del documento en `details`, porque la bitácora detallada (C1) debe registrar qué documento se tocó; sus lectores son auditores. `GET /users/responsible` tampoco oculta nombres, porque es el selector del componente `responsable` del formulario de documentos.
 
 No aplican ocultación, tras revisar el código: expedientes (`ExpedientService` no incrusta datos de documentos), versiones y descarga (`DocumentStorageService`: nombre de archivo y motivo de versión no son componentes del formulario) y cuentas de plataforma sin tenant (`ComponentFormAccess.unrestricted`). No existe un endpoint de edición de documentos: las escrituras de solo lectura se rechazan en el alta (`requireEditableIfProvided`). La metadata del alta no se valida contra los componentes para no romper el flujo OCR.
 

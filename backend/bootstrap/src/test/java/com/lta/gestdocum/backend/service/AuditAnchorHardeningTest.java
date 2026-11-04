@@ -2,12 +2,14 @@ package com.lta.gestdocum.backend.service;
 
 import com.lta.gestdocum.backend.dto.AuditExternalAnchor;
 import com.lta.gestdocum.backend.dto.AuditExternalLookup;
+import com.lta.gestdocum.backend.model.AuditAnchor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -17,9 +19,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -117,17 +119,59 @@ class AuditAnchorHardeningTest {
     }
 
     @Test
-    @DisplayName("Con el secreto por defecto y un destino configurado en prod, el arranque falla")
-    void defaultSecretWithDestinationFailsInProd() {
-        assertThrows(IllegalStateException.class,
-                () -> AuditAnchorSecretGuard.check(AuditAnchorSecretGuard.DEFAULT_SECRET, true, true));
+    @DisplayName("Sin AUDIT_ANCHOR_SECRET se genera una clave aleatoria fuera de la base y se reutiliza en el siguiente arranque")
+    void generatesAndReusesKeyFile() throws Exception {
+        Path anchors = dir.resolve("anchor-volume/anchors.jsonl");
+        AuditAnchorKeyProvider first = new AuditAnchorKeyProvider("", "", anchors.toString());
+        Path keyFile = dir.resolve("anchor-volume/anchor.key");
+        assertTrue(Files.exists(keyFile), "la clave vive junto al archivo de anclas, no en la base");
+        assertEquals(64, first.secret().length());
+        assertEquals(first.secret(), new AuditAnchorKeyProvider("", "", anchors.toString()).secret());
+        assertNotEquals(AuditAnchorKeyProvider.LEGACY_PUBLIC_SECRET, first.secret());
+        if (Files.getFileStore(keyFile).supportsFileAttributeView("posix")) {
+            assertEquals("rw-------", java.nio.file.attribute.PosixFilePermissions.toString(Files.getPosixFilePermissions(keyFile)));
+        }
     }
 
     @Test
-    @DisplayName("Un secreto propio, otro perfil o sin destino no bloquean el arranque")
-    void otherCombinationsDoNotFail() {
-        assertDoesNotThrow(() -> AuditAnchorSecretGuard.check("un-secreto-propio-de-produccion", true, true));
-        assertDoesNotThrow(() -> AuditAnchorSecretGuard.check(AuditAnchorSecretGuard.DEFAULT_SECRET, true, false));
-        assertDoesNotThrow(() -> AuditAnchorSecretGuard.check(AuditAnchorSecretGuard.DEFAULT_SECRET, false, true));
+    @DisplayName("El antiguo valor público de AUDIT_ANCHOR_SECRET se ignora; un secreto propio se usa tal cual")
+    void legacyPublicSecretIsIgnored() {
+        Path keyFile = dir.resolve("k/anchor.key");
+        AuditAnchorKeyProvider legacy = new AuditAnchorKeyProvider(AuditAnchorKeyProvider.LEGACY_PUBLIC_SECRET, keyFile.toString(), "");
+        assertNotEquals(AuditAnchorKeyProvider.LEGACY_PUBLIC_SECRET, legacy.secret());
+        assertEquals("un-secreto-propio-de-produccion-0123456789",
+                new AuditAnchorKeyProvider("un-secreto-propio-de-produccion-0123456789", keyFile.toString(), "").secret());
+    }
+
+    @Test
+    @DisplayName("Un ancla firmada con la clave pública solo se acepta si es anterior a su retiro")
+    void legacySignedAnchorOnlyBeforeCutoff() {
+        AuditAnchorService legacyService = new AuditAnchorService(null, null, AuditAnchorKeyProvider.LEGACY_PUBLIC_SECRET);
+        AuditAnchorService current = new AuditAnchorService(null, null, "clave-nueva-de-la-instalacion-0123456789", true);
+        UUID tenant = UUID.randomUUID();
+        AuditAnchor old = signed(legacyService, tenant, AuditAnchorKeyProvider.LEGACY_KEY_RETIRED_AT.minusDays(1));
+        AuditAnchor forged = signed(legacyService, tenant, AuditAnchorKeyProvider.LEGACY_KEY_RETIRED_AT.plusMinutes(1));
+        assertTrue(current.verifyAnchorIntegrity(old));
+        assertFalse(current.verifyAnchorIntegrity(forged));
+    }
+
+    @Test
+    @DisplayName("Con un AUDIT_ANCHOR_SECRET propio nunca se acepta un ancla firmada con la clave pública, aunque esté antidatada")
+    void customSecretRejectsBackdatedLegacyAnchor() {
+        AuditAnchorKeyProvider custom = new AuditAnchorKeyProvider("un-secreto-propio-de-produccion-0123456789",
+                dir.resolve("unused/anchor.key").toString(), "");
+        assertFalse(custom.legacyFallbackAllowed());
+        assertTrue(new AuditAnchorKeyProvider("", dir.resolve("gen/anchor.key").toString(), "").legacyFallbackAllowed());
+
+        AuditAnchorService legacyService = new AuditAnchorService(null, null, AuditAnchorKeyProvider.LEGACY_PUBLIC_SECRET);
+        AuditAnchorService protectedInstall = new AuditAnchorService(null, null, custom);
+        AuditAnchor backdated = signed(legacyService, UUID.randomUUID(), AuditAnchorKeyProvider.LEGACY_KEY_RETIRED_AT.minusYears(1));
+        assertFalse(protectedInstall.verifyAnchorIntegrity(backdated));
+    }
+
+    private static AuditAnchor signed(AuditAnchorService signer, UUID tenant, OffsetDateTime at) {
+        AuditAnchor anchor = AuditAnchor.builder().tenantId(tenant).chainSeq(7L).recordHash("c".repeat(64)).anchoredAt(at).build();
+        anchor.setSignature(signer.signatureFor(anchor));
+        return anchor;
     }
 }

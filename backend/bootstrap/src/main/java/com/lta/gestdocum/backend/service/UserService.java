@@ -130,7 +130,7 @@ public class UserService {
             specialtyStr = staff.getSpecialty();
         }
 
-        return mapToResponse(savedUser, staffTypeStr, specialtyStr);
+        return userFormPolicy.hideComponents(mapToResponse(savedUser, staffTypeStr, specialtyStr));
     }
     @Transactional
     @SuppressWarnings("null")
@@ -184,7 +184,7 @@ public class UserService {
         specialtyStr = staff.getSpecialty();
     }
 
-    return mapToResponse(updatedUser, staffTypeStr, specialtyStr);
+    return userFormPolicy.hideComponents(mapToResponse(updatedUser, staffTypeStr, specialtyStr));
 }
     @Transactional
     @SuppressWarnings("null")
@@ -210,7 +210,7 @@ public class UserService {
         UUID tenantId = authenticatedUserContext.requireTenantId();
         authenticatedUserContext.establishDatabaseContext();
         String normalizedFilter = filter == null || filter.isBlank() ? null : filter.trim();
-        return userFormPolicy.hideComponents(userRepository.findActiveByTenant(tenantId, normalizedFilter, pageable)
+        return userFormPolicy.hideComponents(userRepository.findActiveByTenant(tenantId, normalizedFilter, userFormPolicy.searchFields(), pageable)
                 .map(user -> {
                     Optional<ClinicalStaff> staff = clinicalStaffRepository
                             .findByUserIdAndTenantId(user.getId(), tenantId);

@@ -76,4 +76,8 @@ public class AuditEvent {
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "record_hash", length = 64)
     private String recordHash;
+
+    /** Formato del contenido canónico (062): 1 = original de 041, 2 = cubre actor de plataforma, agente y hora del cliente. Lo fija el trigger. */
+    @Column(name = "hash_version", insertable = false, updatable = false)
+    private Short hashVersion;
 }

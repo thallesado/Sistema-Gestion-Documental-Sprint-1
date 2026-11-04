@@ -72,7 +72,7 @@ class DocumentServiceTest {
     void shouldFindSharedDocumentsWithoutStatus() {
         PageRequest pageable = PageRequest.of(0, 10);
         Document doc = createSampleDocument();
-        when(repository.searchShared(tenantId, userId, "protocolo", pageable))
+        when(repository.searchShared(tenantId, userId, "protocolo", com.lta.gestdocum.backend.repository.DocumentRepository.SearchFields.ALL, pageable))
                 .thenReturn(new PageImpl<>(List.of(doc)));
 
         Page<DocumentResponse> result = service.findShared("protocolo", null, pageable);
@@ -81,7 +81,7 @@ class DocumentServiceTest {
         assertEquals(1, result.getTotalElements());
         assertEquals("DOC-001", result.getContent().get(0).code());
         verify(userContext).establishDatabaseContext();
-        verify(repository).searchShared(tenantId, userId, "protocolo", pageable);
+        verify(repository).searchShared(tenantId, userId, "protocolo", com.lta.gestdocum.backend.repository.DocumentRepository.SearchFields.ALL, pageable);
     }
 
     @Test
@@ -89,7 +89,7 @@ class DocumentServiceTest {
     void shouldFindSharedDocumentsWithStatus() {
         PageRequest pageable = PageRequest.of(0, 10);
         Document doc = createSampleDocument();
-        when(repository.searchSharedAndStatus(tenantId, userId, "protocolo", DocumentStatus.APPROVED, pageable))
+        when(repository.searchSharedAndStatus(tenantId, userId, "protocolo", DocumentStatus.APPROVED, com.lta.gestdocum.backend.repository.DocumentRepository.SearchFields.ALL, pageable))
                 .thenReturn(new PageImpl<>(List.of(doc)));
 
         Page<DocumentResponse> result = service.findShared("protocolo", DocumentStatus.APPROVED, pageable);
@@ -98,7 +98,7 @@ class DocumentServiceTest {
         assertEquals(1, result.getTotalElements());
         assertEquals(DocumentStatus.APPROVED, result.getContent().get(0).status());
         verify(userContext).establishDatabaseContext();
-        verify(repository).searchSharedAndStatus(tenantId, userId, "protocolo", DocumentStatus.APPROVED, pageable);
+        verify(repository).searchSharedAndStatus(tenantId, userId, "protocolo", DocumentStatus.APPROVED, com.lta.gestdocum.backend.repository.DocumentRepository.SearchFields.ALL, pageable);
     }
 
     @Test
@@ -106,13 +106,13 @@ class DocumentServiceTest {
     void shouldFindMineDocuments() {
         PageRequest pageable = PageRequest.of(0, 10);
         Document doc = createSampleDocument();
-        when(repository.searchMine(tenantId, userId, "", pageable))
+        when(repository.searchMine(tenantId, userId, "", com.lta.gestdocum.backend.repository.DocumentRepository.SearchFields.ALL, pageable))
                 .thenReturn(new PageImpl<>(List.of(doc)));
 
         Page<DocumentResponse> result = service.findMine("", null, pageable);
 
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
-        verify(repository).searchMine(tenantId, userId, "", pageable);
+        verify(repository).searchMine(tenantId, userId, "", com.lta.gestdocum.backend.repository.DocumentRepository.SearchFields.ALL, pageable);
     }
 }

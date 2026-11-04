@@ -42,6 +42,9 @@ public class ClinicalHistoryService {
     /** B2: opcional para conservar los constructores existentes; sin él no se oculta nada (comportamiento previo). */
     @Autowired(required = false)
     private ComponentPermissionService componentPermissions;
+    /** C1: opcional para conservar los constructores existentes. Solo registra códigos y nombres de campos, no datos clínicos. */
+    @Autowired(required = false)
+    private AuditRecorder auditRecorder;
     @Autowired
     public ClinicalHistoryService(
             ClinicalHistoryRepository repository,
@@ -129,7 +132,12 @@ public class ClinicalHistoryService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        return toResponse(repository.save(entity), patient);
+        ClinicalHistory saved = repository.save(entity);
+        if (auditRecorder != null) {
+            auditRecorder.record("CREATE", "CLINICAL_HISTORIES", saved.getId(), null,
+                    Map.of("code", saved.getCode(), "patientId", String.valueOf(saved.getPatientId())));
+        }
+        return toResponse(saved, patient);
     }
 
     @Transactional
@@ -137,6 +145,8 @@ public class ClinicalHistoryService {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
         ClinicalHistory entity = getForTenant(id);
+        UUID previousPatientId = entity.getPatientId();
+        String auditSummary = null;
 
         // 1. Snapshot previous state before modifying
         if (revisionRepository != null) {
@@ -191,6 +201,7 @@ public class ClinicalHistoryService {
             String changeSummary = changedFields.isEmpty()
                     ? "Actualización general sin cambios estructurales"
                     : "Campos modificados: " + String.join(", ", changedFields);
+            auditSummary = changeSummary;
 
             UUID authorId = null;
             try {
@@ -244,7 +255,16 @@ public class ClinicalHistoryService {
             entity.setObservations(normalize(request.getObservations()));
         }
         entity.setUpdatedAt(OffsetDateTime.now());
-        return toResponse(repository.save(entity), loadPatient(entity));
+        ClinicalHistory saved = repository.save(entity);
+        if (auditRecorder != null) {
+            Map<String, Object> after = new LinkedHashMap<>();
+            after.put("code", saved.getCode());
+            after.put("patientId", String.valueOf(saved.getPatientId()));
+            if (auditSummary != null) after.put("changes", auditSummary);
+            auditRecorder.record("UPDATE", "CLINICAL_HISTORIES", saved.getId(),
+                    Map.of("code", saved.getCode(), "patientId", String.valueOf(previousPatientId)), after);
+        }
+        return toResponse(saved, loadPatient(entity));
     }
 
     @Transactional(readOnly = true)
@@ -292,6 +312,8 @@ public class ClinicalHistoryService {
         userContext.establishDatabaseContext();
         ClinicalHistory history = getForTenant(id);
         UUID tenantId = userContext.requireTenantId();
+        ComponentFormAccess noteAccess = formAccess(ComponentFormCatalog.MEDICAL_NOTE_FORM);
+        ComponentFormAccess documentAccess = formAccess(ComponentFormCatalog.DOCUMENT_FORM);
         List<TimelineEventResponse> events = new ArrayList<>();
 
         events.add(TimelineEventResponse.builder()
@@ -325,13 +347,13 @@ public class ClinicalHistoryService {
                     events.add(TimelineEventResponse.builder()
                             .occurredAt(note.getCreatedAt())
                             .eventType("MEDICAL_NOTE")
-                            .code(note.getNoteType())
+                            .code(noteAccess.reveal("tipo", note.getNoteType()))
                             .status("RECORDED")
                             .referenceId(note.getId())
                             .episodeId(note.getEpisodeId())
                             .professionalId(note.getAuthorId())
                             .specialty(spec)
-                            .description(summary(note.getContent()))
+                            .description(noteAccess.reveal("contenido", summary(note.getContent())))
                             .build());
                 });
 
@@ -345,12 +367,12 @@ public class ClinicalHistoryService {
                     events.add(TimelineEventResponse.builder()
                             .occurredAt(document.getCreatedAt())
                             .eventType("DOCUMENT")
-                            .code(document.getCode())
+                            .code(documentAccess.reveal("codigo", document.getCode()))
                             .status(document.getStatus().name())
                             .referenceId(document.getId())
                             .professionalId(document.getAuthorId())
                             .specialty(spec)
-                            .description(document.getName())
+                            .description(documentAccess.reveal("nombre", document.getName()))
                             .build());
                 });
 
@@ -436,10 +458,14 @@ public class ClinicalHistoryService {
         clinicalDocumentLinkRepository.deleteByTenantIdAndClinicalHistoryIdAndIdDocumentId(tenantId, historyId, documentId);
     }
 
+    private ComponentFormAccess formAccess(String formKey) {
+        return componentPermissions == null
+                ? ComponentFormAccess.unrestricted(ComponentFormCatalog.require(formKey))
+                : componentPermissions.current(formKey);
+    }
+
     private DocumentResponse toDocumentResponse(Document document) {
-        ComponentFormAccess access = componentPermissions == null
-                ? ComponentFormAccess.unrestricted(ComponentFormCatalog.require(ComponentFormCatalog.DOCUMENT_FORM))
-                : componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM);
+        ComponentFormAccess access = formAccess(ComponentFormCatalog.DOCUMENT_FORM);
         return new DocumentResponse(
                 document.getId(),
                 document.getDocumentTypeId(),

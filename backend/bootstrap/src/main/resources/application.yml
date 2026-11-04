@@ -104,7 +104,9 @@ app:
 # Anclaje externo de la cadena de auditoria (C3). Sin destino configurado el job queda DISABLED.
 nexodocs:
   audit:
-    anchor-secret: ${AUDIT_ANCHOR_SECRET:nexodocs-tamper-proof-anchor-master-key-2026}
+    # Sin AUDIT_ANCHOR_SECRET se genera una clave aleatoria en AUDIT_ANCHOR_KEY_FILE (por defecto junto al archivo de anclas).
+    anchor-secret: ${AUDIT_ANCHOR_SECRET:}
+    anchor-key-file: ${AUDIT_ANCHOR_KEY_FILE:}
     external-anchor:
       file-path: ${AUDIT_ANCHOR_EXTERNAL_FILE:}
       cron: ${AUDIT_ANCHOR_CRON:0 */15 * * * *}

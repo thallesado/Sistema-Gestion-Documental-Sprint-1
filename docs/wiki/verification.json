@@ -238,7 +238,17 @@
                       {
                           "page": "06-operacion/anclaje-externo-auditoria.md",
                           "path": "backend/bootstrap/src/main/resources/application.yml",
-                          "includes": ["AUDIT_ANCHOR_EXTERNAL_FILE", "AUDIT_ANCHOR_CRON", "AUDIT_ANCHOR_SECRET"]
+                          "includes": ["AUDIT_ANCHOR_EXTERNAL_FILE", "AUDIT_ANCHOR_CRON", "AUDIT_ANCHOR_SECRET", "AUDIT_ANCHOR_KEY_FILE"]
+                      },
+                      {
+                          "page": "06-operacion/anclaje-externo-auditoria.md",
+                          "path": "infrastructure/docker-compose.yml",
+                          "includes": ["nexodocs_audit_anchor:/var/lib/nexodocs/audit-anchor", "AUDIT_ANCHOR_EXTERNAL_FILE"]
+                      },
+                      {
+                          "page": "06-operacion/anclaje-externo-auditoria.md",
+                          "path": "database/init/065_audit_chain_v2.sql",
+                          "includes": ["canonical_audit_payload_v2", "NEW.hash_version := 2"]
                       },
                       {
                           "page": "06-operacion/respaldo-completo.md",
@@ -844,8 +854,8 @@
                                                                       "revision":  "3876454"
                                                                   },
                     "06-operacion/anclaje-externo-auditoria.md":  {
-                                                                      "reviewedAt":  "2026-10-25",
-                                                                      "revision":  "3876454"
+                                                                      "reviewedAt":  "2026-10-27",
+                                                                      "revision":  "4b1d203"
                                                                   },
                     "04-dominio-y-negocio/reportes-y-analitica.md":  {
                                                                          "reviewedAt":  "2026-10-25",

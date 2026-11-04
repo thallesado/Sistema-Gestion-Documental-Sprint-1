@@ -91,7 +91,7 @@ public class TenantService {
      */
     @Transactional
     public TenantResponse create(TenantCreateRequest r) {
-        return create(r, null);
+        return doCreate(r, null, null, true);
     }
 
     /**
@@ -101,7 +101,7 @@ public class TenantService {
      */
     @Transactional
     public TenantResponse create(TenantCreateRequest r, String adminPassword) {
-        return create(r, adminPassword, null);
+        return doCreate(r, adminPassword, null, false);
     }
 
     /** Alta pagada con Stripe: la contraseña elegida llega como hash BCrypt guardado antes del pago. */
@@ -110,10 +110,15 @@ public class TenantService {
         if (adminPasswordHash == null || adminPasswordHash.isBlank()) {
             throw new IllegalArgumentException("El alta no conserva la contraseña del administrador");
         }
-        return create(r, null, adminPasswordHash);
+        return doCreate(r, null, adminPasswordHash, false);
     }
 
-    private TenantResponse create(TenantCreateRequest r, String adminPassword, String adminPasswordHash) {
+    /**
+     * {@code exposeUndeliveredPassword}: solo el alta de un superadmin puede recibir la clave temporal en la
+     * respuesta, y solo si el correo no pudo entregarla. Los recorridos públicos nunca la reciben.
+     */
+    private TenantResponse doCreate(TenantCreateRequest r, String adminPassword, String adminPasswordHash,
+                                    boolean exposeUndeliveredPassword) {
         boolean ownPassword = (adminPassword != null && !adminPassword.isBlank()) || adminPasswordHash != null;
         UUID tenantId = UUID.randomUUID();
         Tenant t = new Tenant();
@@ -203,12 +208,13 @@ public class TenantService {
         }
 
         // Enviar correo con credenciales de acceso de forma defensiva
-        if (!ownPassword) sendWelcomeEmail(saved, adminUser, tempPassword);
+        boolean delivered = ownPassword || sendWelcomeEmail(saved, adminUser, tempPassword);
 
         // Sembrar catálogos base (departamentos, categorías y tipos documentales)
         seedDefaultCatalogs(saved.getId());
 
-        return map(saved);
+        TenantResponse response = map(saved);
+        return exposeUndeliveredPassword && !delivered ? response.withTemporaryPassword(tempPassword) : response;
     }
 
     /**
@@ -376,12 +382,13 @@ public class TenantService {
         return getSettings(updated.getId());
     }
 
-    private void sendWelcomeEmail(Tenant tenant, User adminUser, String tempPassword) {
+    /** @return true si el correo con las credenciales salió hacia el servidor de correo. */
+    private boolean sendWelcomeEmail(Tenant tenant, User adminUser, String tempPassword) {
         if (mailSender == null) {
             log.warn("JavaMailSender no disponible; no se envió la contraseña temporal de {} a {} (usuario={}). "
-                            + "Usa la recuperación de contraseña para definir una nueva.",
+                            + "El superadmin recibe la clave en la respuesta del alta.",
                     tenant.getName(), adminUser.getEmail(), adminUser.getUsername());
-            return;
+            return false;
         }
         try {
             SimpleMailMessage message = new SimpleMailMessage();
@@ -401,9 +408,11 @@ public class TenantService {
                     + "Atentamente,\nEl equipo de NexoDocs");
             mailSender.send(message);
             log.info("Correo de bienvenida enviado exitosamente a {}", adminUser.getEmail());
+            return true;
         } catch (Exception ex) {
             log.warn("No se pudo enviar el correo de bienvenida SMTP a {}: {}. Las credenciales se generaron correctamente.",
                     adminUser.getEmail(), ex.getMessage());
+            return false;
         }
     }
 

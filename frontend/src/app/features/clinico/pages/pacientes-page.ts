@@ -281,7 +281,7 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
     .stat-card { background: #fff; border: 1px solid #dcebe8; border-radius: 14px; padding: 18px 20px; display: flex; align-items: center; gap: 16px; }
     .stat-icon-wrap { width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
     .stat-icon-wrap.teal { background: #e6f7f5; color: #087f7b; }
-    .stat-icon-wrap.blue { background: #eff6ff; color: #2563eb; }
+    .stat-icon-wrap.blue { background: var(--mint); color: var(--teal); }
     .stat-icon-wrap.green { background: #ecfdf5; color: #059669; }
     .stat-value { font-size: 20px; font-weight: 800; color: #153a39; line-height: 1.2; }
     .stat-label { font-size: 12px; color: #6b8583; font-weight: 600; }
@@ -322,8 +322,8 @@ import { LocalizedContentDirective } from '../../../core/i18n/localized-content.
     .history-btn { background: #f0fdfa; border: 1px solid #99f6e4; color: #0f766e; border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; }
     .history-btn:hover { background: #087f7b; color: #fff; border-color: #087f7b; }
 
-    .note-action-btn { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; }
-    .note-action-btn:hover { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .note-action-btn { background: var(--mint); border: 1px solid var(--teal-muted); color: var(--teal-strong); border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; }
+    .note-action-btn:hover { background: var(--teal); color: #fff; border-color: var(--teal); }
 
     .loading-state, .empty-state { padding: 48px; text-align: center; color: #6b8583; font-size: 13px; }
     .msg-box { border-radius: 8px; padding: 12px 16px; font-size: 12px; font-weight: 600; margin-bottom: 16px; }

@@ -397,7 +397,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
     .search-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
     .search-header h2 { font-size: 18px; margin: 0 0 4px; color: #153a39; }
     .search-header small { color: #6b8583; font-size: 12px; }
-    .realtime-badge { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 4px 10px; }
+    .realtime-badge { background: var(--mint); color: var(--teal-strong); border: 1px solid var(--teal-muted); font-size: 11px; font-weight: 700; border-radius: 6px; padding: 4px 10px; }
 
     .search-input-wrap { position: relative; width: 100%; margin-bottom: 16px; }
     .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #8fa8a5; }
@@ -409,7 +409,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
     .patient-pill { display: inline-flex; align-items: center; gap: 10px; background: #f8fbfa; border: 1px solid #dcebe8; border-radius: 10px; padding: 8px 14px; cursor: pointer; text-align: left; transition: all 0.15s ease; font-family: inherit; }
     .patient-pill:hover { background: #eef8f6; border-color: #9dd8d1; }
     .patient-pill.active { background: #087f7b; color: #fff; border-color: #087f7b; box-shadow: 0 4px 12px rgba(8, 127, 123, 0.25); }
-    .pill-avatar { width: 28px; height: 28px; border-radius: 50%; background: #e0f2fe; color: #0369a1; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+    .pill-avatar { width: 28px; height: 28px; border-radius: 50%; background: #e6f5ef; color: #0f6b5f; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
     .patient-pill.active .pill-avatar { background: rgba(255,255,255,0.25); color: #fff; }
     .pill-text strong { display: block; font-size: 12px; }
     .pill-text small { display: block; font-size: 10px; opacity: 0.8; }
@@ -490,7 +490,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
     .timeline-card.voided-card { border-left: 4px solid #ef4444; background: #fef2f2; opacity: 0.85; }
 
     .timeline-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-    .note-type-badge { background: #e0f2fe; color: #0369a1; font-size: 10px; font-weight: 800; border-radius: 4px; padding: 2px 6px; text-transform: uppercase; }
+    .note-type-badge { background: #e6f5ef; color: #0f6b5f; font-size: 10px; font-weight: 800; border-radius: 4px; padding: 2px 6px; text-transform: uppercase; }
     .note-type-badge.prescription { background: #fef3c7; color: #92400e; }
     .note-status-badge { font-size: 10px; font-weight: 800; border-radius: 4px; padding: 2px 6px; background: #ecfdf5; color: #065f46; }
     .note-status-badge.draft { background: #fef3c7; color: #b45309; }

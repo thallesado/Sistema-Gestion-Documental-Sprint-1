@@ -27,6 +27,8 @@ class AssistantServiceTest {
             super("key", null, 5, new ObjectMapper());
         }
 
+        String reply = "  Ve a Digitalizacion > Procesamiento OCR.  ";
+
         @Override
         public boolean isConfigured() {
             return configured;
@@ -37,7 +39,7 @@ class AssistantServiceTest {
             if (failure != null) throw failure;
             prompts.add(prompt);
             systems.add(systemInstruction);
-            return new TextResult("  Ve a Digitalizacion > Procesamiento OCR.  ", "model-x", 12);
+            return new TextResult(reply, "model-x", 12);
         }
     }
 
@@ -137,5 +139,31 @@ class AssistantServiceTest {
                 () -> service.chat(userId, request("a", null)));
         assertEquals(HttpStatus.BAD_GATEWAY, failed.getStatusCode());
         assertFalse(failed.getReason().contains("secret"));
+    }
+
+    @Test
+    @DisplayName("los permisos del prompt salen de la sesión del servidor, no de los que manda el navegador")
+    void serverPermissionsOverrideClientOnes() {
+        FakeGemini gemini = new FakeGemini();
+        AssistantService service = new AssistantService(gemini, 5, 60);
+        AssistantChatRequest.Context context = new AssistantChatRequest.Context(
+                "/documents", List.of(), null, List.of("platform:tenant:manage"));
+
+        service.chat(userId, java.util.Set.of("document:read"), request("hola", context));
+
+        String system = gemini.systems.get(0);
+        assertTrue(system.contains("Permisos: document:read"));
+        assertFalse(system.contains("platform:tenant:manage"), "a forged client permission must not reach the prompt");
+    }
+
+    @Test
+    @DisplayName("una respuesta vacía del modelo es un 502, no un 200 sin texto")
+    void emptyModelReplyIsBadGateway() {
+        FakeGemini gemini = new FakeGemini();
+        gemini.reply = "   ";
+        AssistantService service = new AssistantService(gemini, 5, 60);
+        org.springframework.web.server.ResponseStatusException error = assertThrows(
+                org.springframework.web.server.ResponseStatusException.class, () -> service.chat(userId, request("hola", null)));
+        assertEquals(502, error.getStatusCode().value());
     }
 }

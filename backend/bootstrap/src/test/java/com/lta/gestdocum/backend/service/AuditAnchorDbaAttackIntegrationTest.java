@@ -52,6 +52,30 @@ class AuditAnchorDbaAttackIntegrationTest {
     @Autowired AuditAnchorScheduler scheduler;
 
     @Test
+    void dbaChangingClientTimestampOrUserAgentIsDetectedByChainV2() {
+        var actor = jdbc.queryForMap("SELECT id, tenant_id FROM users WHERE email='maria@clinicacentral.test' AND deleted_at IS NULL LIMIT 1");
+        UUID user = (UUID) actor.get("id");
+        UUID tenant = (UUID) actor.get("tenant_id");
+        jdbc.update("INSERT INTO audit_events(tenant_id,user_id,action,entity_type,result,details,user_agent,client_timestamp,client_timezone)"
+                        + " VALUES(?,?,'IT_V2','IT','SUCCESS','{}'::jsonb,'Mozilla/5.0 IT','2026-10-27T10:15:30.123-04:00','America/La_Paz')",
+                tenant, user);
+        Short version = jdbc.queryForObject(
+                "SELECT hash_version FROM audit_events WHERE tenant_id=? AND action='IT_V2' ORDER BY chain_seq DESC LIMIT 1", Short.class, tenant);
+        assertEquals((short) 2, version, "new events use the v2 canonical payload");
+        AuditVerificationResult before = verification.verifyTenantChain(tenant);
+        assertTrue(before.valid(), "Java and the trigger must hash v2 the same way: " + before.failureReason());
+
+        jdbc.execute("ALTER TABLE audit_events DISABLE TRIGGER USER");
+        try {
+            jdbc.update("UPDATE audit_events SET client_timestamp = client_timestamp - interval '3 hours' WHERE tenant_id=? AND action='IT_V2'", tenant);
+        } finally {
+            jdbc.execute("ALTER TABLE audit_events ENABLE TRIGGER USER");
+        }
+        AuditVerificationResult after = verification.verifyTenantChain(tenant);
+        assertFalse(after.valid(), "a rewritten client timestamp must break the chain");
+    }
+
+    @Test
     void dbaRewritingChainAndInternalAnchorIsDetectedByExternalAnchor() throws Exception {
         var actor = jdbc.queryForMap("SELECT id, tenant_id FROM users WHERE email='laura@acme.com' AND deleted_at IS NULL LIMIT 1");
         UUID user = (UUID) actor.get("id");

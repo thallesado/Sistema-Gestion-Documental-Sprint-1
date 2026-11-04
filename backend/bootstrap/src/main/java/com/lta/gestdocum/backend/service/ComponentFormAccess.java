@@ -75,10 +75,20 @@ public record ComponentFormAccess(ComponentFormCatalog.Form form, Map<String, Co
         if (isProvided(requested) && !editable(componentKey) && !sameValue(current, requested)) deny(componentKey);
     }
 
-    private void deny(String componentKey) {
-        String label = form.components().stream().filter(component -> component.key().equals(componentKey))
+    /** Acción (botón): solo se ejecuta si el componente es visible y editable para el perfil. */
+    public void requireEditable(String componentKey) {
+        if (editable(componentKey)) return;
+        throw new AccessDeniedException("Tu perfil no puede usar la acción '" + label(componentKey) + "' ("
+                + form.key() + "." + componentKey + ")");
+    }
+
+    private String label(String componentKey) {
+        return form.components().stream().filter(component -> component.key().equals(componentKey))
                 .map(ComponentFormCatalog.Component::label).findFirst().orElse(componentKey);
-        throw new AccessDeniedException("Tu perfil no puede modificar el campo '" + label + "' ("
+    }
+
+    private void deny(String componentKey) {
+        throw new AccessDeniedException("Tu perfil no puede modificar el campo '" + label(componentKey) + "' ("
                 + form.key() + "." + componentKey + ")");
     }
 
