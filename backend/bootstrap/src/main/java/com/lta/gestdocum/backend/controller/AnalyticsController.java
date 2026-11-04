@@ -20,6 +20,8 @@ import java.util.List;
 @SecurityRequirement(name = "BearerAuth")
 public class AnalyticsController {
 
+    public static final String ANALYTICS_AUTH = "hasAnyAuthority('report:read', 'tenant:manage', 'tenant:update', 'platform:tenant:manage')";
+
     private final AnalyticsService analyticsService;
 
     public AnalyticsController(AnalyticsService analyticsService) {
@@ -35,7 +37,7 @@ public class AnalyticsController {
     }
 
     @GetMapping("/dashboard")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(ANALYTICS_AUTH)
     @Operation(summary = "Tablero analítico integral", description = "Resumen de indicadores clave, series temporales, tiempos de ciclo, áreas y OCR con filtros obligatorios de fechas")
     public ResponseEntity<AnalyticsDashboardResponse> getDashboard(
             @RequestParam("dateFrom") String dateFrom,
@@ -45,7 +47,7 @@ public class AnalyticsController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(ANALYTICS_AUTH)
     @Operation(summary = "Indicadores clave (KPIs)", description = "Agregaciones de volumen, tasas de aprobación, tiempos de resolución y usuarios activos")
     public ResponseEntity<AnalyticsSummary> getSummary(
             @RequestParam("dateFrom") String dateFrom,
@@ -55,7 +57,7 @@ public class AnalyticsController {
     }
 
     @GetMapping("/monthly")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(ANALYTICS_AUTH)
     @Operation(summary = "Tendencia mensual", description = "Evolución mes a mes de documentos creados, aprobados y workflows completados")
     public ResponseEntity<List<MonthlyPoint>> getMonthlyTrend(
             @RequestParam("dateFrom") String dateFrom,
@@ -65,7 +67,7 @@ public class AnalyticsController {
     }
 
     @GetMapping("/by-area")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(ANALYTICS_AUTH)
     @Operation(summary = "Distribución por área o departamento", description = "Volumen documental y de procesos agrupados por departamento institucional")
     public ResponseEntity<List<AreaDistribution>> getAreaDistribution(
             @RequestParam("dateFrom") String dateFrom,
@@ -75,7 +77,7 @@ public class AnalyticsController {
     }
 
     @GetMapping("/workflow-cycle-times")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(ANALYTICS_AUTH)
     @Operation(summary = "Tiempos de ciclo de workflows", description = "Promedio de horas de resolución, métricas de atraso y cuellos de botella por plantilla de workflow")
     public ResponseEntity<List<WorkflowCycleTime>> getWorkflowCycleTimes(
             @RequestParam("dateFrom") String dateFrom,
@@ -85,7 +87,7 @@ public class AnalyticsController {
     }
 
     @GetMapping("/top-users")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(ANALYTICS_AUTH)
     @Operation(summary = "Usuarios con mayor actividad operativa", description = "Ranking de actividad por eventos auditados en el período sin fines punitivos")
     public ResponseEntity<List<TopUserActivity>> getTopUsers(
             @RequestParam("dateFrom") String dateFrom,
@@ -96,7 +98,7 @@ public class AnalyticsController {
     }
 
     @GetMapping("/ocr-performance")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(ANALYTICS_AUTH)
     @Operation(summary = "Métricas de aceptación y rendimiento OCR", description = "Efectividad del motor IA, porcentaje de validación vs rechazo y confianza media")
     public ResponseEntity<OcrAnalytics> getOcrPerformance(
             @RequestParam("dateFrom") String dateFrom,

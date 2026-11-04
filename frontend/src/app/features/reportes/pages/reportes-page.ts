@@ -25,6 +25,11 @@ imports: [CommonModule, RouterLink, RouterLinkActive, Pagination, KpiCard, Repor
     .platform-report-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
     .platform-report-links a { padding: 8px 14px; border-radius: 8px; background: #edf5f3; color: #087f7b; font-size: 13px; font-weight: 600; text-decoration: none; }
     .platform-report-links a.active { background: #087f7b; color: #fff; }
+    :host:has(app-reportiq-embed) .report-page,
+    .report-page:has(app-reportiq-embed) {
+      max-width: 100%;
+      padding: 12px 18px 24px;
+    }
   `],
   template: `
     <section class="page report-page">

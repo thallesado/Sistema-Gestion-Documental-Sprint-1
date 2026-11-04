@@ -175,7 +175,7 @@ export const navSections: NavSection[] = [
       {
         label: 'Reportes',
         icon: 'RP',
-permission: ['report:read', 'platform:tenant:manage'],
+permission: ['report:read', 'tenant:manage', 'tenant:update', 'platform:tenant:manage'],
         sprintEnabled: true,
         children: [
           { label: 'Reportes & Analítica IA', href: '/reports' },

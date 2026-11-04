@@ -30,7 +30,10 @@ public class ReportEmbedController {
     @Operation(summary = "Obtener configuración y token embebible firmado para ReportIQ")
     public ResponseEntity<ReportEmbedResponse> getEmbedConfig() {
         AuthenticatedUser user = userContext.require();
-        String role = user.authorities().contains("platform:tenant:manage") ? "admin" : "viewer";
+        String role = user.authorities().contains("platform:tenant:manage")
+                || user.authorities().contains("tenant:manage")
+                || user.authorities().contains("tenant:update")
+                ? "admin" : "viewer";
         ReportEmbedResponse response = reportEmbedService.getEmbedConfig(
                 user.tenantId(),
                 user.userId(),

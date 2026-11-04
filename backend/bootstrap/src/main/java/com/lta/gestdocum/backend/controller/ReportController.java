@@ -28,6 +28,7 @@ import java.util.Map;
 public class ReportController {
 
     public static final String TOTAL_ROWS_HEADER = "X-Report-Total-Rows";
+    public static final String REPORT_AUTH = "hasAnyAuthority('report:read', 'tenant:manage', 'tenant:update', 'platform:tenant:manage')";
 
     private final ReportService reportService;
 
@@ -36,7 +37,7 @@ public class ReportController {
     }
 
     @GetMapping("/documents")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(REPORT_AUTH)
     @Operation(summary = "Reporte de documentos", description = "Requiere rango de fechas (dateFrom y dateTo). Paginación en servidor.")
     public ResponseEntity<ReportPageResponse<DocumentReportRow>> getDocuments(
             @RequestParam(name = "dateFrom") String dateFrom,
@@ -54,7 +55,7 @@ public class ReportController {
     }
 
     @GetMapping("/users")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(REPORT_AUTH)
     @Operation(summary = "Reporte de usuarios", description = "Requiere rango de fechas. Actividad y accesos reales del tenant.")
     public ResponseEntity<ReportPageResponse<UserReportRow>> getUsers(
             @RequestParam(name = "dateFrom") String dateFrom,
@@ -70,7 +71,7 @@ public class ReportController {
     }
 
     @GetMapping("/workflows")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(REPORT_AUTH)
     @Operation(summary = "Reporte de flujos de trabajo", description = "Requiere rango de fechas. Estado, etapas y tiempos reales.")
     public ResponseEntity<ReportPageResponse<WorkflowReportRow>> getWorkflows(
             @RequestParam(name = "dateFrom") String dateFrom,
@@ -86,7 +87,7 @@ public class ReportController {
     }
 
     @GetMapping("/expedients")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(REPORT_AUTH)
     @Operation(summary = "Reporte de expedientes", description = "Requiere rango de fechas. Estado y tipos de expedientes reales.")
     public ResponseEntity<ReportPageResponse<ExpedientReportRow>> getExpedients(
             @RequestParam(name = "dateFrom") String dateFrom,
@@ -103,7 +104,7 @@ public class ReportController {
     }
 
     @GetMapping("/audit")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(REPORT_AUTH)
     @Operation(summary = "Reporte de auditoría", description = "Requiere rango de fechas. Acciones y eventos por usuario.")
     public ResponseEntity<ReportPageResponse<AuditReportRow>> getAudit(
             @RequestParam(name = "dateFrom") String dateFrom,
@@ -120,7 +121,7 @@ public class ReportController {
     }
 
     @GetMapping("/{reportType}/export/csv")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(REPORT_AUTH)
     @Operation(summary = "Exportar reporte en CSV", description = "Generación directa de archivo CSV desde el servidor.")
     public ResponseEntity<byte[]> exportCsv(
             @PathVariable String reportType,
@@ -148,7 +149,7 @@ public class ReportController {
     }
 
     @GetMapping("/ocr")
-    @PreAuthorize("hasAuthority('report:read')")
+    @PreAuthorize(REPORT_AUTH)
     @Operation(summary = "Reporte de trabajos OCR", description = "Requiere rango de fechas. Estado, confianza y páginas de los trabajos OCR del tenant.")
     public ResponseEntity<ReportPageResponse<OcrReportRow>> getOcr(
             @RequestParam(name = "dateFrom") String dateFrom,
