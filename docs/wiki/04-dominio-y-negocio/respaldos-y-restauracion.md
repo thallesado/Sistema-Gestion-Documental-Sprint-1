@@ -1,6 +1,6 @@
 # Respaldos y restauración por organización
 
-> Revisión documental: 2026-10-21. Base `c93a8b4` más implementación local sin commit. Sustituye el estado de «vista previa» descrito en notas históricas; no acredita despliegue en AWS.
+> Revisión documental: 2026-11-04. Fuente: checkout local 123419c más cambios locales sin commit; código y evidencia revisados para esta página.
 
 ## Implementación
 
@@ -75,3 +75,12 @@ La migración 050 se aplicó después de respaldar base y archivos en el directo
 Build backend: 169 casos, 168 correctos y 1 integración omitida por requerir opt-in. La integración completa se ejecutó separadamente y pasó (incluye retención). Frontend: 116 pruebas correctas y 1 omitida. Verificador documental: 9 pruebas correctas. El script SQL de recuperación completo pasó contra la copia aislada con el esquema final; la bitácora conserva el hash original y la evidencia protegida rechaza mutaciones. Estas cifras son resultados de esta entrega, no sustituyen verificaciones después de otros cambios.
 
 Para ver la entrada del sidebar tras la nueva concesión de permisos, renovar sesión y recargar el frontend Docker en localhost:4200. Los cambios permanecen locales, sin push ni despliegue a EC2.
+
+
+## Verificaci?n reciente de F1/F2 (2026-10-30)
+
+`TenantBackupIntegrationTest` pas? (1/1) sobre una copia temporal del dump Compose. Verific? creaci?n y checksum, restauraci?n aislada de un tenant sin cambiar otro, rechazo de un ZIP alterado, evidencia/auditor?a, ejecuci?n autom?tica diaria y retenci?n. No se prob? sobre las bases permanentes ni EC2. Se a?adi? recuperaci?n del marcador diario cuando un respaldo autom?tico falla o queda interrumpido, para permitir reintento; el camino de fallo/reintento no tuvo un caso de integraci?n dedicado. El programador es local al proceso y no se certifica para varias r?plicas.
+
+## Seguridad criptografica pendiente (2026-11-04)
+
+Los ZIP se comprimen y verifican por checksum, pero no estan cifrados por la aplicacion. tenant_backups.payload persiste como JSON legible en PostgreSQL. Los permisos del filesystem y SHA-256 no equivalen a cifrado. HU-23 no debe marcarse 100% hasta definir una clave externa persistente, cifrar paquete y payload, preservar compatibilidad/rotacion y probar restauracion. El scheduler tambien es local al proceso y requiere single replica o exclusion distribuida. Ver [HU-19 a HU-24](sprint-hu19-24.md).

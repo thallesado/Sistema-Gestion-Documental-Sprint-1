@@ -1,0 +1,8 @@
+{
+  "sent": "<p onload=\"window.HU10_XSS=1\"><strong>HU10 - Texto seguro conservado</strong></p><script>window.HU10_XSS=1</script><iframe src=\"javascript:alert(1)\"></iframe><img src=x onerror=\"window.HU10_XSS=1\">",
+  "persisted": "<p><strong>HU10 - Texto seguro conservado</strong></p>",
+  "rejected": "/medical-notes HTTP 400 {\"timestamp\":\"2026-11-06T17:36:53.775131136Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"El contenido de la nota médica no puede quedar vacío tras la sanitización\",\"path\":\"/api/v1/medical-notes\",\"code\":\"BAD_REQUEST\"}",
+  "rowsBefore": 2,
+  "rowsAfter": 2,
+  "emptyFormattingRejected": "/medical-notes HTTP 400 {\"timestamp\":\"2026-11-06T17:39:15.661561105Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"El contenido de la nota médica no puede quedar vacío tras la sanitización\",\"path\":\"/api/v1/medical-notes\",\"code\":\"BAD_REQUEST\"}"
+}

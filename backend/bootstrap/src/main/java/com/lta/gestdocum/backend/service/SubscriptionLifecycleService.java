@@ -304,14 +304,8 @@ public class SubscriptionLifecycleService {
 
     void finishNonRenewedSubscriptions() {
         // Con Stripe lo hace customer.subscription.deleted; aquí solo las suscripciones manuales.
-        List<UUID> ended = jdbc.queryForList("""
-                update tenants set subscription_status = 'CANCELED', canceled_at = now(),
-                  cancellation_reason = coalesce(cancellation_reason, 'No renovada al terminar el período'),
-                  deletion_scheduled_at = now() + make_interval(days => ?), cancel_at_period_end = false
-                where cancel_at_period_end and stripe_subscription_id is null and current_period_end <= now()
-                  and subscription_status in ('TRIAL','ACTIVE','PAST_DUE')
-                returning id
-                """, UUID.class, retentionDays);
+        List<UUID> ended = jdbc.queryForList(
+                "select tenant_id from app.finish_nonrenewed_subscriptions(?)", UUID.class, retentionDays);
         for (UUID tenantId : ended) {
             revokeTenantSessions(tenantId);
             audit(tenantId, "SUBSCRIPTION_ENDED", Map.of("reason", "not_renewed"));
@@ -319,16 +313,10 @@ public class SubscriptionLifecycleService {
     }
 
     void applyScheduledChanges() {
-        List<Map<String, Object>> due = jdbc.queryForList("""
-                update tenants set plan_id = scheduled_plan_id,
-                  billing_cycle_v2 = coalesce(scheduled_billing_cycle, billing_cycle_v2),
-                  scheduled_plan_id = null, scheduled_billing_cycle = null, scheduled_change_at = null
-                where stripe_subscription_id is null and scheduled_change_at <= now()
-                  and subscription_status in ('TRIAL','ACTIVE','PAST_DUE')
-                returning id, plan_id
-                """);
+        List<Map<String, Object>> due = jdbc.queryForList(
+                "select tenant_id, plan_id from app.apply_scheduled_subscription_changes()");
         for (Map<String, Object> row : due) {
-            audit((UUID) row.get("id"), "SUBSCRIPTION_CHANGE_APPLIED", Map.of("planId", row.get("plan_id").toString()));
+            audit((UUID) row.get("tenant_id"), "SUBSCRIPTION_CHANGE_APPLIED", Map.of("planId", row.get("plan_id").toString()));
         }
     }
 
@@ -477,10 +465,8 @@ public class SubscriptionLifecycleService {
             UUID actor = null;
             try { actor = context.require().tenantId() == null ? null : context.requireUserId(); }
             catch (RuntimeException ignored) { /* tarea programada, sin usuario */ }
-            jdbc.update("""
-                    insert into audit_events (tenant_id, user_id, action, entity_type, entity_id, result, details)
-                    values (?, ?, ?, 'tenants', ?, 'SUCCESS', cast(? as jsonb))
-                    """, tenantId, actor, action, tenantId, objectMapper.writeValueAsString(details));
+            jdbc.queryForObject("select app.record_tenant_lifecycle_audit(?, ?, ?, cast(? as jsonb))",
+                    Boolean.class, tenantId, actor, action, objectMapper.writeValueAsString(details));
         } catch (Exception exception) {
             log.warn("No se pudo auditar {} de {}: {}", action, tenantId, exception.getMessage());
         }

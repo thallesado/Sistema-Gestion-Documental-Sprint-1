@@ -1,6 +1,6 @@
 # Multi-tenancy y RLS
 
-> Revisión documental: 2026-10-16. Base de código: `a590a6d`; ver [estado verificado](../05-guias-ia/estado-verificado-y-pendientes.md). Descripción del código inspeccionado, no certificación de producción.
+> Revisión documental: 2026-11-06. Fuente: checkout local 91fb767 más cambios locales sin commit; código y evidencia verificados para esta página.
 
 ## Contexto real
 
@@ -38,6 +38,8 @@ El tenant para negocio procede del contexto. Login, selección pública y admini
 
 ## Bitácora inmutable y modelo de amenazas
 
+Las migraciones `080_audit_global_system_events` y `081_revocation_subject_validation` corrigen dos contextos de ejecución del rol no-login `nexodocs_security`: permite eventos de sistema sin actor para identidades globales, y valida el alcance de una revocación de token aunque aún no exista contexto autenticado. La segunda función ejecuta solo esa comprobación como `nexodocs_platform_admin` (rol interno BYPASSRLS); no se concede ese rol al usuario de aplicación ni se habilita acceso transversal de los usuarios de tenant.
+
 Compatibilidad JPA (2026-10-19): `AuditEvent.previousHash`, `AuditEvent.recordHash` y `AuditAnchor.recordHash` se mapean con `@JdbcTypeCode(SqlTypes.CHAR)` para coincidir con las columnas `char(64)` de la migración 041. No cambiar el esquema ni desactivar su validación para resolver esta diferencia.
 
 A partir de la migración `041_audit_tamper_proof.sql`, `audit_events` implementa una cadena de hashes SHA-256 por tenant serializada mediante advisory locks transaccionales:
@@ -49,3 +51,13 @@ A partir de la migración `041_audit_tamper_proof.sql`, `audit_events` implement
   - *Mitigación con ancla externa sellada*: `AuditAnchorService` publica periódicamente o bajo demanda sellos firmados con HMAC-SHA256 (`public.audit_anchors` y un destino externo configurable: archivo de solo agregado en un volumen aparte o un webhook HTTP; ver [anclaje externo](../06-operacion/anclaje-externo-auditoria.md)). Si el DBA recalcula la cadena interna en la base de datos, la divergencia entre el hash sellado externamente y el hash recalculado es matemáticamente detectable (`EXTERNAL_ANCHOR_MISMATCH`), imposibilitando el repudio o la falsificación retroactiva.
 
 Fuentes: [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/AuthenticatedUserContext.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/AuthenticatedUserContext.java), [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AuditVerificationService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AuditVerificationService.java), [database/init/002_security.sql](../../../database/init/002_security.sql), [database/init/004_saas_hardening.sql](../../../database/init/004_saas_hardening.sql), [database/init/034_user_self_read_policy.sql](../../../database/init/034_user_self_read_policy.sql), [database/init/041_audit_tamper_proof.sql](../../../database/init/041_audit_tamper_proof.sql). Referencia: [PostgreSQL RLS](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).
+
+## Actualizacion de integridad local (2026-11-04)
+
+La migracion 085 asigna app.validate_current_version() al owner interno nexodocs_platform_admin. El owner anterior nexodocs_security no veia filas de documents bajo FORCE RLS en el trigger diferido, por lo que no garantizaba el puntero a la version mas reciente. La funcion acota consultas por NEW.tenant_id y NEW.id; la aplicacion no puede asumir ese rol. database/tests/run.ps1 verifica instalacion limpia y upgrade de esquema/datos en PostgreSQL efimero. Ver [HU-19 a HU-24](../04-dominio-y-negocio/sprint-hu19-24.md).
+
+## Sesiones y recuperacion con RLS (2026-11-06)
+
+La migracion 087_secure_recovery_tenant_scope activa y fuerza RLS en auth_sessions y password_recovery_requests. La aplicacion solo ve sesiones del tenant y usuario autenticados (o sesiones del tenant cuando posee user:update); recuperacion usa una funcion SECURITY DEFINER restringida para localizar y bloquear por hash el token, establecer contexto del propietario y continuar con nexodocs_app. Los enlaces de reset llevan tenantId, que el servidor compara con el tenant del token.
+
+El worker de bases aisladas ejecuta migraciones tenant-safe pendientes; excluye 059_tenant_database_lifecycle. Las credenciales de DDL no se pasan al servicio HTTP. La migracion 087 esta aplicada en las cuatro bases persistentes locales y en tres bases aisladas se verifico el aislamiento RLS con el rol runtime. No se modifico AWS. El rol administrativo del worker conserva CREATEDB y BYPASSRLS; revoked_access_tokens y audit_anchors siguen como excepciones globales sin RLS y requieren aislamiento de acceso especifico antes de certificar produccion. Ver [aislamiento de bases por tenant](../04-dominio-y-negocio/aislamiento-bases-por-tenant.md).

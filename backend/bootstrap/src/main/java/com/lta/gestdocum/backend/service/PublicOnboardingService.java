@@ -8,7 +8,6 @@ import com.lta.gestdocum.backend.dto.TenantResponse;
 import com.lta.gestdocum.backend.model.Plan;
 import com.lta.gestdocum.backend.repository.PlanRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
 import java.util.Locale;
@@ -31,7 +30,6 @@ public class PublicOnboardingService {
         this.tenantService = tenantService;
     }
 
-    @Transactional
     public AuthResponse onboard(PublicOnboardingRequest request) {
         String planCode = request.planCode().trim().toUpperCase(Locale.ROOT);
         Plan plan = plans.findFirstByCodeIgnoreCaseAndActiveTrue(planCode)

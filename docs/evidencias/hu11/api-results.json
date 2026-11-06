@@ -1,0 +1,74 @@
+{
+  "results": [
+    {
+      "label": "repetir baja",
+      "blocked": true,
+      "error": "/clinical-histories/c35f3cd7-0039-41e9-9b9d-7fc7f52acd03 HTTP 404 {\"timestamp\":\"2026-11-06T17:09:43.872587513Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Historia clínica no encontrada\",\"path\":\"/api/v1/clinical-histories/c35f3cd7-0039-41e9-9b9d-7fc7f52acd03\",\"code\":\"NOT_FOUND\"}"
+    },
+    {
+      "label": "vincular tras baja",
+      "blocked": true,
+      "error": "/clinical-histories/c35f3cd7-0039-41e9-9b9d-7fc7f52acd03/documents/af080aea-b8f1-42d3-ba46-3f6ece5d42c4 HTTP 404 {\"timestamp\":\"2026-11-06T17:09:43.899806278Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Historia clínica no encontrada\",\"path\":\"/api/v1/clinical-histories/c35f3cd7-0039-41e9-9b9d-7fc7f52acd03/documents/af080aea-b8f1-42d3-ba46-3f6ece5d42c4\",\"code\":\"NOT_FOUND\"}"
+    },
+    {
+      "label": "crear nota tras baja",
+      "blocked": true,
+      "error": "/medical-notes HTTP 404 {\"timestamp\":\"2026-11-06T17:09:43.926144262Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Historia clínica no encontrada\",\"path\":\"/api/v1/medical-notes\",\"code\":\"NOT_FOUND\"}"
+    },
+    {
+      "label": "emitir borrador tras baja",
+      "blocked": true,
+      "error": "/medical-notes/5a37da0c-82c0-4643-a9d7-fa14a7008cf7/status HTTP 404 {\"timestamp\":\"2026-11-06T17:09:43.960898685Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Historia clínica no encontrada\",\"path\":\"/api/v1/medical-notes/5a37da0c-82c0-4643-a9d7-fa14a7008cf7/status\",\"code\":\"NOT_FOUND\"}"
+    }
+  ],
+  "evidence": {
+    "id": "c35f3cd7-0039-41e9-9b9d-7fc7f52acd03",
+    "code": "HC-1A4F7DF0",
+    "patientId": "5c08191c-59b0-4703-b63f-58d138c0ec2c",
+    "deletedAt": "2026-11-06T17:09:01.905456Z",
+    "reason": "Duplicado confirmado en la prueba HU11.\nReferencia: \"ADM-11\", carpeta C:\\archivo\\HU11.",
+    "deletedBy": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039"
+  },
+  "events": [
+    {
+      "id": 8362,
+      "action": "CLINICAL_HISTORY_DELETED",
+      "userId": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+      "entityId": "c35f3cd7-0039-41e9-9b9d-7fc7f52acd03",
+      "occurredAt": "2026-11-06T17:09:01.905456Z",
+      "details": {
+        "reason": "Duplicado confirmado en la prueba HU11.\nReferencia: \"ADM-11\", carpeta C:\\archivo\\HU11."
+      }
+    },
+    {
+      "id": 8356,
+      "action": "CLINICAL_DOCUMENT_LINKED",
+      "userId": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+      "entityId": "c35f3cd7-0039-41e9-9b9d-7fc7f52acd03",
+      "occurredAt": "2026-11-06T17:05:34.272767Z",
+      "details": {
+        "documentId": "af080aea-b8f1-42d3-ba46-3f6ece5d42c4"
+      }
+    },
+    {
+      "id": 8346,
+      "action": "CLINICAL_DOCUMENT_UNLINKED",
+      "userId": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+      "entityId": "c35f3cd7-0039-41e9-9b9d-7fc7f52acd03",
+      "occurredAt": "2026-11-06T17:04:10.741022Z",
+      "details": {
+        "documentId": "af080aea-b8f1-42d3-ba46-3f6ece5d42c4"
+      }
+    },
+    {
+      "id": 8344,
+      "action": "CLINICAL_DOCUMENT_LINKED",
+      "userId": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+      "entityId": "c35f3cd7-0039-41e9-9b9d-7fc7f52acd03",
+      "occurredAt": "2026-11-06T17:03:08.260265Z",
+      "details": {
+        "documentId": "af080aea-b8f1-42d3-ba46-3f6ece5d42c4"
+      }
+    }
+  ]
+}

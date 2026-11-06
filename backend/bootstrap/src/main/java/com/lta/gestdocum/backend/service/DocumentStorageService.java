@@ -74,11 +74,15 @@ public class DocumentStorageService {
     }
 
     @Transactional
-    public DocumentVersionResponse upload(UUID documentId, MultipartFile file, String reason) {
+    public DocumentVersionResponse upload(UUID documentId, MultipartFile file, String reason, String ifMatch) {
         UUID tenantId = context.requireTenantId();
         context.establishDatabaseContext();
-        documentRepository.findByIdAndTenantIdAndDeletedAtIsNull(documentId, tenantId)
+        var document = documentRepository.findForStateChange(documentId, tenantId)
                 .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
+        DocumentStateToken.requireMatch(ifMatch, document);
+        if (document.getStatus() == com.lta.gestdocum.backend.model.Document.DocumentStatus.ARCHIVED) {
+            throw new IllegalStateException("Restaura el documento antes de agregar una nueva version al archivo historico");
+        }
         // La primera versión forma parte del alta; las siguientes son la acción «Subir nueva versión».
         if (componentPermissions != null && versionRepository.existsByTenantIdAndDocumentId(tenantId, documentId)) {
             componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM).requireEditable("accion_subir_version");
@@ -118,6 +122,15 @@ public class DocumentStorageService {
             if (exception instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("No se pudo almacenar el archivo", exception);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public String stateToken(UUID documentId) {
+        UUID tenantId = context.requireTenantId();
+        context.establishDatabaseContext();
+        return documentRepository.findByIdAndTenantIdAndDeletedAtIsNull(documentId, tenantId)
+                .map(DocumentStateToken::from)
+                .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
     }
 
     private void recordVersion(UUID documentId, DocumentVersion saved) {

@@ -190,6 +190,11 @@ export class ClinicalApiService {
     return this.http.patch<MedicalNoteItem>(`${API_URL}/medical-notes/${id}/status`, { status });
   }
 
+  historyDeletion(patientId: string): Observable<{ code: string; deletedAt: string; reason: string; deletedBy: string } | null> {
+    return this.http.get<{ code: string; deletedAt: string; reason: string; deletedBy: string } | null>(
+      `${API_URL}/clinical-histories/deletion`, { params: { patientId } });
+  }
+
   deleteHistory(id: string, reason: string): Observable<void> {
     return this.http.delete<void>(`${API_URL}/clinical-histories/${id}`, { body: { reason } });
   }

@@ -90,7 +90,7 @@ class DocumentComponentPermissionTest {
     @DisplayName("Sin código ni nombre el servidor los asigna y la respuesta no incluye el código oculto")
     void serverAssignsValuesAndHidesCode() {
         when(documentTypeRepository.findByIdAndTenantId(typeId, tenantId))
-                .thenReturn(Optional.of(DocumentType.builder().id(typeId).tenantId(tenantId).name("Contrato").code("CTR").build()));
+                .thenReturn(Optional.of(DocumentType.builder().id(typeId).tenantId(tenantId).name("Contrato").code("CTR").active(true).build()));
         when(repository.save(any(Document.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         DocumentResponse response = service.create(request(null, null));

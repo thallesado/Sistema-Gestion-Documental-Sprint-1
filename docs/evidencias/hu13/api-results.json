@@ -1,0 +1,53 @@
+{
+  "negative": [
+    {
+      "label": "faltantes",
+      "blocked": true,
+      "error": "/documents HTTP 400 {\"timestamp\":\"2026-11-06T18:25:46.343260949Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Falta el metadato obligatorio: Referencia institucional\",\"path\":\"/api/v1/documents\",\"code\":\"BAD_REQUEST\"}"
+    },
+    {
+      "label": "fecha invalida",
+      "blocked": true,
+      "error": "/documents HTTP 400 {\"timestamp\":\"2026-11-06T18:25:46.415132385Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Fecha inválida en metadato: Fecha del informe\",\"path\":\"/api/v1/documents\",\"code\":\"BAD_REQUEST\"}"
+    },
+    {
+      "label": "tipo incorrecto",
+      "blocked": true,
+      "error": "/documents HTTP 400 {\"timestamp\":\"2026-11-06T18:25:46.462435199Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Tipo incorrecto en metadato: Cantidad de paginas\",\"path\":\"/api/v1/documents\",\"code\":\"BAD_REQUEST\"}"
+    },
+    {
+      "label": "opcion invalida",
+      "blocked": true,
+      "error": "/documents HTTP 400 {\"timestamp\":\"2026-11-06T18:25:46.550307715Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Opción inválida en metadato: Prioridad documental\",\"path\":\"/api/v1/documents\",\"code\":\"BAD_REQUEST\"}"
+    }
+  ],
+  "persisted": {
+    "id": "bf578bf2-e0b7-4565-93f3-d281d6b3f0e0",
+    "code": "HU13-INFORME",
+    "metadata": {
+      "pages": 4,
+      "signed": false,
+      "priority": "NORMAL",
+      "reference": "REF-HU13-CORREGIDA",
+      "reportDate": "2026-11-06"
+    }
+  },
+  "invalidDocuments": 0,
+  "workflowRejected": "/workflows HTTP 400 {\"timestamp\":\"2026-11-06T18:28:00.637836445Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Falta el metadato obligatorio: Referencia institucional\",\"path\":\"/api/v1/workflows\",\"code\":\"BAD_REQUEST\"}",
+  "correctedLegacy": {
+    "id": "98b688a9-1bef-41f9-9485-2c85230d2195",
+    "metadata": {
+      "pages": 2,
+      "signed": false,
+      "priority": "NORMAL",
+      "reference": "REF-LEGADO-COMPLETADO",
+      "reportDate": "2026-11-06"
+    },
+    "status": "IN_REVIEW"
+  },
+  "workflow": {
+    "id": "258519e5-3ba4-49fb-9781-06000823cb69",
+    "status": "IN_PROGRESS"
+  },
+  "editingBlockedDuringWorkflow": "/documents/98b688a9-1bef-41f9-9485-2c85230d2195/metadata HTTP 409 {\"timestamp\":\"2026-11-06T18:32:48.171021252Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"No se pueden editar metadatos con workflow activo o documento cerrado\",\"path\":\"/api/v1/documents/98b688a9-1bef-41f9-9485-2c85230d2195/metadata\",\"code\":\"RESOURCE_CONFLICT\"}"
+}

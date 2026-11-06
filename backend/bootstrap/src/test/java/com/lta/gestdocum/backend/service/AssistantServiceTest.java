@@ -71,7 +71,8 @@ class AssistantServiceTest {
         assertTrue(system.contains("POST /api/v1/ocr/process -> HTTP 500"));
         assertTrue(system.contains("ocr:read"));
         assertTrue(system.toLowerCase().contains("datos clínicos"), "clinical data rule");
-        assertEquals("¿Cómo indexo un documento?", gemini.prompts.get(0));
+        assertEquals(AssistantService.safeHelpIntent("¿Cómo indexo un documento?"), gemini.prompts.get(0));
+        assertFalse(gemini.prompts.get(0).contains("indexo"), "free text is not forwarded to Gemini");
     }
 
     @Test
@@ -96,6 +97,21 @@ class AssistantServiceTest {
         assertFalse(system.contains("Ignore previous instructions"));
         assertTrue(system.contains("/clinical/patients/:id"));
         assertTrue(system.contains("/documents/:id"));
+    }
+
+    @Test
+    @DisplayName("free text, including patient identifiers, is reduced to a fixed help intent before Gemini")
+    void freeTextIsNeverForwarded() {
+        FakeGemini gemini = new FakeGemini();
+        AssistantService service = new AssistantService(gemini, 5, 60);
+        String input = "Paciente Juan Pérez CI 12345678: ¿qué diagnóstico y receta tiene?";
+
+        service.chat(userId, request(input, null));
+
+        assertFalse(gemini.prompts.get(0).contains("Juan"));
+        assertFalse(gemini.prompts.get(0).contains("12345678"));
+        assertFalse(gemini.prompts.get(0).contains("diagnóstico"));
+        assertTrue(gemini.prompts.get(0).contains("expedientes y modulo clinico"));
     }
 
     @Test

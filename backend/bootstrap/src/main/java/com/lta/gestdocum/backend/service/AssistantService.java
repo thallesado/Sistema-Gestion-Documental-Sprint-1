@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.Normalizer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
  * Asistente contextual (H2): responde dudas de uso con Gemini usando un manual resumido de la aplicación
  * y el contexto de navegación que envía el frontend.
  *
- * <p>No consulta datos del tenant ni del paciente: lo único que llega a Gemini es la pregunta del usuario,
+ * <p>No consulta datos del tenant ni del paciente: a Gemini solo se envía una intención fija de ayuda,
  * el manual y un contexto saneado (rutas sin identificadores ni query string y códigos de permiso válidos).
  * Límite por usuario en ventana fija, en memoria (una instancia).
  */
@@ -78,7 +79,9 @@ public class AssistantService {
         }
         consumeQuota(userId);
         try {
-            GeminiClient.TextResult result = gemini.generateText(request.message().trim(),
+            // Only forward a fixed help intent so accidental clinical/personal data
+            // typed by the user is not sent to Gemini. Permissions remain server-derived.
+            GeminiClient.TextResult result = gemini.generateText(safeHelpIntent(request.message()),
                     systemPrompt(request.context(), serverPermissions));
             String reply = result.text() == null ? "" : result.text().trim();
             if (reply.isEmpty()) {
@@ -86,7 +89,7 @@ public class AssistantService {
             }
             return new AssistantChatResponse(reply, result.modelUsed());
         } catch (RuntimeException e) {
-            log.warn("Fallo del asistente contextual: {}", e.getMessage());
+            log.warn("Fallo del asistente contextual: {}", e.getClass().getSimpleName());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "El asistente no pudo responder. Intenta nuevamente.");
         }
     }
@@ -104,6 +107,35 @@ public class AssistantService {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
                     "Demasiadas preguntas al asistente. Intenta nuevamente en un minuto.");
         }
+    }
+
+    static String safeHelpIntent(String message) {
+        String normalized = Normalizer.normalize(Objects.requireNonNullElse(message, ""), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").toLowerCase(java.util.Locale.ROOT);
+        String topic;
+        if (containsAny(normalized, "workflow", "flujo", "tarea", "aprobacion", "revision")) {
+            topic = "workflows, tareas y aprobaciones";
+        } else if (containsAny(normalized, "respaldo", "backup", "restaurar", "restauracion")) {
+            topic = "respaldos y restauracion";
+        } else if (containsAny(normalized, "reporte", "informe", "qbe", "voz", "indicador", "kpi")) {
+            topic = "reportes e indicadores";
+        } else if (containsAny(normalized, "ocr", "digitalizacion", "escanear", "escaner")) {
+            topic = "digitalizacion y OCR";
+        } else if (containsAny(normalized, "expediente", "paciente", "historia clinica", "nota medica", "receta")) {
+            topic = "expedientes y modulo clinico";
+        } else if (containsAny(normalized, "documento", "archivo", "version", "carpeta")) {
+            topic = "gestion documental";
+        } else if (containsAny(normalized, "usuario", "permiso", "rol", "acceso", "contrasena", "sesion", "login")) {
+            topic = "acceso, usuarios y permisos";
+        } else {
+            topic = "uso general de NexoDocs";
+        }
+        return "El usuario necesita instrucciones generales del producto sobre " + topic
+                + ". Responde solamente con pasos del manual, sin solicitar ni inferir información de personas.";
+    }
+
+    private static boolean containsAny(String value, String... terms) {
+        return java.util.Arrays.stream(terms).anyMatch(value::contains);
     }
 
     String systemPrompt(AssistantChatRequest.Context context) {

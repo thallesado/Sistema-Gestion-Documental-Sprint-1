@@ -155,7 +155,7 @@ class HiddenComponentsRemainingPathsTest {
         Patient patient = Patient.builder().id(patientId).firstName("Ana").lastName("Pérez")
                 .documentType("CI").documentNumber("123").build();
         when(patients.requireByIdAndTenant(patientId, tenantId)).thenReturn(patient);
-        when(historyRepository.findByTenantIdAndPatientId(tenantId, patientId)).thenReturn(Optional.of(
+        when(historyRepository.findByTenantIdAndPatientIdAndDeletedAtIsNull(tenantId, patientId)).thenReturn(Optional.of(
                 ClinicalHistory.builder().id(historyId).tenantId(tenantId).code("HC-1").build()));
         when(noteRepository.findByTenantIdAndClinicalHistoryIdOrderByCreatedAtDesc(any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(note())));
@@ -291,6 +291,7 @@ class HiddenComponentsRemainingPathsTest {
         Document document = new Document(tenantId, UUID.randomUUID(), UUID.randomUUID(), "DOC-1", "Informe");
         document.setId(documentId);
         when(documentRepository.findByIdAndTenantIdAndDeletedAtIsNull(any(), any())).thenReturn(Optional.of(document));
+        when(documentRepository.findForStateChange(any(), any())).thenReturn(Optional.of(document));
         return service;
     }
 
@@ -301,7 +302,8 @@ class HiddenComponentsRemainingPathsTest {
         DocumentStorageService service = storage();
         when(versionRepository.existsByTenantIdAndDocumentId(any(), any())).thenReturn(true);
         MockMultipartFile file = new MockMultipartFile("file", "a.pdf", "application/pdf", new byte[]{1});
-        assertThrows(AccessDeniedException.class, () -> service.upload(UUID.randomUUID(), file, "Corrección"));
+        UUID documentId = UUID.randomUUID();
+        assertThrows(AccessDeniedException.class, () -> service.upload(documentId, file, "Corrección", service.stateToken(documentId)));
     }
 
     @Test
@@ -312,7 +314,8 @@ class HiddenComponentsRemainingPathsTest {
         when(versionRepository.existsByTenantIdAndDocumentId(any(), any())).thenReturn(false);
         MockMultipartFile empty = new MockMultipartFile("file", "a.pdf", "application/pdf", new byte[0]);
         // Supera el control del botón y falla después en la validación del archivo vacío, no por permisos.
-        RuntimeException error = assertThrows(RuntimeException.class, () -> service.upload(UUID.randomUUID(), empty, "Alta"));
+        UUID documentId = UUID.randomUUID();
+        RuntimeException error = assertThrows(RuntimeException.class, () -> service.upload(documentId, empty, "Alta", service.stateToken(documentId)));
         assertTrue(!(error instanceof AccessDeniedException), "no debe ser un rechazo por el botón");
     }
 }

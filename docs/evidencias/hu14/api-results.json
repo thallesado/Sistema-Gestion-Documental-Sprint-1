@@ -1,0 +1,109 @@
+﻿{
+    "flow":  "Flujo real por interfaz Angular contra API Spring Boot en Docker local",
+    "tenant":  "HU09 - Demostracion sintetica",
+    "document":  "HU-14 Versionado sintetico 20261106193009",
+    "documentId":  "8becb766-72b4-4f00-a427-75cf496f361a",
+    "stateAction":  "Pending",
+    "uploadIfMatchPresent":  null,
+    "requests":  [
+                     {
+                         "method":  "GET",
+                         "status":  200,
+                         "path":  "/api/v1/documents/specialties",
+                         "etag":  null
+                     },
+                     {
+                         "method":  "GET",
+                         "status":  200,
+                         "path":  "/api/v1/documents/categories",
+                         "etag":  null
+                     },
+                     {
+                         "method":  "GET",
+                         "status":  200,
+                         "path":  "/api/v1/documents/processes",
+                         "etag":  null
+                     },
+                     {
+                         "method":  "GET",
+                         "status":  200,
+                         "path":  "/api/v1/documents",
+                         "etag":  null
+                     },
+                     {
+                         "method":  "GET",
+                         "status":  200,
+                         "path":  "/api/v1/documents/8becb766-72b4-4f00-a427-75cf496f361a",
+                         "etag":  "\"vo04eGPiXKzN3kM8eRu8s0mEG6RmyERqpaShJtYSmgI\""
+                     },
+                     {
+                         "method":  "GET",
+                         "status":  200,
+                         "path":  "/api/v1/documents/8becb766-72b4-4f00-a427-75cf496f361a/versions",
+                         "etag":  null
+                     },
+                     {
+                         "method":  "PATCH",
+                         "status":  200,
+                         "path":  "/api/v1/documents/8becb766-72b4-4f00-a427-75cf496f361a/status",
+                         "etag":  "\"vviHB2Y8CgT5Wtruwe5LS0toS9l_ED5ka39LTJsNrr8\""
+                     },
+                     {
+                         "method":  "GET",
+                         "status":  200,
+                         "path":  "/api/v1/documents",
+                         "etag":  null
+                     },
+                     {
+                         "method":  "GET",
+                         "status":  200,
+                         "path":  "/api/v1/documents/8becb766-72b4-4f00-a427-75cf496f361a",
+                         "etag":  "\"OMBUJQ5VIYmimTxPUGRYICrji-7NNEF090wSYrkIoLo\""
+                     },
+                     {
+                         "method":  "POST",
+                         "status":  201,
+                         "path":  "/api/v1/documents/8becb766-72b4-4f00-a427-75cf496f361a/versions",
+                         "etag":  "\"CGSrltTiOCawFx82vU9Z81z-ICEzLSt_iQb86l0m8co\""
+                     },
+                     {
+                         "method":  "GET",
+                         "status":  200,
+                         "path":  "/api/v1/documents/8becb766-72b4-4f00-a427-75cf496f361a",
+                         "etag":  "\"CGSrltTiOCawFx82vU9Z81z-ICEzLSt_iQb86l0m8co\""
+                     },
+                     {
+                         "method":  "GET",
+                         "status":  200,
+                         "path":  "/api/v1/documents/8becb766-72b4-4f00-a427-75cf496f361a/versions",
+                         "etag":  null
+                     },
+                     {
+                         "method":  "GET",
+                         "status":  200,
+                         "path":  "/api/v1/documents",
+                         "etag":  null
+                     },
+                     {
+                         "method":  "PATCH",
+                         "status":  412,
+                         "path":  "/api/v1/documents/8becb766-72b4-4f00-a427-75cf496f361a/status",
+                         "etag":  null
+                     }
+                 ],
+    "staleIfMatch":  {
+                         "status":  412
+                     },
+    "uploadTokenContract":  "HTTP 201 from version endpoint; service requires If-Match and returns 428 when absent. Header construction verified in Angular DocumentApiService.",
+    "databaseVerifiedVersions":  [
+                                     {
+                                         "version":  1,
+                                         "file":  "hu14-v2.pdf"
+                                     },
+                                     {
+                                         "version":  2,
+                                         "file":  "hu14-v2-final.pdf"
+                                     }
+                                 ],
+    "databaseVerifiedState":  "DRAFT"
+}

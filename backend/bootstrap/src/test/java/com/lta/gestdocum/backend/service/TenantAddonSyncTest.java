@@ -103,4 +103,14 @@ class TenantAddonSyncTest {
         sync.sync(tenantId, subscription("active", 0), Instant.parse("2030-01-01T00:00:00Z"));
         verify(jdbc).update(contains("set pending_units = ?"), eq(0), any(java.sql.Timestamp.class), eq(id), eq(0));
     }
+
+    @Test
+    void scheduledSettlementUsesTheRestrictedDatabaseFunction() {
+        TenantAddonSync sync = new TenantAddonSync(jdbc);
+
+        sync.applyDueChanges();
+
+        verify(jdbc).queryForObject("select app.apply_due_tenant_addon_changes()", Integer.class);
+        verify(jdbc, never()).update(contains("update tenant_addons"), any(Object[].class));
+    }
 }

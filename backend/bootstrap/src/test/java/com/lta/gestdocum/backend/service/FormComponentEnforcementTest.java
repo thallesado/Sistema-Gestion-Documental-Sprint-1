@@ -78,8 +78,8 @@ class FormComponentEnforcementTest {
                 componentPermissions);
         UUID historyId = UUID.randomUUID();
         UUID noteId = UUID.randomUUID();
-        lenient().when(historyRepository.findByIdAndTenantId(historyId, tenantId)).thenReturn(Optional.of(new ClinicalHistory()));
-        when(noteRepository.findByIdAndTenantId(noteId, tenantId)).thenReturn(Optional.of(MedicalNote.builder()
+        lenient().when(historyRepository.findByIdAndTenantIdAndDeletedAtIsNull(historyId, tenantId)).thenReturn(Optional.of(new ClinicalHistory()));
+        when(noteRepository.findForTransition(noteId, tenantId)).thenReturn(Optional.of(MedicalNote.builder()
                 .id(noteId).tenantId(tenantId).status(DocumentStatus.DRAFT).build()));
 
         assertThrows(AccessDeniedException.class, () -> service.transition(noteId, DocumentStatus.APPROVED));
@@ -98,7 +98,7 @@ class FormComponentEnforcementTest {
                 .thenReturn(access(ComponentFormCatalog.MEDICAL_NOTE_FORM,
                         new Row(5L, "tipo", VISIBLE_READONLY), new Row(5L, "contenido", VISIBLE_READONLY)));
         UUID historyId = UUID.randomUUID();
-        when(historyRepository.findByIdAndTenantId(historyId, tenantId)).thenReturn(Optional.of(new ClinicalHistory()));
+        when(historyRepository.findByIdAndTenantIdAndDeletedAtIsNull(historyId, tenantId)).thenReturn(Optional.of(new ClinicalHistory()));
         MedicalNoteService service = new MedicalNoteService(noteRepository, historyRepository, userContext, sanitizer,
                 componentPermissions);
 

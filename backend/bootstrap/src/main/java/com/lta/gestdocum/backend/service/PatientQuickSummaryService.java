@@ -38,7 +38,7 @@ public class PatientQuickSummaryService {
         UUID tenantId = context.requireTenantId();
         context.establishDatabaseContext();
         Patient patient = patientService.requireByIdAndTenant(patientId, tenantId);
-        var history = historyRepository.findByTenantIdAndPatientId(tenantId, patientId).orElse(null);
+        var history = historyRepository.findByTenantIdAndPatientIdAndDeletedAtIsNull(tenantId, patientId).orElse(null);
         if (history == null) {
             return new PatientQuickSummaryResponse(patientId, patient.getFirstName() + " " + patient.getLastName(),
                     patient.getDocumentType() + " " + patient.getDocumentNumber(), null, null,

@@ -9,6 +9,8 @@ import { RichTextEditorComponent } from '../../../shared';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 import { FieldPermissionDirective } from '../../../core/auth/field-permission.directive';
 import { ComponentPermissionService } from '../../../core/auth/component-permission.service';
+import { PermissionService } from '../../../core/auth/permission.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-notas-medicas-page',
@@ -124,6 +126,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
           </div>
         }
 
+        <p class="form-note">Toda nota se guarda como BORRADOR. Después puedes emitirla o anularla. Los estados VIGENTE y ANULADA son definitivos.</p>
         <!-- Grid: Formulario a la Izquierda y Línea de Tiempo de Evolución a la Derecha -->
         <div class="notes-grid">
           
@@ -134,24 +137,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                 <h2>Registrar Nota Médica / Receta</h2>
                 <small>Evolución clínica estructurada vinculada inalterablemente al expediente</small>
               </div>
-              <div class="status-selector" [appField]="'nota_medica.estado'">
-                <button
-                  type="button"
-                  class="status-btn"
-                  [class.active]="noteStatus() === 'DRAFT'"
-                  (click)="noteStatus.set('DRAFT')"
-                >
-                  🟡 Borrador (DRAFT)
-                </button>
-                <button
-                  type="button"
-                  class="status-btn"
-                  [class.active]="noteStatus() === 'APPROVED'"
-                  (click)="noteStatus.set('APPROVED')"
-                >
-                  🟢 Vigente (Emitida)
-                </button>
-              </div>
+              <span class="note-status-badge draft">BORRADOR</span>
             </div>
 
             <!-- Selector de Tipo de Nota -->
@@ -247,7 +233,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                   class="primary-btn"
                   [disabled]="noteForm.invalid || isSaving() || !patientHistory()"
                 >
-                  {{ isSaving() ? 'Guardando en Base de Datos...' : (noteStatus() === 'DRAFT' ? '💾 Guardar como Borrador' : '✍️ Firmar y Emitir Nota Médica') }}
+                  {{ isSaving() ? 'Guardando...' : 'Guardar como Borrador' }}
                 </button>
               </div>
 
@@ -300,15 +286,18 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                     </div>
 
                     <div class="note-card-footer">
-                      <small>✍️ Médico Tratante: <strong>Laura Martínez</strong></small>
+                      <small>Autor registrado: <strong>{{ authorLabel(note) }}</strong></small>
                       <div class="note-actions">
-                        @if (note.status === 'DRAFT') {
+                        @if (note.status === 'DRAFT' && permissions.can('medical_note:update')) {
                           <button type="button" class="action-btn approve-btn" [appField]="'nota_medica.estado'" [disabled]="isUpdatingStatus()" (click)="changeStatus(note, 'APPROVED')">
                             ✓ Emitir
                           </button>
                           <button type="button" class="action-btn void-btn" [appField]="'nota_medica.estado'" [disabled]="isUpdatingStatus()" (click)="changeStatus(note, 'VOIDED')">
                             ✕ Anular
                           </button>
+                        }
+                        @if (note.status === 'APPROVED' || note.status === 'VOIDED') {
+                          <small class="terminal-state">🔒 Estado definitivo · Nota inmutable</small>
                         }
                         <button type="button" class="print-note-btn" (click)="openPrintNote(note)">
                           🖨️ Imprimir
@@ -366,7 +355,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
 
               <div class="doc-signature">
                 <div class="sig-line">
-                  <p>Dr(a). Laura Martínez</p>
+                  <p>{{ authorLabel(note) }}</p>
                   <small>Médico Especialista · Reg. Profesional 45920-LP</small>
                 </div>
               </div>
@@ -561,7 +550,9 @@ export class NotasMedicasPage implements OnInit {
   readonly isSaving = signal<boolean>(false);
 
   readonly noteType = signal<'EVOLUTION' | 'PRESCRIPTION' | 'CONSULTATION'>('EVOLUTION');
-  readonly noteStatus = signal<MedicalNoteStatus>('APPROVED');
+  readonly permissions = inject(PermissionService);
+  private readonly auth = inject(AuthService);
+  readonly noteStatus = signal<MedicalNoteStatus>('DRAFT');
   /** Privilegios por componente: si el perfil no puede elegir tipo o estado, se fijan los valores que acepta el servidor. */
   private readonly lockedDefaults = effect(() => {
     if (!this.fields.editable('nota_medica.tipo')) this.noteType.set('EVOLUTION');
@@ -765,6 +756,13 @@ export class NotasMedicasPage implements OnInit {
         this.errorMessage.set(err?.error?.message || 'Error al cambiar el estado de la nota.');
       }
     });
+  }
+
+  authorLabel(note: MedicalNoteItem): string {
+    const user = this.auth.user();
+    return user?.id === note.authorId
+      ? `${user.firstName} ${user.lastName}`.trim() || user.username
+      : note.authorId;
   }
 
   getStatusLabel(status: MedicalNoteStatus | string): string {

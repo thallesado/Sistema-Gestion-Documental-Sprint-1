@@ -62,6 +62,7 @@ public class WorkflowEngineService {
     }
     private Object parse(Object value) {
         if(value==null)return null;
+        if(value instanceof Map<?,?> || value instanceof Collection<?>)return value;
         try{return mapper.readValue(value.toString(),Object.class);}catch(Exception e){throw new IllegalArgumentException("Datos JSON inválidos");}
     }
     private List<Map<String,Object>> rows(String sql,Map<String,Object> p) {
@@ -443,6 +444,11 @@ public class WorkflowEngineService {
         p.put("document",request.documentId());p.put("expedient",request.expedientId());p.put("department",request.departmentId());
         if(request.documentId()!=null) {
             Map<String,Object> doc=one("SELECT * FROM documents WHERE tenant_id=:tenant AND id=:document AND deleted_at IS NULL FOR UPDATE",p);
+            p.put("metadataType", doc.get("document_type_id"));
+            String metadataSchema = db.queryForObject("SELECT metadata_schema::text FROM document_types WHERE tenant_id=:tenant AND id=:metadataType", p, String.class);
+            @SuppressWarnings("unchecked") Map<String,Object> schema = (Map<String,Object>) parse(metadataSchema);
+            @SuppressWarnings("unchecked") Map<String,Object> metadata = (Map<String,Object>) parse(doc.get("metadata"));
+            DocumentMetadataValidator.validate(schema, metadata);
             if(Set.of("ARCHIVED","VOIDED","TRASHED").contains(doc.get("status").toString()))throw new IllegalArgumentException("Documento no disponible para workflow");
             if(doc.get("current_version")==null)throw new IllegalArgumentException("Sube el archivo del documento antes de iniciar el workflow");
             if(request.expedientId()!=null&&!request.expedientId().equals(uuid(doc.get("expedient_id"))))throw new IllegalArgumentException("El documento pertenece a otro expediente");

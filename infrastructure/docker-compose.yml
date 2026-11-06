@@ -10,7 +10,12 @@ services:
       - "${POSTGRES_PORT:-5434}:5432"
     volumes:
       - nexodocs_postgres_data:/var/lib/postgresql/data
-      - ../database/init:/docker-entrypoint-initdb.d:ro
+      # The Postgres entrypoint runs every mounted *.sql immediately, before
+      # the migrate service. Only install the immutable bootstrap schema/seeds
+      # here; incremental migrations must run through the migrate service.
+      - ../database/init/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+      - ../database/init/002_security.sql:/docker-entrypoint-initdb.d/002_security.sql:ro
+      - ../database/init/003_seed.sql:/docker-entrypoint-initdb.d/003_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nexodocs} -d ${POSTGRES_DB:-nexodocs}"]
       interval: 5s
@@ -33,6 +38,7 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:-nexodocs_dev}
 
   backend:
+    image: nexodocs-backend
     build:
       context: ..
       dockerfile: infrastructure/docker/backend.Dockerfile
@@ -45,8 +51,13 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-nexodocs}
-      DB_USER: ${POSTGRES_USER:-nexodocs}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-nexodocs_dev}
+      TENANT_DATABASE_ROUTING_ENABLED: ${TENANT_DATABASE_ROUTING_ENABLED:-false}
+      TENANT_DATABASE_ISOLATION_ENABLED: ${TENANT_DATABASE_ISOLATION_ENABLED:-false}
+      # Privileged tenant database operations run only in tenant-worker.
+      TENANT_DATABASE_PROVISIONING_ENABLED: "false"
+      TENANT_DATABASE_BOOTSTRAP_SCRIPT: /app/migrations/tenant-bootstrap/migrate-tenant.sh
+      DB_USER: ${DB_RUNTIME_USER:-${POSTGRES_USER:-nexodocs}}
+      DB_PASSWORD: ${DB_RUNTIME_PASSWORD:-${POSTGRES_PASSWORD:-nexodocs_dev}}
       JWT_SECRET: ${JWT_SECRET:-change-this-development-secret-at-least-32-bytes}
       CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://localhost}"
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4200}
@@ -84,6 +95,31 @@ services:
     volumes:
       - nexodocs_document_storage:/data/storage
       - nexodocs_audit_anchor:/var/lib/nexodocs/audit-anchor
+
+  tenant-worker:
+    image: nexodocs-backend
+    profiles: ["tenant-isolation"]
+    command: ["--tenant-worker"]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-nexodocs}
+      DB_USER: ${DB_RUNTIME_USER:-${POSTGRES_USER:-nexodocs}}
+      DB_PASSWORD: ${DB_RUNTIME_PASSWORD:-${POSTGRES_PASSWORD:-nexodocs_dev}}
+      TENANT_DATABASE_ROUTING_ENABLED: "true"
+      TENANT_DATABASE_ISOLATION_ENABLED: "true"
+      TENANT_DATABASE_PROVISIONING_ENABLED: "true"
+      TENANT_DATABASE_ADMIN_USERNAME: ${TENANT_DATABASE_ADMIN_USERNAME:-}
+      TENANT_DATABASE_ADMIN_PASSWORD: ${TENANT_DATABASE_ADMIN_PASSWORD:-}
+      TENANT_DATABASE_BOOTSTRAP_SCRIPT: /app/migrations/tenant-bootstrap/migrate-tenant.sh
+      STORAGE_LOCAL_PATH: /data/storage
+    volumes:
+      - nexodocs_document_storage:/data/storage
 
   frontend:
     build:

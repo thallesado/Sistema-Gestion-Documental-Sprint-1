@@ -73,7 +73,10 @@ public class MedicalNoteService {
         access.requireUnchanged("tipo", DEFAULT_NOTE_TYPE, request.noteType());
         access.requireUnchanged("estado", DocumentStatus.DRAFT, request.status());
         access.requireEditableIfProvided("contenido", request.content());
-        DocumentStatus initialStatus = request.status() != null ? request.status() : DocumentStatus.DRAFT;
+        if (request.status() != null && request.status() != DocumentStatus.DRAFT) {
+            throw new IllegalArgumentException("Toda nota médica debe crearse como BORRADOR; emítala o anúlela después");
+        }
+        DocumentStatus initialStatus = DocumentStatus.DRAFT;
         String rawContent = request.content() != null ? request.content().trim() : "";
         String cleanContent = sanitizer.sanitize(rawContent);
         if (cleanContent.isBlank()) {
@@ -104,7 +107,7 @@ public class MedicalNoteService {
         }
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
-        MedicalNote note = repository.findByIdAndTenantId(id, tenantId)
+        MedicalNote note = repository.findForTransition(id, tenantId)
                 .orElseThrow(() -> new NotFoundException("Nota médica no encontrada"));
 
         DocumentStatus currentStatus = note.getStatus() != null ? note.getStatus() : DocumentStatus.DRAFT;
@@ -119,6 +122,7 @@ public class MedicalNoteService {
             );
         }
 
+        requireHistory(note.getClinicalHistoryId(), tenantId);
         note.setStatus(targetStatus);
         MedicalNote saved = repository.save(note);
         if (auditRecorder != null) {
@@ -130,7 +134,7 @@ public class MedicalNoteService {
     }
 
     private ClinicalHistory requireHistory(UUID id, UUID tenantId) {
-        return historyRepository.findByIdAndTenantId(id, tenantId)
+        return historyRepository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
                 .orElseThrow(() -> new NotFoundException("Historia clínica no encontrada"));
     }
 

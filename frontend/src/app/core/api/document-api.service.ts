@@ -1,6 +1,6 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, map, throwError } from 'rxjs';
 
 const API_URL = '/api/v1';
 
@@ -10,6 +10,7 @@ export interface ApiDocumentType {
   name: string;
   description?: string | null;
   active: boolean;
+  metadataSchema?: { required?: string[]; properties?: Record<string, { title?: string; type?: string; format?: string; enum?: any[]; minLength?: number; maxLength?: number; minimum?: number; maximum?: number }> };
   categoryId?: string | null;
 }
 
@@ -65,6 +66,8 @@ export interface ApiDocument {
   responsibleName?: string | null;
   patientName?: string | null;
   expedientCode?: string | null;
+  /** Current server-issued ETag for status/version concurrency checks; never use as authentication. */
+  stateToken?: string;
 
   // Campos de compatibilidad con filtros previos
   category?: string | null;
@@ -178,11 +181,22 @@ function normalizeDoc(item: any): ApiDocument {
 @Injectable({ providedIn: 'root' })
 export class DocumentApiService {
   private readonly http = inject(HttpClient);
+  private readonly stateTokens = new Map<string, string>();
+
+  private rememberState<T extends { id: string }>(value: T, token: string | null): T {
+    if (token) this.stateTokens.set(value.id, token);
+    else this.stateTokens.delete(value.id);
+    return { ...value, stateToken: token ?? undefined };
+  }
 
   documentTypes(filter = '', page = 0, size = 100): Observable<DocumentTypePage> {
     let params = new HttpParams().set('page', page).set('size', size).set('active', true);
     if (filter.trim()) params = params.set('filter', filter.trim());
     return this.http.get<DocumentTypePage>(`${API_URL}/document-types`, { params });
+  }
+
+  documentType(id: string): Observable<ApiDocumentType> {
+    return this.http.get<ApiDocumentType>(`${API_URL}/document-types/${id}`);
   }
 
   createDocumentType(payload: { name: string; code: string; description?: string }): Observable<ApiDocumentType> {
@@ -212,10 +226,11 @@ export class DocumentApiService {
     return this.http.post<ApiDepartment>(`${API_URL}/departments`, payload);
   }
 
-  documents(filter = '', status?: string, page = 0, size = 20, scope?: 'mine' | 'shared'): Observable<{ content: ApiDocument[]; totalElements: number }> {
+  documents(filter = '', status?: string, page = 0, size = 20, scope?: 'mine' | 'shared', filters: Record<string, string> = {}): Observable<{ content: ApiDocument[]; totalElements: number }> {
     let params = new HttpParams().set('page', page).set('size', size);
     if (filter.trim()) params = params.set('filter', filter.trim());
     if (status) params = params.set('status', status);
+    for (const [key, value] of Object.entries(filters)) if (value) params = params.set(key, value);
     const path = scope === 'mine' ? '/documents/mine' : scope === 'shared' ? '/documents/shared' : '/documents';
     return this.http.get<{ content: any[]; totalElements: number }>(`${API_URL}${path}`, { params }).pipe(
       map(res => ({
@@ -226,26 +241,47 @@ export class DocumentApiService {
   }
 
   getById(documentId: string): Observable<ApiDocument> {
-    return this.http.get<any>(`${API_URL}/documents/${documentId}`).pipe(map(normalizeDoc));
+    return this.http.get<any>(`${API_URL}/documents/${documentId}`, { observe: 'response' }).pipe(
+      map(response => this.rememberState(normalizeDoc(response.body), response.headers.get('ETag')))
+    );
   }
 
   createDocument(payload: DocumentCreatePayload): Observable<ApiDocument> {
-    return this.http.post<any>(`${API_URL}/documents`, payload).pipe(
-      map(normalizeDoc)
+    return this.http.post<any>(`${API_URL}/documents`, payload, { observe: 'response' }).pipe(
+      map(response => this.rememberState(normalizeDoc(response.body), response.headers.get('ETag')))
+    );
+  }
+
+  updateMetadata(documentId: string, metadata: Record<string, unknown>): Observable<ApiDocument> {
+    return this.http.patch<any>(`${API_URL}/documents/${documentId}/metadata`, { metadata }, { observe: 'response' }).pipe(
+      map(response => this.rememberState(normalizeDoc(response.body), response.headers.get('ETag')))
     );
   }
 
   changeStatus(documentId: string, status: string): Observable<ApiDocument> {
-    return this.http.patch<any>(`${API_URL}/documents/${documentId}/status`, { status }).pipe(
-      map(normalizeDoc)
+    const token = this.stateTokens.get(documentId);
+    if (!token) return throwError(() => new Error('Recarga el documento para obtener su token de estado vigente.'));
+    return this.http.patch<any>(`${API_URL}/documents/${documentId}/status`, { status }, {
+      headers: new HttpHeaders({ 'If-Match': token }), observe: 'response'
+    }).pipe(
+      map(response => this.rememberState(normalizeDoc(response.body), response.headers.get('ETag')))
     );
   }
 
   uploadVersion(documentId: string, file: File, changeReason: string): Observable<ApiDocumentVersion> {
+    const token = this.stateTokens.get(documentId);
+    if (!token) return throwError(() => new Error('Recarga el documento para obtener su token de versión vigente.'));
     const body = new FormData();
     body.append('file', file);
     body.append('changeReason', changeReason);
-    return this.http.post<ApiDocumentVersion>(`${API_URL}/documents/${documentId}/versions`, body);
+    return this.http.post<ApiDocumentVersion>(`${API_URL}/documents/${documentId}/versions`, body, {
+      headers: new HttpHeaders({ 'If-Match': token }), observe: 'response'
+    }).pipe(map(response => {
+      const nextToken = response.headers.get('ETag');
+      if (nextToken) this.stateTokens.set(documentId, nextToken);
+      else this.stateTokens.delete(documentId);
+      return response.body as ApiDocumentVersion;
+    }));
   }
 
   versions(documentId: string): Observable<ApiDocumentVersion[]> {

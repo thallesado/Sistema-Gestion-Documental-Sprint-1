@@ -1,6 +1,6 @@
 # Autenticación, sesiones y permisos
 
-> Revisión documental: 2026-10-21. Base de código: `c93a8b4` más cambios locales; ver [estado verificado](../05-guias-ia/estado-verificado-y-pendientes.md). Descripción del código inspeccionado, no certificación de producción.
+> Revisión documental: 2026-11-06. Fuente: checkout local 91fb767 más cambios locales sin commit; código y evidencia verificados para esta página.
 
 ## Contratos exactos
 
@@ -58,3 +58,10 @@ Fuentes: [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AuthRequ
 En `c93a8b4` más cambios locales, la migración 046 concede UPDATE pero omite SELECT sobre `users.preferred_language` y `users.must_change_password`. Hibernate incluye ambas columnas al cargar `GET /api/v1/auth/me`; PostgreSQL devuelve `permission denied for table users`. El login puede emitir tokens, pero el perfil falla y el sidebar muestra los valores por defecto (Usuario, organización sin asignar y pocas opciones). No demuestra que se hayan eliminado los roles.
 
 La migración [051_user_profile_select_privileges.sql](../../../database/init/051_user_profile_select_privileges.sql) concede únicamente SELECT sobre esas dos columnas a `nexodocs_app`, sin cambiar roles de usuarios ni políticas RLS. Se aplicó en Docker local después de un respaldo PostgreSQL verificado. Con el rol de aplicación y contexto de Laura se verificaron lectura de todas las columnas de usuario, nombre Laura Martínez, organización FinoCode, rol Administrador de tenant y permisos document:read, expedient:read y backup:read. Esta prueba SQL no sustituye una comprobación visual de la sesión del navegador. Recargar fuerza una nueva consulta del perfil; si el JWT conserva permisos anteriores, cerrar sesión e ingresar de nuevo.
+
+## Correcciones locales a refresh y recuperacion (2026-11-06)
+
+Con routing aislado, AuthService.refresh() resuelve el tenant en el registro central y consulta al usuario en la base de ese tenant. Recuperacion y reset llevan el UUID del tenant; reset valida que coincida con el tenant del token, cambia la contrasena, marca el token como usado y revoca sesiones dentro de una transaccion tenant-scoped. La migracion 087 fue aplicada a la base central y a las tres bases aisladas locales. Se probaron los contextos RLS y el refresh aislado tiene prueba Maven. SMTP y el recorrido completo de reset por correo no fueron ejercitados.
+
+
+Verificacion local parcial HU-09 (2026-11-06): AuthSessionService.establishContext usa jdbc.queryForMap para SELECT set_config; jdbc.update producia un error de PostgreSQL al recibir un resultado. Se comprobo login HTTP y uso de la API clinica con una organizacion sintetica en una base local desechable. Esto no verifica refresh/reset/SMTP ni el aprovisionamiento normal de bases aisladas.

@@ -1,6 +1,6 @@
 # Administración de plataforma: ficha de organización y auditoría
 
-> Revisión documental: 2026-10-27. Base `8996d62` más implementación local sin commit (fases 1 a 3 de `plan-implementacion-admin-global.md`, migraciones 062 a 064). Describe código. Verificación 2026-10-27: 062, 063 y 064 se aplicaron (y 064 dos veces, sin efecto la segunda) sobre una copia descartable de la base local de desarrollo (en 061) en un contenedor postgres:17-alpine, con `platform-audit.sql`, `plan-catalog.sql` y `tenant-addons.sql` en verde; la base local en uso y ningún servidor recibieron las migraciones. Una base creada desde cero con `database/init` falla antes, en `005_demo_users.sql` (RLS de `audit_events`), problema anterior a estas fases.
+> Revisión documental: 2026-11-04. Fuente: checkout local 123419c más cambios locales sin commit; código y evidencia revisados para esta página.
 
 ## Principio
 
@@ -80,3 +80,7 @@ Pruebas: `EffectiveLimitTest`, `TenantAddonSyncTest` (webhook con ítem de plan 
 Roles internos de plataforma y MFA (fase 5); hoy toda cuenta de plataforma puede ejecutar todas las acciones. Las acciones de plataforma no se reflejan en la auditoría del propio tenant.
 
 Fuentes: [062_platform_audit.sql](../../../database/init/062_platform_audit.sql), [PlatformAuditService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/PlatformAuditService.java), [PlatformTenantService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/PlatformTenantService.java), [PlatformTenantController.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PlatformTenantController.java), [platform-tenant-page.ts](../../../frontend/src/app/features/platform-admin/pages/platform-tenant-page.ts), [platform-audit-page.ts](../../../frontend/src/app/features/platform-admin/pages/platform-audit-page.ts).
+
+## Logs tecnicos de HTTP (migraciones 079 y 083)
+
+La plataforma dispone de /platform/technical-logs y GET /api/v1/platform/technical-logs, protegido por platform:tenant:manage. Registra fallos HTTP 4xx/5xx, tipo de excepcion, actor/tenant, metodo y ruta saneada. No incluye cuerpo, mensaje de excepcion ni texto clinico. La migracion 083 quita SELECT/INSERT directos a nexodocs_app; las funciones SQL validan administrador global activo para lectura y la correspondencia actor/tenant al insertar. No sustituye metricas de proceso, logs JVM ni alertas de infraestructura. Ver [revision de HU-19 a HU-24](sprint-hu19-24.md).

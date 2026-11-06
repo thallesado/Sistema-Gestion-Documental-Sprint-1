@@ -12,7 +12,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.util.Set;
 
-/** Enforces subscription state before every authenticated tenant mutation. */
+/** Enforces tenant trial access before authenticated tenant API requests. */
 @Component
 public class TenantTrialEnforcementInterceptor implements HandlerInterceptor {
     private static final Set<String> MUTATING_METHODS = Set.of(
@@ -25,13 +25,14 @@ public class TenantTrialEnforcementInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        if (!MUTATING_METHODS.contains(request.getMethod()) || isActivationPath(request.getRequestURI())) return true;
+        if (isActivationPath(request.getRequestURI())) return true;
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUser user)
                 || user.tenantId() == null) return true;
-        // The service is transactional and emits PlanLimitExceededException, which
-        // the global handler maps to 403 + PLAN_LIMIT_EXCEEDED.
-        plans.validateWriteAccess(user.tenantId());
+        // During days 13-15, read-only requests remain available. At day 15 the
+        // tenant API is blocked while authentication and payment activation stay open.
+        plans.validateReadAccess(user.tenantId());
+        if (MUTATING_METHODS.contains(request.getMethod())) plans.validateWriteAccess(user.tenantId());
         return true;
     }
 

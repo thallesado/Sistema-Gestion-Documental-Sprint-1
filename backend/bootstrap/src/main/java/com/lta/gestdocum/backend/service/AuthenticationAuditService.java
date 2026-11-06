@@ -3,6 +3,7 @@ package com.lta.gestdocum.backend.service;
 import com.lta.gestdocum.backend.dto.AuthResponse;
 import com.lta.gestdocum.backend.security.AuthenticatedUser;
 import com.lta.gestdocum.backend.security.JwtService;
+import com.lta.gestdocum.backend.security.TenantDatabaseContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,9 +29,15 @@ public class AuthenticationAuditService {
     public void recordSuccessfulAuthentication(AuthResponse response, HttpServletRequest request) {
         try {
             AuthenticatedUser user = jwtService.extractAuthenticatedUser(response.getToken());
-            auditRecorder.record(user, request.getMethod(), request.getRequestURI(), 200,
-                    request.getRemoteAddr(),
-                    request.getHeader("User-Agent"));
+            if (user.tenantId() == null) {
+                auditRecorder.record(user, request.getMethod(), request.getRequestURI(), 200,
+                        request.getRemoteAddr(), request.getHeader("User-Agent"));
+            } else {
+                try (TenantDatabaseContext.Scope ignored = TenantDatabaseContext.useTenant(user.tenantId())) {
+                    auditRecorder.record(user, request.getMethod(), request.getRequestURI(), 200,
+                            request.getRemoteAddr(), request.getHeader("User-Agent"));
+                }
+            }
         } catch (RuntimeException exception) {
             LOGGER.warn("No se pudo persistir la auditoría de autenticación method={} path={} failure={}",
                     request.getMethod(), request.getRequestURI(), exception.getClass().getSimpleName());

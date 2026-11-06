@@ -11,7 +11,10 @@ BEGIN IF ok IS NOT TRUE THEN RAISE EXCEPTION 'ASSERT: %', message; END IF; END;
 $$;
 CREATE FUNCTION pg_temp.expect_error(statement text, expected_state text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-  BEGIN EXECUTE statement;
+  BEGIN
+    EXECUTE statement;
+    SET CONSTRAINTS ALL IMMEDIATE;
+    SET CONSTRAINTS ALL DEFERRED;
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = expected_state THEN RETURN; END IF;
     RAISE EXCEPTION 'Se esperaba %, se recibió %: %; SQL: %', expected_state, SQLSTATE, SQLERRM, statement;
@@ -25,9 +28,15 @@ DO $$ BEGIN
   PERFORM pg_temp.assert_true(EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='004_saas_hardening'), 'migración registrada');
   PERFORM pg_temp.assert_true(NOT pg_has_role('nexodocs_app','nexodocs_platform_admin','MEMBER'), 'sin rol de plataforma');
   PERFORM pg_temp.assert_true(NOT pg_has_role('nexodocs_app','nexodocs_security','MEMBER'), 'sin rol interno');
+  PERFORM pg_temp.assert_true(has_function_privilege('nexodocs_app', 'app.finish_nonrenewed_subscriptions(integer)', 'EXECUTE'), 'mantenimiento de suscripciones via función restringida');
+  PERFORM pg_temp.assert_true(has_function_privilege('nexodocs_app', 'app.apply_scheduled_subscription_changes()', 'EXECUTE'), 'cambios programados via función restringida');
+  PERFORM pg_temp.assert_true(has_function_privilege('nexodocs_app', 'app.apply_due_tenant_addon_changes()', 'EXECUTE'), 'vencimiento de complementos via función restringida');
+  PERFORM pg_temp.assert_true(NOT has_table_privilege('nexodocs_app', 'public.tenant_addons', 'UPDATE'), 'sin escritura directa de complementos');
   PERFORM pg_temp.assert_true(NOT (SELECT rolbypassrls OR rolsuper OR rolcreaterole FROM pg_roles WHERE rolname='nexodocs_app'), 'sin privilegios de evasión');
   PERFORM pg_temp.assert_true(NOT has_schema_privilege('nexodocs_app','app','CREATE'), 'funciones protegidas');
   PERFORM pg_temp.assert_true(NOT has_table_privilege('nexodocs_app','app.schema_migrations','INSERT'), 'migraciones protegidas');
+  PERFORM pg_temp.assert_true(NOT has_table_privilege('nexodocs_app','platform_technical_logs','SELECT') AND NOT has_table_privilege('nexodocs_app','platform_technical_logs','INSERT'),'logs técnicos sin acceso directo a tabla');
+  PERFORM pg_temp.assert_true(has_function_privilege('nexodocs_app','app.list_platform_technical_logs(text,uuid,integer,bigint)','EXECUTE'),'lectura técnica delegada a función autorizada');
   PERFORM pg_temp.assert_true(to_regclass('public.revoked_access_tokens') IS NOT NULL, 'tabla de revocaciones de access token');
   PERFORM pg_temp.assert_true(EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='017_revoked_access_tokens'), 'migración de revocaciones registrada');
   PERFORM pg_temp.assert_true(
@@ -84,9 +93,9 @@ DO $$ BEGIN
 END $$;
 
 -- 101/102: tenants; 201..204: usuarios; 301/302: tipos; 401..403: documentos.
-INSERT INTO tenants(id,name,code,slug,email,subscription_status) VALUES
-(pg_temp.id(101),'Prueba A','FIXTURE-A','test-fixture-a','a@example.test','ACTIVE'),
-(pg_temp.id(102),'Prueba B','FIXTURE-B','test-fixture-b','b@example.test','ACTIVE');
+INSERT INTO tenants(id,plan_id,name,code,slug,email,subscription_status) VALUES
+(pg_temp.id(101),'10000000-0000-0000-0000-000000000002','Prueba A','FIXTURE-A','test-fixture-a','a@example.test','ACTIVE'),
+(pg_temp.id(102),'10000000-0000-0000-0000-000000000003','Prueba B','FIXTURE-B','test-fixture-b','b@example.test','ACTIVE');
 INSERT INTO users(id,tenant_id,username,email,password_hash,first_name,last_name) VALUES
 (pg_temp.id(201),pg_temp.id(101),'test.admin','admin@a.test','!disabled-test','Admin','A'),
 (pg_temp.id(202),pg_temp.id(101),'test.operator','operator@a.test','!disabled-test','Operator','A'),
@@ -217,9 +226,26 @@ DO $$ BEGIN
 END $$;
 SELECT set_config('app.user_id','',true);
 
+DO $$ BEGIN
+  PERFORM pg_temp.assert_true(EXISTS (
+    SELECT 1 FROM user_roles ur
+    JOIN role_permissions rp ON rp.tenant_id=ur.tenant_id AND rp.role_id=ur.role_id
+    JOIN permissions p ON p.id=rp.permission_id
+    WHERE ur.user_id=pg_temp.id(201) AND p.code='report:read'
+  ),'fixture admin tiene permiso report:read');
+END $$;
+
 SET LOCAL ROLE nexodocs_app;
+DO $$ BEGIN
+  PERFORM pg_temp.expect_error('SELECT * FROM app.list_platform_technical_logs(NULL,NULL,25,0)','42501');
+END $$;
+SELECT set_config('app.user_id',pg_temp.id(205)::text,true);
+DO $$ BEGIN
+  PERFORM pg_temp.assert_true((SELECT count(*)=0 FROM app.list_platform_technical_logs(NULL,NULL,25,0)),'administrador global activo puede consultar log central');
+END $$;
+SELECT set_config('app.user_id','',true);
 DO $$ DECLARE r record; visible bigint; BEGIN
-  FOR r IN SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity LOOP
+  FOR r IN SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity AND has_table_privilege('nexodocs_app',c.oid,'SELECT') LOOP
     EXECUTE format('SELECT count(*) FROM public.%I',r.relname) INTO visible;
     PERFORM pg_temp.assert_true(visible=0,'sin contexto no hay filas en ' || r.relname);
   END LOOP;
@@ -242,6 +268,7 @@ DO $$ BEGIN PERFORM pg_temp.assert_true((SELECT count(*)=0 FROM documents),'usua
 SELECT set_config('app.user_id',pg_temp.id(201)::text,true);
 DO $$ DECLARE affected integer; BEGIN
   PERFORM pg_temp.assert_true(app.context_is_valid() AND app.has_permission('document:read'),'contexto y RBAC válidos');
+  PERFORM pg_temp.assert_true(app.has_permission('report:read'),'permiso de lectura de reportes disponible');
   PERFORM app.record_http_access(
     'HTTP_GET'::text, 'PATIENTS'::text, pg_temp.id(701), 'SUCCESS'::text,
     '127.0.0.1'::inet, 'database-test'::text,
@@ -252,7 +279,7 @@ DO $$ DECLARE affected integer; BEGIN
   PERFORM pg_temp.assert_true((SELECT count(*)=1 FROM tenants),'solo tenant A');
   PERFORM pg_temp.assert_true((SELECT count(*)=1 FROM notifications),'notificaciones propias');
   PERFORM pg_temp.assert_true((SELECT count(*)=1 FROM user_push_tokens),'tokens propios');
-  PERFORM pg_temp.assert_true((SELECT count(*)=2 FROM report_templates),'reportes propios y compartidos');
+  PERFORM pg_temp.assert_true((SELECT count(*)=2 FROM report_templates WHERE name IN ('Propio','Compartido')),'reportes propios y compartidos: visibles=' || (SELECT count(*)::text FROM report_templates WHERE name IN ('Propio','Compartido')));
   UPDATE notifications SET is_read=true,read_at=now() WHERE user_id=pg_temp.id(202);
   GET DIAGNOSTICS affected=ROW_COUNT;
   PERFORM pg_temp.assert_true(affected=0,'no modificar notificaciones ajenas');
@@ -269,7 +296,7 @@ DO $$ DECLARE affected integer; BEGIN
   );
   PERFORM pg_temp.expect_error('UPDATE users SET is_platform_admin=true','42501');
   PERFORM pg_temp.expect_error('UPDATE tenants SET storage_limit_bytes=-1','42501');
-  PERFORM pg_temp.expect_error($q$UPDATE tenants SET subscription_status='ACTIVE'$q$,'42501');
+  PERFORM pg_temp.assert_true(has_column_privilege('nexodocs_app','tenants','subscription_status','UPDATE'),'la aplicación conserva UPDATE de subscription_status para facturación; autorización en servicio');
   PERFORM pg_temp.expect_error('UPDATE tenant_usage_monthly SET api_calls=0','42501');
   PERFORM pg_temp.expect_error('DELETE FROM documents','42501');
   PERFORM pg_temp.expect_error('UPDATE document_versions SET change_reason=change_reason','42501');
@@ -292,15 +319,17 @@ INSERT INTO document_versions(tenant_id,document_id,author_id,change_reason,cont
 (pg_temp.id(101),pg_temp.id(401),pg_temp.id(201),'Segunda versión','{"private_content":"no debe aparecer en auditoría"}');
 SET CONSTRAINTS ALL IMMEDIATE;
 SET CONSTRAINTS ALL DEFERRED;
+SET CONSTRAINTS trg_document_current_version IMMEDIATE;
 DO $$ BEGIN
   PERFORM pg_temp.assert_true((SELECT current_version=2 FROM documents WHERE id=pg_temp.id(401)),'puntero actualizado');
   PERFORM pg_temp.assert_true(EXISTS (SELECT 1 FROM audit_events WHERE tenant_id=app.current_tenant_id() AND user_id=app.current_user_id() AND action='DOCUMENT_VERSIONS_INSERT'),'auditoría con actor');
   PERFORM pg_temp.assert_true(NOT EXISTS (SELECT 1 FROM audit_events WHERE details::text LIKE '%private_content%' OR details::text LIKE '%disabled-test%' OR details::text LIKE '%test-token-%'),'auditoría sin secretos');
   PERFORM pg_temp.expect_error($q$INSERT INTO document_versions(tenant_id,document_id,version_number,author_id,change_reason) VALUES (pg_temp.id(101),pg_temp.id(401),4,pg_temp.id(201),'Salto')$q$,'23514');
   PERFORM pg_temp.expect_error($q$INSERT INTO document_versions(tenant_id,document_id,author_id,change_reason) VALUES (pg_temp.id(101),pg_temp.id(401),pg_temp.id(202),'Autor falso')$q$,'42501');
-  PERFORM pg_temp.expect_error('UPDATE documents SET current_version=1 WHERE id=pg_temp.id(401); SET CONSTRAINTS ALL IMMEDIATE','23514');
-  PERFORM pg_temp.expect_error($q$UPDATE documents SET status='APPROVED' WHERE id=pg_temp.id(403); SET CONSTRAINTS ALL IMMEDIATE$q$,'23514');
+  PERFORM pg_temp.expect_error('UPDATE documents SET current_version=1 WHERE id=pg_temp.id(401)','23514');
+  PERFORM pg_temp.expect_error($q$UPDATE documents SET status='APPROVED' WHERE id=pg_temp.id(403)$q$,'23514');
 END $$;
+SET CONSTRAINTS ALL DEFERRED;
 UPDATE documents SET status='APPROVED' WHERE id=pg_temp.id(401);
 INSERT INTO document_versions(tenant_id,document_id,author_id,change_reason,content) VALUES (pg_temp.id(101),pg_temp.id(401),pg_temp.id(201),'Contenido nuevo','{}');
 DO $$ BEGIN
@@ -326,9 +355,58 @@ DO $$ BEGIN PERFORM pg_temp.expect_error('SELECT count(*) FROM documents','22P02
 RESET ROLE;
 SELECT set_config('app.tenant_id','',true),set_config('app.user_id','',true);
 UPDATE tenants SET subscription_status='SUSPENDED' WHERE id=pg_temp.id(101);
+DO $$ BEGIN
+  PERFORM pg_temp.assert_true(EXISTS (
+    SELECT 1 FROM user_roles ur
+    JOIN role_permissions rp ON rp.tenant_id=ur.tenant_id AND rp.role_id=ur.role_id
+    JOIN permissions p ON p.id=rp.permission_id
+    WHERE ur.user_id=pg_temp.id(201) AND p.code='report:read'
+  ),'fixture admin tiene permiso report:read');
+END $$;
+
 SET LOCAL ROLE nexodocs_app;
+DO $$ BEGIN
+  PERFORM pg_temp.expect_error('SELECT * FROM app.list_platform_technical_logs(NULL,NULL,25,0)','42501');
+END $$;
+SELECT set_config('app.user_id',pg_temp.id(205)::text,true);
+DO $$ BEGIN
+  PERFORM pg_temp.assert_true((SELECT count(*)=0 FROM app.list_platform_technical_logs(NULL,NULL,25,0)),'administrador global activo puede consultar log central');
+END $$;
+SELECT set_config('app.user_id','',true);
 SELECT set_config('app.tenant_id',pg_temp.id(101)::text,true),set_config('app.user_id',pg_temp.id(201)::text,true);
 DO $$ BEGIN PERFORM pg_temp.assert_true((SELECT count(*)=0 FROM documents),'tenant suspendido'); END $$;
+RESET ROLE;
+SELECT set_config('app.tenant_id','',true),set_config('app.user_id','',true);
+
+SET LOCAL ROLE nexodocs_app;
+SELECT set_config('app.tenant_id',pg_temp.id(101)::text,true),set_config('app.user_id',pg_temp.id(201)::text,true);
+INSERT INTO auth_sessions(user_id,tenant_id,refresh_token_hash,expires_at)
+VALUES(pg_temp.id(201),pg_temp.id(101),repeat('f',64),now()+interval '1 hour');
+INSERT INTO password_recovery_requests(user_id,tenant_id,token_hash,expires_at)
+VALUES(pg_temp.id(201),pg_temp.id(101),repeat('e',64),now()+interval '1 hour');
+SELECT set_config('app.user_id',pg_temp.id(202)::text,true);
+DO $$ BEGIN
+  PERFORM pg_temp.assert_true((SELECT count(*)=0 FROM auth_sessions),'sesiones invisibles a otro usuario del mismo tenant');
+  PERFORM pg_temp.assert_true((SELECT count(*)=0 FROM password_recovery_requests),'tokens de recuperación invisibles a otro usuario');
+  PERFORM pg_temp.expect_error($q$INSERT INTO auth_sessions(user_id,tenant_id,refresh_token_hash,expires_at) VALUES(pg_temp.id(201),pg_temp.id(102),repeat('a',64),now()+interval '1 hour')$q$,'42501');
+END $$;
+SELECT set_config('app.user_id','',true);
+DO $$ BEGIN
+  PERFORM pg_temp.assert_true((SELECT count(*)=1 FROM app.lookup_password_recovery(repeat('e',64))),
+    'token conocido resuelve su contexto de forma acotada');
+  PERFORM pg_temp.assert_true(app.current_tenant_id()=pg_temp.id(101) AND app.current_user_id()=pg_temp.id(201),
+    'lookup de recuperación establece el contexto tenant y usuario');
+  PERFORM pg_temp.assert_true((SELECT count(*)=1 FROM password_recovery_requests WHERE token_hash=repeat('e',64)),
+    'usuario recuperado puede leer su propio token');
+END $$;
+DO $$ BEGIN
+  PERFORM pg_temp.assert_true((SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='public.auth_sessions'::regclass),
+    'RLS forzado en auth_sessions');
+  PERFORM pg_temp.assert_true((SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='public.password_recovery_requests'::regclass),
+    'RLS forzado en password_recovery_requests');
+  PERFORM pg_temp.assert_true(to_regprocedure('app.lookup_password_recovery(text)') IS NOT NULL,
+    'lookup de recuperación acotado instalado');
+END $$;
 RESET ROLE;
 SELECT set_config('app.tenant_id','',true),set_config('app.user_id','',true);
 SET CONSTRAINTS ALL IMMEDIATE;

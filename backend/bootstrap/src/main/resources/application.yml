@@ -1,4 +1,4 @@
-server:
+﻿server:
   port: ${BACKEND_PORT:8080}
   forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:framework}
 
@@ -16,9 +16,10 @@ spring:
       write-dates-as-timestamps: false
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://ep-lucky-dream-b436bm6l-pooler.c-6.us-east-2.aws.neon.tech:5432/neondb?sslmode=require}
-    username: ${SPRING_DATASOURCE_USERNAME:neondb_owner}
-    password: ${SPRING_DATASOURCE_PASSWORD:npg_k2zSxB3MPLEq}
+    # Local-only fallback: remote databases must always be explicitly configured.
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5434/nexodocs}
+    username: ${SPRING_DATASOURCE_USERNAME:nexodocs}
+    password: ${SPRING_DATASOURCE_PASSWORD:nexodocs_dev}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -63,6 +64,13 @@ jwt:
   refresh-expiration: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 
 app:
+  tenant-databases:
+    routing-enabled: ${TENANT_DATABASE_ROUTING_ENABLED:false}
+    isolation-enabled: ${TENANT_DATABASE_ISOLATION_ENABLED:false}
+    provisioning-enabled: ${TENANT_DATABASE_PROVISIONING_ENABLED:false}
+    admin-username: ${TENANT_DATABASE_ADMIN_USERNAME:}
+    admin-password: ${TENANT_DATABASE_ADMIN_PASSWORD:}
+    bootstrap-script: ${TENANT_DATABASE_BOOTSTRAP_SCRIPT:/app/migrations/tenant-bootstrap/migrate-tenant.sh}
   jwt:
     secret: ${JWT_SECRET:change-this-development-secret-at-least-32-bytes}
     expiration-ms: ${JWT_EXPIRATION_MS:28800000}

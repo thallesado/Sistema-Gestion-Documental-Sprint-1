@@ -1,0 +1,56 @@
+{
+  "records": [
+    {
+      "filter": "category",
+      "total": 3,
+      "targetFound": true
+    },
+    {
+      "filter": "documentTypeId",
+      "total": 3,
+      "targetFound": true
+    },
+    {
+      "filter": "department",
+      "total": 1,
+      "targetFound": true
+    },
+    {
+      "filter": "specialty",
+      "total": 1,
+      "targetFound": true
+    },
+    {
+      "filter": "process",
+      "total": 1,
+      "targetFound": true
+    },
+    {
+      "filter": "responsible",
+      "total": 1,
+      "targetFound": true
+    },
+    {
+      "filter": "dateFrom",
+      "total": 15,
+      "targetFound": true
+    },
+    {
+      "filter": "dateTo",
+      "total": 1,
+      "targetFound": true
+    }
+  ],
+  "combined": {
+    "total": 1,
+    "ids": [
+      "0bcba78f-9451-4d43-9f25-6230d46ef08d"
+    ]
+  },
+  "emptyTotal": 0,
+  "invalid": "/documents?dateFrom=2026-11-01&dateTo=2026-10-01 HTTP 400 {\"timestamp\":\"2026-11-06T17:37:45.914365887Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"La fecha inicial no puede ser posterior a la final\",\"path\":\"/api/v1/documents\",\"code\":\"BAD_REQUEST\"}",
+  "scopes": {
+    "mineContainsTarget": true,
+    "sharedExcludesOwnTarget": true
+  }
+}

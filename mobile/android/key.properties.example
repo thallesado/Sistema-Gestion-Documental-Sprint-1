@@ -1,0 +1,6 @@
+# Copia a key.properties (archivo ignorado por Git) y completa con los datos
+# del keystore de publicación. Guarda el .jks/.keystore fuera del repositorio.
+storeFile=release-upload-key.jks
+storePassword=REEMPLAZAR_LOCALMENTE
+keyAlias=upload
+keyPassword=REEMPLAZAR_LOCALMENTE

@@ -132,6 +132,21 @@ class SubscriptionLifecycleServiceTest {
     }
 
     @Test
+    void scheduledMaintenanceUsesRestrictedDatabaseFunctions() {
+        when(jdbc.queryForList("select tenant_id from app.finish_nonrenewed_subscriptions(?)", UUID.class, 30))
+                .thenReturn(List.of());
+        when(jdbc.queryForList("select tenant_id, plan_id from app.apply_scheduled_subscription_changes()"))
+                .thenReturn(List.of());
+
+        service.finishNonRenewedSubscriptions();
+        service.applyScheduledChanges();
+
+        verify(jdbc).queryForList("select tenant_id from app.finish_nonrenewed_subscriptions(?)", UUID.class, 30);
+        verify(jdbc).queryForList("select tenant_id, plan_id from app.apply_scheduled_subscription_changes()");
+        verify(jdbc, never()).update(contains("update tenants set subscription_status"), any(Object[].class));
+    }
+
+    @Test
     void stopRenewalKeepsAccessUntilThePeriodEndsAndDropsAnyScheduledChange() {
         service.setAutoRenew(false);
         verify(jdbc).update(contains("set cancel_at_period_end = ?"), eq(true), eq(false), eq(false), eq(false), eq(false), eq(tenantId));

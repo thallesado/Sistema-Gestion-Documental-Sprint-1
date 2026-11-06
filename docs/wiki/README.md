@@ -1,6 +1,6 @@
 # Wiki de NexoDocs: contexto verificable para desarrollo e IA
 
-> Revisión documental: 2026-10-16. Base de código `a590a6d`; antecedentes anteriores identificados por separado. Consultar [estado verificado](05-guias-ia/estado-verificado-y-pendientes.md).
+> Revisión documental: 2026-11-04. Fuente: checkout local 123419c más cambios locales sin commit; código y evidencia revisados para esta página.
 
 Esta wiki es documentación de referencia contrastada con el código, no una garantía de producción ni sustituto de inspección. Resume el sistema para reducir lecturas repetidas. Si una fuente cambia o contradice una página, identificar la diferencia antes de modificar negocio o seguridad.
 
@@ -24,6 +24,8 @@ El código de referencia incluye el OCR persistido y la migración 035. La revis
 
 **Implementación local de Respaldos (2026-10-21):** [funcionamiento, permisos, restauración, evidencia y pruebas](04-dominio-y-negocio/respaldos-y-restauracion.md). Esta página sustituye el estado anterior de interfaz sin backend; las notas de integración previas se conservan como historial.
 
+**Aislamiento por tenant (2026-11-04):** [estado, flujo y límites de las bases separadas](04-dominio-y-negocio/aislamiento-bases-por-tenant.md). Verifica el Compose local con routing/provisioning activos y dos tenants antiguos conservados en `LEGACY_SHARED`; no describe producción.
+
 | Tarea | Lecturas |
 |---|---|
 | Orientación | [Visión general](01-arquitectura/vision-general.md), [convenciones](01-arquitectura/convenciones-y-reglas.md) |
@@ -37,6 +39,7 @@ El código de referencia incluye el OCR persistido y la migración 035. La revis
 | Suscripciones, pagos y alta pública | [Stripe Billing, webhooks y estados](04-dominio-y-negocio/suscripciones-y-pagos-stripe.md) |
 | Administración global (ficha de organización, auditoría de plataforma) | [Administración de plataforma](04-dominio-y-negocio/administracion-de-plataforma.md) |
 | Usuarios, grupos y privilegios | [Grupos y privilegios por componente](04-dominio-y-negocio/usuarios-grupos-y-privilegios.md) |
+| Logs técnicos de plataforma | [Administración global](04-dominio-y-negocio/administracion-de-plataforma.md) y `/platform/technical-logs` (solo `platform:tenant:manage`) |
 | Publicación/recuperación | [Operación y HTTPS](06-operacion/despliegue-y-recuperacion.md) |
 | Verificación | [Pruebas](05-guias-ia/pruebas-y-validacion.md), [estado/pendientes](05-guias-ia/estado-verificado-y-pendientes.md) |
 | Entregar contexto | [Guía de prompts y sesión](05-guias-ia/como-promptear-en-nexodocs.md) |
@@ -67,3 +70,6 @@ La CI documental comprueba enlaces y contratos relevantes. No reemplaza pruebas 
 ## Navegación hacia fuentes generales
 
 [README del proyecto](../../README.md), [contexto histórico](../../CONTEXT.md), [base de datos](../../database/README.md), [workflows](../workflows.md). Estos documentos pueden contener afirmaciones antiguas: seguir enlaces específicos de cada página y registrar discrepancias.
+
+
+**Sprint HU-19 a HU-24 (2026-11-04):** [estado funcional, criterios cubiertos, límites y pruebas](04-dominio-y-negocio/sprint-hu19-24.md). HU-23 aún no cumple cifrado en reposo; no se presenta como 100% terminado.
