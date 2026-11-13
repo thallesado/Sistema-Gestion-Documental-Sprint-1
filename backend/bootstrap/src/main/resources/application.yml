@@ -104,6 +104,11 @@ app:
     rate-limit:
       max-requests: ${ASSISTANT_RATE_LIMIT_MAX_REQUESTS:20}
       window-seconds: ${ASSISTANT_RATE_LIMIT_WINDOW_SECONDS:60}
+  reportiq:
+    api-url: ${REPORTIQ_API_URL:http://localhost:8001}
+    frontend-url: ${REPORTIQ_FRONTEND_URL:http://localhost:3001}
+    api-key: ${REPORTIQ_API_KEY:}
+    data-source-id: ${REPORTIQ_DATA_SOURCE_ID:}
 
 # Anclaje externo de la cadena de auditoria (C3). Sin destino configurado el job queda DISABLED.
 nexodocs:

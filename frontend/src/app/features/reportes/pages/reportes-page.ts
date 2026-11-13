@@ -8,6 +8,7 @@ import {
   ReportFilters,
   ReportHeader,
   ReportTable,
+  ReportiqEmbedComponent,
 } from '../components';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ChartPoint, ReportDefinition, ReportRow, chartPointsFromRows, finiteNumber, reportDefinition, sessionLabels } from '../../../core/data/report-data';
@@ -19,7 +20,7 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
 @Component({
   selector: 'app-reports-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, Pagination, KpiCard, ReportChart, ReportFilters, ReportHeader, ReportTable],
+  imports: [CommonModule, RouterLink, RouterLinkActive, Pagination, KpiCard, ReportChart, ReportFilters, ReportHeader, ReportTable, ReportiqEmbedComponent],
   styles: [`
     .platform-report-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
     .platform-report-links a { padding: 8px 14px; border-radius: 8px; background: #edf5f3; color: #087f7b; font-size: 13px; font-weight: 600; text-decoration: none; }
@@ -58,6 +59,16 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
         >
           📊 Tablero Analítico y BI
         </button>
+        <button
+          type="button"
+          class="btn"
+          [style.background]="viewMode() === 'reportiq' ? '#087f7b' : '#edf5f3'"
+          [style.color]="viewMode() === 'reportiq' ? '#ffffff' : '#087f7b'"
+          (click)="setViewMode('reportiq')"
+          style="font-weight: 600; font-size: 13px; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+        >
+          ✨ Analítica IA (ReportIQ)
+        </button>
       </div>
       } @else {
       <nav class="platform-report-links" aria-label="Reportes de plataforma">
@@ -67,6 +78,13 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
       </nav>
       }
 
+      @if (viewMode() === 'reportiq' && !isPlatformReport) {
+        <app-reportiq-embed
+          title="Reportes & Analítica IA"
+          subtitle="Consultas en lenguaje natural, constructor QBE y métricas en tiempo real"
+          tab="visual"
+        />
+      } @else {
       <app-report-filters
         [filters]="report.filters"
         [values]="filterValues()"
@@ -254,6 +272,7 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
           (pageSizeChange)="changePageSize($event)"
         />
       }
+      }
     </section>
   `,
 })
@@ -267,7 +286,7 @@ export class ReportsPage implements OnInit {
   readonly report: ReportDefinition = reportDefinition(this.keyFromRoute(this.routeKey));
   readonly isPlatformReport = this.report.key.startsWith('platform-');
 
-  readonly viewMode = signal<'tabular' | 'analytics'>(
+  readonly viewMode = signal<'tabular' | 'analytics' | 'reportiq'>(
     this.routeKey === '/reports/productivity' || this.routeKey === '/reports/by-area' ? 'analytics' : 'tabular'
   );
 
@@ -356,12 +375,17 @@ export class ReportsPage implements OnInit {
     this.loadData();
   }
 
-  setViewMode(mode: 'tabular' | 'analytics'): void {
+  setViewMode(mode: 'tabular' | 'analytics' | 'reportiq'): void {
     this.viewMode.set(mode);
-    this.loadData();
+    if (mode !== 'reportiq') {
+      this.loadData();
+    }
   }
 
   loadData(): void {
+    if (this.viewMode() === 'reportiq') {
+      return;
+    }
     if (this.viewMode() === 'analytics') {
       this.loadAnalytics();
     } else {

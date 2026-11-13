@@ -255,6 +255,9 @@ export const MODULE_TEXT_ROWS: ReadonlyArray<readonly [string, string, string, s
   // Reportes
   ['📋 Reportes Tabulares Detallados', '📋 Detailed tabular reports', '📋 Rapports tabulaires détaillés', '📋 详细表格报表'],
   ['📊 Tablero Analítico y BI', '📊 Analytics and BI dashboard', '📊 Tableau analytique et BI', '📊 分析与 BI 看板'],
+  ['✨ Analítica IA (ReportIQ)', '✨ AI Analytics (ReportIQ)', '✨ Analytique IA (ReportIQ)', '✨ 人工智能分析 (ReportIQ)'],
+  ['Reportes & Analítica IA', 'Reports & AI Analytics', 'Rapports et Analytique IA', '报表与人工智能分析'],
+  ['Consultas en lenguaje natural, constructor QBE y métricas en tiempo real', 'Natural language queries, QBE builder and real-time metrics', 'Requêtes en langage naturel, constructeur QBE et indicateurs en temps réel', '自然语言查询、QBE 构建器与实时指标'],
   ['← Dashboard de plataforma', '← Platform dashboard', '← Tableau de bord de la plateforme', '← 平台看板'],
   ['Pagos y costos', 'Payments and costs', 'Paiements et coûts', '付款与成本'],
   ['⏳ Consultando datos reales del servidor...', '⏳ Fetching real data from the server...', '⏳ Récupération des données réelles du serveur...', '⏳ 正在从服务器获取真实数据...'],
