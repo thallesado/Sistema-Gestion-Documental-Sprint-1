@@ -2,6 +2,7 @@
 
 $ErrorActionPreference = 'Stop'
 $databaseDirectory = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$repositoryDirectory = Split-Path -Parent $databaseDirectory
 $containerName = 'nexodocs-test-' + [guid]::NewGuid().ToString('N').Substring(0, 12)
 $testJobs = @()
 
@@ -26,6 +27,15 @@ function Invoke-SqlFile {
     param([string]$Database, [string]$File)
     return Invoke-Docker -DockerArguments @('exec', $containerName, 'psql', '-X', '-U', 'postgres', '-d', $Database, '-v', 'ON_ERROR_STOP=1', '-f', $File)
 }
+function Invoke-MigrationFile {
+    param([string]$Database, [string]$File)
+    if ([IO.Path]::GetFileName($File) -eq '029_workflow_step_instances.sql') {
+        $null = Invoke-Sql -Database $Database -Sql 'ALTER TABLE public.workflow_tasks DISABLE TRIGGER trg_task_template'
+        try { return Invoke-SqlFile -Database $Database -File $File }
+        finally { $null = Invoke-Sql -Database $Database -Sql 'ALTER TABLE public.workflow_tasks ENABLE TRIGGER trg_task_template' }
+    }
+    return Invoke-SqlFile -Database $Database -File $File
+}
 function Assert-Equal {
     param($Actual, $Expected, [string]$Message)
     if ($Actual -cne $Expected) { throw "$Message. Esperado: $Expected. Recibido: $Actual" }
@@ -34,15 +44,15 @@ function Initialize-LegacyDatabase {
     param([string]$Database)
     $null = Invoke-Docker -DockerArguments @('exec', $containerName, 'createdb', '-U', 'postgres', $Database)
     foreach ($file in @('001_schema.sql', '002_security.sql', '003_seed.sql')) {
-        $null = Invoke-SqlFile -Database $Database -File "/workspace/init/$file"
+    $null = Invoke-SqlFile -Database $Database -File "/workspace/database/init/$file"
     }
 }
 function Wait-ForInitializedDatabase {
     $stableProbes = 0
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         $logs = (Invoke-Docker -AllowFailure -DockerArguments @('logs', $containerName)).Output
-        $probe = Invoke-Docker -AllowFailure -DockerArguments @('exec', $containerName, 'psql', '-X', '-U', 'postgres', '-d', 'fresh', '-At', '-c', "SELECT count(*) FROM app.schema_migrations WHERE version = '033_expedient_type_management'")
-        if ($logs.Contains('ready for start up') -and $probe.ExitCode -eq 0 -and $probe.Output -eq '1') {
+        $probe = Invoke-Docker -AllowFailure -DockerArguments @('exec', $containerName, 'psql', '-X', '-U', 'postgres', '-d', 'fresh', '-At', '-c', "SELECT to_regclass('public.tenants') IS NOT NULL")
+        if ($logs.Contains('ready for start up') -and $probe.ExitCode -eq 0 -and $probe.Output -eq 't') {
             $stableProbes++
             if ($stableProbes -ge 3) { return }
         } else {
@@ -50,28 +60,48 @@ function Wait-ForInitializedDatabase {
         }
         Start-Sleep -Milliseconds 500
     }
-    throw 'PostgreSQL no quedó estable después de inicializar todas las migraciones.'
+    throw 'PostgreSQL no quedó estable después de cargar el esquema inicial.'
 }
 
 try {
     $startedContainer = Invoke-Docker -DockerArguments @('run', '--detach', '--name', $containerName,
         '--label', 'nexodocs.purpose=database-test', '--network', 'none',
         '--env', 'POSTGRES_HOST_AUTH_METHOD=trust', '--env', 'POSTGRES_DB=fresh',
-        '--tmpfs', '/var/lib/postgresql/data',
-        '--mount', "type=bind,source=$databaseDirectory,target=/workspace,readonly",
-        '--mount', "type=bind,source=$databaseDirectory/init,target=/docker-entrypoint-initdb.d,readonly", $Image)
+        '--tmpfs', '/var/lib/postgresql/data', '--tmpfs', '/workspace',
+        '--mount', "type=bind,source=$databaseDirectory,target=/workspace/database,readonly",
+        '--mount', "type=bind,source=$repositoryDirectory/infrastructure/docker/migrate.sh,target=/workspace/migrate.sh,readonly",
+        '--mount', "type=bind,source=$databaseDirectory/init/001_schema.sql,target=/docker-entrypoint-initdb.d/001_schema.sql,readonly",
+        '--mount', "type=bind,source=$databaseDirectory/init/002_security.sql,target=/docker-entrypoint-initdb.d/002_security.sql,readonly",
+        '--mount', "type=bind,source=$databaseDirectory/init/003_seed.sql,target=/docker-entrypoint-initdb.d/003_seed.sql,readonly", $Image)
 
     $ready = $false
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
-        $probe = Invoke-Docker -AllowFailure -DockerArguments @('exec', $containerName, 'psql', '-U', 'postgres', '-d', 'fresh', '-At', '-c', "SELECT count(*) FROM app.schema_migrations WHERE version = '017_revoked_access_tokens'")
-        if ($probe.ExitCode -eq 0 -and $probe.Output -eq '1') { $ready = $true; break }
+        $probe = Invoke-Docker -AllowFailure -DockerArguments @('exec', $containerName, 'psql', '-U', 'postgres', '-d', 'fresh', '-At', '-c', "SELECT to_regclass('public.tenants') IS NOT NULL")
+        if ($probe.ExitCode -eq 0 -and $probe.Output -eq 't') { $ready = $true; break }
         Start-Sleep -Milliseconds 500
     }
     if (!$ready) { throw 'La inicialización Docker no terminó correctamente.' }
     Wait-ForInitializedDatabase
-    $fresh = Invoke-SqlFile -Database 'fresh' -File '/workspace/tests/validate.sql'
+    $migrationCommand = "tr -d '\r' < /workspace/migrate.sh > /tmp/migrate.sh && chmod +x /tmp/migrate.sh && /tmp/migrate.sh"
+    $freshMigrations = Invoke-Docker -DockerArguments @('exec', '--env', 'PGHOST=127.0.0.1', '--env', 'PGPORT=5432',
+        '--env', 'PGDATABASE=fresh', '--env', 'PGUSER=postgres', '--env', 'MIGRATIONS_ROOT=/workspace/database',
+        $containerName, 'sh', '-c', $migrationCommand)
+    if (!$freshMigrations.Output.Contains('Migraciones al día.')) { throw $freshMigrations.Output }
+    $fresh = Invoke-SqlFile -Database 'fresh' -File '/workspace/database/tests/validate.sql'
     if (!$fresh.Output.Contains('VALIDATION_OK')) { throw $fresh.Output }
     Write-Output 'Inicialización Docker desde cero + VALIDATION_OK'
+
+    # A brand-new isolated tenant database must receive tenant-safe schema
+    # migrations only; the shared lifecycle registry is central control-plane state.
+    $tenantDatabase = 'nexodocs_t_11111111111111111111111111111111'
+    $null = Invoke-Sql -Database 'postgres' -Sql "CREATE DATABASE $tenantDatabase"
+    $tenantBootstrapCommand = "tr -d '\r' < /workspace/database/tenant-bootstrap/migrate-tenant.sh > /tmp/migrate-tenant.sh && chmod +x /tmp/migrate-tenant.sh && /tmp/migrate-tenant.sh"
+    $tenantBootstrap = Invoke-Docker -DockerArguments @('exec', '--env', 'PGHOST=127.0.0.1', '--env', 'PGPORT=5432',
+        '--env', "PGDATABASE=$tenantDatabase", '--env', 'PGUSER=postgres', '--env', 'MIGRATIONS_ROOT=/workspace/database',
+        $containerName, 'sh', '-c', $tenantBootstrapCommand)
+    if (!$tenantBootstrap.Output.Contains('Esquema de tenant preparado.')) { throw $tenantBootstrap.Output }
+    Assert-Equal (Invoke-Sql -Database $tenantDatabase -Sql "SELECT to_regclass('app.tenant_database_registry') IS NULL AND EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='087_secure_recovery_tenant_scope') AND EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='059_stripe_subscription_billing') AND NOT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='059_tenant_database_lifecycle')") 't' 'El bootstrap tenant aplicó migraciones centrales o dejó atrás las migraciones de tenant'
+    Write-Output 'Bootstrap de tenant aislado: migraciones tenant-safe y sin registro central OK'
 
     Initialize-LegacyDatabase -Database 'upgrade'
     $fingerprintSql = @'
@@ -82,35 +112,47 @@ SELECT md5(string_agg(row_data, '' ORDER BY row_data)) FROM (
  UNION ALL SELECT 'tenants:' || to_jsonb(t)::text FROM tenants t
 ) records;
 '@
+    foreach ($file in @('005_demo_users.sql', '015_acme_superadmin_demo_users.sql', '016_finocode_tenant_name.sql')) {
+        $null = Invoke-SqlFile -Database 'upgrade' -File ("/workspace/database/init/" + $file)
+    }
     $before = Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql
-    $null = Invoke-SqlFile -Database 'upgrade' -File '/workspace/init/004_saas_hardening.sql'
+    $null = Invoke-SqlFile -Database 'upgrade' -File '/workspace/database/init/004_saas_hardening.sql'
     Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql) $before 'La migración alteró datos de negocio ya coherentes'
-    foreach ($file in @('005_demo_users.sql', '006_password_recovery.sql', '007_tenant_user_management.sql', '008_tenant_status_compatibility.sql', '009_clinical_domain_extensions.sql', '010_medical_notes.sql', '011_persistent_auth_sessions.sql', '012_http_access_audit.sql', '013_document_checksum_compatibility.sql', '014_auth_user_password_hash_privilege.sql', '015_acme_superadmin_demo_users.sql', '016_finocode_tenant_name.sql', '017_revoked_access_tokens.sql')) {
-        $null = Invoke-SqlFile -Database 'upgrade' -File "/workspace/init/$file"
+    $null = Invoke-SqlFile -Database 'upgrade' -File '/workspace/database/init/067_audit_security_system_events.sql'
+    foreach ($file in @('006_password_recovery.sql', '007_tenant_user_management.sql', '008_tenant_status_compatibility.sql', '009_clinical_domain_extensions.sql', '010_medical_notes.sql', '011_persistent_auth_sessions.sql', '012_http_access_audit.sql', '013_document_checksum_compatibility.sql', '014_auth_user_password_hash_privilege.sql', '016_finocode_tenant_name.sql', '017_revoked_access_tokens.sql')) {
+        $null = Invoke-SqlFile -Database 'upgrade' -File "/workspace/database/init/$file"
     }
     $laterMigrations = Get-ChildItem -LiteralPath (Join-Path $databaseDirectory 'init') -Filter '*.sql' |
         Where-Object { $_.Name -match '^\d{3}_' -and [int]$Matches[0].Substring(0,3) -ge 18 } |
         Sort-Object Name
     foreach ($file in $laterMigrations) {
-        $null = Invoke-SqlFile -Database 'upgrade' -File ("/workspace/init/" + $file.Name)
+        $null = Invoke-MigrationFile -Database 'upgrade' -File ("/workspace/database/init/" + $file.Name)
+        if ($file.Name -eq '067_audit_security_system_events.sql') {
+            $null = Invoke-SqlFile -Database 'upgrade' -File '/workspace/database/init/005_demo_users.sql'
+            $null = Invoke-SqlFile -Database 'upgrade' -File '/workspace/database/init/015_acme_superadmin_demo_users.sql'
+        }
     }
     $afterMigrations = Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql
     $migrationVersionsAfterFirstPass = Invoke-Sql -Database 'upgrade' -Sql "SELECT string_agg(version, E'\\n' ORDER BY version) FROM app.schema_migrations"
-    foreach ($file in @('004_saas_hardening.sql', '005_demo_users.sql', '006_password_recovery.sql', '007_tenant_user_management.sql', '008_tenant_status_compatibility.sql', '009_clinical_domain_extensions.sql', '010_medical_notes.sql', '011_persistent_auth_sessions.sql', '012_http_access_audit.sql', '013_document_checksum_compatibility.sql', '014_auth_user_password_hash_privilege.sql', '015_acme_superadmin_demo_users.sql', '016_finocode_tenant_name.sql', '017_revoked_access_tokens.sql')) {
-        $null = Invoke-SqlFile -Database 'upgrade' -File "/workspace/init/$file"
+    foreach ($file in @('004_saas_hardening.sql', '006_password_recovery.sql', '007_tenant_user_management.sql', '008_tenant_status_compatibility.sql', '009_clinical_domain_extensions.sql', '010_medical_notes.sql', '011_persistent_auth_sessions.sql', '012_http_access_audit.sql', '013_document_checksum_compatibility.sql', '014_auth_user_password_hash_privilege.sql', '016_finocode_tenant_name.sql', '017_revoked_access_tokens.sql')) {
+        $null = Invoke-SqlFile -Database 'upgrade' -File "/workspace/database/init/$file"
     }
     foreach ($file in $laterMigrations) {
-        $null = Invoke-SqlFile -Database 'upgrade' -File ("/workspace/init/" + $file.Name)
+        $null = Invoke-MigrationFile -Database 'upgrade' -File ("/workspace/database/init/" + $file.Name)
+        if ($file.Name -eq '067_audit_security_system_events.sql') {
+            $null = Invoke-SqlFile -Database 'upgrade' -File '/workspace/database/init/005_demo_users.sql'
+            $null = Invoke-SqlFile -Database 'upgrade' -File '/workspace/database/init/015_acme_superadmin_demo_users.sql'
+        }
     }
     Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql "SELECT string_agg(version, E'\\n' ORDER BY version) FROM app.schema_migrations") $migrationVersionsAfterFirstPass 'Repetición alteró el historial de migraciones'
     Assert-Equal (Invoke-Sql -Database 'upgrade' -Sql $fingerprintSql) $afterMigrations 'Repetición alteró datos'
-    $upgrade = Invoke-SqlFile -Database 'upgrade' -File '/workspace/tests/validate.sql'
+    $upgrade = Invoke-SqlFile -Database 'upgrade' -File '/workspace/database/tests/validate.sql'
     if (!$upgrade.Output.Contains('VALIDATION_OK')) { throw $upgrade.Output }
     Write-Output 'Actualización incremental, conservación de datos e idempotencia + VALIDATION_OK'
 
     Initialize-LegacyDatabase -Database 'invalid_data'
     $null = Invoke-Sql -Database 'invalid_data' -Sql "INSERT INTO users(tenant_id,username,email,password_hash,first_name,last_name) SELECT tenant_id,'duplicate.case',upper(email),password_hash,first_name,last_name FROM users WHERE username='laura.martinez'"
-    $invalid = Invoke-Docker -AllowFailure -DockerArguments @('exec', $containerName, 'psql', '-X', '-U', 'postgres', '-d', 'invalid_data', '-v', 'ON_ERROR_STOP=1', '-f', '/workspace/init/004_saas_hardening.sql')
+    $invalid = Invoke-Docker -AllowFailure -DockerArguments @('exec', $containerName, 'psql', '-X', '-U', 'postgres', '-d', 'invalid_data', '-v', 'ON_ERROR_STOP=1', '-f', '/workspace/database/init/004_saas_hardening.sql')
     if ($invalid.ExitCode -eq 0 -or !$invalid.Output.Contains('uq_users_tenant_email_normalized')) { throw 'La migración no rechazó el correo ambiguo como se esperaba.' }
     Assert-Equal (Invoke-Sql -Database 'invalid_data' -Sql "SELECT to_regclass('app.schema_migrations') IS NULL AND (SELECT count(*)=5 FROM users)") 't' 'Rollback de migración fallida'
     Write-Output 'Datos incompatibles: rechazo y rollback completo OK'
@@ -184,7 +226,7 @@ INSERT INTO document_versions(tenant_id,document_id,author_id,change_reason,cont
     $inspection = Invoke-Docker -AllowFailure -DockerArguments @('inspect', $containerName)
     if ($inspection.ExitCode -eq 0) {
         $containerInfo = ($inspection.Output | ConvertFrom-Json)[0]
-        if ($containerInfo.Id -eq $startedContainer.Output -and $containerInfo.Config.Labels.'nexodocs.purpose' -eq 'database-test') {
+        if ($containerInfo.Id -eq $startedContainer.Output.Trim() -and $containerInfo.Config.Labels.'nexodocs.purpose' -eq 'database-test') {
             $null = Invoke-Docker -DockerArguments @('rm', '--force', $containerName)
         } else { Write-Warning 'No se eliminó el contenedor: su identidad o etiqueta no coincide.' }
     }

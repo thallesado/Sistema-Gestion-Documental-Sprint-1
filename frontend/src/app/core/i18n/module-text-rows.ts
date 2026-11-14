@@ -4,6 +4,10 @@
  * Para encontrar textos sin traducir: node scripts/i18n-audit.mjs <archivo>.
  */
 export const MODULE_TEXT_ROWS: ReadonlyArray<readonly [string, string, string, string]> = [
+  ['Conservación documental', 'Document retention', 'Conservation documentaire', '文档保管'],
+  ['Políticas por tipo, plazos de conservación y documentos próximos a vencer.', 'Policies by type, retention periods and documents approaching their retention date.', 'Politiques par type, durées de conservation et documents proches de leur échéance.', '按类型管理策略、保管期限及即将到期的文档。'],
+  ['Transferencias documentales', 'Document transfers', 'Transferts documentaires', '文档移交'],
+  ['Solicitar, aprobar y ejecutar movimientos entre niveles de archivo.', 'Request, approve and execute transfers between archive levels.', 'Demander, approuver et exécuter des transferts entre niveaux d’archivage.', '申请、审批并执行档案层级之间的移交。'],
   // Comunes
   ['Cargando…', 'Loading…', 'Chargement…', '加载中…'],
   ['Actualizar', 'Refresh', 'Actualiser', '刷新'],

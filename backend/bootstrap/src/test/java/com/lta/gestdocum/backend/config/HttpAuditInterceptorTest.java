@@ -2,6 +2,7 @@ package com.lta.gestdocum.backend.config;
 
 import com.lta.gestdocum.backend.security.AuthenticatedUser;
 import com.lta.gestdocum.backend.service.HttpAuditRecorder;
+import com.lta.gestdocum.backend.service.PlatformTechnicalLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +27,9 @@ class HttpAuditInterceptorTest {
     private HttpAuditRecorder auditRecorder;
 
     @Mock
+    private PlatformTechnicalLogService technicalLogs;
+
+    @Mock
     private HttpServletRequest request;
 
     @Mock
@@ -41,7 +45,7 @@ class HttpAuditInterceptorTest {
 
     @BeforeEach
     void setUp() {
-        interceptor = new HttpAuditInterceptor(auditRecorder);
+        interceptor = new HttpAuditInterceptor(auditRecorder, technicalLogs);
         SecurityContextHolder.setContext(securityContext);
     }
 
@@ -72,5 +76,22 @@ class HttpAuditInterceptorTest {
                 "2026-10-18T14:00:00Z",
                 "America/La_Paz"
         );
+    }
+
+    @Test
+    @DisplayName("registra errores técnicos de consultas fallidas sin guardar query string ni cuerpo")
+    void recordsFailedReadAsTechnicalEvent() {
+        AuthenticatedUser user = new AuthenticatedUser(UUID.randomUUID(), UUID.randomUUID(), "operator", Set.of("ROLE_USER"));
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getPrincipal()).thenReturn(user);
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getRequestURI()).thenReturn("/api/v1/patients/70000000-0000-0000-0000-000000000001");
+        when(response.getStatus()).thenReturn(500);
+
+        interceptor.afterCompletion(request, response, new Object(), null);
+
+        verify(technicalLogs).record(eq(user), eq("HTTP_REQUEST"), contains("500"), eq("GET"),
+                eq("/api/v1/patients/70000000-0000-0000-0000-000000000001"), eq(500), isNull());
+        verifyNoInteractions(auditRecorder);
     }
 }

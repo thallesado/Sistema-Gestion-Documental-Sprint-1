@@ -42,8 +42,9 @@ public class DocumentController {
     public ResponseEntity<Page<DocumentResponse>> find(
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) Document.DocumentStatus status,
+            @ModelAttribute com.lta.gestdocum.backend.dto.DocumentSearchFilters filters,
             Pageable pageable) {
-        return ResponseEntity.ok(service.find(filter, status, pageable));
+        return ResponseEntity.ok(service.search(filter, status, "all", filters, pageable));
     }
 
     @GetMapping("/mine")
@@ -53,8 +54,9 @@ public class DocumentController {
     public ResponseEntity<Page<DocumentResponse>> findMine(
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) Document.DocumentStatus status,
+            @ModelAttribute com.lta.gestdocum.backend.dto.DocumentSearchFilters filters,
             Pageable pageable) {
-        return ResponseEntity.ok(service.findMine(filter, status, pageable));
+        return ResponseEntity.ok(service.search(filter, status, "mine", filters, pageable));
     }
 
     @GetMapping("/shared")
@@ -64,8 +66,9 @@ public class DocumentController {
     public ResponseEntity<Page<DocumentResponse>> findShared(
             @RequestParam(required = false) String filter,
             @RequestParam(required = false) Document.DocumentStatus status,
+            @ModelAttribute com.lta.gestdocum.backend.dto.DocumentSearchFilters filters,
             Pageable pageable) {
-        return ResponseEntity.ok(service.findShared(filter, status, pageable));
+        return ResponseEntity.ok(service.search(filter, status, "shared", filters, pageable));
     }
 
     @GetMapping("/categories")
@@ -92,28 +95,47 @@ public class DocumentController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('document:read')")
     public ResponseEntity<DocumentResponse> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(service.findById(id));
+        DocumentResponse document = service.findById(id);
+        return ResponseEntity.ok().eTag(com.lta.gestdocum.backend.service.DocumentStateToken.from(
+                document.id(), document.status(), document.currentVersion(), document.updatedAt())).body(document);
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('document:create')")
     public ResponseEntity<DocumentResponse> create(@Valid @RequestBody DocumentCreateRequest request) {
-        return ResponseEntity.status(201).body(service.create(request));
+        DocumentResponse document = service.create(request);
+        return ResponseEntity.status(201).eTag(com.lta.gestdocum.backend.service.DocumentStateToken.from(
+                document.id(), document.status(), document.currentVersion(), document.updatedAt())).body(document);
+    }
+
+    public record MetadataUpdate(@jakarta.validation.constraints.NotNull java.util.Map<String, Object> metadata) { }
+
+    @PatchMapping("/{id}/metadata")
+    @PreAuthorize("hasAuthority('document:update')")
+    public ResponseEntity<DocumentResponse> updateMetadata(@PathVariable UUID id, @Valid @RequestBody MetadataUpdate request) {
+        DocumentResponse document = service.updateMetadata(id, request.metadata());
+        return ResponseEntity.ok().eTag(com.lta.gestdocum.backend.service.DocumentStateToken.from(
+                document.id(), document.status(), document.currentVersion(), document.updatedAt())).body(document);
     }
 
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyAuthority('document:update','document:approve','document:reject','document:archive','document:delete')")
     public ResponseEntity<DocumentResponse> changeStatus(
-            @PathVariable UUID id, @Valid @RequestBody DocumentStatusRequest request) {
-        return ResponseEntity.ok(service.changeStatus(id, request));
+            @PathVariable UUID id, @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
+            @Valid @RequestBody DocumentStatusRequest request) {
+        DocumentResponse document = service.changeStatus(id, request, ifMatch);
+        return ResponseEntity.ok().eTag(com.lta.gestdocum.backend.service.DocumentStateToken.from(
+                document.id(), document.status(), document.currentVersion(), document.updatedAt())).body(document);
     }
 
     @PostMapping(path = "/{id}/versions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('document:update')")
     public ResponseEntity<DocumentVersionResponse> upload(
             @PathVariable UUID id, @RequestPart("file") MultipartFile file,
-            @RequestPart("changeReason") String changeReason) {
-        return ResponseEntity.status(201).body(storageService.upload(id, file, changeReason));
+            @RequestPart("changeReason") String changeReason,
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch) {
+        DocumentVersionResponse version = storageService.upload(id, file, changeReason, ifMatch);
+        return ResponseEntity.status(201).eTag(storageService.stateToken(id)).body(version);
     }
 
     @GetMapping("/{id}/versions")

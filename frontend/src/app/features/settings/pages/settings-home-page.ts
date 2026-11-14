@@ -21,6 +21,10 @@ export interface SettingsShortcut {
 
 /** Accesos de la pantalla Configuración. Cada `permission` copia el guard de su ruta. */
 export const SETTINGS_SHORTCUTS: readonly SettingsShortcut[] = [
+  { group: 'Documentos y datos', icon: '📁', title: 'Conservación documental', href: '/settings/retention',
+    description: 'Políticas por tipo, plazos de conservación y documentos próximos a vencer.', permission: 'configuration:read' },
+  { group: 'Documentos y datos', icon: '↗', title: 'Transferencias documentales', href: '/documents/transfers',
+    description: 'Solicitar, aprobar y ejecutar movimientos entre niveles de archivo.', permission: 'document:read' },
   { group: 'Organización', icon: '🎨', title: 'Apariencia y regionalización', href: '/settings/appearance',
     description: 'Color de la marca, logotipo, moneda, zona horaria y formato de fecha.', permission: ['tenant:update', 'tenant:manage'] },
   { group: 'Personas y accesos', icon: '👥', title: 'Usuarios', href: '/users',

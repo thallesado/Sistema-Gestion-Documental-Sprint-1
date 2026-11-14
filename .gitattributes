@@ -1,0 +1,3 @@
+# Preserve binary evidence and PDF offsets on Windows checkouts.
+*.pdf binary
+*.png binary

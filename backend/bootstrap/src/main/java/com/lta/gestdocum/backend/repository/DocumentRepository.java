@@ -10,7 +10,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.UUID;
 
-public interface DocumentRepository extends JpaRepository<Document, UUID> {
+public interface DocumentRepository extends JpaRepository<Document, UUID>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Document> {
     /** B2: campos que la búsqueda libre puede comparar; los ocultos para el perfil no se usan como filtro. */
     record SearchFields(boolean name, boolean description, boolean code, boolean specialty, boolean process) {
         public static final SearchFields ALL = new SearchFields(true, true, true, true, true);
@@ -102,6 +102,17 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
                                          Document.DocumentStatus status, @Param("fields") SearchFields fields, Pageable pageable);
 
     java.util.Optional<Document> findByIdAndTenantIdAndDeletedAtIsNull(UUID id, UUID tenantId);
+
+    @org.springframework.data.jpa.repository.Query(value = """
+        select d.* from documents d
+        where d.id = :id and d.tenant_id = :tenantId and d.deleted_at is null
+        for update
+        """, nativeQuery = true)
+    java.util.Optional<Document> findForStateChange(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select d from Document d where d.id = :id and d.tenantId = :tenantId and d.deletedAt is null")
+    java.util.Optional<Document> findForMetadataUpdate(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
 
     List<Document> findByTenantIdAndStatus(UUID tenantId, Document.DocumentStatus status);
 

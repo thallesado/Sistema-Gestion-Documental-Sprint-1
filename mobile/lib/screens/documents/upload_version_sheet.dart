@@ -124,7 +124,11 @@ class _UploadVersionSheetState extends State<UploadVersionSheet> {
       Navigator.of(context).pop(true);
     } on ApiException catch (exception) {
       if (mounted) {
-        setState(() => error = exception.isForbidden ? 'Tu perfil no puede subir versiones de este documento.' : exception.message);
+        setState(() => error = exception.isForbidden
+            ? 'Tu perfil no puede subir versiones de este documento.'
+            : exception.isPreconditionFailed
+                ? 'El documento cambió desde que lo abriste. Cierra esta ventana, actualiza el documento e inténtalo de nuevo.'
+                : exception.message);
       }
     } finally {
       if (mounted) setState(() => uploading = false);

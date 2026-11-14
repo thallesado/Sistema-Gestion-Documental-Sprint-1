@@ -388,14 +388,27 @@ public class ClinicalHistoryService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public com.lta.gestdocum.backend.dto.ClinicalHistoryDeletionResponse findDeletion(UUID patientId) {
+        UUID tenantId = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
+        patientService.requireByIdAndTenant(patientId, tenantId);
+        return repository.findByTenantIdAndPatientId(tenantId, patientId)
+                .filter(history -> history.getDeletedAt() != null)
+                .map(history -> new com.lta.gestdocum.backend.dto.ClinicalHistoryDeletionResponse(
+                        history.getId(), history.getCode(), history.getPatientId(), history.getDeletedAt(),
+                        history.getDeletionReason(), history.getDeletedBy())).orElse(null);
+    }
+
     @Transactional
     public void delete(UUID id, DeleteClinicalHistoryRequest request) {
         UUID tenantId = userContext.requireTenantId();
         UUID userId = userContext.requireUserId();
         userContext.establishDatabaseContext();
 
-        if (request == null || request.reason() == null || request.reason().trim().length() < 10) {
-            throw new IllegalArgumentException("El motivo de baja clínica debe tener al menos 10 caracteres");
+        if (request == null || request.reason() == null || request.reason().trim().length() < 10
+                || request.reason().trim().length() > 500) {
+            throw new IllegalArgumentException("El motivo de baja clínica debe tener entre 10 y 500 caracteres");
         }
 
         ClinicalHistory entity = repository.findByIdAndTenantIdAndDeletedAtIsNull(id, tenantId)
@@ -415,7 +428,7 @@ public class ClinicalHistoryService {
                 .entityId(entity.getId())
                 .occurredAt(now)
                 .result("SUCCESS")
-                .details("{\"reason\":\"" + request.reason().trim().replace("\"", "\\\"") + "\"}")
+                .details(auditDetails(java.util.Map.of("reason", request.reason().trim())))
                 .build();
         auditEventRepository.save(auditEvent);
     }
@@ -437,6 +450,9 @@ public class ClinicalHistoryService {
         ClinicalHistory history = getForTenant(historyId);
         Document document = documentRepository.findByIdAndTenantIdAndDeletedAtIsNull(documentId, tenantId)
                 .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
+        if (document.getPatientId() != null && !document.getPatientId().equals(history.getPatientId())) {
+            throw new IllegalArgumentException("El documento pertenece a otro paciente y no puede vincularse a esta historia clínica");
+        }
 
         if (!clinicalDocumentLinkRepository.existsByTenantIdAndClinicalHistoryIdAndIdDocumentId(tenantId, historyId, documentId)) {
             ClinicalDocumentLink link = ClinicalDocumentLink.builder()
@@ -446,6 +462,7 @@ public class ClinicalHistoryService {
                     .linkedAt(OffsetDateTime.now())
                     .build();
             clinicalDocumentLinkRepository.save(link);
+            recordDocumentLink("CLINICAL_DOCUMENT_LINKED", historyId, documentId);
         }
         return toDocumentResponse(document);
     }
@@ -455,7 +472,26 @@ public class ClinicalHistoryService {
         UUID tenantId = userContext.requireTenantId();
         userContext.establishDatabaseContext();
         getForTenant(historyId);
-        clinicalDocumentLinkRepository.deleteByTenantIdAndClinicalHistoryIdAndIdDocumentId(tenantId, historyId, documentId);
+        if (clinicalDocumentLinkRepository.existsByTenantIdAndClinicalHistoryIdAndIdDocumentId(tenantId, historyId, documentId)) {
+            clinicalDocumentLinkRepository.deleteByTenantIdAndClinicalHistoryIdAndIdDocumentId(tenantId, historyId, documentId);
+            recordDocumentLink("CLINICAL_DOCUMENT_UNLINKED", historyId, documentId);
+        }
+    }
+
+    private String auditDetails(java.util.Map<String, ?> details) {
+        try {
+            return objectMapper.writeValueAsString(details);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+            throw new IllegalStateException("No se pudo registrar la evidencia de auditoría", exception);
+        }
+    }
+
+    private void recordDocumentLink(String action, UUID historyId, UUID documentId) {
+        auditEventRepository.save(AuditEvent.builder()
+                .tenantId(userContext.requireTenantId()).userId(userContext.requireUserId())
+                .action(action).entityType("clinical_history").entityId(historyId)
+                .occurredAt(OffsetDateTime.now()).result("SUCCESS")
+                .details(auditDetails(java.util.Map.of("documentId", documentId))).build());
     }
 
     private ComponentFormAccess formAccess(String formKey) {

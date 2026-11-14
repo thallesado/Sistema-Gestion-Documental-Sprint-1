@@ -137,7 +137,10 @@ void main() {
     testWidgets('sin document:update no aparece el botón de nueva versión', (tester) async {
       signedIn();
       final server = FakeServer({
-        'GET /documents/doc-1': (_) => FakeServer.json(document()),
+        'GET /documents/doc-1': (_) => http.Response(
+              jsonEncode(document()), 200,
+              headers: {'content-type': 'application/json', 'etag': '"doc-state-1"'},
+            ),
         'GET /documents/doc-1/versions': (_) => FakeServer.json([]),
       });
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: DocumentDetailSheet(api: apiWith(server, ['document:read']), documentId: 'doc-1'))));
@@ -150,13 +153,19 @@ void main() {
       final photo = File('${Directory.systemTemp.createTempSync('nexodocs').path}/foto.jpg')..writeAsBytesSync([0xff, 0xd8, 0xff, 0xd9]);
       var versions = <Map<String, dynamic>>[];
       final server = FakeServer({
-        'GET /documents/doc-1': (_) => FakeServer.json(document()),
+        'GET /documents/doc-1': (_) => http.Response(
+              jsonEncode(document()), 200,
+              headers: {'content-type': 'application/json', 'etag': '"doc-state-1"'},
+            ),
         'GET /documents/doc-1/versions': (_) => FakeServer.json(versions),
         'POST /documents/doc-1/versions': (_) {
           versions = [
             {'id': 'v1', 'versionNumber': 1, 'fileName': 'foto_1.jpg', 'fileSizeBytes': 4},
           ];
-          return FakeServer.json(versions.first, 201);
+          return http.Response(
+            jsonEncode(versions.first), 201,
+            headers: {'content-type': 'application/json', 'etag': '"doc-state-2"'},
+          );
         },
       });
       Future<PickedUpload?> fakeCamera(UploadOrigin origin) async =>
@@ -185,6 +194,7 @@ void main() {
 
       final upload = server.requests.singleWhere((r) => r.method == 'POST');
       expect(upload.headers['content-type'], startsWith('multipart/form-data'));
+      expect(upload.headers['if-match'], '"doc-state-1"');
       final body = latin1.decode(upload.bodyBytes);
       expect(body, contains('name="changeReason"'));
       expect(body, contains('Firma del cliente'));

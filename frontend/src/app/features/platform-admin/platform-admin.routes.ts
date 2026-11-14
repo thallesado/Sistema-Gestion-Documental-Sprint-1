@@ -8,6 +8,12 @@ const paymentsReport: RouteInfo = { module: 'Reportes', subcategory: 'Reporte de
 /** Platform administrator area: global dashboard and cross-tenant reports (backend: platform:tenant:manage). */
 export const platformAdminRoutes: Routes = [
   {
+    path: 'platform/technical-logs',
+    loadComponent: () => import('./pages/platform-technical-logs-page').then((m) => m.PlatformTechnicalLogsPage),
+    title: 'Logs técnicos - NexoDocs',
+    canActivate: [authGuard, platformAdminGuard],
+  },
+  {
     path: 'platform/tenants/:id',
     loadComponent: () => import('./pages/platform-tenant-page').then((m) => m.PlatformTenantPage),
     title: 'Ficha de organización - NexoDocs',

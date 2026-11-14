@@ -1,6 +1,7 @@
 package com.lta.gestdocum.backend.security;
 
 import io.jsonwebtoken.JwtException;
+import com.lta.gestdocum.backend.security.TenantDatabaseContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -53,17 +54,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         jwt = authHeader.substring(7);
         try {
             AuthenticatedUser user = jwtService.extractAuthenticatedUser(jwt);
-            if (SecurityContextHolder.getContext().getAuthentication() == null) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        user,
-                        null,
-                        user.authorities().stream().map(SimpleGrantedAuthority::new).toList()
-                );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-                if (accessTokenRevocationChecker.isRevoked(user, jwt)) {
-                    SecurityContextHolder.clearContext();
+            try (TenantDatabaseContext.Scope ignored = TenantDatabaseContext.useTenant(user.tenantId())) {
+                if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            user,
+                            null,
+                            user.authorities().stream().map(SimpleGrantedAuthority::new).toList()
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                    if (accessTokenRevocationChecker.isRevoked(user, jwt)) {
+                        SecurityContextHolder.clearContext();
+                        try (TenantDatabaseContext.Scope publicScope = TenantDatabaseContext.useTenant(null)) {
+                            filterChain.doFilter(request, response);
+                            return;
+                        }
+                    }
                 }
+                filterChain.doFilter(request, response);
+                return;
             }
         } catch (JwtException | IllegalArgumentException ignored) {
             // Un JWT inválido queda sin autenticación y Security devuelve 401.

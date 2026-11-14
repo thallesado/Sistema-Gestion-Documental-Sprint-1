@@ -7,6 +7,7 @@ class ApiException implements Exception {
 
   bool get isNotFound => statusCode == 404;
   bool get isForbidden => statusCode == 403;
+  bool get isPreconditionFailed => statusCode == 412 || statusCode == 428;
 
   @override
   String toString() => message;

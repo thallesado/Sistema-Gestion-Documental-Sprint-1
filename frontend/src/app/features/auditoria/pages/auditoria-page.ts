@@ -427,6 +427,13 @@ export class AuditPage {
       { label: 'Fecha servidor', value: this.formatDate(event.occurredAt) },
     ];
 
+    if (event.action === 'CLINICAL_HISTORY_DELETED' && typeof detailsObj?.['reason'] === 'string') {
+      fields.push({ label: 'Motivo de baja clínica', value: detailsObj['reason'] });
+    }
+    if (typeof detailsObj?.['documentId'] === 'string') {
+      fields.push({ label: 'Documento vinculado', value: detailsObj['documentId'] });
+    }
+
     if (event.clientTimestamp) {
       const tzStr = event.clientTimezone ? ` (${event.clientTimezone})` : '';
       fields.push({

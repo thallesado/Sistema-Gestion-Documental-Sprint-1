@@ -3,6 +3,7 @@ package com.lta.gestdocum.backend.config;
 import com.lta.gestdocum.backend.security.AuthenticatedUser;
 import com.lta.gestdocum.backend.service.AuditClientIp;
 import com.lta.gestdocum.backend.service.HttpAuditRecorder;
+import com.lta.gestdocum.backend.service.PlatformTechnicalLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -16,18 +17,26 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class HttpAuditInterceptor implements HandlerInterceptor {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpAuditInterceptor.class);
     private final HttpAuditRecorder auditService;
+    private final PlatformTechnicalLogService technicalLogs;
 
-    public HttpAuditInterceptor(HttpAuditRecorder auditService) {
+    public HttpAuditInterceptor(HttpAuditRecorder auditService, PlatformTechnicalLogService technicalLogs) {
         this.auditService = auditService;
+        this.technicalLogs = technicalLogs;
     }
 
     @SuppressWarnings("null")
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
                                 Object handler, Exception exception) {
-        if (!shouldRecord(request.getMethod(), request.getRequestURI())) return;
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUser user)) return;
+        AuthenticatedUser user = authentication != null && authentication.getPrincipal() instanceof AuthenticatedUser principal
+                ? principal : null;
+        if (response.getStatus() >= 400 || exception != null) {
+            technicalLogs.record(user, "HTTP_REQUEST", "La solicitud devolvió HTTP " + response.getStatus(),
+                    request.getMethod(), request.getRequestURI(), response.getStatus(), exception);
+        }
+        if (!shouldRecord(request.getMethod(), request.getRequestURI())) return;
+        if (user == null) return;
         try {
             String forwarded = request.getHeader("X-Forwarded-For");
             String clientTimestamp = request.getHeader("X-Client-Timestamp");

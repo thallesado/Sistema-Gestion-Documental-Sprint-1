@@ -1,6 +1,6 @@
 # Arquitectura Angular
 
-> Revisión documental: 2026-10-16. Base de código: `a590a6d`; ver [estado verificado](../05-guias-ia/estado-verificado-y-pendientes.md). Descripción del código inspeccionado, no certificación de producción.
+> Revisión documental: 2026-11-04. Checkout local 123419c más cambios sin commit; revisión parcial del registro de demo.
 
 ## Directorios reales
 
@@ -58,6 +58,8 @@ Configuración general utiliza `/settings`. Desde 2026-10-27 es una portada prop
 | /platform/addons, pestaña Complementos de /billing/subscription | Complementos (2026-10-27, fase 3): catálogo de plataforma con precios versionados, compra por el tenant (ítem de la suscripción, paquete OCR con Checkout o QR/USDT), reducción al final del período y cortesías desde la ficha. Ver [administración de plataforma](../04-dominio-y-negocio/administracion-de-plataforma.md) |
 | Recorrido guiado (todas las rutas del shell) | Onboarding de un solo uso con driver.js 1.3.6 (2026-10-26): pasos en `core/onboarding/onboarding-steps.ts` apuntando a `data-tour="navigation"`, a cada opción del menú (`data-tour-menu=<etiqueta>`, solo las visibles por permisos), a `"primary-action"` (ayuda) y a `"profile"` de `shell/app.html`; `AppTourService` lo lanza desde el shell cuando hay usuario y guarda `nexodocs.hasCompletedTour.<userId>` en localStorage al terminar, cerrar u omitir. Los textos (pasos y botones) salen de `core/i18n/tour-translations.ts` en es/en/fr/zh, y el modal de perfil tiene «Iniciar recorrido» (`startTour()`) para repetirlo. Las cuentas de plataforma no lo ven automáticamente; lo inician desde su perfil. La app Flutter tiene el equivalente con showcaseview 5.1 y SharedPreferences (`mobile/lib/core/onboarding`, clave `hasCompletedTour`) |
 | /planes, /planes/exito, /register | Compra con Stripe (`?comprar=PLAN` abre el formulario), retorno del pago y solicitud de demo de 12 días; ver [suscripciones](../04-dominio-y-negocio/suscripciones-y-pagos-stripe.md) |
+
+La solicitud de demo en `/register` pide confirmar la contraseña, permite mostrar u ocultar ambos campos con controles accesibles y evita el envío si las contraseñas no coinciden. La validación del servidor sigue siendo obligatoria.
 
 Las rutas dinámicas reutilizan WorkspacePage en varias secciones; no asumir una feature independiente por cada opción. Verificar ruta, carga de componente y contratos antes de editar.
 

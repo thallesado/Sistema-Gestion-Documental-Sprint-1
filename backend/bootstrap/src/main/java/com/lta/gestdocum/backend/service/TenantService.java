@@ -22,6 +22,8 @@ import java.util.UUID;
 
 @Service
 public class TenantService {
+    private volatile TenantDatabaseProvisioningService databaseProvisioningService;
+    private volatile TenantDatabaseLifecycleService tenantDatabaseLifecycleService;
 
     private static final Logger log = LoggerFactory.getLogger(TenantService.class);
 
@@ -39,6 +41,9 @@ public class TenantService {
 
     @Value("${app.mail-from:diegoastetepaz@gmail.com}")
     private String mailFrom;
+
+    @Value("${app.tenant-databases.isolation-enabled:false}")
+    private boolean tenantIsolationEnabled;
 
     @org.springframework.beans.factory.annotation.Autowired
     public TenantService(
@@ -71,6 +76,16 @@ public class TenantService {
         this(repository, planRepository, userRepository, roleRepository, permissionRepository, passwordEncoder, mailSenderProvider, null);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setDatabaseProvisioningService(TenantDatabaseProvisioningService service) {
+        this.databaseProvisioningService = service;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setTenantDatabaseLifecycleService(TenantDatabaseLifecycleService service) {
+        this.tenantDatabaseLifecycleService = service;
+    }
+
     @Transactional(readOnly = true)
     public List<TenantResponse> list() {
         return repository.findAll().stream().map(this::map).toList();
@@ -79,7 +94,9 @@ public class TenantService {
     /** Organizaciones que pueden iniciar sesión (ACTIVE y TRIAL), solo id y nombre. */
     @Transactional(readOnly = true)
     public List<TenantPublicResponse> listPublic() {
+        TenantDatabaseLifecycleService lifecycle = tenantDatabaseLifecycleService;
         return repository.findLoginTenants().stream()
+                .filter(t -> lifecycle == null || lifecycle.isTenantLoginAllowed(t.getId()))
                 .map(t -> new TenantPublicResponse(t.getId(), t.getName())).toList();
     }
 
@@ -141,14 +158,12 @@ public class TenantService {
         Instant now = Instant.now();
         t.setPrimaryColor("#087f7b");
         t.setTrialStartAt(now);
-        t.setTrialEndsAt(now.plus(12, ChronoUnit.DAYS));
+        t.setTrialEndsAt(TenantTrialLifecyclePolicy.trialEndsAt(now));
         t.setBillingCycle("MONTHLY");
         t.setCurrency("USD");
         t.setTimezone("America/La_Paz");
         t.setDateFormat("YYYY-MM-DD");
         t.setDefaultLanguage("es");
-
-        Tenant saved = repository.save(t);
 
         // Crear administrador inicial
         String adminEmail = (r.adminEmail() != null && !r.adminEmail().isBlank())
@@ -165,8 +180,10 @@ public class TenantService {
         String suffix = tenantId.toString().substring(0, 8);
         String username = deriveUsername(adminEmail, suffix);
         String tempPassword = ownPassword ? null : generateTemporaryPassword();
+        UUID adminId = tenantIsolationEnabled ? UUID.randomUUID() : null;
 
         User adminUser = User.builder()
+                .id(adminId)
                 .tenantId(tenantId)
                 .username(username)
                 .email(adminEmail)
@@ -178,34 +195,30 @@ public class TenantService {
                 .mustChangePassword(!ownPassword)
                 .preferredLanguage("es")
                 .build();
-        userRepository.save(adminUser);
-
-        // Asignar rol "Administrador de tenant"
-        Role adminRole = roleRepository.save(Role.builder()
-                .tenantId(tenantId)
-                .name("Administrador de tenant")
-                .description("Administrador inicial creado durante el alta de la organización")
-                .isSystem(true)
-                .isActive(true)
-                .build());
-        roleRepository.assign(tenantId, adminUser.getId(), adminRole.getId());
-
-        // Conceder únicamente los permisos permitidos por las funcionalidades del plan contratado
-        try {
-            List<String> enabledFeatures = planId == null ? List.of() : planRepository.findFeaturesByPlanId(planId).stream()
-                    .filter(f -> Boolean.TRUE.equals(f.getEnabled()))
-                    .map(PlanFeatureProjection::getFeatureKey)
-                    .toList();
-            java.util.Set<String> featureSet = new java.util.HashSet<>(enabledFeatures);
-
-            List<Permission> allowed = permissionRepository.findByIsActiveTrueOrderByModuleAscActionAsc().stream()
-                    .filter(perm -> PlanFeatureMatrix.isPermissionAllowed(perm.getModule(), perm.getCode(), featureSet))
-                    .toList();
-            allowed.forEach(perm -> roleRepository.grantPermission(tenantId, adminRole.getId(), perm.getId()));
+        Tenant saved;
+        List<Permission> allowed = allowedTenantAdminPermissions(planId);
+        if (tenantIsolationEnabled) {
+            createIsolatedTenantOnboarding(t, adminUser, allowed);
+            saved = t;
             createDefaultGroups(tenantId, allowed);
-        } catch (Exception ex) {
-            log.warn("Aviso al otorgar permisos al rol de tenant admin: {}", ex.getMessage());
+        } else {
+            saved = repository.save(t);
+            repository.flush();
+            userRepository.save(adminUser);
+            Role adminRole = roleRepository.save(Role.builder()
+                    .tenantId(tenantId)
+                    .name("Administrador de tenant")
+                    .description("Administrador inicial creado durante el alta de la organización")
+                    .isSystem(true)
+                    .isActive(true)
+                    .build());
+            roleRepository.assign(tenantId, adminUser.getId(), adminRole.getId());
+            grantTenantAdminPermissions(tenantId, adminRole.getId(), planId);
+            createDefaultGroups(tenantId, allowed);
         }
+
+        registerTenantLifecycle(saved);
+        scheduleTenantProvisioning(saved.getId());
 
         // Enviar correo con credenciales de acceso de forma defensiva
         boolean delivered = ownPassword || sendWelcomeEmail(saved, adminUser, tempPassword);
@@ -215,6 +228,106 @@ public class TenantService {
 
         TenantResponse response = map(saved);
         return exposeUndeliveredPassword && !delivered ? response.withTemporaryPassword(tempPassword) : response;
+    }
+
+    private List<Permission> allowedTenantAdminPermissions(UUID planId) {
+        List<String> enabledFeatures = planId == null ? List.of() : planRepository.findFeaturesByPlanId(planId).stream()
+                .filter(f -> Boolean.TRUE.equals(f.getEnabled()))
+                .map(PlanFeatureProjection::getFeatureKey)
+                .toList();
+        java.util.Set<String> featureSet = new java.util.HashSet<>(enabledFeatures);
+        return permissionRepository.findByIsActiveTrueOrderByModuleAscActionAsc().stream()
+                .filter(perm -> PlanFeatureMatrix.isPermissionAllowed(perm.getModule(), perm.getCode(), featureSet))
+                .toList();
+    }
+
+    private void grantTenantAdminPermissions(UUID tenantId, Long roleId, UUID planId) {
+        allowedTenantAdminPermissions(planId).forEach(permission ->
+                roleRepository.grantPermission(tenantId, roleId, permission.getId()));
+    }
+
+    private void createIsolatedTenantOnboarding(Tenant tenant, User adminUser, List<Permission> permissions) {
+        if (jdbcTemplate == null) throw new IllegalStateException("No está disponible el plano de control de tenants.");
+        jdbcTemplate.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+            java.sql.Array permissionIds = connection.createArrayOf("bigint",
+                    permissions.stream().map(Permission::getId).toArray(Long[]::new));
+            try (java.sql.PreparedStatement statement = connection.prepareStatement(
+                    "SELECT app.create_public_tenant_onboarding(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                statement.setObject(1, tenant.getId());
+                statement.setString(2, tenant.getName());
+                statement.setString(3, tenant.getCode());
+                statement.setString(4, tenant.getSlug());
+                statement.setString(5, tenant.getEmail());
+                statement.setObject(6, tenant.getPlanId());
+                statement.setTimestamp(7, java.sql.Timestamp.from(tenant.getTrialStartAt()));
+                statement.setTimestamp(8, java.sql.Timestamp.from(tenant.getTrialEndsAt()));
+                statement.setObject(9, adminUser.getId());
+                statement.setString(10, adminUser.getUsername());
+                statement.setString(11, adminUser.getEmail());
+                statement.setString(12, adminUser.getPasswordHash());
+                statement.setString(13, adminUser.getFirstName());
+                statement.setString(14, adminUser.getLastName());
+                statement.setArray(15, permissionIds);
+                statement.execute();
+            } finally {
+                permissionIds.free();
+            }
+            return null;
+        });
+    }
+
+    /** Register lifecycle metadata only when routing is enabled and migration 059 is present. */
+    private void registerTenantLifecycle(Tenant tenant) {
+        if (jdbcTemplate == null || tenantDatabaseLifecycleService == null) return;
+        String storageMode = tenantIsolationEnabled ? "ISOLATED" : "LEGACY_SHARED";
+        String lifecycleState = tenantIsolationEnabled ? "PROVISIONING" : "LEGACY_SHARED";
+        String databaseName = tenantIsolationEnabled ? TenantDatabaseName.forTenant(tenant.getId()) : null;
+        jdbcTemplate.update("""
+            INSERT INTO app.tenant_database_registry
+                (tenant_id,database_name,storage_mode,lifecycle_state,trial_started_at,trial_ends_at,grace_ends_at)
+            VALUES (?,?,?,?,?,?,?) ON CONFLICT (tenant_id) DO NOTHING
+            """, tenant.getId(), databaseName, storageMode, lifecycleState,
+                java.sql.Timestamp.from(tenant.getTrialStartAt()), java.sql.Timestamp.from(tenant.getTrialEndsAt()),
+                java.sql.Timestamp.from(tenant.getTrialEndsAt().plus(TenantTrialLifecyclePolicy.GRACE_DAYS, ChronoUnit.DAYS)));
+        jdbcTemplate.update("""
+            INSERT INTO app.tenant_lifecycle_events (tenant_id,event_type,details)
+            VALUES (?, 'REGISTERED', jsonb_build_object('storageMode', ?, 'databaseName', ?))
+            """, tenant.getId(), storageMode, databaseName);
+    }
+
+    private void scheduleTenantProvisioning(UUID tenantId) {
+        if (!tenantIsolationEnabled) return;
+        TenantDatabaseProvisioningService provisioner = databaseProvisioningService;
+        Runnable provisioning = provisioner != null
+                ? () -> provisioner.provision(tenantId)
+                : () -> awaitTenantProvisioning(tenantId);
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCommit() { provisioning.run(); }
+                    });
+        } else {
+            provisioning.run();
+        }
+    }
+
+    private void awaitTenantProvisioning(UUID tenantId) {
+        if (jdbcTemplate == null) throw new IllegalStateException("No está disponible el plano de control de tenants.");
+        long deadline = System.nanoTime() + java.time.Duration.ofMinutes(3).toNanos();
+        while (System.nanoTime() < deadline) {
+            String state = jdbcTemplate.query("SELECT lifecycle_state FROM app.tenant_database_registry WHERE tenant_id=?",
+                    rows -> rows.next() ? rows.getString(1) : null, tenantId);
+            if ("TRIAL".equals(state) || "ACTIVE".equals(state)) return;
+            if ("PROVISIONING_FAILED".equals(state)) {
+                throw new IllegalStateException("No se pudo preparar la base de datos de la organización. El proceso quedará registrado para reintento.");
+            }
+            try { Thread.sleep(250); }
+            catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Se interrumpió la espera de aprovisionamiento de la organización.", interrupted);
+            }
+        }
+        throw new IllegalStateException("La base de datos de la organización sigue preparándose. Intenta iniciar sesión en unos minutos.");
     }
 
     /**

@@ -86,13 +86,7 @@ public class TenantAddonSync {
     @Scheduled(fixedDelayString = "${billing.addons.poll-ms:300000}", initialDelayString = "${billing.addons.initial-delay-ms:90000}")
     public void applyDueChanges() {
         try {
-            jdbc.update("""
-                    update tenant_addons set status = case when pending_units = 0 then 'ENDED' else status end,
-                      units = case when pending_units > 0 then pending_units else units end,
-                      pending_units = null, pending_at = null, updated_at = now()
-                    where status = 'ACTIVE' and pending_at <= now()
-                    """);
-            jdbc.update("update tenant_addons set status = 'EXPIRED', updated_at = now() where status = 'ACTIVE' and expires_at <= now()");
+            jdbc.queryForObject("select app.apply_due_tenant_addon_changes()", Integer.class);
         } catch (DataAccessException exception) {
             log.warn("No se pudieron aplicar los cambios de complementos: {}", exception.getMessage());
         }

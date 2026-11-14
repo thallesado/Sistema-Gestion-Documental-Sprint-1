@@ -8,6 +8,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class HtmlSanitizerServiceTest {
 
+    @Test
+    void rejectsEmptyFormattingLeftAfterRemovingMaliciousContent() {
+        HtmlSanitizerService service = new HtmlSanitizerService();
+        assertEquals("", service.sanitize("<script>alert('x')</script><p><br></p>"));
+        assertEquals("", service.sanitize("<iframe src='evil'></iframe><p> </p>"));
+    }
+
     private HtmlSanitizerService sanitizer;
 
     @BeforeEach
@@ -38,6 +45,21 @@ class HtmlSanitizerServiceTest {
         assertFalse(output.contains("<img"));
         assertTrue(output.contains("Tratamiento"));
         assertTrue(output.contains("indicado."));
+    }
+
+    @Test
+    @DisplayName("HU-10: elimina iframe y atributos de ejecución conservando el texto seguro")
+    void shouldStripIframeAndInlineHandlers() {
+        String output = sanitizer.sanitize("<p onload='alert(1)' onerror='alert(2)'>Control seguro</p>"
+                + "<iframe src='javascript:alert(3)'></iframe>");
+        assertEquals("<p>Control seguro</p>", output);
+    }
+
+    @Test
+    @DisplayName("HU-10: un payload exclusivamente malicioso queda vacío")
+    void shouldRemoveMaliciousOnlyContent() {
+        assertTrue(sanitizer.sanitize("<script>alert(1)</script><iframe src='x'></iframe>"
+                + "<img src='x' onerror='alert(2)'>").isBlank());
     }
 
     @Test

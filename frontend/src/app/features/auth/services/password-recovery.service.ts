@@ -17,7 +17,7 @@ export class PasswordRecoveryService {
     return this.http.post<RecoveryMessage>(`${API_URL}/forgot-password`, { tenantId, email });
   }
 
-  resetPassword(token: string, newPassword: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${API_URL}/reset-password`, { token, newPassword });
+  resetPassword(token: string, newPassword: string, tenantId: string | null): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${API_URL}/reset-password`, { token, newPassword, tenantId });
   }
 }

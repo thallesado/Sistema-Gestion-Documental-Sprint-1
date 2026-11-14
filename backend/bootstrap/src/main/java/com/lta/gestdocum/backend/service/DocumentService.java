@@ -63,6 +63,10 @@ public class DocumentService {
     }
 
     private PlanLimitService planLimitService;
+    private DocumentRetentionService retentionService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setRetentionService(DocumentRetentionService retentionService) { this.retentionService=retentionService; }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setAuditRecorder(AuditRecorder auditRecorder) {
@@ -119,6 +123,31 @@ public class DocumentService {
         return repository.searchShared(tenantId, userId, value, searchFields(access), pageable).map(document -> toResponse(document, access));
     }
 
+    @Transactional(readOnly = true)
+    public Page<DocumentResponse> search(String text, Document.DocumentStatus status, String scope,
+            com.lta.gestdocum.backend.dto.DocumentSearchFilters filters, Pageable pageable) {
+        UUID tenant = userContext.requireTenantId();
+        userContext.establishDatabaseContext();
+        ComponentFormAccess access = documentAccess();
+        String order = filters.sortBy() == null ? "updated" : filters.sortBy();
+        String property = switch (order) {
+            case "name" -> "name";
+            case "version" -> "currentVersion";
+            case "created" -> "createdAt";
+            case "updated" -> "updatedAt";
+            default -> throw new IllegalArgumentException("Orden documental no válido");
+        };
+        if (order.equals("name") && !access.visible("nombre")) {
+            throw new org.springframework.security.access.AccessDeniedException("No puedes ordenar por un campo oculto");
+        }
+        var sort = org.springframework.data.domain.Sort.by(order.equals("name")
+                ? org.springframework.data.domain.Sort.Direction.ASC : org.springframework.data.domain.Sort.Direction.DESC, property)
+                .and(org.springframework.data.domain.Sort.by("id"));
+        var page = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+        return repository.findAll(DocumentSearchSpecification.build(tenant, userContext.requireUserId(), scope,
+                text, status, filters, access), page).map(document -> toResponse(document, access));
+    }
+
     /** B2: la búsqueda libre no compara contra campos ocultos, para no revelar su valor por inferencia. */
     static DocumentRepository.SearchFields searchFields(ComponentFormAccess access) {
         return new DocumentRepository.SearchFields(access.visible("nombre"), access.visible("descripcion"),
@@ -143,6 +172,14 @@ public class DocumentService {
         }
         ComponentFormAccess access = documentAccess();
         requireEditableComponents(access, request);
+        DocumentType type = documentTypeRepository.findByIdAndTenantId(request.documentTypeId(), tenantId)
+                .orElseThrow(() -> new NotFoundException("Tipo documental no encontrado"));
+        if (!type.isActive()) throw new IllegalArgumentException("El tipo documental está inactivo");
+        validateMetadataAccess(access, request.metadata());
+        DocumentMetadataValidator.validate(type.getMetadataSchema(), request.metadata());
+        if (request.issueDate() != null && request.expiryDate() != null && request.expiryDate().isBefore(request.issueDate())) {
+            throw new IllegalArgumentException("El vencimiento no puede ser anterior a la emisión");
+        }
         String code = access.editable("codigo")
                 ? requiredText(request.code(), "El código del documento es obligatorio")
                 : generatedCode();
@@ -187,9 +224,15 @@ public class DocumentService {
     }
 
     @Transactional
-    public DocumentResponse changeStatus(UUID id, DocumentStatusRequest request) {
+    public DocumentResponse changeStatus(UUID id, DocumentStatusRequest request, String ifMatch) {
         userContext.establishDatabaseContext();
-        Document document = getForTenant(id);
+        Document document = repository.findForStateChange(id, userContext.requireTenantId())
+                .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
+        DocumentStateToken.requireMatch(ifMatch, document);
+        if ((request.status() == Document.DocumentStatus.ARCHIVED || document.getStatus() == Document.DocumentStatus.ARCHIVED)
+                && !userContext.hasAuthority("document:archive")) {
+            throw new org.springframework.security.access.AccessDeniedException("Se requiere permiso document:archive para archivar o restaurar documentos");
+        }
         documentAccess().requireEditable("accion_cambiar_estado");
         if (repository.hasActiveWorkflow(document.getTenantId(), id)) {
             throw new IllegalStateException("El estado de este documento lo controla un workflow activo. Resuelve su tarea o cancela el flujo antes de cambiarlo manualmente.");
@@ -197,6 +240,11 @@ public class DocumentService {
         if (!isAllowedTransition(document.getStatus(), request.status())) {
             throw new IllegalArgumentException("Transición documental no permitida: "
                     + document.getStatus() + " -> " + request.status());
+        }
+        if (request.status() == Document.DocumentStatus.TRASHED) {
+            if (!userContext.hasAuthority("document:delete")) throw new org.springframework.security.access.AccessDeniedException("Se requiere permiso document:delete");
+            if (retentionService == null) throw new IllegalStateException("No esta disponible la validacion de conservacion");
+            retentionService.requireDisposalPolicy(id);
         }
         Document.DocumentStatus oldStatus = document.getStatus();
         document.setStatus(request.status());
@@ -376,6 +424,41 @@ public class DocumentService {
     }
 
     /** Claves de metadata (p. ej. las que rellena el OCR) que duplican un componente configurable del formulario. */
+    @Transactional
+    public DocumentResponse updateMetadata(UUID id, java.util.Map<String, Object> values) {
+        userContext.establishDatabaseContext();
+        Document document = repository.findForMetadataUpdate(id, userContext.requireTenantId())
+                .orElseThrow(() -> new NotFoundException("Documento no encontrado"));
+        ComponentFormAccess access = documentAccess();
+        if (repository.hasActiveWorkflow(document.getTenantId(), id)
+                || java.util.Set.of(Document.DocumentStatus.ARCHIVED, Document.DocumentStatus.VOIDED, Document.DocumentStatus.TRASHED).contains(document.getStatus())) {
+            throw new IllegalStateException("No se pueden editar metadatos con workflow activo o documento cerrado");
+        }
+        METADATA_COMPONENTS.forEach((key, component) -> {
+            if (values.containsKey(key)) access.requireUnchanged(component,
+                    document.getMetadata() == null ? null : document.getMetadata().get(key), values.get(key));
+        });
+        java.util.Map<String, Object> merged = new java.util.LinkedHashMap<>();
+        if (document.getMetadata() != null) merged.putAll(document.getMetadata());
+        merged.putAll(values);
+        DocumentType type = documentTypeRepository.findByIdAndTenantId(document.getDocumentTypeId(), document.getTenantId())
+                .orElseThrow(() -> new NotFoundException("Tipo documental no encontrado"));
+        DocumentMetadataValidator.validate(type.getMetadataSchema(), merged);
+        document.setMetadata(merged);
+        document.setUpdatedAt(OffsetDateTime.now());
+        Document saved = repository.save(document);
+        if (auditRecorder != null) auditRecorder.record("UPDATE_METADATA", "DOCUMENTS", id, null,
+                java.util.Map.of("fields", new java.util.ArrayList<>(values.keySet())));
+        return toResponse(saved, access);
+    }
+
+    private static void validateMetadataAccess(ComponentFormAccess access, java.util.Map<String, Object> values) {
+        if (values == null) return;
+        METADATA_COMPONENTS.forEach((key, component) -> {
+            if (values.containsKey(key)) access.requireEditable(component);
+        });
+    }
+
     private static final java.util.Map<String, String> METADATA_COMPONENTS = java.util.Map.of(
             "patientName", "paciente",
             "patientDocumentNumber", "paciente",

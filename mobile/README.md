@@ -99,6 +99,8 @@ al volver a primer plano; en Android, WorkManager lo hace con la app cerrada (co
 no se notifican. En segundo plano solo se usa el token de acceso: nunca se renueva la sesión,
 para no invalidar el refresh token que usa la app. Al tocar el aviso se abre la tarea.
 
-Para probarlo con el APK: `flutter build apk --release`, instalar `build/app/outputs/flutter-apk/app-release.apk`,
-configurar la URL del servidor en el login (⚙), aceptar el permiso de notificaciones y asignar
-una tarea a ese usuario desde la web. Con la app abierta llega en menos de un minuto.
+Para pruebas de instalación usa `flutter build apk --debug` y `build/app/outputs/flutter-apk/app-debug.apk`.
+No instales un APK `release` de desarrollo: la compilación release requiere un keystore privado de publicación.
+Configúralo en `mobile/android/key.properties` usando `key.properties.example`; ese archivo y el keystore
+están ignorados por Git. No guardes el keystore ni sus contraseñas en el repositorio. Para validar avisos,
+configura la URL del servidor, acepta el permiso y asigna una tarea a ese usuario desde la web.

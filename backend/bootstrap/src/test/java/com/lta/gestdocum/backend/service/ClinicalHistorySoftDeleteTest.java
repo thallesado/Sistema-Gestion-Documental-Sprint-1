@@ -150,8 +150,71 @@ class ClinicalHistorySoftDeleteTest {
         ClinicalHistory history = ClinicalHistory.builder().id(historyId).tenantId(tenantId).build();
         when(repository.findByIdAndTenantIdAndDeletedAtIsNull(historyId, tenantId)).thenReturn(Optional.of(history));
 
+        when(clinicalDocumentLinkRepository.existsByTenantIdAndClinicalHistoryIdAndIdDocumentId(tenantId, historyId, documentId)).thenReturn(true);
         service.unlinkDocument(historyId, documentId);
 
         verify(clinicalDocumentLinkRepository).deleteByTenantIdAndClinicalHistoryIdAndIdDocumentId(tenantId, historyId, documentId);
+    }
+
+    @Test
+    void auditReasonPreservesQuotesBackslashesAndNewlines() throws Exception {
+        when(repository.findByIdAndTenantIdAndDeletedAtIsNull(historyId, tenantId))
+                .thenReturn(Optional.of(ClinicalHistory.builder().id(historyId).tenantId(tenantId).build()));
+        String reason = "Corrección administrativa: \"duplicado\"\nReferencia C:\\archivo\\registro";
+        service.delete(historyId, new DeleteClinicalHistoryRequest(reason));
+        ArgumentCaptor<AuditEvent> audit = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditEventRepository).save(audit.capture());
+        assertEquals(reason, new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(audit.getValue().getDetails()).get("reason").asText());
+    }
+
+    @Test
+    void rejectsReasonLongerThan500WithoutWriting() {
+        assertThrows(IllegalArgumentException.class, () -> service.delete(historyId,
+                new DeleteClinicalHistoryRequest("x".repeat(501))));
+        verifyNoInteractions(repository, auditEventRepository);
+    }
+
+    @Test
+    void rejectsDocumentAssignedToAnotherPatient() {
+        UUID documentId = UUID.randomUUID();
+        when(repository.findByIdAndTenantIdAndDeletedAtIsNull(historyId, tenantId)).thenReturn(Optional.of(
+                ClinicalHistory.builder().id(historyId).tenantId(tenantId).patientId(UUID.randomUUID()).build()));
+        var document = new com.lta.gestdocum.backend.model.Document(tenantId, UUID.randomUUID(), userId, "DOC", "Prueba");
+        document.setPatientId(UUID.randomUUID());
+        when(documentRepository.findByIdAndTenantIdAndDeletedAtIsNull(documentId, tenantId)).thenReturn(Optional.of(document));
+        assertThrows(IllegalArgumentException.class, () -> service.linkDocument(historyId, documentId));
+        verifyNoInteractions(clinicalDocumentLinkRepository, auditEventRepository);
+    }
+
+    @Test
+    void alreadyDeletedHistoryCannotBeLinked() {
+        when(repository.findByIdAndTenantIdAndDeletedAtIsNull(historyId, tenantId)).thenReturn(Optional.empty());
+        assertThrows(NotFoundException.class, () -> service.linkDocument(historyId, UUID.randomUUID()));
+        verifyNoInteractions(documentRepository, clinicalDocumentLinkRepository, auditEventRepository);
+    }
+
+    @Test
+    void exposesDeletionEvidenceForThePatientsTenant() {
+        UUID patientId = UUID.randomUUID();
+        var deletedAt = java.time.OffsetDateTime.now();
+        when(repository.findByTenantIdAndPatientId(tenantId, patientId)).thenReturn(Optional.of(
+                ClinicalHistory.builder().id(historyId).tenantId(tenantId).patientId(patientId)
+                        .code("HC-DELETED").deletedAt(deletedAt).deletionReason("Duplicado confirmado")
+                        .deletedBy(userId).build()));
+        var evidence = service.findDeletion(patientId);
+        assertEquals(historyId, evidence.id());
+        assertEquals("Duplicado confirmado", evidence.reason());
+        assertEquals(deletedAt, evidence.deletedAt());
+        assertEquals(userId, evidence.deletedBy());
+        verify(patientService).requireByIdAndTenant(patientId, tenantId);
+    }
+
+    @Test
+    void activeHistoryHasNoDeletionEvidence() {
+        UUID patientId = UUID.randomUUID();
+        when(repository.findByTenantIdAndPatientId(tenantId, patientId)).thenReturn(Optional.of(
+                ClinicalHistory.builder().id(historyId).tenantId(tenantId).patientId(patientId).build()));
+        assertNull(service.findDeletion(patientId));
     }
 }

@@ -23,6 +23,7 @@ import { allowedDocumentTypes } from '../../../core/auth/permission-rules';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 import { FieldPermissionDirective } from '../../../core/auth/field-permission.directive';
 import { ComponentPermissionService } from '../../../core/auth/component-permission.service';
+import { PermissionService } from '../../../core/auth/permission.service';
 
 @Component({
   selector: 'app-document-page',
@@ -120,7 +121,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                   <span style="font-size: 12px; font-weight: 700; color: #153a39;">Tipo documental *</span>
                   <button type="button" (click)="openCreateTypeModal()" style="border: none; background: none; color: #087f7b; font-weight: 700; font-size: 11px; cursor: pointer; text-decoration: underline;">+ Nuevo tipo</button>
                 </div>
-                <select name="documentTypeId" [(ngModel)]="createForm.documentTypeId" required style="width: 100%;">
+                <select name="documentTypeId" [(ngModel)]="createForm.documentTypeId" (ngModelChange)="createMetadata = {}" required style="width: 100%;">
                   <option value="">Selecciona un tipo documental</option>
                   @for (type of creatableTypes(); track type.id) {
                     <option [value]="type.id">{{ type.name }} · {{ type.code }}</option>
@@ -186,6 +187,31 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                 <textarea name="description" rows="3" [(ngModel)]="createForm.description" maxlength="10000" placeholder="Breve descripción del contenido y alcance documental..."></textarea>
               </label>
 
+              @if (metadataFields(createForm.documentTypeId).length) {
+                <section class="full-width" style="padding:16px;border:1px solid #9dd8d1;border-radius:10px;">
+                  <h3>Metadatos del tipo documental</h3>
+                  <p>Completa los campos obligatorios antes de guardar o iniciar un workflow.</p>
+                  <div class="form-grid">
+                    @for (field of metadataFields(createForm.documentTypeId); track field.key) {
+                      <label>{{ field.label }} {{ field.required ? '*' : '(opcional)' }}
+                        @if (field.options) {
+                          <select [name]="'metadata-'+field.key" [(ngModel)]="createMetadata[field.key]" [required]="field.required" [disabled]="!field.editable">
+                            <option [ngValue]="undefined">Selecciona una opción</option>
+                            @for (option of field.options; track option) { <option [ngValue]="option">{{ option }}</option> }
+                          </select>
+                        } @else if (field.type === 'boolean') {
+                          <select [name]="'metadata-'+field.key" [(ngModel)]="createMetadata[field.key]" [required]="field.required" [disabled]="!field.editable">
+                            <option [ngValue]="undefined">Selecciona una opción</option><option [ngValue]="true">Sí</option><option [ngValue]="false">No</option>
+                          </select>
+                        } @else {
+                          <input [name]="'metadata-'+field.key" [type]="field.inputType" [(ngModel)]="createMetadata[field.key]" [required]="field.required" [disabled]="!field.editable"
+                            [attr.step]="field.type === 'integer' ? 1 : 'any'" [attr.min]="field.minimum" [attr.max]="field.maximum" />
+                        }
+                      </label>
+                    }
+                  </div>
+                </section>
+              }
               @if (isUploadRoute()) {
                 <label class="full-width" style="border: 1px dashed #087f7b; padding: 16px; border-radius: 12px; background: #f4faf9;">
                   <strong>Archivo inicial (v1) *</strong>
@@ -237,6 +263,13 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                 <input placeholder="Nombre, código, especialidad..." [value]="search()" (input)="setSearch($event)" />
               </div>
 
+              <div class="doc-input-box">
+                <select aria-label="Archivo digital" [value]="archiveState()" (change)="setArchiveState($event)">
+                  <option value="">Archivo digital: todos</option>
+                  <option value="ACTIVE">Activos</option>
+                  <option value="HISTORICAL">Históricos (archivados)</option>
+                </select>
+              </div>
               <div class="doc-input-box">
                 <select [value]="statusFilter()" (change)="setStatus($event)">
                   <option value="">Todos los estados</option>
@@ -380,11 +413,13 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     <span>Versiones (v{{ item.currentVersion || 1 }})</span>
                   </button>
+                  @if (item.status !== 'ARCHIVED') {
                   <label class="btn-doc-action" [appField]="'documento.nuevo.accion_subir_version'" (click)="$event.stopPropagation()">
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
                     <span>Subir v{{ (item.currentVersion || 1) + 1 }}</span>
                     <input type="file" accept=".pdf,.png,.jpg,.jpeg,.docx" style="display: none;" (change)="uploadVersion(item, $event)" />
                   </label>
+                  }
                 </div>
               </article>
             } @empty {
@@ -454,6 +489,34 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                 <dt>Descripción</dt><dd>{{ selectedDocument()?.description || 'Sin descripción disponible.' }}</dd>
               </dl>
 
+              <section style="margin:20px 0;padding:14px;border:1px solid #9dd8d1;border-radius:10px;">
+                <h3>Metadatos del tipo documental</h3>
+                @if (metadataMessage()) { <p role="alert">{{ metadataMessage() }}</p> }
+                @if (!editingMetadata()) {
+                  <dl>
+                    @for (field of detailMetadata(); track field.key) {
+                      <dt>{{ field.label }}{{ field.required ? ' *' : '' }}</dt><dd>{{ displayMetadata(field.value) }}</dd>
+                    } @empty { <p>Este tipo no define metadatos adicionales.</p> }
+                  </dl>
+                  @if (metadataPermissions.can('document:update') && selectedDocument()!.status !== 'ARCHIVED') { <button type="button" (click)="beginMetadataEdit()">Editar metadatos</button> }
+                } @else {
+                  @for (field of metadataFields(selectedDocument()!.documentTypeId); track field.key) {
+                    <label style="display:block;margin:10px 0;">{{ field.label }}{{ field.required ? ' *' : '' }}
+                      @if (field.options) {
+                        <select [attr.aria-label]="field.label" [(ngModel)]="metadataDraft[field.key]" [disabled]="!field.editable">
+                          @for (option of field.options; track option) { <option [ngValue]="option">{{ option }}</option> }
+                        </select>
+                      } @else if (field.type === 'boolean') {
+                        <select [attr.aria-label]="field.label" [(ngModel)]="metadataDraft[field.key]" [disabled]="!field.editable"><option [ngValue]="true">Sí</option><option [ngValue]="false">No</option></select>
+                      } @else {
+                        <input [attr.aria-label]="field.label" [type]="field.inputType" [(ngModel)]="metadataDraft[field.key]" [disabled]="!field.editable" />
+                      }
+                    </label>
+                  }
+                  <button type="button" (click)="saveMetadata()" [disabled]="metadataSaving()">Guardar metadatos</button>
+                  <button type="button" (click)="editingMetadata.set(false)">Cancelar</button>
+                }
+              </section>
               <section class="workflow-document-panel">
                 <h3>Workflow del documento</h3>
                 @for (workflow of documentWorkflows(); track workflow.id) {
@@ -470,7 +533,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                 <div class="status-actions" [appField]="'documento.nuevo.accion_cambiar_estado'">
                   <span>Cambiar estado del documento:</span>
                   @for (status of allowedStatusTransitions(selectedDocument()!); track status) {
-                    <button type="button" (click)="changeStatus(selectedDocument()!, status)" [disabled]="changingStatus()">
+                    <button type="button" (click)="changeStatus(selectedDocument()!, status)" [disabled]="changingStatus() || !selectedDocument()!.stateToken">
                       {{ statusLabel(status) }}
                     </button>
                   }
@@ -480,11 +543,15 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
               @if (detailError()) { <p class="drawer-error" role="alert">{{ detailError() }}</p> }
 
               <div class="drawer-actions" style="margin-top: 20px;">
+                @if (selectedDocument()!.status === 'ARCHIVED') {
+                  <p class="drawer-note">Archivo histórico: conserva sus archivos y metadatos. Restaura a Vigente antes de subir otra versión.</p>
+                } @else {
                 <label class="btn-primary-action" [appField]="'documento.nuevo.accion_subir_version'" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
                   <span>Subir nueva versión (v{{ (selectedDocument()?.currentVersion || 1) + 1 }})</span>
                   <input type="file" accept=".pdf,.png,.jpg,.jpeg,.docx" style="display: none;" (change)="uploadVersion(selectedDocument()!, $event)" />
                 </label>
+                }
               </div>
 
               <!-- HISTORIAL DE VERSIONES -->
@@ -502,6 +569,9 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                           {{ formatBytes(version.fileSizeBytes) }} · {{ version.createdAt | date:'dd/MM/yyyy HH:mm' }}
                         </div>
                       </div>
+                      @if (version.mimeType === 'application/pdf' || version.mimeType.startsWith('image/')) {
+                        <button class="btn-doc-action" type="button" (click)="previewVersion(selectedDocument()!, version)">Ver archivo</button>
+                      }
                       <button class="btn-doc-action" type="button" (click)="download(selectedDocument()!, version)">
                         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Descargar
@@ -692,6 +762,12 @@ export class DocumentPage implements OnInit, OnDestroy {
   private readonly workflowApi = inject(WorkflowApi);
   private readonly auth = inject(AuthService);
   private readonly fields = inject(ComponentPermissionService);
+  readonly metadataPermissions = inject(PermissionService);
+  createMetadata: Record<string, any> = {};
+  metadataDraft: Record<string, any> = {};
+  readonly editingMetadata = signal(false);
+  readonly metadataSaving = signal(false);
+  readonly metadataMessage = signal('');
 
   private routerSub?: Subscription;
   private lastLinkedDocumentId = '';
@@ -725,7 +801,7 @@ export class DocumentPage implements OnInit, OnDestroy {
   // Catálogos auxiliares
   readonly types = signal<ApiDocumentType[]>([]);
   /** Tipos para crear: los permitidos por la personalización del usuario (user:customize). */
-  readonly creatableTypes = computed(() => allowedDocumentTypes(this.types(), this.auth.user()?.customization?.allowedDocumentTypeIds));
+  readonly creatableTypes = computed(() => allowedDocumentTypes(this.types().filter(type => type.active), this.auth.user()?.customization?.allowedDocumentTypeIds));
   readonly categories = signal<ApiDocumentCategory[]>([]);
   readonly departments = signal<ApiDepartment[]>([]);
   readonly specialties = signal<string[]>([]);
@@ -752,6 +828,7 @@ export class DocumentPage implements OnInit, OnDestroy {
   // Filtros
   readonly search = signal('');
   readonly statusFilter = signal('');
+  readonly archiveState = signal('');
   readonly categoryFilter = signal('');
   readonly typeFilter = signal('');
   readonly departmentFilter = signal('');
@@ -813,6 +890,7 @@ export class DocumentPage implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();
+    this.documentsRequest?.unsubscribe();
   }
 
   syncRouteState(): void {
@@ -856,6 +934,7 @@ export class DocumentPage implements OnInit, OnDestroy {
   }
 
   resetCreateForm(): void {
+    this.createMetadata = {};
     this.createForm = {
       documentTypeId: '',
       code: '',
@@ -978,10 +1057,17 @@ export class DocumentPage implements OnInit, OnDestroy {
     });
   }
 
+  private documentsRequest?: Subscription;
+
   loadDocuments(): void {
+    this.documentsRequest?.unsubscribe();
     this.loading.set(true);
     this.apiError.set('');
-    this.api.documents(this.search(), this.statusFilter() || undefined, this.page(), this.pageSize(), this.scope()).subscribe({
+    this.documentsRequest = this.api.documents(this.search(), this.statusFilter() || undefined, this.page(), this.pageSize(), this.scope(), {
+      category: this.categoryFilter(), documentTypeId: this.typeFilter(), department: this.departmentFilter(),
+      specialty: this.specialtyFilter(), process: this.processFilter(), responsible: this.responsibleFilter(),
+      dateFrom: this.dateFrom(), dateTo: this.dateTo(), sortBy: this.sortBy(), archiveState: this.archiveState(),
+    }).subscribe({
       next: response => {
         this.apiDocuments.set(response.content || []);
         this.totalDocuments.set(response.totalElements || 0);
@@ -997,39 +1083,8 @@ export class DocumentPage implements OnInit, OnDestroy {
     });
   }
 
-  // Filtrado reactivo en memoria sobre la página actual
-  readonly filteredDocuments = () => {
-    const q = this.search().trim().toLowerCase();
-    const cat = this.categoryFilter().toLowerCase();
-    const type = this.typeFilter();
-    const dept = this.departmentFilter().toLowerCase();
-    const spec = this.specialtyFilter().toLowerCase();
-    const proc = this.processFilter().toLowerCase();
-    const resp = this.responsibleFilter().toLowerCase();
-
-    return [...this.apiDocuments()]
-      .filter(doc => {
-        if (q && !(`${doc.name} ${doc.code} ${doc.specialty || ''} ${doc.institutionalProcess || ''}`.toLowerCase().includes(q))) return false;
-        if (this.statusFilter() && doc.status !== this.statusFilter()) return false;
-        if (cat && !(doc.categoryName || '').toLowerCase().includes(cat)) return false;
-        if (type && doc.documentTypeId !== type) return false;
-        if (dept && !(doc.departmentName || '').toLowerCase().includes(dept)) return false;
-        if (spec && !(doc.specialty || '').toLowerCase().includes(spec)) return false;
-        if (proc && !(doc.institutionalProcess || '').toLowerCase().includes(proc)) return false;
-        if (resp && !(doc.responsibleName || '').toLowerCase().includes(resp)) return false;
-        if (this.dateFrom() && (doc.effectiveDate || doc.createdAt) < this.dateFrom()) return false;
-        if (this.dateTo() && (doc.effectiveDate || doc.createdAt).slice(0, 10) > this.dateTo()) return false;
-        return true;
-      })
-      .sort((a, b) => {
-        if (this.sortBy() === 'name') return (a.name || '').localeCompare(b.name || '');
-        if (this.sortBy() === 'version') return (b.currentVersion || 0) - (a.currentVersion || 0);
-        const f = this.sortBy() === 'created' ? 'createdAt' : 'updatedAt';
-        const aVal = String(a[f] || '');
-        const bVal = String(b[f] || '');
-        return bVal.localeCompare(aVal);
-      });
-  };
+  // El servidor filtra y ordena antes de paginar.
+  readonly filteredDocuments = () => this.apiDocuments();
 
   readonly pagedDocuments = () => this.filteredDocuments();
   readonly totalPages = () => Math.max(1, Math.ceil(this.totalDocuments() / this.pageSize()));
@@ -1062,6 +1117,8 @@ export class DocumentPage implements OnInit, OnDestroy {
     // Privilegios por componente: los campos no editables no se envían (el servidor los rechazaría).
     const editable = (component: string) => this.fields.editable('documento.nuevo.' + component);
     const payload: DocumentCreatePayload = { documentTypeId: this.createForm.documentTypeId };
+    try { payload.metadata = this.metadataPayload(this.createForm.documentTypeId, this.createMetadata); }
+    catch (error) { this.createError.set((error as Error).message); return; }
     if (editable('codigo')) payload.code = this.createForm.code.trim();
     if (editable('nombre')) payload.name = this.createForm.name.trim();
 
@@ -1120,6 +1177,7 @@ export class DocumentPage implements OnInit, OnDestroy {
   setCategory(event: Event): void {
     this.categoryFilter.set((event.target as HTMLSelectElement).value);
     this.page.set(0);
+    this.loadDocuments();
   }
 
   setFilter(field: 'type' | 'department' | 'specialty' | 'process' | 'responsible' | 'dateFrom' | 'dateTo', event: Event): void {
@@ -1132,10 +1190,12 @@ export class DocumentPage implements OnInit, OnDestroy {
     else if (field === 'dateFrom') this.dateFrom.set(val);
     else if (field === 'dateTo') this.dateTo.set(val);
     this.page.set(0);
+    this.loadDocuments();
   }
 
   clearFilters(): void {
     this.search.set('');
+    this.archiveState.set('');
     this.statusFilter.set('');
     this.categoryFilter.set('');
     this.typeFilter.set('');
@@ -1153,6 +1213,7 @@ export class DocumentPage implements OnInit, OnDestroy {
   setSort(event: Event): void {
     this.sortBy.set((event.target as HTMLSelectElement).value);
     this.page.set(0);
+    this.loadDocuments();
   }
 
   setPageSize(event: Event): void {
@@ -1172,10 +1233,111 @@ export class DocumentPage implements OnInit, OnDestroy {
   }
 
   openDetails(doc: ApiDocument): void {
-    this.selectedDocument.set(doc);
+    this.editingMetadata.set(false);
+    this.metadataMessage.set('');
+    if (!this.types().some(type => type.id === doc.documentTypeId)) {
+      this.api.documentType(doc.documentTypeId).subscribe({
+        next: type => this.types.update(types => [...types.filter(item => item.id !== type.id), type]),
+        error: () => this.metadataMessage.set('No se pudo consultar el esquema de metadatos del tipo documental.')
+      });
+    }
+    this.selectedDocument.set({ ...doc, stateToken: undefined });
     this.detailError.set('');
-    this.loadVersions(doc);
+    this.api.getById(doc.id).subscribe({
+      next: fresh => {
+        if (this.selectedDocument()?.id !== fresh.id) return;
+        this.selectedDocument.set(fresh);
+        this.apiDocuments.update(items => items.map(item => item.id === fresh.id ? { ...item, ...fresh } : item));
+        this.loadVersions(fresh);
+      },
+      error: () => this.detailError.set('No se pudo cargar el estado y la versión actuales del documento.'),
+    });
     this.workflowApi.page('',{documentId:doc.id,size:20}).subscribe({next:page=>this.documentWorkflows.set(page.content),error:()=>this.documentWorkflows.set([])});
+  }
+
+  metadataFields(typeId: string) {
+    const schema = this.types().find(type => type.id === typeId)?.metadataSchema;
+    const required = schema?.required ?? [];
+    const properties = schema?.properties ?? {};
+    const keys = [...new Set([...Object.keys(properties), ...required])];
+    const components: Record<string, string> = { patientName: 'paciente', patientDocumentNumber: 'paciente', doctorName: 'responsable', issueDate: 'emision' };
+    return keys.filter(key => !components[key] || this.fields.visible('documento.nuevo.' + components[key])).map(key => {
+      const rule = properties[key] ?? {};
+      const type = rule.type ?? 'string';
+      return { key, label: rule.title ?? key, type, required: required.includes(key), options: rule.enum,
+        editable: !components[key] || this.fields.editable('documento.nuevo.' + components[key]),
+        inputType: rule.format === 'date' ? 'date' : ['number', 'integer'].includes(type) ? 'number' : 'text',
+        minimum: rule.minimum, maximum: rule.maximum };
+    });
+  }
+
+  metadataPayload(typeId: string, values: Record<string, any>): Record<string, any> {
+    const result = { ...values };
+    for (const field of this.metadataFields(typeId)) {
+      const value = result[field.key];
+      if (field.required && (value === undefined || value === null || typeof value === 'string' && !value.trim())) {
+        throw new Error('Completa el metadato obligatorio: ' + field.label);
+      }
+      if (['number', 'integer'].includes(field.type) && typeof value === 'string' && value.trim()) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) throw new Error('Número inválido en ' + field.label);
+        result[field.key] = number;
+      }
+      if (['object', 'array'].includes(field.type) && typeof value === 'string' && value.trim()) {
+        try { result[field.key] = JSON.parse(value); } catch { throw new Error('JSON inválido en ' + field.label); }
+      }
+    }
+    return result;
+  }
+
+  detailMetadata() {
+    const document = this.selectedDocument();
+    if (!document) return [];
+    const fields = this.metadataFields(document.documentTypeId);
+    const values = document.metadata ?? {};
+    return [...fields.map(field => ({ ...field, value: values[field.key] })),
+      ...Object.keys(values).filter(key => !fields.some(field => field.key === key)).map(key => ({ key, label: key, required: false, value: values[key] }))];
+  }
+
+  displayMetadata(value: unknown): string {
+    if (value === undefined || value === null || value === '') return 'Pendiente';
+    if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+    return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  }
+
+  beginMetadataEdit(): void {
+    const document = this.selectedDocument();
+    if (!document) return;
+    this.metadataDraft = { ...document.metadata };
+    for (const field of this.metadataFields(document.documentTypeId)) {
+      if (this.metadataDraft[field.key] && typeof this.metadataDraft[field.key] === 'object') this.metadataDraft[field.key] = JSON.stringify(this.metadataDraft[field.key]);
+    }
+    this.metadataMessage.set('');
+    this.editingMetadata.set(true);
+  }
+
+  saveMetadata(): void {
+    const document = this.selectedDocument();
+    if (!document) return;
+    let values: Record<string, unknown>;
+    try { values = this.metadataPayload(document.documentTypeId, this.metadataDraft); }
+    catch (error) { this.metadataMessage.set((error as Error).message); return; }
+    this.metadataSaving.set(true);
+    this.api.updateMetadata(document.id, values).subscribe({
+      next: updated => {
+        this.metadataSaving.set(false);
+        this.editingMetadata.set(false);
+        this.metadataMessage.set('Metadatos guardados correctamente.');
+        this.api.getById(updated.id).subscribe({
+          next: fresh => {
+            if (this.selectedDocument()?.id === fresh.id) this.selectedDocument.set(fresh);
+            this.apiDocuments.update(items => items.map(item => item.id === fresh.id ? { ...item, ...fresh } : item));
+          },
+          error: () => this.detailError.set('Los metadatos se guardaron, pero no se pudo actualizar el token del documento.'),
+        });
+      },
+      error: error => { this.metadataSaving.set(false); this.metadataMessage.set(error?.error?.message || 'No se pudieron guardar los metadatos.'); }
+    });
   }
 
   closeDetails(): void {
@@ -1221,10 +1383,21 @@ export class DocumentPage implements OnInit, OnDestroy {
       input.value = '';
       return;
     }
-    this.uploadDocument = doc;
-    this.uploadFile.set(file);
-    this.uploadReason = `Actualización de versión v${(doc.currentVersion || 1) + 1}`;
     input.value = '';
+    this.api.getById(doc.id).subscribe({
+      next: fresh => {
+        if (fresh.currentVersion !== doc.currentVersion || fresh.status !== doc.status) {
+          this.selectedDocument.set(fresh);
+          this.actionMessage.set('El documento cambió desde que se cargó la lista. Revisa su estado y vuelve a seleccionar el archivo.');
+          return;
+        }
+        if (this.selectedDocument()?.id === fresh.id) this.selectedDocument.set(fresh);
+        this.uploadDocument = fresh;
+        this.uploadFile.set(file);
+        this.uploadReason = `Actualización de versión v${(fresh.currentVersion || 1) + 1}`;
+      },
+      error: () => this.actionMessage.set('No se pudo comprobar el estado actual del documento. Inténtalo de nuevo.'),
+    });
   }
 
   cancelUpload(): void {
@@ -1242,7 +1415,13 @@ export class DocumentPage implements OnInit, OnDestroy {
     this.api.uploadVersion(doc.id, file, this.uploadReason.trim()).subscribe({
       next: () => {
         this.actionMessage.set(`Nueva versión v${(doc.currentVersion || 1) + 1} almacenada con éxito.`);
-        this.loadVersions(doc);
+        this.api.getById(doc.id).subscribe({
+          next: fresh => {
+            if (this.selectedDocument()?.id === fresh.id) this.selectedDocument.set(fresh);
+            this.loadVersions(fresh);
+          },
+          error: () => this.detailError.set('La versión se guardó, pero no se pudo actualizar el estado actual.'),
+        });
         this.loadDocuments();
         this.uploading.set(false);
         this.cancelUpload();
@@ -1268,6 +1447,20 @@ export class DocumentPage implements OnInit, OnDestroy {
     });
   }
 
+  previewVersion(doc: ApiDocument, version: ApiDocumentVersion): void {
+    const preview = window.open('', '_blank');
+    if (!preview) { this.detailError.set('Permite ventanas emergentes para visualizar el archivo.'); return; }
+    preview.opener = null;
+    this.api.downloadVersion(doc.id, version.id).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(new Blob([blob], { type: version.mimeType }));
+        preview.location.href = url;
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      },
+      error: () => { preview.close(); this.detailError.set('No se pudo visualizar el archivo.'); },
+    });
+  }
+
   changeStatus(doc: ApiDocument, status: string): void {
     this.changingStatus.set(true);
     this.detailError.set('');
@@ -1276,10 +1469,17 @@ export class DocumentPage implements OnInit, OnDestroy {
         this.selectedDocument.set(updated);
         this.apiDocuments.update(items => items.map(item => (item.id === updated.id ? updated : item)));
         this.actionMessage.set(`Estado actualizado a ${this.statusLabel(updated.status)}.`);
+        this.loadDocuments();
         this.changingStatus.set(false);
       },
       error: err => {
-        this.detailError.set(err?.error?.message || 'No se pudo actualizar el estado.');
+        this.detailError.set(err?.error?.message || err?.message || 'No se pudo actualizar el estado.');
+        if (err?.status === 412) this.api.getById(doc.id).subscribe({
+          next: fresh => {
+            this.selectedDocument.set(fresh);
+            this.apiDocuments.update(items => items.map(item => item.id === fresh.id ? { ...item, ...fresh } : item));
+          },
+        });
         this.changingStatus.set(false);
       },
     });
@@ -1344,7 +1544,15 @@ export class DocumentPage implements OnInit, OnDestroy {
         VOIDED: [],
         TRASHED: [],
       } as Record<string, string[]>)[doc.status] ?? []
-    );
+    ).filter(target => (!(target === 'ARCHIVED' || doc.status === 'ARCHIVED') || this.metadataPermissions.can('document:archive'))
+      && (target !== 'TRASHED' || this.metadataPermissions.can('document:delete')));
+  }
+
+  setArchiveState(event: Event): void {
+    this.archiveState.set((event.target as HTMLSelectElement).value);
+    this.statusFilter.set('');
+    this.page.set(0);
+    this.loadDocuments();
   }
 
   statusLabel(status: string): string {

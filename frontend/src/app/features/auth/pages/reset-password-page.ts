@@ -53,6 +53,7 @@ export class ResetPasswordPage {
   readonly token = this.route.snapshot.paramMap.get('token')
     ?? this.route.snapshot.queryParamMap.get('token')
     ?? '';
+  readonly tenantId = this.route.snapshot.queryParamMap.get('tenantId');
   newPassword = '';
   confirmation = '';
 
@@ -71,7 +72,7 @@ export class ResetPasswordPage {
       return;
     }
     this.isSubmitting.set(true);
-    this.recovery.resetPassword(this.token, this.newPassword).subscribe({
+    this.recovery.resetPassword(this.token, this.newPassword, this.tenantId).subscribe({
       next: (response) => {
         this.auth.establishSession(response);
         this.isSubmitting.set(false);
