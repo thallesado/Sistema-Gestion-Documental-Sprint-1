@@ -101,6 +101,20 @@ class ExpedientServiceTest {
     }
 
     @Test
+    @DisplayName("create() reports a duplicate code as a conflict instead of failing later at commit")
+    void duplicateCodeIsReportedAsAClearConflict() {
+        when(repository.saveAndFlush(any(Expedient.class)))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("expedients_tenant_id_code_key"));
+        com.lta.gestdocum.backend.dto.ExpedientCreateRequest request = new com.lta.gestdocum.backend.dto.ExpedientCreateRequest(
+                UUID.randomUUID(), null, null, "EXP-2026-001", "Duplicado", null, null);
+
+        com.lta.gestdocum.backend.exception.DuplicateResourceException error = assertThrows(
+                com.lta.gestdocum.backend.exception.DuplicateResourceException.class, () -> service.create(request));
+
+        assertEquals("Ya existe un expediente con el código EXP-2026-001", error.getMessage());
+    }
+
+    @Test
     @DisplayName("close() should transition active expedient to CLOSED and record closedAt timestamp")
     void shouldCloseExpedientSuccessfully() {
         Expedient expedient = buildActiveExpedient();
