@@ -416,11 +416,28 @@ public class UserService {
         if (ids.isEmpty()) throw new IllegalArgumentException("La lista de roles no puede estar vacía");
         if (roleRepository == null) throw new IllegalStateException("Repositorio de roles no disponible");
         var roles = roleRepository.findActiveInTenant(tenantId, ids);
-        if (roles.size() != ids.size() || roles.stream().anyMatch(r -> "Superadmin".equalsIgnoreCase(r.getName())))
+        if (roles.size() != ids.size())
             throw new IllegalArgumentException("Rol inválido para un usuario de tenant");
-        if (!ids.equals(roleRepository.findIds(tenantId, userId))) authSessionService.revokeAll(userId);
+        Set<Long> current = roleRepository.findIds(tenantId, userId);
+        requireGrantable(tenantId, roles.stream().filter(r -> !current.contains(r.getId())).toList());
+        if (!ids.equals(current)) authSessionService.revokeAll(userId);
         roleRepository.clear(tenantId, userId);
         roles.forEach(r -> roleRepository.assign(tenantId, userId, r.getId()));
+    }
+
+    /** Only the groups being added are checked: keeping a group the user already had is not a new grant. */
+    private void requireGrantable(UUID tenantId, java.util.List<com.lta.gestdocum.backend.model.Role> added) {
+        if (added.isEmpty()) return;
+        var actor = authenticatedUserContext.require();
+        // role_permissions is only readable with role:read; without it the groups' permissions cannot be verified.
+        if (!actor.authorities().contains("role:read")) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "No se pueden verificar los permisos de los grupos a asignar");
+        }
+        Set<Long> addedIds = added.stream().map(com.lta.gestdocum.backend.model.Role::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        RoleGrantPolicy.requireGrantable(added, roleRepository.findPermissionCodes(tenantId, addedIds),
+                actor.authorities());
     }
 
     private void requireRoleAssignmentPermission() {

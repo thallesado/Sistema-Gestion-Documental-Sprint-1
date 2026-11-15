@@ -1,3 +1,4 @@
+import { assignableRoles } from '../../../core/data/assignable-roles';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, computed, effect, inject, signal } from '@angular/core';
@@ -120,7 +121,7 @@ import { friendlyApiMessage } from '../../../core/http/tenant-session';
                 <h2 id="edit-user-title">Editar usuario</h2><p class="form-note">Actualiza los datos y los grupos del usuario. Debe pertenecer al menos a uno.</p>@if (editError()) { <div class="admin-state error" role="alert">{{ editError() }}</div> } @if (rolesLoading()) { <p class="admin-empty">Cargando grupos…</p> } @else if (rolesError()) { <div class="admin-state error" role="alert">{{ rolesError() }}</div> }
                 <div class="form-grid"><label [appField]="'usuario.nombre'">Nombre<input [(ngModel)]="editForm.firstName" /></label><label [appField]="'usuario.apellido'">Apellido<input [(ngModel)]="editForm.lastName" /></label><label [appField]="'usuario.correo'">Correo<input type="email" [(ngModel)]="editForm.email" /></label><label [appField]="'usuario.estado'">Estado<select [(ngModel)]="editForm.status"><option value="ACTIVE">Activo</option><option value="INACTIVE">Inactivo</option></select></label><label class="chip-field" [appField]="'usuario.grupos'">Grupos del usuario
                 <div class="role-chip-list" role="group" aria-label="Grupos del usuario">
-                  @for (role of roles(); track role.id) {
+                  @for (role of editableRoles(); track role.id) {
                     <button type="button" class="role-chip" [class.selected]="editForm.roleIds.includes(role.id)" (click)="toggleEditRole(role.id)">{{ role.name }}</button>
                   }
                 </div>
@@ -195,6 +196,9 @@ export class AdministrationPage {
   readonly customizeUser = signal<ApiUser | null>(null);
   readonly confirmation = signal<{ title: string; message: string; action: () => void } | null>(null);
   editForm = { firstName: '', lastName: '', email: '', status: 'ACTIVE', roleIds: [] as number[] };
+
+  /** Groups that can be granted while editing; one the user already holds stays visible. */
+  editableRoles(): ApiRole[] { return assignableRoles(this.roles(), this.editForm.roleIds); }
   readonly isTenantArea = this.route.snapshot.url[0]?.path === 'tenants';
   readonly isCreate = this.route.snapshot.url[1]?.path === 'new';
   readonly currentUser = this.auth.user;
