@@ -428,16 +428,15 @@ public class UserService {
     /** Only the groups being added are checked: keeping a group the user already had is not a new grant. */
     private void requireGrantable(UUID tenantId, java.util.List<com.lta.gestdocum.backend.model.Role> added) {
         if (added.isEmpty()) return;
-        var actor = authenticatedUserContext.require();
         // role_permissions is only readable with role:read; without it the groups' permissions cannot be verified.
-        if (!actor.authorities().contains("role:read")) {
+        if (!authenticatedUserContext.hasAuthority("role:read")) {
             throw new org.springframework.security.access.AccessDeniedException(
                     "No se pueden verificar los permisos de los grupos a asignar");
         }
         Set<Long> addedIds = added.stream().map(com.lta.gestdocum.backend.model.Role::getId)
                 .collect(java.util.stream.Collectors.toSet());
         RoleGrantPolicy.requireGrantable(added, roleRepository.findPermissionCodes(tenantId, addedIds),
-                actor.authorities());
+                authenticatedUserContext::hasAuthority);
     }
 
     private void requireRoleAssignmentPermission() {
