@@ -229,7 +229,38 @@ public class DocumentStorageService {
         if (file == null || file.isEmpty()) throw new IllegalArgumentException("El archivo es obligatorio");
         if (file.getSize() > 25L * 1024 * 1024) throw new IllegalArgumentException("El archivo supera 25 MB");
         if (!ALLOWED_TYPES.contains(file.getContentType())) throw new IllegalArgumentException("Tipo de archivo no permitido");
+        requireMatchingContent(file);
         if (reason == null || reason.isBlank() || reason.length() > 1000) throw new IllegalArgumentException("Motivo de versión inválido");
+    }
+
+    /**
+     * The declared Content-Type is client-controlled, so check the file's leading bytes against the signature
+     * of that type: an executable or script renamed to .pdf must not be stored and served as a document.
+     */
+    static void requireMatchingContent(MultipartFile file) {
+        byte[] head = new byte[8];
+        int read;
+        try (java.io.InputStream in = file.getInputStream()) {
+            read = in.readNBytes(head, 0, head.length);
+        } catch (java.io.IOException failure) {
+            throw new IllegalArgumentException("No se pudo leer el archivo");
+        }
+        boolean matches = switch (String.valueOf(file.getContentType())) {
+            case "application/pdf" -> startsWith(head, read, '%', 'P', 'D', 'F', '-');
+            case "image/png" -> startsWith(head, read, 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A);
+            case "image/jpeg" -> startsWith(head, read, 0xFF, 0xD8, 0xFF);
+            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> startsWith(head, read, 'P', 'K', 3, 4);
+            default -> false;
+        };
+        if (!matches) throw new IllegalArgumentException("El contenido del archivo no coincide con su tipo");
+    }
+
+    private static boolean startsWith(byte[] head, int read, int... signature) {
+        if (read < signature.length) return false;
+        for (int i = 0; i < signature.length; i++) {
+            if ((head[i] & 0xFF) != signature[i]) return false;
+        }
+        return true;
     }
 
     private Path safePath(Path relative) {
