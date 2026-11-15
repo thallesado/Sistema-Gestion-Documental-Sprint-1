@@ -36,6 +36,21 @@ class DocumentStateTokenTest {
     }
 
     @Test
+    void tokenMatchesWhatPostgresStoresWhenNanosecondsRoundUp() {
+        UUID id = UUID.randomUUID();
+        // The driver rounds half-up to microseconds when persisting, so .351017600 is stored as .351018.
+        OffsetDateTime inMemory = OffsetDateTime.parse("2026-11-14T19:54:16.351017600-04:00");
+        OffsetDateTime stored = OffsetDateTime.parse("2026-11-14T23:54:16.351018Z");
+        OffsetDateTime carry = OffsetDateTime.parse("2026-11-14T19:54:16.999999600-04:00");
+        OffsetDateTime carried = OffsetDateTime.parse("2026-11-14T23:54:17.000000Z");
+
+        assertEquals(DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, stored),
+                DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, inMemory));
+        assertEquals(DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, carried),
+                DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, carry));
+    }
+
+    @Test
     void requiresCurrentTokenForStateMutations() {
         Document current = new Document(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "DOC-1", "Test");
         current.setId(UUID.randomUUID());
