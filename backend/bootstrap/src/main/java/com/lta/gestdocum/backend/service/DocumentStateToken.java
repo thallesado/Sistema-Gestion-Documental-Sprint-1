@@ -22,13 +22,23 @@ public final class DocumentStateToken {
 
     public static String from(UUID id, Document.DocumentStatus status, Integer currentVersion,
                               java.time.OffsetDateTime updatedAt) {
-        String state = id + "\n" + status + "\n" + currentVersion + "\n" + updatedAt;
+        String state = id + "\n" + status + "\n" + currentVersion + "\n" + canonical(updatedAt);
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(state.getBytes(StandardCharsets.UTF_8));
             return "\"" + Base64.getUrlEncoder().withoutPadding().encodeToString(hash) + "\"";
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
+    }
+
+    /**
+     * The entity holds nanoseconds in the server zone right after INSERT, while PostgreSQL timestamptz
+     * returns microseconds in UTC on the next read. Hashing the raw text made the ETag of a fresh response
+     * differ from the one recomputed on the following request.
+     */
+    private static Object canonical(java.time.OffsetDateTime updatedAt) {
+        return updatedAt == null ? null
+                : updatedAt.toInstant().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     }
 
     public static void requireMatch(String supplied, Document current) {

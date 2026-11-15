@@ -22,6 +22,20 @@ class DocumentStateTokenTest {
     }
 
     @Test
+    void tokenIsStableAcrossTimestampPrecisionAndOffset() {
+        UUID id = UUID.randomUUID();
+        // In-memory value right after INSERT: nanoseconds, server zone.
+        OffsetDateTime inMemory = OffsetDateTime.parse("2026-11-14T19:54:16.351017123-04:00");
+        // Same instant as re-read from PostgreSQL timestamptz: microseconds, UTC.
+        OffsetDateTime reloaded = OffsetDateTime.parse("2026-11-14T23:54:16.351017Z");
+
+        assertEquals(DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, inMemory),
+                DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, reloaded));
+        assertNotEquals(DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, reloaded),
+                DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, reloaded.plusNanos(1_000)));
+    }
+
+    @Test
     void requiresCurrentTokenForStateMutations() {
         Document current = new Document(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "DOC-1", "Test");
         current.setId(UUID.randomUUID());
