@@ -100,7 +100,7 @@ INSERT INTO document_categories (id, tenant_id, name, code) VALUES
 ('51000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', 'Clínico', 'CLINICAL');
 
 INSERT INTO document_types (id, tenant_id, category_id, retention_policy_id, name, code, metadata_schema) VALUES
-('52000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'Contrato', 'CONTRACT', '{"required":["supplier","effectiveDate"]}'),
+('52000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'Contrato', 'CONTRACT', '{"required":["supplier","effectiveDate"],"properties":{"supplier":{"type":"string","title":"Proveedor","minLength":1,"maxLength":200},"effectiveDate":{"type":"string","title":"Fecha de vigencia","format":"date"}}}'),
 ('52000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', '51000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000002', 'Historia clínica', 'CLINICAL_HISTORY', '{"required":["patient"]}');
 
 INSERT INTO expedient_types (id, tenant_id, name, code) VALUES
