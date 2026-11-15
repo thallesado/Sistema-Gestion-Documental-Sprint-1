@@ -103,6 +103,6 @@ export const routes: Routes = [
   {
     path: '**',
     loadComponent: () => import('../../features/no-encontrado/pages/no-encontrado-page').then((m) => m.NotFoundPage),
-    title: 'Pagina no encontrada - NexoDocs',
+    title: 'Página no encontrada - NexoDocs',
   },
 ];
