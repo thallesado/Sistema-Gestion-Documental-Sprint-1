@@ -1,3 +1,6 @@
+import { linkableExpedients } from '../../../core/data/linkable-expedients';
+import { ApiExpedient, ExpedientApiService } from '../../../core/api/expedient-api.service';
+import { FILE_SIGNATURE_BYTES, matchesFileSignature } from '../../../core/data/file-signature';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -142,6 +145,7 @@ import { PermissionService } from '../../../core/auth/permission.service';
                 </select>
               </div>
 
+              @if (clinicalEnabled()) {
               <label [appField]="'documento.nuevo.especialidad'">Especialidad
                 <select name="specialty" [(ngModel)]="createForm.specialty">
                   <option value="">Selecciona especialidad</option>
@@ -169,8 +173,15 @@ import { PermissionService } from '../../../core/auth/permission.service';
                 </select>
               </label>
 
+              }
+
               <label [appField]="'documento.nuevo.expediente'">Expediente vinculado (opcional)
-                <input name="expedientId" [(ngModel)]="createForm.expedientId" placeholder="UUID del expediente" />
+                <select name="expedientId" [(ngModel)]="createForm.expedientId">
+                  <option value="">Sin expediente</option>
+                  @for (exp of linkableExpedients(expedients()); track exp.id) {
+                    <option [value]="exp.id">{{ exp.code }} · {{ exp.name }}</option>
+                  }
+                </select>
               </label>
 
               <label [appField]="'documento.nuevo.emision'">Fecha de emisión
@@ -313,6 +324,7 @@ import { PermissionService } from '../../../core/auth/permission.service';
                 </select>
               </div>
 
+              @if (clinicalEnabled()) {
               <div class="doc-input-box">
                 <select [value]="specialtyFilter()" (change)="setFilter('specialty', $event)">
                   <option value="">Todas las especialidades</option>
@@ -321,7 +333,9 @@ import { PermissionService } from '../../../core/auth/permission.service';
                   }
                 </select>
               </div>
+              }
 
+              @if (clinicalEnabled()) {
               <div class="doc-input-box">
                 <select [value]="processFilter()" (change)="setFilter('process', $event)">
                   <option value="">Todos los procesos</option>
@@ -330,6 +344,7 @@ import { PermissionService } from '../../../core/auth/permission.service';
                   }
                 </select>
               </div>
+              }
 
               <div class="doc-input-box">
                 <span style="font-size: 11px; color: #648280;">Desde</span>
@@ -757,6 +772,7 @@ import { PermissionService } from '../../../core/auth/permission.service';
 export class DocumentPage implements OnInit, OnDestroy {
   private readonly api = inject(DocumentApiService);
   private readonly clinicalApi = inject(ClinicalApiService);
+  private readonly expedientApi = inject(ExpedientApiService);
   private readonly route = inject(ActivatedRoute);
   readonly router = inject(Router);
   private readonly workflowApi = inject(WorkflowApi);
@@ -807,6 +823,10 @@ export class DocumentPage implements OnInit, OnDestroy {
   readonly specialties = signal<string[]>([]);
   readonly processes = signal<string[]>([]);
   readonly patients = signal<ApiPatient[]>([]);
+  readonly expedients = signal<ApiExpedient[]>([]);
+  readonly linkableExpedients = linkableExpedients;
+  /** Specialty, process and patient only make sense where the tenant has the clinical module. */
+  readonly clinicalEnabled = () => this.metadataPermissions.can('patient:read');
 
   // Modales de creación rápida de catálogo
   readonly showNewTypeModal = signal(false);
@@ -979,8 +999,14 @@ export class DocumentPage implements OnInit, OnDestroy {
       error: () => {},
     });
 
-    this.clinicalApi.patients('', 0, 50).subscribe({
-      next: res => this.patients.set(res.content || []),
+    if (this.clinicalEnabled()) {
+      this.clinicalApi.patients('', 0, 50).subscribe({
+        next: res => this.patients.set(res.content || []),
+        error: () => {},
+      });
+    }
+    this.expedientApi.expedients('', 0, 100).subscribe({
+      next: res => this.expedients.set(res.content || []),
       error: () => {},
     });
   }
@@ -1093,8 +1119,24 @@ export class DocumentPage implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0] || null;
     const error = this.fileValidationError(file);
-    this.initialFile = error ? null : file;
+    this.initialFile = null;
     this.createError.set(error);
+    if (error || !file) return;
+    // The file is only accepted once its content matches its type, so no document is created for a file the server rejects.
+    void this.hasValidSignature(file).then(valid => {
+      if (valid) this.initialFile = file;
+      else {
+        input.value = '';
+        this.createError.set(this.signatureError);
+      }
+    });
+  }
+
+  private readonly signatureError = 'El contenido del archivo no coincide con su tipo (PDF, PNG, JPEG o DOCX).';
+
+  private async hasValidSignature(file: File): Promise<boolean> {
+    const head = new Uint8Array(await file.slice(0, FILE_SIGNATURE_BYTES).arrayBuffer());
+    return matchesFileSignature(file.type, head);
   }
 
   /** Nombre y código son obligatorios solo si el perfil puede escribirlos; si no, los asigna el servidor. */
@@ -1148,9 +1190,10 @@ export class DocumentPage implements OnInit, OnDestroy {
             this.actionMessage.set(`Documento ${doc.code} y versión inicial v1 almacenados con éxito.`);
             this.router.navigateByUrl('/documents');
           },
-          error: () => {
+          error: err => {
             this.creating.set(false);
-            this.actionMessage.set(`Documento ${doc.code} creado. Puedes subir la versión desde el detalle.`);
+            const reason = err?.error?.message ? ` Motivo: ${err.error.message}.` : '';
+            this.actionMessage.set(`Documento ${doc.code} creado, pero no se pudo subir su archivo.${reason} Puedes subir la versión desde el detalle.`);
             this.router.navigateByUrl('/documents');
           },
         });
@@ -1384,6 +1427,13 @@ export class DocumentPage implements OnInit, OnDestroy {
       return;
     }
     input.value = '';
+    void this.hasValidSignature(file!).then(valid => {
+      if (!valid) { this.actionMessage.set(this.signatureError); return; }
+      this.checkAndStageVersion(doc, file!);
+    });
+  }
+
+  private checkAndStageVersion(doc: ApiDocument, file: File): void {
     this.api.getById(doc.id).subscribe({
       next: fresh => {
         if (fresh.currentVersion !== doc.currentVersion || fresh.status !== doc.status) {

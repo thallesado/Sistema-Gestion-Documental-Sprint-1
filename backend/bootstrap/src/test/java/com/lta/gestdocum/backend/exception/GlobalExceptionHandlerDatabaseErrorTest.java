@@ -35,6 +35,17 @@ class GlobalExceptionHandlerDatabaseErrorTest {
     }
 
     @Test
+    void insufficientPrivilegeFromTheDatabaseIsForbiddenNotAServerError() {
+        var denied = new java.sql.SQLException("ERROR: Acceso denegado", "42501");
+        var exception = new org.springframework.jdbc.BadSqlGrammarException("task", "select 1", denied);
+
+        ResponseEntity<Map<String, Object>> response = handler.handleDataAccess(exception, request);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertFalse(response.getBody().get("message").toString().contains("Acceso denegado"));
+    }
+
+    @Test
     void integrityViolationKeepsItsGenericConflictMessage() {
         var exception = new DataIntegrityViolationException("ERROR: duplicate key value violates unique constraint");
 

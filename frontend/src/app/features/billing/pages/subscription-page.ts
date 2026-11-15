@@ -1,10 +1,11 @@
+import { planFeatureLabel } from '../../../core/data/plan-features';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { BillingCycle, BillingService, SubscriptionDetails } from '../../../core/billing/billing.service';
-import { SubscriptionPlan, SubscriptionService } from '../../../core/subscription/subscription.service';
+import { PlanFeature, SubscriptionPlan, SubscriptionService } from '../../../core/subscription/subscription.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 import { friendlyApiMessage } from '../../../core/http/tenant-session';
@@ -16,10 +17,6 @@ type Confirm = { title: string; message: string; action: string; danger?: boolea
 
 const STATUS_LABELS: Record<string, string> = {
   TRIAL: 'En prueba', ACTIVE: 'Activa', PAST_DUE: 'Pago pendiente', EXPIRED: 'Vencida', SUSPENDED: 'Suspendida', CANCELED: 'Cancelada',
-};
-const FEATURE_LABELS: Record<string, string> = {
-  workflows: 'Workflows de aprobación', ocr_scanning: 'Digitalización y OCR', advanced_analytics: 'Reportes avanzados',
-  clinical_module: 'Módulo clínico', dicom_imaging: 'Imágenes DICOM',
 };
 const CANCEL_REASONS = ['Es demasiado caro', 'No lo usamos lo suficiente', 'Nos cambiamos a otra herramienta',
   'Faltan funcionalidades', 'Cerramos la organización', 'Otro motivo'];
@@ -114,7 +111,7 @@ const CANCEL_REASONS = ['Es demasiado caro', 'No lo usamos lo suficiente', 'Nos 
             <li>{{ usersLabel(plan) }}</li>
             <li>{{ storageLabel(plan) }}</li>
             @for (feature of plan.features; track feature.featureKey) {
-              <li [class.off]="!feature.enabled">{{ feature.enabled ? '✓' : '—' }} {{ featureLabel(feature.featureKey) }}</li>
+              <li [class.off]="!feature.enabled">{{ feature.enabled ? '✓' : '—' }} {{ featureLabel(feature) }}</li>
             }
           </ul>
           <div class="plan-actions">
@@ -344,7 +341,7 @@ export class SubscriptionPage implements OnInit {
   runConfirm(): void { const c = this.confirm(); this.confirm.set(null); c?.run(); }
 
   statusLabel(status: string): string { return STATUS_LABELS[status] ?? status; }
-  featureLabel(key: string): string { return FEATURE_LABELS[key] ?? key; }
+  featureLabel(feature: PlanFeature): string { return planFeatureLabel(feature); }
   currentPrice(d: SubscriptionDetails): number { return (d.billingCycle === 'ANNUAL' ? d.priceYearly : d.priceMonthly) ?? 0; }
   methodLabel(method: string | null, stripe: boolean): string {
     if (stripe) return 'Tarjeta (Stripe, cobro automático)';

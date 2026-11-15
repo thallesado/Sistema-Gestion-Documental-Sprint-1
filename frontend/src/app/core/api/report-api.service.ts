@@ -10,6 +10,8 @@ export interface ReportPageResponse<T> {
   page: number;
   size: number;
   totalPages: number;
+  /** Row count per status over the whole filtered set (not just this page); empty when not applicable. */
+  facets?: Record<string, number>;
 }
 
 export interface AnalyticsSummary {

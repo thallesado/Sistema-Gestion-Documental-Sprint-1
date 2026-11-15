@@ -84,7 +84,7 @@ public class PatientService {
         }
         if (repository.existsByTenantIdAndDocumentTypeIgnoreCaseAndDocumentNumberIgnoreCaseAndDeletedAtIsNull(
                 tenantId, type, number)) {
-            throw new DuplicateResourceException("Ya existe un expediente para ese identificador en el tenant");
+            throw new DuplicateResourceException("Ya existe un paciente con ese tipo y número de documento");
         }
         OffsetDateTime now = OffsetDateTime.now();
         Patient patient = Patient.builder().tenantId(tenantId).documentType(type)
