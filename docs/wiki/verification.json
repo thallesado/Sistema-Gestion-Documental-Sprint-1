@@ -1101,6 +1101,41 @@
       "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
       "path": "database/init/091_contract_metadata_schema.sql",
       "includes": ["Fecha de vigencia", "\"format\": \"date\"", "091_contract_metadata_schema"]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/RoleGrantPolicy.java",
+      "includes": ["requireGrantable", "startsWith(\"superadmin\")", "No puedes asignar un grupo con permisos que no tienes"]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/UserService.java",
+      "includes": ["RoleGrantPolicy.requireGrantable", "\"role:read\""]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/config/SecurityConfig.java",
+      "includes": ["writeJsonError", "application/json;charset=UTF-8"]
+    },
+    {
+      "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/ReportPageResponse.java",
+      "includes": ["Map<String, Long> facets"]
+    },
+    {
+      "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ReportService.java",
+      "includes": ["GROUP BY 1", "facetColumn"]
+    },
+    {
+      "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+      "path": "frontend/src/app/core/data/report-data.ts",
+      "includes": ["facetCount", "chartPointsFromFacets", "'IN_PROGRESS'"]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "database/init/044_enterprise_inquiries_schema.sql",
+      "includes": ["CREATE TABLE IF NOT EXISTS public.enterprise_inquiries", "DROP POLICY IF EXISTS own_inquiries_select", "FOREIGN KEY (tenant_id, user_id)%"]
     }
   ],
   "reviews": {
