@@ -311,6 +311,7 @@ export const MODULE_TEXT_ROWS: ReadonlyArray<readonly [string, string, string, s
   ['Sin actividad', 'No activity', 'Aucune activité', '无活动'],
   ['Con acciones', 'With actions', 'Avec actions', '有操作'],
   ['Operativos en rango', 'Active in range', 'Actifs sur la plage', '范围内活跃'],
+  ['Operativos en esta página', 'Active on this page', 'Actifs sur cette page', '本页活跃'],
   ['En ejecución', 'Running', 'En exécution', '运行中'],
   ['Activos ahora', 'Active now', 'Actifs maintenant', '当前活跃'],
   ['Con incidencias', 'With issues', 'Avec incidents', '有问题'],

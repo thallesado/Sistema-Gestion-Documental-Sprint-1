@@ -81,7 +81,7 @@ const definitions: Record<string, ReportDefinition> = {
     title: 'Reporte de workflows',
     description: 'Seguimiento de procesos, etapas, tiempos y cuellos de botella del tenant actual.',
     filters: [
-      { key: 'status', label: 'Estado', type: 'select', options: ['RUNNING', 'COMPLETED', 'DRAFT', 'CANCELED', 'FAILED'] },
+      { key: 'status', label: 'Estado', type: 'select', options: ['DRAFT', 'STARTED', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'CANCELED'] },
       { key: 'type', label: 'Tipo de workflow', type: 'search', placeholder: 'Tipo...' },
       { key: 'owner', label: 'Responsable', type: 'search', placeholder: 'Nombre...' },
       { key: 'dateFrom', label: 'Inicio desde *', type: 'date' },
@@ -311,6 +311,23 @@ export function chartPointsFromRows(rows: ReportRow[], groupBy: string, sumKey?:
   return Array.from(grouped.entries()).map(([label, value], index) => ({
     label,
     value,
+    color: CHART_COLORS[index % CHART_COLORS.length],
+  }));
+}
+
+/** Row count of one or more statuses over the whole filtered set (server-side facets), case-insensitive. */
+export function facetCount(facets: Record<string, number> | null | undefined, ...statuses: string[]): number {
+  const wanted = new Set(statuses.map((status) => status.toLowerCase()));
+  return Object.entries(facets ?? {})
+    .filter(([status]) => wanted.has(status.toLowerCase()))
+    .reduce((total, [, count]) => total + finiteNumber(count), 0);
+}
+
+/** Chart points from the server-side facets, so distributions do not depend on the visible page. */
+export function chartPointsFromFacets(facets: Record<string, number> | null | undefined): ChartPoint[] {
+  return Object.entries(facets ?? {}).map(([label, value], index) => ({
+    label: groupLabel(label),
+    value: finiteNumber(value),
     color: CHART_COLORS[index % CHART_COLORS.length],
   }));
 }

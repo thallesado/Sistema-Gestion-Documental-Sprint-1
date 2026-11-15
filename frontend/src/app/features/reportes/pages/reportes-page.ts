@@ -10,7 +10,7 @@ import {
   ReportTable,
 } from '../components';
 import { AuthService } from '../../../core/auth/auth.service';
-import { ChartPoint, ReportDefinition, ReportRow, chartPointsFromRows, finiteNumber, reportDefinition, sessionLabels } from '../../../core/data/report-data';
+import { ChartPoint, ReportDefinition, ReportRow, chartPointsFromFacets, chartPointsFromRows, facetCount, finiteNumber, reportDefinition, sessionLabels } from '../../../core/data/report-data';
 import { AnalyticsDashboard, ReportApiService } from '../../../core/api/report-api.service';
 import { exportToJson, exportToPrintView, ExportColumn } from '../../../core/utils/export-utils';
 
@@ -281,6 +281,8 @@ export class ReportsPage implements OnInit {
 
   readonly rows = signal<ReportRow[]>([]);
   readonly totalElements = signal(0);
+  /** Row count per status over the whole filter, from the server; empty when the report has none. */
+  readonly facets = signal<Record<string, number>>({});
   readonly analyticsData = signal<AnalyticsDashboard | null>(null);
 
   readonly visibleRows = computed(() => this.rows());
@@ -411,6 +413,7 @@ export class ReportsPage implements OnInit {
       this.errorMessage.set('Debe seleccionar obligatoriamente un rango de fechas (Desde y Hasta) para ejecutar el reporte.');
       this.rows.set([]);
       this.totalElements.set(0);
+      this.facets.set({});
       return;
     }
 
@@ -418,6 +421,7 @@ export class ReportsPage implements OnInit {
       this.errorMessage.set('La fecha Desde no puede ser posterior a la fecha Hasta.');
       this.rows.set([]);
       this.totalElements.set(0);
+      this.facets.set({});
       return;
     }
 
@@ -428,6 +432,7 @@ export class ReportsPage implements OnInit {
       next: (res) => {
         this.rows.set(res.content ?? []);
         this.totalElements.set(res.totalElements ?? 0);
+        this.facets.set(res.facets ?? {});
         this.loading.set(false);
       },
       error: (err) => {
@@ -526,7 +531,17 @@ export class ReportsPage implements OnInit {
     const sumKey = this.report.key === 'areas' && groupBy === 'area' ? 'documents'
       : this.report.key === 'users' && groupBy === 'user' ? 'actions'
       : undefined;
+    if (groupBy === this.facetKey() && this.hasFacets()) return chartPointsFromFacets(this.facets());
     return chartPointsFromRows(this.rows(), groupBy, sumKey);
+  }
+
+  /** Column the server counts over the whole filter: the result for audit, the status for everything else. */
+  private facetKey(): string {
+    return this.report.key === 'audit' ? 'result' : 'status';
+  }
+
+  private hasFacets(): boolean {
+    return Object.keys(this.facets()).length > 0;
   }
 
   selectedAreaRow(): ReportRow | undefined {
@@ -539,7 +554,10 @@ export class ReportsPage implements OnInit {
 
   private buildKpis(rows: ReportRow[]): Kpi[] {
     const count = this.totalElements();
-    const countValue = (key: string, value: string): number => rows.filter((row) => String(row[key]).toLowerCase() === value.toLowerCase()).length;
+    // Prefer the server's whole-filter counts; the visible rows only cover the current page.
+    const countValue = (key: string, ...values: string[]): number => key === this.facetKey() && this.hasFacets()
+      ? facetCount(this.facets(), ...values)
+      : rows.filter((row) => values.some((value) => String(row[key]).toLowerCase() === value.toLowerCase())).length;
     const sum = (key: string, onlyCompleted = false): string => rows.filter((row) => !onlyCompleted || row['status'] === 'COMPLETED').reduce((total, row) => total + finiteNumber(row[key]), 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     switch (this.report.key) {
       case 'platform-tenants': return [
@@ -558,20 +576,20 @@ export class ReportsPage implements OnInit {
         { icon: '▤', label: 'Documentos', value: String(count), detail: 'Total periodo filtrado', tone: 'teal' },
         { icon: '✓', label: 'Aprobados', value: String(countValue('status', 'APPROVED')), detail: 'Estado aprobado', tone: 'green' },
         { icon: '◷', label: 'En revisión', value: String(countValue('status', 'IN_REVIEW')), detail: 'Pendientes de firma', tone: 'amber' },
-        { icon: '↗', label: 'Áreas activas', value: String(new Set(rows.map((row) => row['area'])).size), detail: 'Distribución real', tone: 'blue' },
+        { icon: '↗', label: 'Áreas activas', value: String(new Set(rows.map((row) => row['area'])).size), detail: 'En esta página', tone: 'blue' },
       ];
       case 'users': return [
         { icon: '♙', label: 'Usuarios', value: String(count), detail: 'Total periodo filtrado', tone: 'teal' },
         { icon: '✓', label: 'Activos', value: String(countValue('status', 'ACTIVE')), detail: 'Cuentas habilitadas', tone: 'green' },
         { icon: '◌', label: 'Inactivos', value: String(countValue('status', 'INACTIVE')), detail: 'Sin actividad', tone: 'muted' },
         { icon: '!', label: 'Suspendidos', value: String(countValue('status', 'SUSPENDED')), detail: 'Acceso restringido', tone: 'rose' },
-        { icon: '↗', label: 'Con acciones', value: String(rows.filter((r) => finiteNumber(r['actions']) > 0).length), detail: 'Operativos en rango', tone: 'blue' },
+        { icon: '↗', label: 'Con acciones', value: String(rows.filter((r) => finiteNumber(r['actions']) > 0).length), detail: 'Operativos en esta página', tone: 'blue' },
       ];
       case 'workflows': return [
         { icon: '◷', label: 'Workflows', value: String(count), detail: 'Total periodo filtrado', tone: 'teal' },
         { icon: '✓', label: 'Completados', value: String(countValue('status', 'COMPLETED')), detail: 'Finalizados', tone: 'green' },
-        { icon: '◌', label: 'En ejecución', value: String(countValue('status', 'RUNNING')), detail: 'Activos ahora', tone: 'blue' },
-        { icon: '!', label: 'Fallidos', value: String(countValue('status', 'FAILED')), detail: 'Con incidencias', tone: 'rose' },
+        { icon: '◌', label: 'En ejecución', value: String(countValue('status', 'IN_PROGRESS', 'STARTED')), detail: 'Activos ahora', tone: 'blue' },
+        { icon: '!', label: 'Cancelados', value: String(countValue('status', 'CANCELED')), detail: 'Detenidos', tone: 'rose' },
       ];
       case 'expedients': return [
         { icon: '🗂', label: 'Expedientes', value: String(count), detail: 'Total periodo filtrado', tone: 'teal' },
@@ -583,7 +601,7 @@ export class ReportsPage implements OnInit {
         { icon: '📋', label: 'Eventos auditados', value: String(count), detail: 'Total periodo filtrado', tone: 'teal' },
         { icon: '✓', label: 'Operaciones exitosas', value: String(countValue('result', 'SUCCESS')), detail: 'Sin errores', tone: 'green' },
         { icon: '!', label: 'Fallos de acceso', value: String(countValue('result', 'FAILURE')), detail: 'Intentos fallidos', tone: 'rose' },
-        { icon: '↗', label: 'Módulos impactados', value: String(new Set(rows.map((row) => row['module'])).size), detail: 'Superficie activa', tone: 'blue' },
+        { icon: '↗', label: 'Módulos impactados', value: String(new Set(rows.map((row) => row['module'])).size), detail: 'En esta página', tone: 'blue' },
       ];
       default: return [
         { icon: '▤', label: 'Registros', value: String(count), detail: 'Total periodo filtrado', tone: 'teal' },

@@ -112,6 +112,41 @@ class ReportServiceTest {
     }
 
     @Test
+    @DisplayName("El reporte de usuarios devuelve el conteo por estado de todo el filtro, no solo de la página")
+    @SuppressWarnings("unchecked")
+    void usersReport_returnsStatusFacetsOverTheWholeFilter() {
+        when(db.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(31L);
+        when(db.query(anyString(), any(SqlParameterSource.class), any(RowMapper.class))).thenReturn(List.of());
+        when(db.query(argThat((String sql) -> sql != null && sql.contains("GROUP BY")), any(SqlParameterSource.class),
+                any(org.springframework.jdbc.core.ResultSetExtractor.class)))
+                .thenReturn(java.util.Map.of("ACTIVE", 31L));
+
+        ReportPageResponse<UserReportRow> response = reportService.getUsersReport(filter(), 1, 10);
+
+        assertEquals(31L, response.totalElements());
+        assertEquals(java.util.Map.of("ACTIVE", 31L), response.facets());
+        verify(db).query(argThat((String sql) -> sql != null && sql.contains("GROUP BY")
+                        && sql.contains("cast(q.status AS text)")),
+                any(SqlParameterSource.class), any(org.springframework.jdbc.core.ResultSetExtractor.class));
+    }
+
+    @Test
+    @DisplayName("Si el campo estado está oculto para el usuario, el reporte no revela conteos por estado")
+    @SuppressWarnings("unchecked")
+    void usersReport_hidesStatusFacetsWhenTheStatusFieldIsHidden() {
+        when(componentPermissions.current(ComponentFormCatalog.USER_FORM))
+                .thenReturn(hidden(ComponentFormCatalog.USER_FORM, "estado"));
+        when(db.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(31L);
+        when(db.query(anyString(), any(SqlParameterSource.class), any(RowMapper.class))).thenReturn(List.of());
+
+        ReportPageResponse<UserReportRow> response = reportService.getUsersReport(filter(), 1, 10);
+
+        assertTrue(response.facets().isEmpty());
+        verify(db, never()).query(argThat((String sql) -> sql != null && sql.contains("GROUP BY")),
+                any(SqlParameterSource.class), any(org.springframework.jdbc.core.ResultSetExtractor.class));
+    }
+
+    @Test
     @DisplayName("exportCsv genera bytes CSV con BOM UTF-8 y cabeceras de columnas")
     void exportCsv_generatesCsvWithBomAndHeaders() {
         when(db.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class)))
