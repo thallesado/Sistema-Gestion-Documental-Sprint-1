@@ -1081,6 +1081,26 @@
       "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
       "path": "frontend/src/app/features/documentos/pages/document-retention-page.ts",
       "includes": ["Política por tipo documental", "Documentos aptos para transferencia", "Aprobar transferencia", "Ejecutar transferencia", "permissions.can('document:archive')"]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentStateToken.java",
+      "includes": ["canonical(", "getNano() + 500L"]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentStorageService.java",
+      "includes": ["requireMatchingContent", "El contenido del archivo no coincide con su tipo"]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "frontend/src/app/core/data/file-signature.ts",
+      "includes": ["matchesFileSignature", "FILE_SIGNATURE_BYTES"]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "database/init/091_contract_metadata_schema.sql",
+      "includes": ["Fecha de vigencia", "\"format\": \"date\"", "091_contract_metadata_schema"]
     }
   ],
   "reviews": {
