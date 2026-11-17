@@ -49,6 +49,7 @@ dependencies:
   showcaseview: ^5.1.0
   shared_preferences: ^2.5.6
   crypto: ^3.0.6
+  record: ^7.2.0
 
 dev_dependencies:
   flutter_test:

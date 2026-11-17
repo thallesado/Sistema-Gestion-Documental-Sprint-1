@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'medical_note_sheet.dart';
+import 'voice_note_sheet.dart';
+import 'clinical_labels.dart';
 import '../../core/api/auth_api.dart';
 import '../../core/api/clinical_api.dart';
+import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/i18n/app_language.dart';
 import '../../core/models/clinical_history_model.dart';
@@ -439,7 +442,8 @@ class _PatientClinicalHistorySheetState extends State<PatientClinicalHistoryShee
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  note.content,
+                  // Las notas se guardan como HTML (igual que la web); aquí se muestran como texto.
+                  plainText(note.content),
                   style: const TextStyle(fontSize: 13, color: AppTheme.ink, height: 1.4),
                 ),
                 if (note.authorName != null && note.authorName!.isNotEmpty) ...[
@@ -480,16 +484,33 @@ class _PatientClinicalHistorySheetState extends State<PatientClinicalHistoryShee
   }
 
   Widget _newNoteButton() {
-    if (widget.auth == null) return const SizedBox.shrink();
+    final auth = widget.auth;
+    if (auth == null) return const SizedBox.shrink();
+    // Sin medical_note:create no se ofrece ninguna acción de alta de notas (el backend lo exige igualmente).
+    final canCreateNote = auth.permissions.value.can(Permissions.medicalNoteCreate);
+    if (!canCreateNote) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Align(
         alignment: Alignment.centerRight,
-        child: FilledButton.icon(
-          key: const Key('clinical-new-note'),
-          onPressed: _createNote,
-          icon: const Icon(Icons.add, size: 18),
-          label: Text(context.tr('Nueva nota médica')),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.end,
+          children: [
+            OutlinedButton.icon(
+              key: const Key('clinical-dictate-note'),
+              onPressed: _dictateNote,
+              icon: const Icon(Icons.mic_none_rounded, size: 18),
+              label: Text(context.tr('Dictar nota')),
+            ),
+            FilledButton.icon(
+              key: const Key('clinical-new-note'),
+              onPressed: _createNote,
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(context.tr('Nueva nota médica')),
+            ),
+          ],
         ),
       ),
     );
@@ -501,6 +522,17 @@ class _PatientClinicalHistorySheetState extends State<PatientClinicalHistoryShee
     final history = _history;
     if (auth == null || history == null) return;
     final created = await showMedicalNoteSheet(context, auth, history.id);
+    if (created != null) await _load();
+  }
+
+  /// Dictado por voz: graba, envía a la IA y abre el formulario precargado. Nada se guarda sin confirmación.
+  Future<void> _dictateNote() async {
+    final auth = widget.auth;
+    final history = _history;
+    if (auth == null || history == null) return;
+    final result = await showVoiceNoteSheet(context, auth, history.id);
+    if (!mounted || result == null) return;
+    final created = await showMedicalNoteSheet(context, auth, history.id, draft: result.draft);
     if (created != null) await _load();
   }
 

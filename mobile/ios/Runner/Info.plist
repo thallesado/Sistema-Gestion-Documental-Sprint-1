@@ -4,6 +4,8 @@
 <dict>
 	<key>NSCameraUsageDescription</key>
 	<string>NexoDocs usa la cámara para fotografiar documentos y subirlos como nueva versión.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>NexoDocs usa el micrófono para dictar notas médicas. / NexoDocs uses the microphone to dictate medical notes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>NexoDocs accede a tus fotos para subir una imagen como nueva versión de un documento.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

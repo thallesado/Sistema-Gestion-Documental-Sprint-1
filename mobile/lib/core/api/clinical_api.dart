@@ -1,3 +1,12 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+
+import '../errors/api_exception.dart';
+import '../i18n/app_language.dart';
 import '../models/clinical_history_model.dart';
 import '../models/medical_appointment_model.dart';
 import '../models/patient_model.dart';
@@ -66,6 +75,55 @@ class ClinicalApi {
   }
 
   /// [noteType]: EVOLUTION, PRESCRIPTION o CONSULTATION; [status]: DRAFT o APPROVED (igual que la web).
+  /// Dictado de nota por voz: envía el audio a `POST /medical-notes/ai-draft` y devuelve el borrador
+  /// `{transcript, noteType, subjective, objective, assessment, plan, warnings[]}`. No guarda nada.
+  /// El archivo lo borra quien llama tras el envío exitoso o al cancelar.
+  Future<Map<String, dynamic>> aiDraft({
+    required String historyId,
+    required String audioPath,
+    String? language,
+  }) async {
+    final bytes = await _readAudioBytes(audioPath);
+    if (bytes.length > maxAudioBytes) {
+      throw ApiException(tr('El audio supera el límite de 25 MB.'));
+    }
+    final result = await _client.postMultipart(
+      '/medical-notes/ai-draft',
+      fields: {
+        'clinicalHistoryId': historyId,
+        'language': ?language,
+      },
+      files: () => [
+        http.MultipartFile.fromBytes(
+          'audio',
+          bytes,
+          filename: 'dictado.wav',
+          contentType: MediaType('audio', 'wav'),
+        ),
+      ],
+    );
+    return result as Map<String, dynamic>;
+  }
+
+  static const maxAudioBytes = 25 * 1024 * 1024;
+
+  /// En web la grabación es una URL blob del navegador (sin dart:io); en móvil es un archivo temporal.
+  Future<Uint8List> _readAudioBytes(String audioPath) async {
+    if (kIsWeb) {
+      final response = await http.get(Uri.parse(audioPath));
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+        throw ApiException(tr('No se encontró el audio grabado.'));
+      }
+      return response.bodyBytes;
+    }
+    final file = File(audioPath);
+    if (!file.existsSync()) {
+      throw ApiException(tr('No se encontró el audio grabado.'));
+    }
+    // Lectura síncrona: un dictado de 5 minutos en WAV 16 kHz mono pesa ~9,6 MB; así el envío es determinista en pruebas.
+    return file.readAsBytesSync();
+  }
+
   Future<Map<String, dynamic>> createNote({
     required String historyId,
     required String noteType,

@@ -45,6 +45,23 @@ Checkout `91fb767` más cambios locales, comprobado en la base desechable usada 
 
 Evidencia y límites de las pruebas: [flujo local HU-09](../../evidencias/hu09/README.md). La prueba SQL específica termina en ROLLBACK.
 
+## Dictado de nota médica por voz con IA (2026-11-17)
+
+Cambios locales sin commit sobre la base `oscar`. Verificado con pruebas unitarias y de widget; no hay prueba contra Gemini real ni contra un teléfono.
+
+- **Endpoint:** `POST /api/v1/medical-notes/ai-draft`, multipart con `audio` (archivo), `clinicalHistoryId` y `language` opcional (si no llega, se usa `Accept-Language`; solo `en*` produce inglés, el resto español). Requiere `medical_note:create`, igual que `POST /medical-notes`.
+- **Respuesta (200):** `{transcript, noteType, subjective, objective, assessment, plan, warnings[]}`. `noteType` es `EVOLUTION`, `PRESCRIPTION` o `CONSULTATION`; si la IA devuelve otro valor se usa `EVOLUTION`. Cada aviso es `{type, term}` con `type` `ALLERGY` (coincide con `allergies[].allergen`) o `MEDICATION` (coincide con `currentMedications[].name`).
+- **Validación previa:** historia del tenant y no dada de baja (`ClinicalHistoryRepository`), paciente del tenant y no eliminado; audio no vacío, máximo 25 MB de subida y 13 MB en bruto para la petición inline a Gemini (413 por encima; el base64 añade 4/3 y varias páginas oficiales fijan 20 MB por petición total). MIME admitidos: `audio/wav`, `audio/mp3`, `audio/aiff`, `audio/aac`, `audio/ogg` y `audio/flac`, la lista de audio understanding de ai.google.dev; `audio/m4a` y `audio/mp4` se rechazan con 415 (solo aparecen en Vertex AI). Un WAV PCM 16 kHz mono de 5 minutos pesa ~9,6 MB y cabe en ambos límites. Sin clave de Gemini: 503 antes de llamar a la IA.
+- **IA:** `MedicalNoteAiService` reutiliza `GeminiClient` (clave `app.gemini.api-key`, modelo, timeout y reintentos de `application.yml`); no hay configuración duplicada. La respuesta debe ser un objeto JSON estricto (`response_mime_type: application/json`); si no lo es, o si falla la llamada, responde 502 con mensaje controlado. Sin transcripción: 422.
+- **Advertencias:** la comparación es del servidor, no de la IA: sin mayúsculas ni tildes, con límites de palabra, y solo términos de 3 o más letras.
+- **Audio:** se mantiene en memoria durante la petición y no se escribe en base de datos ni en almacenamiento. Spring puede usar un archivo temporal del contenedor para multipart grande, que el servidor elimina al terminar la petición.
+- **Auditoría:** evento `AI_DRAFT` sobre `CLINICAL_HISTORIES` con `feature`, `noteType`, `language` y `warningCount`. No incluye transcripción ni contenido clínico. `audit_events.action` es texto libre, así que no hace falta migración; no se creó ninguna.
+- **Nada se guarda sin confirmación:** el borrador solo rellena el formulario existente de nota; el guardado usa `POST /medical-notes` con `status` DRAFT o APPROVED tras la acción del médico.
+- **Móvil:** botón «Dictar nota» en la pestaña Evolución de la ficha clínica activa (`patient_clinical_history_sheet.dart`, abierta desde `patients_tab.dart`), visible solo con `medical_note:create`. Grabación con `record` (WAV PCM 16 bits, 16 kHz, mono, enviado como `audio/wav`), temporizador y límite de 5 minutos, detener/cancelar. Errores con reintento y opción de escribir a mano; el audio se conserva hasta el éxito, la opción manual o la cancelación. Ver [mobile/README.md](../../../mobile/README.md).
+- **Límites:** `patient_detail_page.dart` tiene un formulario de nota propio sin botón de dictado y no está en la navegación. Tanto «Dictar nota» como «Nueva nota médica» se ocultan sin `medical_note:create` (el servidor lo exige igualmente). La app no muestra la transcripción. Pendientes: prueba con Gemini real (sin `GEMINI_API_KEY` en el entorno en la verificación del 2026-11-17) y recorrido en teléfono (`flutter run`).
+
+Fuentes: [MedicalNoteAiService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/MedicalNoteAiService.java), [MedicalNoteController.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/MedicalNoteController.java), [MedicalNoteAiServiceTest.java](../../../backend/bootstrap/src/test/java/com/lta/gestdocum/backend/service/MedicalNoteAiServiceTest.java), [voice_note_sheet.dart](../../../mobile/lib/screens/patients/voice_note_sheet.dart), [voice_note_dictation_test.dart](../../../mobile/test/voice_note_dictation_test.dart). Formato de audio: [audio understanding de Gemini](https://ai.google.dev/gemini-api/docs/audio).
+
 ## Límites
 
 - Inactivar paciente no equivale a alta médica, ni cierra historia/workflows.

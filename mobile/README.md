@@ -66,6 +66,7 @@ lib/
 │   ├── i18n/                 # Idiomas es/en: app_language.dart (tr, selector) y translations_en.dart
 │   ├── notifications/        # Avisos del sistema: comprobación en primer y segundo plano
 │   ├── errors/api_exception.dart
+│   ├── voice/voice_recorder.dart # Interfaz VoiceRecorder (grabación de dictado) y adaptador con `record`
 │   ├── theme/app_theme.dart  # Paleta compartida con la web
 │   ├── utils/
 │   │   ├── format.dart       # Fechas y etiquetas de estado (mismos textos que la web)
@@ -113,6 +114,7 @@ La app nunca muestra datos de ejemplo en su lugar.
 | Usuarios y roles, Reportes, Facturación | ❌ pendiente |
 | Idiomas | ✅ español e inglés (selector en Perfil, `Accept-Language` en cada petición; fr/zh: solo web) |
 | Notas médicas: registro, borrador, emitir y anular | ✅ desde la ficha clínica del paciente (`/medical-notes`) |
+| Dictado de nota médica por voz con IA (SOAP, avisos de alergias y medicamentos) | ✅ botón «Dictar nota» en la pestaña Evolución (`POST /medical-notes/ai-draft`), solo con `medical_note:create`; requiere permiso de micrófono; nada se guarda sin confirmar en el formulario |
 | Privilegios por campo (formularios) | ✅ `GET /component-permissions/me` oculta o bloquea campos según el perfil |
 
 ## Permisos, nueva versión y avisos
@@ -124,6 +126,7 @@ puede usar, con los mismos códigos que el backend:
 |---|---|
 | Pestaña Documentos / Tareas / Expedientes / Clínico | `document:read` / `task:read` / `expedient:read` / `patient:read` |
 | Notas médicas: ver / registrar / emitir o anular | `medical_note:read` / `medical_note:create` / `medical_note:update` |
+| Dictar nota (grabación y borrador con IA) | `medical_note:create` + permiso de micrófono (Android `RECORD_AUDIO`, iOS `NSMicrophoneUsageDescription`) |
 | Campana y avisos | `notification:read` |
 | Resolver y comentar tareas | `task:update` (+ `workflow:approve`, `workflow:review`, `workflow:reject` o `workflow:return` según la acción) |
 | Nueva versión de un documento | `document:update` |
@@ -133,6 +136,17 @@ puede usar, con los mismos códigos que el backend:
 | Ciclo de vida de expediente (cerrar/archivar/reabrir) | `expedient:update` |
 
 Si el servidor no informa `permissions` no se oculta nada; el backend sigue rechazando con 403.
+
+**Dictado de nota por voz.** El audio se graba como WAV PCM 16 bits, 16 kHz, mono (`AudioEncoder.wav` del
+paquete `record`) y se envía como `audio/wav`. La API de Gemini (ai.google.dev, con `GEMINI_API_KEY`) admite
+`audio/wav`, `audio/mp3`, `audio/aiff`, `audio/aac`, `audio/ogg` y `audio/flac`; `audio/m4a` solo aparece en
+Vertex AI, así que no se usa. 5 minutos de WAV pesan ~9,6 MB: dentro de los 25 MB de subida y de los 13 MB
+en bruto que el backend admite para la petición inline a Gemini (~17,3 MB en base64).
+Permisos: `android.permission.RECORD_AUDIO` en `android/app/src/main/AndroidManifest.xml` e
+`NSMicrophoneUsageDescription` en `ios/Runner/Info.plist` (el proyecto no localiza ese archivo, así que el
+texto va en español e inglés). Si el usuario niega el micrófono, la app indica activarlo en Ajustes. El
+archivo temporal se borra al enviar con éxito, al escribir la nota a mano o al cancelar. Pruebas:
+`test/voice_note_dictation_test.dart` (grabador simulado, servidor simulado).
 
 **Privilegios por campo.** Los formularios de alta de documento (`documento.nuevo`) y de nota
 médica (`nota_medica`) leen `GET /component-permissions/me`, igual que la web: un campo oculto no

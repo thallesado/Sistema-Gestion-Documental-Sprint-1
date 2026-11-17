@@ -1046,6 +1046,56 @@
     },
     {
       "page": "04-dominio-y-negocio/modulo-clinico.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/MedicalNoteAiService.java",
+      "includes": [
+        "MAX_AUDIO_BYTES = 25L * 1024 * 1024",
+        "\"audio/flac\"",
+        "MAX_INLINE_AUDIO_BYTES = 13L * 1024 * 1024",
+        "response_mime_type",
+        "findByIdAndTenantIdAndDeletedAtIsNull",
+        "\"AI_DRAFT\""
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/modulo-clinico.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/MedicalNoteController.java",
+      "includes": [
+        "/ai-draft",
+        "hasAuthority('medical_note:create')"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/modulo-clinico.md",
+      "path": "mobile/lib/core/voice/voice_recorder.dart",
+      "includes": [
+        "AudioEncoder.wav",
+        "requestPermission"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/modulo-clinico.md",
+      "path": "mobile/lib/core/api/clinical_api.dart",
+      "includes": [
+        "/medical-notes/ai-draft",
+        "MediaType('audio', 'wav')"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/modulo-clinico.md",
+      "path": "mobile/android/app/src/main/AndroidManifest.xml",
+      "includes": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/modulo-clinico.md",
+      "path": "mobile/ios/Runner/Info.plist",
+      "includes": [
+        "NSMicrophoneUsageDescription"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/modulo-clinico.md",
       "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/security/HtmlSanitizerService.java",
       "includes": [
         "Jsoup.parseBodyFragment(clean).text().isBlank()"

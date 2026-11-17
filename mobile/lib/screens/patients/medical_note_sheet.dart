@@ -9,19 +9,46 @@ import 'clinical_labels.dart';
 
 /// Hoja para registrar una nota médica en la historia clínica (POST /medical-notes).
 /// Devuelve la nota creada.
-Future<Map<String, dynamic>?> showMedicalNoteSheet(BuildContext context, AuthApi api, String historyId) =>
+/// Si se pasa [draft] (borrador de `POST /medical-notes/ai-draft`), el formulario se precarga con él.
+/// Nada se guarda hasta que el médico pulsa Guardar borrador o Firmar y emitir.
+Future<Map<String, dynamic>?> showMedicalNoteSheet(BuildContext context, AuthApi api, String historyId, {Map<String, dynamic>? draft}) =>
     showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => MedicalNoteSheet(api: api, historyId: historyId),
+      builder: (_) => MedicalNoteSheet(api: api, historyId: historyId, draft: draft),
     );
 
+/// Secciones SOAP del borrador de IA en texto plano; `toNoteHtml` lo convierte al guardar.
+String aiDraftText(Map<String, dynamic> draft) {
+  final sections = [
+    (tr('Subjetivo'), '${draft['subjective'] ?? ''}'.trim()),
+    (tr('Objetivo'), '${draft['objective'] ?? ''}'.trim()),
+    (tr('Evaluación'), '${draft['assessment'] ?? ''}'.trim()),
+    (tr('Plan'), '${draft['plan'] ?? ''}'.trim()),
+  ];
+  return sections.where((s) => s.$2.isNotEmpty).map((s) => '${s.$1}:\n${s.$2}').join('\n\n');
+}
+
+/// Advertencias del borrador (`warnings[]` del backend): alergias y medicamentos ya registrados.
+List<Map<String, dynamic>> aiDraftWarnings(Map<String, dynamic>? draft) {
+  final raw = draft?['warnings'];
+  if (raw is! List) return const [];
+  return raw.whereType<Map>().map((w) => Map<String, dynamic>.from(w)).toList();
+}
+
+String aiWarningLabel(Map<String, dynamic> warning) {
+  final term = '${warning['term'] ?? ''}';
+  final prefix = warning['type'] == 'ALLERGY' ? tr('Posible alergia registrada') : tr('Posible medicamento actual');
+  return '$prefix: $term';
+}
+
 class MedicalNoteSheet extends StatefulWidget {
-  const MedicalNoteSheet({super.key, required this.api, required this.historyId});
+  const MedicalNoteSheet({super.key, required this.api, required this.historyId, this.draft});
 
   final AuthApi api;
   final String historyId;
+  final Map<String, dynamic>? draft;
 
   static const form = 'nota_medica';
 
@@ -40,12 +67,21 @@ class _MedicalNoteSheetState extends State<MedicalNoteSheet> {
   @override
   void initState() {
     super.initState();
+    final draft = widget.draft;
+    if (draft != null) {
+      content.text = aiDraftText(draft);
+    }
     widget.api.componentPermissions.form(MedicalNoteSheet.form).then((value) {
       if (!mounted) return;
       setState(() {
         access = value;
         // Igual que la web: sin permiso sobre el campo se usan los valores por defecto.
-        if (!access.editable('tipo')) noteType = 'EVOLUTION';
+        if (!access.editable('tipo')) {
+          noteType = 'EVOLUTION';
+        } else {
+          final suggested = draft?['noteType'];
+          if (suggested is String && noteTypes.contains(suggested)) noteType = suggested;
+        }
         if (!access.editable('estado')) status = 'DRAFT';
       });
     }, onError: (_) {});
@@ -93,6 +129,42 @@ class _MedicalNoteSheetState extends State<MedicalNoteSheet> {
           const SizedBox(height: 16),
           Text(context.tr('Nueva nota médica'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.ink)),
           const SizedBox(height: 16),
+          if (widget.draft != null) ...[
+            Text(
+              context.tr('Borrador generado con IA. Revísalo antes de guardar: la IA no guarda nada por sí sola.'),
+              key: const Key('note-ai-hint'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (aiDraftWarnings(widget.draft).isNotEmpty) ...[
+            Container(
+              key: const Key('note-warnings'),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E5),
+                border: Border.all(color: const Color(0xFFF59E0B)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(context.tr('Revisa estas coincidencias antes de guardar.'), style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF92400E)))),
+                  ]),
+                  const SizedBox(height: 6),
+                  for (final warning in aiDraftWarnings(widget.draft))
+                    Padding(
+                      padding: const EdgeInsets.only(left: 28, top: 2),
+                      child: Text(aiWarningLabel(warning), key: Key('note-warning-${warning['type']}-${warning['term']}'), style: const TextStyle(color: Color(0xFF92400E))),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (access.visible('tipo')) ...[
             Text(context.tr('Tipo de nota'), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
             const SizedBox(height: 6),
