@@ -775,4 +775,10 @@ const englishTranslations = <String, String>{
   'o inicia con contraseña': 'or sign in with password',
   'Usar huella': 'Use fingerprint',
   'Verificando…': 'Verifying…',
+  'Bloquear': 'Lock',
+  'Cerrar sesión completamente': 'Sign out completely',
+  'Demasiados intentos con la huella. Ingresa tu contraseña.': 'Too many fingerprint attempts. Enter your password.',
+  'Desbloquear con huella': 'Unlock with fingerprint',
+  'La verificación con huella fue cancelada o falló.': 'Fingerprint verification was cancelled or failed.',
+  'Usar contraseña': 'Use password',
 };

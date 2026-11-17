@@ -54,6 +54,12 @@ class AuthApi {
   /// Permisos por función del usuario actual; el shell y las pantallas se redibujan al cambiar.
   final ValueNotifier<UserPermissions> permissions = ValueNotifier(UserPermissions.unknown);
 
+  /// Bloqueo local: la sesión sigue guardada, pero la app pide huella (o contraseña) antes de mostrar contenido.
+  /// No llama al servidor ni borra tokens.
+  final ValueNotifier<bool> locked = ValueNotifier(false);
+
+  void lock() => locked.value = true;
+
   Future<List<PublicTenant>> publicTenants() async {
     final list = await client.getPublic('/tenants/public') as List<dynamic>;
     return list
@@ -125,6 +131,9 @@ class AuthApi {
       }
     }
     await client.clearSession();
+    // Cierre completo: también se desactiva el desbloqueo con huella del dispositivo.
+    await biometrics.setEnabled(false);
+    locked.value = false;
     componentPermissions.clear();
     currentUser = null;
     permissions.value = UserPermissions.unknown;

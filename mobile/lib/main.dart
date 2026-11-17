@@ -6,6 +6,7 @@ import 'core/i18n/app_language.dart';
 import 'core/notifications/workflow_notifications.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/password_page.dart';
+import 'screens/auth/app_lock_overlay.dart';
 import 'screens/auth/login_page.dart';
 import 'screens/shell/main_shell_page.dart';
 
@@ -97,6 +98,14 @@ class _NexoDocsAppState extends State<NexoDocsApp> {
         supportedLocales: [for (final value in AppLanguage.values) value.locale],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: _StartupGate(api: api),
+        builder: (context, child) => AppLockOverlay(
+          api: api,
+          child: child!,
+          onFullLogout: () => navigatorKey.currentState?.pushAndRemoveUntil(
+            MaterialPageRoute<void>(builder: (_) => LoginPage(authApi: api)),
+            (_) => false,
+          ),
+        ),
       ),
     ),
   );
@@ -119,6 +128,11 @@ class _StartupGateState extends State<_StartupGate> {
     try {
       await widget.api.client.restoreServerUrl();
       if (!await widget.api.client.hasSession()) return 0;
+      if (await widget.api.biometrics.isEnabled()) {
+        // Sesión guardada + huella activa: la capa de bloqueo pide la huella antes de mostrar contenido.
+        widget.api.locked.value = true;
+        return 4;
+      }
       await widget.api.restoreProfile();
       return widget.api.mustChangePassword ? 2 : 1;
     } catch (_) {
@@ -127,25 +141,34 @@ class _StartupGateState extends State<_StartupGate> {
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<int>(
-    future: _startup,
-    builder: (context, snapshot) {
-      if (!snapshot.hasData) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppTheme.teal)));
-      }
-      return switch (snapshot.data!) {
-        1 => MainShellPage(api: widget.api),
-        2 => PasswordPage(api: widget.api, requiredChange: true),
-        3 => Scaffold(body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(context.tr('No se pudo verificar la sesión con el servidor.')),
-          TextButton(onPressed: () => setState(() => _startup = _restore()), child: Text(context.tr('Reintentar'))),
-          TextButton(onPressed: () async {
-            await widget.api.client.clearSession();
-            if (mounted) setState(() => _startup = _restore());
-          }, child: Text(context.tr('Iniciar sesión de nuevo'))),
-        ]))),
-        _ => LoginPage(authApi: widget.api),
-      };
-    },
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+    valueListenable: widget.api.locked,
+    builder: (context, isLocked, _) => FutureBuilder<int>(
+      future: _startup,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppTheme.teal)));
+        }
+        return switch (snapshot.data!) {
+          1 => MainShellPage(api: widget.api),
+          2 => PasswordPage(api: widget.api, requiredChange: true),
+          // Bloqueado: no se muestra contenido detrás de la capa de huella.
+          4 => isLocked
+              ? const Scaffold(body: SizedBox.shrink())
+              : widget.api.mustChangePassword
+                  ? PasswordPage(api: widget.api, requiredChange: true)
+                  : MainShellPage(api: widget.api),
+          3 => Scaffold(body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(context.tr('No se pudo verificar la sesión con el servidor.')),
+            TextButton(onPressed: () => setState(() => _startup = _restore()), child: Text(context.tr('Reintentar'))),
+            TextButton(onPressed: () async {
+              await widget.api.client.clearSession();
+              if (mounted) setState(() => _startup = _restore());
+            }, child: Text(context.tr('Iniciar sesión de nuevo'))),
+          ]))),
+          _ => LoginPage(authApi: widget.api),
+        };
+      },
+    ),
   );
 }

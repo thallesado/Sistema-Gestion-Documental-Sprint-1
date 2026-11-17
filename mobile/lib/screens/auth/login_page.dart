@@ -35,12 +35,22 @@ const defaultPublicTenants = [
 ];
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.authApi, this.notice});
+  const LoginPage({super.key, required this.authApi, this.notice, this.lockedMode = false, this.onUnlocked, this.onFullLogout});
 
   final AuthApi authApi;
 
   /// Aviso informativo, p. ej. cuando la sesión expiró.
   final String? notice;
+
+  /// Pantalla de desbloqueo: sesión guardada + huella activa. Solo muestra la tarjeta de huella
+  /// (y "Usar contraseña") hasta que el usuario verifica la huella o cierra sesión completa.
+  final bool lockedMode;
+
+  /// Se llama cuando la huella se verificó y la sesión se restauró.
+  final VoidCallback? onUnlocked;
+
+  /// Tras "Usar contraseña" (cierre completo) desde el bloqueo: mostrar el login normal.
+  final VoidCallback? onFullLogout;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -57,6 +67,8 @@ class _LoginPageState extends State<LoginPage> {
   bool submitting = false;
   bool showPassword = false;
   bool biometricEnabled = false;
+  int biometricFailures = 0;
+  static const maxBiometricAttempts = 3;
   String? error;
 
   LoginAccessMode accessMode = LoginAccessMode.administrative;
@@ -69,6 +81,7 @@ class _LoginPageState extends State<LoginPage> {
     super.initState();
     userController.addListener(_handleUserChanged);
     loadTenants();
+    biometricEnabled = widget.lockedMode;
     _checkBiometrics();
   }
 
@@ -148,21 +161,38 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  /// Formulario de contraseña visible: siempre fuera del modo bloqueado, o tras agotar los intentos de huella.
+  bool get showPasswordForm => !widget.lockedMode || !biometricEnabled || biometricFailures >= maxBiometricAttempts;
+
   Future<void> _unlockWithBiometrics() async {
+    if (biometricFailures >= maxBiometricAttempts) return;
     setState(() {
       submitting = true;
       error = null;
     });
     try {
       final authenticated = await widget.authApi.biometrics.authenticate(
-        reason: context.tr('Usa tu biometría para acceder a NexoDocs'),
+        reason: tr('Usa tu biometría para acceder a NexoDocs'),
       );
       if (!authenticated) {
-        if (mounted) setState(() => submitting = false);
+        if (mounted) {
+          setState(() {
+            biometricFailures++;
+            error = biometricFailures >= maxBiometricAttempts
+                ? tr('Demasiados intentos con la huella. Ingresa tu contraseña.')
+                : tr('La verificación con huella fue cancelada o falló.');
+          });
+        }
         return;
       }
       await widget.authApi.restoreProfile();
       if (!mounted) return;
+      biometricFailures = 0;
+      final onUnlocked = widget.onUnlocked;
+      if (widget.lockedMode && onUnlocked != null) {
+        onUnlocked();
+        return;
+      }
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(builder: (_) => widget.authApi.mustChangePassword
             ? PasswordPage(api: widget.authApi, requiredChange: true) : MainShellPage(api: widget.authApi)),
@@ -172,6 +202,26 @@ class _LoginPageState extends State<LoginPage> {
     } finally {
       if (mounted) setState(() => submitting = false);
     }
+  }
+
+  /// "Usar contraseña": cierre completo (revoca la sesión, borra tokens y desactiva la huella).
+  Future<void> _useFullLogout() async {
+    setState(() {
+      submitting = true;
+      error = null;
+    });
+    await widget.authApi.logout();
+    final onFullLogout = widget.onFullLogout;
+    if (onFullLogout != null) {
+      onFullLogout();
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      submitting = false;
+      biometricEnabled = false;
+      biometricFailures = 0;
+    });
   }
 
   @override
@@ -388,9 +438,11 @@ class _LoginPageState extends State<LoginPage> {
                       if (biometricEnabled && accessMode == LoginAccessMode.administrative) ...[
                         const SizedBox(height: 16),
                         _biometricCard(),
-                        const SizedBox(height: 16),
-                        _orDivider(),
-                        const SizedBox(height: 16),
+                        if (showPasswordForm) ...[
+                          const SizedBox(height: 16),
+                          _orDivider(),
+                          const SizedBox(height: 16),
+                        ],
                       ],
                       if (widget.notice != null) ...[
                         const SizedBox(height: 14),
@@ -460,6 +512,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ],
 
+                      if (showPasswordForm) ...[
                       // Conmutador Inteligente de Modo (Administrativo vs Ciudadano)
                       if (detectedRole != DetectedUserRole.unknown) ...[
                         const SizedBox(height: 14),
@@ -655,6 +708,8 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ],
 
+                      ],
+
                       const Divider(height: 24),
                       OutlinedButton.icon(
                         key: const Key('public-radicacion-button'),
@@ -690,7 +745,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _biometricCard() => Container(
     key: const Key('biometric-card'),
-    padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+    padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
     decoration: BoxDecoration(
       color: AppTheme.mint.withValues(alpha: 0.4),
       borderRadius: BorderRadius.circular(16),
@@ -705,7 +760,7 @@ class _LoginPageState extends State<LoginPage> {
         ),
         const SizedBox(height: 10),
         Text(
-          context.tr('Entrar con huella'),
+          context.tr('Desbloquear con huella'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.ink),
         ),
@@ -720,11 +775,21 @@ class _LoginPageState extends State<LoginPage> {
           width: double.infinity,
           child: FilledButton.icon(
             key: const Key('biometrics-login'),
-            onPressed: submitting ? null : _unlockWithBiometrics,
+            onPressed: (submitting || biometricFailures >= maxBiometricAttempts) ? null : _unlockWithBiometrics,
             icon: const Icon(Icons.fingerprint),
             label: Text(submitting ? context.tr('Verificando…') : context.tr('Usar huella')),
             style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
           ),
+        ),
+        if (widget.lockedMode && error != null) ...[
+          const SizedBox(height: 10),
+          Text(error!, key: const Key('biometric-error'), textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+        ],
+        const SizedBox(height: 4),
+        TextButton(
+          key: const Key('biometric-use-password'),
+          onPressed: submitting ? null : _useFullLogout,
+          child: Text(context.tr('Usar contraseña')),
         ),
       ],
     ),

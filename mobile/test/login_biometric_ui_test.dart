@@ -50,7 +50,7 @@ void main() {
   testWidgets('con huella guardada muestra la tarjeta de huella, el separador y el formulario de contraseña', (tester) async {
     await _pump(tester, enabled: true);
     expect(find.byKey(const Key('biometric-card')), findsOneWidget);
-    expect(find.text('Entrar con huella'), findsOneWidget);
+    expect(find.text('Desbloquear con huella'), findsOneWidget);
     expect(find.text('o inicia con contraseña'), findsOneWidget);
     expect(find.byKey(const Key('password')), findsOneWidget);
     expect(find.byKey(const Key('login-submit')), findsOneWidget);

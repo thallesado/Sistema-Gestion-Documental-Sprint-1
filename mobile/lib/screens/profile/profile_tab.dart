@@ -233,17 +233,42 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ),
           const SizedBox(height: 24),
-          FilledButton.icon(
-            key: const Key('logout'),
-            onPressed: logout,
-            icon: const Icon(Icons.logout),
-            label: Text(context.tr('Cerrar sesión')),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          if (biometricEnabled) ...[
+            FilledButton.icon(
+              key: const Key('lock-button'),
+              onPressed: () => widget.api.lock(),
+              icon: const Icon(Icons.lock_outline),
+              label: Text(context.tr('Bloquear')),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.teal,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
-          ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              key: const Key('logout'),
+              onPressed: logout,
+              icon: const Icon(Icons.logout, color: Colors.red),
+              label: Text(context.tr('Cerrar sesión completamente'), style: const TextStyle(color: Colors.red)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: BorderSide(color: Colors.red.shade300),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ] else
+            FilledButton.icon(
+              key: const Key('logout'),
+              onPressed: logout,
+              icon: const Icon(Icons.logout),
+              label: Text(context.tr('Cerrar sesión')),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade600,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
         ],
       ),
     );
