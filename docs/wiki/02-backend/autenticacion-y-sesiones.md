@@ -65,3 +65,11 @@ Con routing aislado, AuthService.refresh() resuelve el tenant en el registro cen
 
 
 Verificacion local parcial HU-09 (2026-11-06): AuthSessionService.establishContext usa jdbc.queryForMap para SELECT set_config; jdbc.update producia un error de PostgreSQL al recibir un resultado. Se comprobo login HTTP y uso de la API clinica con una organizacion sintetica en una base local desechable. Esto no verifica refresh/reset/SMTP ni el aprovisionamiento normal de bases aisladas.
+
+## Cliente móvil de autenticación (2026-11-14)
+
+En Flutter, `core/api/auth_repository.dart` concentra las rutas HTTP existentes y `AuthApi` conserva el estado de sesión, permisos y tipo de cuenta. El login de un usuario del tenant envía `tenantId`; el administrador global lo omite. Después del login, del desbloqueo biométrico y al restaurar una sesión, el móvil consulta `GET /auth/me` antes de abrir el contenido. La marca `mustChangePassword` envía a la pantalla de cambio obligatorio. `PUT /auth/me/password` cierra la sesión local cuando la contraseña era temporal, siguiendo la revocación del servidor. El perfil ofrece el cambio voluntario; el login ofrece solicitud de recuperación y restablecimiento con el enlace o token emitido por el backend. La cuenta global entra a una vista móvil limitada a inicio y perfil, sin consultar endpoints del tenant; la administración de plataforma sigue en la web.
+
+Fuentes móviles: [repositorio HTTP](../../../mobile/lib/core/api/auth_repository.dart), [estado de sesión](../../../mobile/lib/core/api/auth_api.dart), [pantallas de contraseña](../../../mobile/lib/screens/password_page.dart), [arranque](../../../mobile/lib/main.dart).
+
+Verificación local: `flutter analyze --no-pub` sobre los archivos de autenticación sin incidencias y `flutter test --no-pub test/mobile_features_test.dart` con 14 pruebas aprobadas. La suite combinada con `widget_test.dart` encontró desbordamientos de diseño en `screens/dashboard/dashboard_tab.dart` durante la prueba de login; no se comprobó contra un backend real ni el envío SMTP.

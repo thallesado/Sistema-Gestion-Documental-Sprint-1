@@ -38,6 +38,36 @@
   ],
   "contracts": [
     {
+      "page": "04-dominio-y-negocio/digitalizacion-y-ocr.md",
+      "path": "mobile/lib/screens/scan/scan_document_page.dart",
+      "includes": ["Procesar documento", "Revisar datos extraídos", "corrections: corrections", "_recentError"]
+    },
+    {
+      "page": "04-dominio-y-negocio/digitalizacion-y-ocr.md",
+      "path": "mobile/lib/core/auth/user_permissions.dart",
+      "includes": ["class OcrPermissions", "canRun", "canRead", "canReview", "canIndex"]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "mobile/lib/core/api/auth_repository.dart",
+      "includes": ["/auth/login", "/auth/me", "/auth/forgot-password", "/auth/reset-password", "/auth/me/password"]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "mobile/lib/core/api/auth_api.dart",
+      "includes": ["restoreProfile()", "mustChangePassword", "platformAdmin"]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "mobile/lib/core/api/api_client.dart",
+      "includes": ["passwordChangeRequired", "MUST_CHANGE_PASSWORD"]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "mobile/lib/screens/password_page.dart",
+      "includes": ["class PasswordPage", "class RecoveryPage", "class ResetPasswordPage"]
+    },
+    {
       "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
       "path": "database/init/064_addons.sql",
       "includes": [

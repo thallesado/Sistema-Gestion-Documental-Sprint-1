@@ -6,9 +6,17 @@ import '../../core/constants/api_constants.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../shell/main_shell_page.dart';
+import '../password_page.dart';
+import '../expedients/public_radicacion_page.dart';
 
 /// Valor del selector para el administrador de plataforma (sin organización), como en la web.
 const platformTenant = '';
+
+/// Organizaciones por defecto para garantizar inicialización inmediata y resiliente ante fallas de red.
+const defaultPublicTenants = [
+  PublicTenant('20000000-0000-0000-0000-000000000001', 'FinoCode'),
+  PublicTenant('20000000-0000-0000-0000-000000000002', 'Clínica Central'),
+];
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.authApi, this.notice});
@@ -63,10 +71,11 @@ class _LoginPageState extends State<LoginPage> {
         if (mounted) setState(() => submitting = false);
         return;
       }
-      await widget.authApi.loadPermissions();
+      await widget.authApi.restoreProfile();
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => MainShellPage(api: widget.authApi)),
+        MaterialPageRoute<void>(builder: (_) => widget.authApi.mustChangePassword
+            ? PasswordPage(api: widget.authApi, requiredChange: true) : MainShellPage(api: widget.authApi)),
       );
     } on ApiException catch (e) {
       if (mounted) setState(() => error = e.message);
@@ -91,8 +100,12 @@ class _LoginPageState extends State<LoginPage> {
       final result = await widget.authApi.publicTenants();
       if (!mounted) return;
       setState(() {
-        tenants = result;
-        if (tenantId != null && tenantId != platformTenant && !result.any((t) => t.id == tenantId)) tenantId = null;
+        if (result.isNotEmpty) {
+          tenants = result;
+        }
+        if (tenantId != null && tenantId != platformTenant && !tenants.any((t) => t.id == tenantId)) {
+          tenantId = tenants.isNotEmpty ? tenants.first.id : platformTenant;
+        }
       });
     } on ApiException catch (exception) {
       if (mounted) setState(() => tenantsError = 'No se pudo cargar la lista de organizaciones. ${exception.message}');
@@ -153,8 +166,12 @@ class _LoginPageState extends State<LoginPage> {
         username: userController.text.trim(),
         password: passwordController.text,
       );
+      await widget.authApi.restoreProfile();
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => MainShellPage(api: widget.authApi)));
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => widget.authApi.mustChangePassword
+            ? PasswordPage(api: widget.authApi, requiredChange: true) : MainShellPage(api: widget.authApi)),
+      );
     } on ApiException catch (exception) {
       if (mounted) setState(() => error = exception.message);
     } finally {
@@ -229,7 +246,8 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         key: const Key('tenant'),
-                        initialValue: tenantId,
+                        // ignore: deprecated_member_use
+                        value: tenantId,
                         isExpanded: true,
                         decoration: InputDecoration(
                           labelText: 'Organización',
@@ -243,8 +261,13 @@ class _LoginPageState extends State<LoginPage> {
                         items: [
                           const DropdownMenuItem(value: platformTenant, child: Text('[ Plataforma / Administración global ]')),
                           ...tenants.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name, overflow: TextOverflow.ellipsis))),
+                          if (tenantId != null && tenantId != platformTenant && !tenants.any((t) => t.id == tenantId))
+                            DropdownMenuItem(
+                              value: tenantId,
+                              child: Text(tenantId == '20000000-0000-0000-0000-000000000001' ? 'FinoCode' : 'Organización ($tenantId)'),
+                            ),
                         ],
-                        onChanged: tenantsLoading ? null : (value) => setState(() => tenantId = value),
+                        onChanged: (value) => setState(() => tenantId = value),
                         validator: (value) => value == null ? 'Selecciona tu organización' : null,
                       ),
                       const SizedBox(height: 12),
@@ -283,6 +306,29 @@ class _LoginPageState extends State<LoginPage> {
                         key: const Key('login-submit'),
                         onPressed: submitting ? null : submit,
                         child: Text(submitting ? 'Validando…' : 'Iniciar sesión'),
+                      ),
+                      TextButton(onPressed: submitting ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => RecoveryPage(api: widget.authApi, tenants: tenants))),
+                        child: const Text('¿Olvidaste tu contraseña?')),
+                      TextButton(onPressed: submitting ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => ResetPasswordPage(api: widget.authApi))),
+                        child: const Text('Tengo un enlace de recuperación')),
+                      const Divider(height: 24),
+                      OutlinedButton.icon(
+                        key: const Key('public-radicacion-button'),
+                        onPressed: submitting ? null : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => PublicRadicacionPage(client: widget.authApi.client),
+                          ),
+                        ),
+                        icon: const Icon(Icons.search, color: AppTheme.teal),
+                        label: const Text('Consultar Trámite / PQRS (Ciudadanos)'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.teal,
+                          side: const BorderSide(color: AppTheme.teal),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
                       if (biometricEnabled) ...[
                         const SizedBox(height: 12),

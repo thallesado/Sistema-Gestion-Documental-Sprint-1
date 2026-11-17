@@ -29,6 +29,10 @@ Original OCR en `ocr/{tenantId}/{jobId}` bajo storage. Indexación conserva vín
 
 Revisar CAN_RUN_OCR, CAN_READ_OCR, CAN_REVIEW_OCR y CAN_INDEX_OCR en el controlador; no aplicar un permiso único a todas las acciones por simplificación.
 
+En móvil, `OcrPermissions` replica estas cuatro reglas para mostrar el acceso y las acciones. El perfil administrativo puede usar la digitalización cuando dispone de los permisos correspondientes; también pueden hacerlo otros perfiles autorizados. La autorización sigue en el servidor. Los errores al cargar tipos documentales se muestran en vez de presentarse como una lista vacía.
+
+La captura móvil presenta la imagen antes de procesarla; la revisión permite corregir los campos admitidos por `OcrMetadataRequest` antes de validar. El historial muestra errores con reintento. La prueba `scan_document_test.dart` comprueba seis casos con servidor simulado, incluida la corrección enviada al validar. Quedan pendientes la prueba con cámara y backend real y separar la pantalla existente en componentes y lógica independientes.
+
 ## Configuración y pruebas
 
 Solo nombres de variables: GEMINI_API_KEY, GEMINI_MODEL, GEMINI_TIMEOUT_SECONDS. El valor predeterminado es gemini-3.5-flash-lite. Valores del entorno y overrides prevalecen; la presencia de configuración no confirma acceso/cuota del proveedor.

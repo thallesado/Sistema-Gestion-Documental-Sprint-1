@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../core/api/auth_api.dart';
+import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
+import '../../core/models/document_model.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/state_views.dart';
 import '../scan/scan_document_page.dart';
+import 'create_document_sheet.dart';
 import 'document_detail_sheet.dart';
 
 class DocumentsTab extends StatefulWidget {
@@ -21,14 +24,19 @@ class DocumentsTab extends StatefulWidget {
 
 class _DocumentsTabState extends State<DocumentsTab> {
   final searchController = TextEditingController();
-  List<Map<String, dynamic>> documents = [];
+  List<DocumentModel> documents = [];
   bool loading = false;
   String? error;
   String? downloadingDocId;
 
+  /// Ámbito de vista: false = repositorio general (administrativo), true = mis documentos (usuario final).
+  bool onlyMine = false;
+
   /// null = todos. Los códigos son los que entiende la API; la etiqueta, la de la web.
   String? selectedStatus;
   static const statuses = ['DRAFT', 'IN_REVIEW', 'APPROVED', 'CURRENT', 'REJECTED', 'ARCHIVED'];
+
+  bool get canCreate => widget.api.permissions.value.can(Permissions.documentCreate);
 
   @override
   void initState() {
@@ -48,7 +56,9 @@ class _DocumentsTabState extends State<DocumentsTab> {
       error = null;
     });
     try {
-      final docs = await widget.api.documents.list(search: searchController.text.trim(), status: selectedStatus);
+      final docs = onlyMine
+          ? await widget.api.documents.getMyDocuments(search: searchController.text.trim(), status: selectedStatus)
+          : await widget.api.documents.getDocuments(search: searchController.text.trim(), status: selectedStatus);
       if (mounted) setState(() => documents = docs);
     } on ApiException catch (exception) {
       if (mounted) setState(() => error = exception.message);
@@ -57,8 +67,19 @@ class _DocumentsTabState extends State<DocumentsTab> {
     }
   }
 
-  Future<void> downloadDocument(Map<String, dynamic> doc) async {
-    final docId = doc['id'] as String;
+  Future<void> openCreateDocument() async {
+    final created = await showCreateDocumentSheet(context, widget.api);
+    if (created == true) {
+      loadDocuments();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Documento registrado con éxito.')),
+      );
+    }
+  }
+
+  Future<void> downloadDocument(DocumentModel doc) async {
+    final docId = doc.id;
     setState(() => downloadingDocId = docId);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -123,35 +144,90 @@ class _DocumentsTabState extends State<DocumentsTab> {
         color: Colors.white,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
         child: Column(children: [
-          SearchBar(
-            controller: searchController,
-            hintText: 'Buscar por código o nombre...',
-            leading: const Icon(Icons.search, color: AppTheme.teal, size: 20),
-            trailing: [
-              if (searchController.text.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.clear, size: 18),
-                  onPressed: () {
-                    searchController.clear();
-                    loadDocuments();
-                  },
+          Row(
+            children: [
+              Expanded(
+                child: SearchBar(
+                  controller: searchController,
+                  hintText: 'Buscar por código o nombre...',
+                  leading: const Icon(Icons.search, color: AppTheme.teal, size: 20),
+                  trailing: [
+                    if (searchController.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          searchController.clear();
+                          loadDocuments();
+                        },
+                      ),
+                    IconButton(
+                      key: const Key('documents-scan-button'),
+                      tooltip: 'Escanear con cámara',
+                      icon: const Icon(Icons.document_scanner, color: AppTheme.teal, size: 20),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => ScanDocumentPage(api: widget.api)),
+                      ).then((_) => loadDocuments()),
+                    ),
+                  ],
+                  onChanged: (_) => setState(() {}),
+                  onSubmitted: (_) => loadDocuments(),
+                  elevation: const WidgetStatePropertyAll(0),
+                  backgroundColor: WidgetStatePropertyAll(Colors.grey.shade100),
+                  shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 ),
-              IconButton(
-                key: const Key('documents-scan-button'),
-                tooltip: 'Escanear con cámara',
-                icon: const Icon(Icons.document_scanner, color: AppTheme.teal, size: 20),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => ScanDocumentPage(api: widget.api)),
-                ).then((_) => loadDocuments()),
+              ),
+              if (canCreate) ...[
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  key: const Key('create-doc-button'),
+                  tooltip: 'Nuevo documento / trámite',
+                  style: IconButton.styleFrom(backgroundColor: AppTheme.teal),
+                  icon: const Icon(Icons.add, color: Colors.white),
+                  onPressed: openCreateDocument,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Selector de ámbito (Todos los documentos vs Mis trámites para usuario final)
+          Row(
+            children: [
+              ChoiceChip(
+                label: const Text('Todos'),
+                selected: !onlyMine,
+                onSelected: (val) {
+                  if (val) {
+                    setState(() => onlyMine = false);
+                    loadDocuments();
+                  }
+                },
+                selectedColor: AppTheme.mint,
+                labelStyle: TextStyle(
+                  fontSize: 12,
+                  fontWeight: !onlyMine ? FontWeight.bold : FontWeight.normal,
+                  color: !onlyMine ? AppTheme.teal : Colors.grey.shade700,
+                ),
+              ),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: const Text('Mis documentos / trámites'),
+                selected: onlyMine,
+                onSelected: (val) {
+                  if (val) {
+                    setState(() => onlyMine = true);
+                    loadDocuments();
+                  }
+                },
+                selectedColor: AppTheme.mint,
+                labelStyle: TextStyle(
+                  fontSize: 12,
+                  fontWeight: onlyMine ? FontWeight.bold : FontWeight.normal,
+                  color: onlyMine ? AppTheme.teal : Colors.grey.shade700,
+                ),
               ),
             ],
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (_) => loadDocuments(),
-            elevation: const WidgetStatePropertyAll(0),
-            backgroundColor: WidgetStatePropertyAll(Colors.grey.shade100),
-            shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(children: [
@@ -175,7 +251,7 @@ class _DocumentsTabState extends State<DocumentsTab> {
                   itemCount: documents.length,
                   itemBuilder: (context, index) {
                     final doc = documents[index];
-                    final status = doc['status'] as String?;
+                    final status = doc.status;
                     return Card(
                       margin: const EdgeInsets.only(bottom: 10),
                       elevation: 0,
@@ -189,13 +265,13 @@ class _DocumentsTabState extends State<DocumentsTab> {
                           child: const Icon(Icons.description_outlined, color: AppTheme.teal),
                         ),
                         title: Text(
-                          doc['name'] as String? ?? 'Documento',
+                          doc.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                         ),
                         subtitle: Text(
-                          [doc['code'], doc['documentTypeName'], 'v${doc['currentVersion'] ?? 1}'].whereType<Object>().join(' · '),
+                          [doc.code, doc.documentTypeName, 'v${doc.currentVersion}'].where((e) => e != null && e.toString().isNotEmpty).join(' · '),
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                         ),
                         trailing: Row(
@@ -203,7 +279,7 @@ class _DocumentsTabState extends State<DocumentsTab> {
                           children: [
                             StatusBadge(documentStatusLabel(status), tone: documentStatusTone(status)),
                             const SizedBox(width: 4),
-                            downloadingDocId == doc['id']
+                            downloadingDocId == doc.id
                                 ? const Padding(
                                     padding: EdgeInsets.all(8),
                                     child: SizedBox(
@@ -213,14 +289,14 @@ class _DocumentsTabState extends State<DocumentsTab> {
                                     ),
                                   )
                                 : IconButton(
-                                    key: Key('download-doc-${doc['id']}'),
+                                    key: Key('download-doc-${doc.id}'),
                                     icon: const Icon(Icons.download_outlined, color: AppTheme.teal, size: 22),
                                     tooltip: 'Descargar archivo',
                                     onPressed: downloadingDocId == null ? () => downloadDocument(doc) : null,
                                   ),
                           ],
                         ),
-                        onTap: () => showDocumentDetail(context, widget.api, doc['id'] as String),
+                        onTap: () => showDocumentDetail(context, widget.api, doc.id),
                       ),
                     );
                   },

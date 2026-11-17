@@ -6,10 +6,12 @@ import 'package:http_parser/http_parser.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../errors/api_exception.dart';
+import '../models/document_model.dart';
 import '../utils/upload_rules.dart';
 import 'api_client.dart';
 
 /// Documentos y versiones: mismos endpoints que DocumentApiService de la web.
+/// Soporta modelos fuertemente tipados [DocumentModel] y compatibilidad con Map.
 class DocumentsApi {
   DocumentsApi(this._client);
 
@@ -24,6 +26,43 @@ class DocumentsApi {
       'status': status,
     }) as Map<String, dynamic>;
     return (body['content'] as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
+  /// Lista los documentos del usuario autenticado (mis trámites / mis documentos).
+  Future<List<Map<String, dynamic>>> listMine({String? search, String? status, int size = 25}) async {
+    final body = await _client.get('/documents/mine', query: {
+      'page': 0,
+      'size': size,
+      'filter': search,
+      'status': status,
+    }) as Map<String, dynamic>;
+    return (body['content'] as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
+  /// Catálogo de tipos documentales disponibles para clasificar y crear documentos.
+  Future<List<Map<String, dynamic>>> documentTypes({int size = 50}) async {
+    try {
+      final body = await _client.get('/document-types', query: {'page': 0, 'size': size}) as Map<String, dynamic>;
+      return (body['content'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Creación de un documento nuevo en el repositorio (`POST /documents`).
+  Future<Map<String, dynamic>> createDocument({
+    required String name,
+    required String documentTypeId,
+    String? description,
+    String? code,
+  }) async {
+    final payload = <String, dynamic>{
+      'name': name.trim(),
+      'documentTypeId': documentTypeId,
+      if (description != null && description.trim().isNotEmpty) 'description': description.trim(),
+      if (code != null && code.trim().isNotEmpty) 'code': code.trim(),
+    };
+    return await _client.post('/documents', payload) as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> detail(String id) async {
@@ -69,5 +108,31 @@ class DocumentsApi {
     final name = (version['fileName'] as String?)?.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_') ?? 'documento';
     final file = File('${dir.path}${Platform.pathSeparator}$name');
     return file.writeAsBytes(bytes, flush: true);
+  }
+
+  // --- MÉTODOS FUERTEMENTE TIPADOS (Clean Architecture / SRP) ---
+
+  /// Obtiene los documentos tipados como [DocumentModel].
+  Future<List<DocumentModel>> getDocuments({String? search, String? status, int size = 25}) async {
+    final rawList = await list(search: search, status: status, size: size);
+    return rawList.map(DocumentModel.fromJson).toList();
+  }
+
+  /// Obtiene los documentos propios del usuario autenticado.
+  Future<List<DocumentModel>> getMyDocuments({String? search, String? status, int size = 25}) async {
+    final rawList = await listMine(search: search, status: status, size: size);
+    return rawList.map(DocumentModel.fromJson).toList();
+  }
+
+  /// Obtiene el detalle fuertemente tipado de un documento.
+  Future<DocumentModel> getDocumentDetail(String id) async {
+    final raw = await detail(id);
+    return DocumentModel.fromJson(raw);
+  }
+
+  /// Obtiene la lista de versiones como [DocumentVersionModel].
+  Future<List<DocumentVersionModel>> getVersions(String documentId) async {
+    final rawList = await versions(documentId);
+    return rawList.map(DocumentVersionModel.fromJson).toList();
   }
 }

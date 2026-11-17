@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'core/api/auth_api.dart';
 import 'core/notifications/workflow_notifications.dart';
 import 'core/theme/app_theme.dart';
+import 'screens/password_page.dart';
 import 'screens/auth/login_page.dart';
 import 'screens/shell/main_shell_page.dart';
 
@@ -30,11 +31,13 @@ class _NexoDocsAppState extends State<NexoDocsApp> {
   void initState() {
     super.initState();
     api.client.sessionExpired.addListener(_onSessionExpired);
+    api.client.passwordChangeRequired.addListener(_onPasswordChangeRequired);
   }
 
   @override
   void dispose() {
     api.client.sessionExpired.removeListener(_onSessionExpired);
+    api.client.passwordChangeRequired.removeListener(_onPasswordChangeRequired);
     super.dispose();
   }
 
@@ -47,6 +50,16 @@ class _NexoDocsAppState extends State<NexoDocsApp> {
       MaterialPageRoute<void>(builder: (_) => LoginPage(authApi: api, notice: 'Tu sesión expiró. Vuelve a iniciar sesión.')),
       (_) => false,
     );
+  }
+
+  void _onPasswordChangeRequired() {
+    api.mustChangePassword = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final navigator = navigatorKey.currentState;
+      if (navigator == null) return;
+      navigator.pushAndRemoveUntil(MaterialPageRoute<void>(builder: (_) =>
+        PasswordPage(api: api, requiredChange: true)), (_) => false);
+    });
   }
 
   @override
@@ -70,25 +83,39 @@ class _StartupGate extends StatefulWidget {
 }
 
 class _StartupGateState extends State<_StartupGate> {
-  late final Future<bool> _hasSession = _restore();
+  late Future<int> _startup = _restore();
 
-  Future<bool> _restore() async {
+  Future<int> _restore() async {
     try {
       await widget.api.client.restoreServerUrl();
-      return await widget.api.client.hasSession();
+      if (!await widget.api.client.hasSession()) return 0;
+      await widget.api.restoreProfile();
+      return widget.api.mustChangePassword ? 2 : 1;
     } catch (_) {
-      return false;
+      return await widget.api.client.hasSession() ? 3 : 0;
     }
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<bool>(
-    future: _hasSession,
+  Widget build(BuildContext context) => FutureBuilder<int>(
+    future: _startup,
     builder: (context, snapshot) {
       if (!snapshot.hasData) {
         return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppTheme.teal)));
       }
-      return snapshot.data! ? MainShellPage(api: widget.api) : LoginPage(authApi: widget.api);
+      return switch (snapshot.data!) {
+        1 => MainShellPage(api: widget.api),
+        2 => PasswordPage(api: widget.api, requiredChange: true),
+        3 => Scaffold(body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('No se pudo verificar la sesión con el servidor.'),
+          TextButton(onPressed: () => setState(() => _startup = _restore()), child: const Text('Reintentar')),
+          TextButton(onPressed: () async {
+            await widget.api.client.clearSession();
+            if (mounted) setState(() => _startup = _restore());
+          }, child: const Text('Iniciar sesión de nuevo')),
+        ]))),
+        _ => LoginPage(authApi: widget.api),
+      };
     },
   );
 }

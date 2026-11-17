@@ -12,6 +12,7 @@ import '../../core/onboarding/onboarding_storage.dart';
 import '../../core/theme/app_theme.dart';
 import '../dashboard/dashboard_tab.dart';
 import '../documents/documents_tab.dart';
+import '../expedients/expedients_tab.dart';
 import '../notifications/notifications_page.dart';
 import '../patients/patients_tab.dart';
 import '../profile/profile_tab.dart';
@@ -25,6 +26,7 @@ enum ShellTab {
   home('Inicio', 'NexoDocs', Icons.dashboard_outlined, Icons.dashboard, null),
   documents('Documentos', 'Documentos', Icons.description_outlined, Icons.description, Permissions.documentRead),
   tasks('Tareas', 'Mis tareas', Icons.check_circle_outline, Icons.check_circle, Permissions.taskRead),
+  expedients('Expedientes', 'Expedientes', Icons.folder_special_outlined, Icons.folder_special, Permissions.expedientRead),
   clinical('Clínico', 'Pacientes', Icons.local_hospital_outlined, Icons.local_hospital, Permissions.patientRead),
   profile('Perfil', 'Mi perfil', Icons.person_outline, Icons.person, null);
 
@@ -65,7 +67,9 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
   WorkflowNotifications get _notifications => widget.notifications ?? WorkflowNotifications.instance;
   UserPermissions get permissions => widget.api.permissions.value;
 
-  List<ShellTab> get visibleTabs => ShellTab.values.where((tab) => tab.permission == null || permissions.can(tab.permission!)).toList();
+  List<ShellTab> get visibleTabs => ShellTab.values.where((tab) =>
+      (!widget.api.platformAdmin || tab == ShellTab.home || tab == ShellTab.profile) &&
+      (tab.permission == null || permissions.can(tab.permission!))).toList();
 
   bool get canSeeNotifications => permissions.can(Permissions.notificationRead);
 
@@ -154,9 +158,13 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
   }
 
   Widget _page(ShellTab tab) => switch (tab) {
-    ShellTab.home => DashboardTab(api: widget.api, onNavigateToTab: _navigateFromHome),
+    ShellTab.home => widget.api.platformAdmin
+        ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text(
+            'Sesión de administración global activa. Consulta tu cuenta en Perfil. La gestión de plataforma está disponible en la web.')))
+        : DashboardTab(api: widget.api, onNavigateToTab: _navigateFromHome),
     ShellTab.documents => DocumentsTab(api: widget.api),
     ShellTab.tasks => TasksTab(api: widget.api),
+    ShellTab.expedients => ExpedientsTab(api: widget.api),
     ShellTab.clinical => PatientsTab(api: widget.api),
     ShellTab.profile => ProfileTab(api: widget.api),
   };
@@ -172,7 +180,7 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
         elevation: 0,
         scrolledUnderElevation: 1,
         actions: [
-          IconButton(
+          if (!widget.api.platformAdmin && OcrPermissions.canRead(permissions)) IconButton(
             key: const Key('scan-button'),
             tooltip: 'Escanear con cámara',
             icon: const Icon(Icons.document_scanner_outlined, color: AppTheme.teal),
@@ -194,7 +202,7 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
         ],
       ),
       body: IndexedStack(index: index, children: [for (final tab in tabs) _page(tab)]),
-      floatingActionButton: _tour.wrap(OnboardingTarget.primaryAction, FloatingActionButton.extended(
+      floatingActionButton: widget.api.platformAdmin || !OcrPermissions.canRead(permissions) ? null : _tour.wrap(OnboardingTarget.primaryAction, FloatingActionButton.extended(
         key: const Key('scan-fab'),
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => ScanDocumentPage(api: widget.api)),

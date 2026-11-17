@@ -6,10 +6,13 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/api/auth_api.dart';
+import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/ocr_field_extractor.dart';
 import '../../core/utils/upload_rules.dart';
 import '../../core/widgets/state_views.dart';
+import '../expedients/radicacion_wizard_sheet.dart';
 
 /// Mensaje comprensible cuando falla la captura (permiso denegado u otro error).
 String scanPickErrorMessage(Object error) {
@@ -49,6 +52,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
 
   List<Map<String, dynamic>> _recentJobs = [];
   bool _loadingRecent = false;
+  String? _recentError;
 
   @override
   void initState() {
@@ -106,7 +110,6 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
         _errorMessage = null;
       });
 
-      await _processImage();
     } catch (e) {
       if (!mounted) return;
       setState(() => _errorMessage = scanPickErrorMessage(e));
@@ -170,12 +173,12 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
   }
 
   Future<void> _loadRecentJobs() async {
-    setState(() => _loadingRecent = true);
+    setState(() { _loadingRecent = true; _recentError = null; });
     try {
       final list = await widget.api.ocr.recentJobs();
       if (mounted) setState(() => _recentJobs = list);
-    } catch (_) {
-      // informativo
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _recentError = error.message);
     } finally {
       if (mounted) setState(() => _loadingRecent = false);
     }
@@ -185,9 +188,30 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
     final jobId = _currentJob?['id'] as String?;
     if (jobId == null) return;
 
+    final fields = <String, TextEditingController>{
+      for (final key in ['documentType', 'patientName', 'patientDocumentNumber', 'doctorName', 'issueDate'])
+        key: TextEditingController(text: _currentJob?[key] as String? ?? ''),
+    };
+    final labels = {'documentType': 'Tipo detectado', 'patientName': 'Paciente', 'patientDocumentNumber': 'Documento del paciente', 'doctorName': 'Médico', 'issueDate': 'Fecha (AAAA-MM-DD)'};
+    final corrections = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Revisar datos extraídos'),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final entry in fields.entries) TextField(controller: entry.value, decoration: InputDecoration(labelText: labels[entry.key])),
+        ])),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, {for (final entry in fields.entries) if (entry.value.text.trim().isNotEmpty) entry.key: entry.value.text.trim()}), child: const Text('Validar'))],
+      ),
+    );
+    // El diálogo conserva sus campos durante la animación de salida.
+    Future<void>.delayed(const Duration(milliseconds: 500), () {
+      for (final controller in fields.values) { controller.dispose(); }
+    });
+    if (corrections == null || !mounted) return;
     setState(() => _actionBusy = true);
     try {
-      final updated = await widget.api.ocr.validate(jobId);
+      final updated = await widget.api.ocr.validate(jobId, corrections: corrections);
       if (!mounted) return;
       setState(() => _currentJob = updated);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -268,7 +292,13 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
     final jobId = _currentJob?['id'] as String?;
     if (jobId == null) return;
 
-    final types = await widget.api.ocr.documentTypes();
+    List<Map<String, dynamic>> types;
+    try {
+      types = await widget.api.ocr.documentTypes();
+    } on ApiException catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    }
     if (!mounted) return;
 
     if (types.isEmpty) {
@@ -395,6 +425,34 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
     }
   }
 
+  Future<void> _radicarFromCurrentJob() async {
+    final job = _currentJob;
+    if (job == null) return;
+    final fileName = _selectedFile?.path.split(Platform.pathSeparator).last;
+    int? fileSize;
+    try {
+      if (_selectedFile != null && _selectedFile!.existsSync()) {
+        fileSize = _selectedFile!.lengthSync();
+      }
+    } catch (_) {}
+
+    final preFill = OcrFieldExtractor.extractFromJob(
+      job,
+      filePath: _selectedFile?.path,
+      fileName: fileName,
+      fileSize: fileSize,
+    );
+
+    final result = await showRadicacionWizardSheet(
+      context,
+      widget.api,
+      initialOcrPreFill: preFill,
+    );
+    if (result != null && mounted) {
+      await showRadicacionSuccessDialog(context, widget.api, result);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -516,6 +574,18 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
   }
 
   Widget _buildCapturePrompt() {
+    if (!OcrPermissions.canRun(widget.api.permissions.value)) {
+      return const Center(child: Text('Tu perfil puede consultar digitalizaciones, pero no procesar archivos.'));
+    }
+    if (_selectedFile != null) {
+      return ListView(padding: const EdgeInsets.all(20), children: [
+        Image.file(_selectedFile!, height: 320, fit: BoxFit.contain),
+        const SizedBox(height: 16),
+        FilledButton(onPressed: _processImage, child: const Text('Procesar documento')),
+        TextButton(onPressed: () => _pickImage(ImageSource.camera), child: const Text('Tomar otra foto')),
+        TextButton(onPressed: () => _pickImage(ImageSource.gallery), child: const Text('Elegir otra imagen')),
+      ]);
+    }
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -682,7 +752,10 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Resultado del Escaneo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Expanded(
+                      child: Text('Resultado del Escaneo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                    const SizedBox(width: 8),
                     StatusBadge(_statusLabel(status), tone: _statusTone(status)),
                   ],
                 ),
@@ -714,7 +787,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
         const SizedBox(height: 20),
 
         // Barra de acciones
-        if (status == 'REQUIRES_VALIDATION') ...[
+        if (status == 'REQUIRES_VALIDATION' && OcrPermissions.canReview(widget.api.permissions.value)) ...[
           Row(
             children: [
               Expanded(
@@ -745,7 +818,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
               ),
             ],
           ),
-        ] else if (status == 'VALIDATED') ...[
+        ] else if (status == 'VALIDATED' && OcrPermissions.canIndex(widget.api.permissions.value)) ...[
           Container(
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 12),
@@ -807,6 +880,27 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
             ),
           ),
         ],
+        if (status != 'REJECTED' && ExpedientPermissions.canCreate(widget.api.permissions.value)) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              key: const Key('ocr-radicar-prefilled-button'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.tealDark,
+                side: const BorderSide(color: AppTheme.teal),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: _actionBusy ? null : _radicarFromCurrentJob,
+              icon: const Icon(Icons.auto_fix_high, size: 19, color: AppTheme.teal),
+              label: const Text(
+                'Radicar Solicitud con estos Datos (Sin tecleo)',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -837,6 +931,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
     if (_loadingRecent) {
       return const Center(child: CircularProgressIndicator(color: AppTheme.teal));
     }
+    if (_recentError != null) return ErrorStateView(message: _recentError!, onRetry: _loadRecentJobs);
     if (_recentJobs.isEmpty) {
       return RefreshIndicator(
         onRefresh: _loadRecentJobs,

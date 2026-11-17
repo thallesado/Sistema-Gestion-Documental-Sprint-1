@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/auth_api.dart';
+import '../../core/auth/user_permissions.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
+import '../audit/audit_log_page.dart';
 import '../auth/login_page.dart';
+import '../password_page.dart';
 
 /// Datos de la cuenta autenticada (GET /auth/me), como "Mi perfil" de la web.
 class ProfileTab extends StatefulWidget {
@@ -173,6 +176,24 @@ class _ProfileTabState extends State<ProfileTab> {
                   activeTrackColor: AppTheme.mint,
                   activeThumbColor: AppTheme.teal,
                 ),
+                const Divider(height: 1),
+                ListTile(leading: const Icon(Icons.lock_outline, color: AppTheme.teal),
+                  title: const Text('Cambiar contraseña'), trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute<bool>(
+                    builder: (_) => PasswordPage(api: widget.api)))),
+                if (AuditPermissions.canRead(widget.api.permissions.value)) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    key: const Key('profile-audit-button'),
+                    leading: const Icon(Icons.shield_outlined, color: AppTheme.teal),
+                    title: const Text('Auditoría y Trazabilidad'),
+                    subtitle: const Text('Bitácora inmutable y cadena SHA-256', style: TextStyle(fontSize: 12)),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(builder: (_) => AuditLogPage(api: widget.api)),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

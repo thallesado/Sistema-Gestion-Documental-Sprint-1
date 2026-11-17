@@ -4,9 +4,13 @@ import 'package:open_filex/open_filex.dart';
 import '../../core/api/auth_api.dart';
 import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
+import '../../core/models/workflow_instance_model.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/state_views.dart';
+import '../workflows/start_workflow_sheet.dart';
+import '../workflows/workflow_tracking_sheet.dart';
+import 'document_certificate_sheet.dart';
 import 'upload_version_sheet.dart';
 
 /// Abre el detalle de un documento (metadatos + versiones descargables).
@@ -39,6 +43,7 @@ class DocumentDetailSheet extends StatefulWidget {
 class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
   Map<String, dynamic>? document;
   List<Map<String, dynamic>> versions = [];
+  List<WorkflowInstanceModel> workflows = [];
   String? error;
   bool loading = true;
   String? downloadingId;
@@ -59,10 +64,19 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
         widget.api.documents.detail(widget.documentId),
         widget.api.documents.versions(widget.documentId),
       ]);
+      var loadedWorkflows = <WorkflowInstanceModel>[];
+      if (widget.api.permissions.value.can(Permissions.workflowRead)) {
+        try {
+          loadedWorkflows = await widget.api.workflows.getDocumentWorkflows(widget.documentId);
+        } on ApiException catch (_) {
+          loadedWorkflows = [];
+        }
+      }
       if (!mounted) return;
       setState(() {
         document = results[0] as Map<String, dynamic>;
         versions = results[1] as List<Map<String, dynamic>>;
+        workflows = loadedWorkflows;
       });
     } on ApiException catch (exception) {
       if (mounted) setState(() => error = exception.message);
@@ -93,6 +107,22 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
   Future<void> uploadVersion() async {
     final uploaded = await showUploadVersionSheet(context, widget.api, widget.documentId, picker: widget.picker);
     if (uploaded) await load();
+  }
+
+  Future<void> startWorkflow() async {
+    final docName = document?['name'] as String? ?? 'Documento';
+    final started = await showStartWorkflowSheet(
+      context,
+      widget.api,
+      documentId: widget.documentId,
+      documentName: docName,
+    );
+    if (started && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Flujo de aprobación iniciado.')),
+      );
+      await load();
+    }
   }
 
   @override
@@ -156,6 +186,65 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
             ),
           ),
         ],
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            key: const Key('document-qr-certificate-button'),
+            onPressed: () => showDocumentCertificateSheet(
+              context,
+              document: doc,
+              latestVersion: versions.isNotEmpty ? versions.first : null,
+            ),
+            icon: const Icon(Icons.qr_code_2, size: 19, color: AppTheme.teal),
+            label: const Text('Certificado QR de Autenticidad'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.teal,
+              side: const BorderSide(color: AppTheme.teal),
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ),
+        ValueListenableBuilder<UserPermissions>(
+          valueListenable: widget.api.permissions,
+          builder: (context, permissions, _) {
+            final hasActiveWorkflow = workflows.any((w) => w.isActive);
+            final canStartWorkflow = !hasActiveWorkflow &&
+                versions.isNotEmpty &&
+                !const {'ARCHIVED', 'VOIDED', 'TRASHED'}.contains(status) &&
+                WorkflowPermissions.canStart(permissions);
+            if (workflows.isEmpty && !canStartWorkflow) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 18),
+                const Text('Seguimiento de trámite', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.ink)),
+                const SizedBox(height: 8),
+                if (workflows.isNotEmpty)
+                  DocumentWorkflowCard(
+                    workflow: workflows.first,
+                    onTapTimeline: () => showWorkflowTrackingSheet(context, widget.api, workflows.first.id),
+                  ),
+                if (canStartWorkflow) ...[
+                  if (workflows.isNotEmpty) const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    key: const Key('start-workflow-button'),
+                    onPressed: startWorkflow,
+                    icon: const Icon(Icons.account_tree_outlined, size: 18),
+                    label: const Text('Iniciar flujo de aprobación'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.teal,
+                      side: const BorderSide(color: AppTheme.teal),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: Text('Versiones (${versions.length})', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.ink))),

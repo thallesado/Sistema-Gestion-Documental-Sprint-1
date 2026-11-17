@@ -25,6 +25,8 @@ class ApiClient {
 
   /// Se emite cuando la sesión no puede renovarse; la app vuelve al login.
   final ValueNotifier<int> sessionExpired = ValueNotifier(0);
+  /// El backend puede exigir el cambio de contraseña durante una sesión existente.
+  final ValueNotifier<int> passwordChangeRequired = ValueNotifier(0);
 
   Future<bool>? _refreshing;
 
@@ -101,8 +103,8 @@ class ApiClient {
     return _decode(response);
   }
 
-  Future<dynamic> getPublic(String path) async {
-    final response = await _guard(() => _client.get(uri(path)));
+  Future<dynamic> getPublic(String path, {Map<String, dynamic>? query}) async {
+    final response = await _guard(() => _client.get(uri(path, query)));
     _throwIfError(response);
     return _decode(response);
   }
@@ -170,7 +172,12 @@ class ApiClient {
     String? message;
     try {
       final body = jsonDecode(utf8.decode(response.bodyBytes));
-      if (body is Map && body['message'] is String) message = body['message'] as String;
+      if (body is Map) {
+        if (body['message'] is String) message = body['message'] as String;
+        if (response.statusCode == 403 && body['code'] == 'MUST_CHANGE_PASSWORD') {
+          passwordChangeRequired.value++;
+        }
+      }
     } catch (_) {}
     throw ApiException(message ?? _defaultMessage(response.statusCode), statusCode: response.statusCode);
   }

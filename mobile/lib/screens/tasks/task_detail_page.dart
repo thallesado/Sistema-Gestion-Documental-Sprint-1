@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/auth_api.dart';
+import '../../core/auth/biometric_service.dart';
 import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
@@ -11,10 +12,16 @@ import '../documents/document_detail_sheet.dart';
 /// Detalle de una tarea de workflow con las mismas acciones que la web.
 /// Devuelve `true` al cerrar si la tarea cambió, para refrescar el listado.
 class TaskDetailPage extends StatefulWidget {
-  const TaskDetailPage({super.key, required this.api, required this.taskId});
+  const TaskDetailPage({
+    super.key,
+    required this.api,
+    required this.taskId,
+    this.biometricService,
+  });
 
   final AuthApi api;
   final String taskId;
+  final BiometricService? biometricService;
 
   @override
   State<TaskDetailPage> createState() => _TaskDetailPageState();
@@ -26,13 +33,23 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
   bool loading = true;
   bool busy = false;
   bool changed = false;
+  bool biometricEnabled = false;
+  late final BiometricService _biometrics = widget.biometricService ?? BiometricService();
   final checklist = <String, bool>{};
   final commentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _checkBiometrics();
     load();
+  }
+
+  Future<void> _checkBiometrics() async {
+    try {
+      final enabled = await _biometrics.isEnabled();
+      if (mounted) setState(() => biometricEnabled = enabled);
+    } catch (_) {}
   }
 
   @override
@@ -134,6 +151,15 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       ),
     );
     if (result == null) return;
+    if (action == 'APPROVE' && await _biometrics.isEnabled()) {
+      final authenticated = await _biometrics.authenticate(
+        reason: 'Confirma tu identidad para aprobar esta etapa',
+      );
+      if (!authenticated) {
+        if (mounted) _showError('Aprobación cancelada: se requiere verificación biométrica.');
+        return;
+      }
+    }
     setState(() => busy = true);
     try {
       final updated = await widget.api.workflows.act(
@@ -311,11 +337,14 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
             child: const Padding(padding: EdgeInsets.all(12), child: Icon(Icons.more_vert)),
           ),
         Expanded(
-          child: FilledButton(
+          child: FilledButton.icon(
             key: const Key('task-primary-action'),
             onPressed: busy || !canPrimary ? null : () => runAction(primaryAction),
             style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, padding: const EdgeInsets.symmetric(vertical: 14)),
-            child: Text(actionLabel(primaryAction)),
+            icon: primaryAction == 'APPROVE' && biometricEnabled
+                ? const Icon(Icons.fingerprint, size: 20)
+                : const SizedBox.shrink(),
+            label: Text(actionLabel(primaryAction)),
           ),
         ),
       ]),

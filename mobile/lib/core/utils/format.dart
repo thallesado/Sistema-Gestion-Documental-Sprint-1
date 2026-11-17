@@ -21,6 +21,23 @@ const taskStatusLabels = {
   'CANCELED': 'Cancelada',
 };
 
+const workflowStatusLabels = {
+  'DRAFT': 'Borrador',
+  'STARTED': 'En curso',
+  'IN_PROGRESS': 'En curso',
+  'PAUSED': 'Pausado',
+  'COMPLETED': 'Completado',
+  'REJECTED': 'Rechazado',
+  'CANCELED': 'Cancelado',
+};
+
+const expedientStatusLabels = {
+  'ACTIVE': 'Activo',
+  'CLOSED': 'Cerrado',
+  'ARCHIVED': 'Archivado',
+  'BLOCKED': 'Bloqueado',
+};
+
 const stageTypeLabels = {
   'TASK': 'Tarea',
   'REVIEW': 'Revisión',
@@ -55,6 +72,8 @@ String workflowEventLabel(String? code) => workflowEventLabels[code] ?? code ?? 
 
 String documentStatusLabel(String? code) => documentStatusLabels[code] ?? code ?? '—';
 String taskStatusLabel(String? code) => taskStatusLabels[code] ?? code ?? '—';
+String workflowStatusLabel(String? code) => workflowStatusLabels[code] ?? code ?? '—';
+String expedientStatusLabel(String? code) => expedientStatusLabels[code] ?? code ?? '—';
 String stageTypeLabel(String? code) => stageTypeLabels[code] ?? code ?? '—';
 
 String priorityLabel(Object? priority) => switch (priority) {
