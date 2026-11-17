@@ -49,7 +49,7 @@ class _CreateExpedientSheetState extends State<CreateExpedientSheet> {
 
   Future<void> _loadTypes() async {
     try {
-      final result = await widget.api.expedients.types();
+      final result = ((await widget.api.expedients.types())['content'] as List<dynamic>).cast<Map<String, dynamic>>();
       if (!mounted) return;
       setState(() {
         types = result;

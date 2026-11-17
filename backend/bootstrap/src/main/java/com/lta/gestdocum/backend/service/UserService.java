@@ -103,15 +103,12 @@ public class UserService {
                 .status(UserStatus.ACTIVE)
                 .build();
 
-        log.info("[CREATE-USER] Guardando usuario tenantId={} username={} passwordEncoded={}",
-                tenantId, user.getUsername(), user.getPasswordHash() != null && user.getPasswordHash().startsWith("$2"));
         User savedUser = userRepository.save(user);
         userRepository.flush(); // fuerza el INSERT aquí para que cualquier error de BD se vea en este punto
         if (auditRecorder != null) {
             auditRecorder.record("CREATE", "USERS", savedUser.getId(), null,
                     java.util.Map.of("username", savedUser.getUsername(), "email", savedUser.getEmail(), "status", String.valueOf(savedUser.getStatus())));
         }
-        log.info("[CREATE-USER] Usuario guardado id={}; asignando roleIds={}", savedUser.getId(), request.getRoleIds());
         assignRoles(tenantId, savedUser.getId(), request.getRoleIds());
 
         String staffTypeStr = null;
@@ -130,7 +127,7 @@ public class UserService {
             specialtyStr = staff.getSpecialty();
         }
 
-        return mapToResponse(savedUser, staffTypeStr, specialtyStr);
+        return userFormPolicy.hideComponents(mapToResponse(savedUser, staffTypeStr, specialtyStr));
     }
     @Transactional
     @SuppressWarnings("null")
@@ -184,7 +181,7 @@ public class UserService {
         specialtyStr = staff.getSpecialty();
     }
 
-    return mapToResponse(updatedUser, staffTypeStr, specialtyStr);
+    return userFormPolicy.hideComponents(mapToResponse(updatedUser, staffTypeStr, specialtyStr));
 }
     @Transactional
     @SuppressWarnings("null")
@@ -210,7 +207,7 @@ public class UserService {
         UUID tenantId = authenticatedUserContext.requireTenantId();
         authenticatedUserContext.establishDatabaseContext();
         String normalizedFilter = filter == null || filter.isBlank() ? null : filter.trim();
-        return userFormPolicy.hideComponents(userRepository.findActiveByTenant(tenantId, normalizedFilter, pageable)
+        return userFormPolicy.hideComponents(userRepository.findActiveByTenant(tenantId, normalizedFilter, userFormPolicy.searchFields(), pageable)
                 .map(user -> {
                     Optional<ClinicalStaff> staff = clinicalStaffRepository
                             .findByUserIdAndTenantId(user.getId(), tenantId);

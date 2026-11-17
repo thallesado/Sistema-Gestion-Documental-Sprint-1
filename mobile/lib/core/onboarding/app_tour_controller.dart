@@ -10,9 +10,9 @@ import '../i18n/app_language.dart';
 /// lo inicia solo si `hasCompletedTour` es falso y guarda la bandera al terminar u omitir.
 class AppTourController {
   AppTourController({
-    this.steps = appTourSteps,
+    List<OnboardingStep>? steps,
     this.storage = const OnboardingStorage(),
-  });
+  }) : steps = steps ?? appTourSteps;
 
   static const scope = 'nexodocs-app-tour';
 
@@ -71,7 +71,7 @@ class AppTourController {
       globalTooltipActions: [
         TooltipActionButton(
           type: TooltipDefaultActionType.skip,
-          name: 'Omitir',
+          name: tr('Omitir'),
           backgroundColor: Colors.transparent,
           textStyle: const TextStyle(
             color: AppTheme.tealDark,
@@ -80,7 +80,7 @@ class AppTourController {
         ),
         TooltipActionButton(
           type: TooltipDefaultActionType.previous,
-          name: 'Atrás',
+          name: tr('Atrás'),
           backgroundColor: AppTheme.mint,
           textStyle: const TextStyle(
             color: AppTheme.tealDark,
@@ -91,7 +91,7 @@ class AppTourController {
         ),
         TooltipActionButton(
           type: TooltipDefaultActionType.next,
-          name: 'Siguiente',
+          name: tr('Siguiente'),
           backgroundColor: AppTheme.teal,
           textStyle: const TextStyle(
             color: Colors.white,

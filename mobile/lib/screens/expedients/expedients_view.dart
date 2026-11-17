@@ -48,7 +48,7 @@ class _ExpedientsViewState extends State<ExpedientsView> {
       error = null;
     });
     try {
-      final result = await widget.api.expedients.list(filter: searchController.text.trim(), status: status);
+      final result = ((await widget.api.expedients.list(filter: searchController.text.trim(), status: status))['content'] as List<dynamic>).cast<Map<String, dynamic>>();
       if (mounted) setState(() => expedients = result);
     } on ApiException catch (exception) {
       if (mounted) setState(() => error = exception.message);

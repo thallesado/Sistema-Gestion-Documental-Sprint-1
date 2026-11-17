@@ -1,6 +1,6 @@
 # Autenticación, sesiones y permisos
 
-> Revisión documental: 2026-10-21. Base de código: `c93a8b4` más cambios locales; ver [estado verificado](../05-guias-ia/estado-verificado-y-pendientes.md). Descripción del código inspeccionado, no certificación de producción.
+> Revisión documental: 2026-11-06. Fuente: checkout local 91fb767 más cambios locales sin commit; código y evidencia verificados para esta página.
 
 ## Contratos exactos
 
@@ -45,7 +45,7 @@ Reactivar un usuario (`UserService.updateUser`, de inactivo/bloqueado a ACTIVE) 
 
 El controlador registra credenciales inválidas, organización inexistente y acceso denegado. Los rechazos del filtro también registran `LOGIN_FAILED`/`FAILURE`, IP, agente e identificador intentado. No se entrega la contraseña al servicio de auditoría. La migración `052_login_failure_audit.sql` habilita una función restringida de inserción previa a la autenticación, conservando los triggers de hash. Si falla la auditoría, se registra una advertencia: requiere vigilancia operativa y no hay cola de reintentos.
 
-El proxy Nginx sustituye `X-Forwarded-For` por la IP del socket y elimina `Forwarded`. El puerto Docker del backend se publica solo en loopback; debe accederse desde el proxy para preservar IP por cliente. No exponer directamente un backend configurado con `forward-headers-strategy: framework`. Detrás de otro proxy hay que configurar explícitamente su confianza antes de cambiar este esquema.
+El proxy Nginx sustituye `X-Forwarded-For` por la IP del socket y elimina `Forwarded`. El puerto Docker del backend se publica solo en loopback; debe accederse desde el proxy para preservar IP por cliente. No exponer directamente un backend configurado con `forward-headers-strategy: framework`. Detrás de otro proxy hay que configurar explícitamente su confianza antes de cambiar este esquema. Auditoría (2026-10-27): `AuditClientIp` valida la IP antes de guardarla en `audit_events.ip_address` (`inet`); un `X-Forwarded-For` que no es una IP se descarta y se usa la de la conexión, porque antes hacía fallar el `cast` y el evento no se registraba. El compose publica `${BACKEND_PORT:-8080}:8080`: el enlace solo a loopback depende de que el servidor defina `BACKEND_PORT=127.0.0.1:8080`.
 
 La comprobación de sesión de acceso es por usuario, no sesión específica. La revocación en la ruta de reutilización de refresh puede revertirse con rollback. Cambio de contraseña desde perfil y logout UI por inactividad requieren pruebas de revocación. Son hallazgos abiertos de la revisión, no garantías corregidas por esta wiki.
 
@@ -58,3 +58,18 @@ Fuentes: [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AuthRequ
 En `c93a8b4` más cambios locales, la migración 046 concede UPDATE pero omite SELECT sobre `users.preferred_language` y `users.must_change_password`. Hibernate incluye ambas columnas al cargar `GET /api/v1/auth/me`; PostgreSQL devuelve `permission denied for table users`. El login puede emitir tokens, pero el perfil falla y el sidebar muestra los valores por defecto (Usuario, organización sin asignar y pocas opciones). No demuestra que se hayan eliminado los roles.
 
 La migración [051_user_profile_select_privileges.sql](../../../database/init/051_user_profile_select_privileges.sql) concede únicamente SELECT sobre esas dos columnas a `nexodocs_app`, sin cambiar roles de usuarios ni políticas RLS. Se aplicó en Docker local después de un respaldo PostgreSQL verificado. Con el rol de aplicación y contexto de Laura se verificaron lectura de todas las columnas de usuario, nombre Laura Martínez, organización FinoCode, rol Administrador de tenant y permisos document:read, expedient:read y backup:read. Esta prueba SQL no sustituye una comprobación visual de la sesión del navegador. Recargar fuerza una nueva consulta del perfil; si el JWT conserva permisos anteriores, cerrar sesión e ingresar de nuevo.
+
+## Correcciones locales a refresh y recuperacion (2026-11-06)
+
+Con routing aislado, AuthService.refresh() resuelve el tenant en el registro central y consulta al usuario en la base de ese tenant. Recuperacion y reset llevan el UUID del tenant; reset valida que coincida con el tenant del token, cambia la contrasena, marca el token como usado y revoca sesiones dentro de una transaccion tenant-scoped. La migracion 087 fue aplicada a la base central y a las tres bases aisladas locales. Se probaron los contextos RLS y el refresh aislado tiene prueba Maven. SMTP y el recorrido completo de reset por correo no fueron ejercitados.
+
+
+Verificacion local parcial HU-09 (2026-11-06): AuthSessionService.establishContext usa jdbc.queryForMap para SELECT set_config; jdbc.update producia un error de PostgreSQL al recibir un resultado. Se comprobo login HTTP y uso de la API clinica con una organizacion sintetica en una base local desechable. Esto no verifica refresh/reset/SMTP ni el aprovisionamiento normal de bases aisladas.
+
+## Cliente móvil de autenticación (2026-11-14)
+
+En Flutter, `core/api/auth_repository.dart` concentra las rutas HTTP existentes y `AuthApi` conserva el estado de sesión, permisos y tipo de cuenta. El login de un usuario del tenant envía `tenantId`; el administrador global lo omite. Después del login, del desbloqueo biométrico y al restaurar una sesión, el móvil consulta `GET /auth/me` antes de abrir el contenido. La marca `mustChangePassword` envía a la pantalla de cambio obligatorio. `PUT /auth/me/password` cierra la sesión local cuando la contraseña era temporal, siguiendo la revocación del servidor. El perfil ofrece el cambio voluntario; el login ofrece solicitud de recuperación y restablecimiento con el enlace o token emitido por el backend. La cuenta global entra a una vista móvil limitada a inicio y perfil, sin consultar endpoints del tenant; la administración de plataforma sigue en la web.
+
+Fuentes móviles: [repositorio HTTP](../../../mobile/lib/core/api/auth_repository.dart), [estado de sesión](../../../mobile/lib/core/api/auth_api.dart), [pantallas de contraseña](../../../mobile/lib/screens/password_page.dart), [arranque](../../../mobile/lib/main.dart).
+
+Verificación local: `flutter analyze --no-pub` sobre los archivos de autenticación sin incidencias y `flutter test --no-pub test/mobile_features_test.dart` con 14 pruebas aprobadas. La suite combinada con `widget_test.dart` encontró desbordamientos de diseño en `screens/dashboard/dashboard_tab.dart` durante la prueba de login; no se comprobó contra un backend real ni el envío SMTP.

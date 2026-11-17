@@ -1,0 +1,501 @@
+{
+  "policyId": "76c922df-1b15-4870-a460-c366ada7a07a",
+  "typeId": "a7849d84-1ced-4024-8012-c422a0f8d07c",
+  "documents": {
+    "eligible": "a1892a70-6d3f-4299-936e-ba922e83ff3d",
+    "upcoming": "1bee6781-1f96-4a63-8515-acfeaa0432fa",
+    "future": "d4628ad9-5a51-4e7b-a99b-ec690d3bf412"
+  },
+  "checks": [
+    {
+      "name": "futurePeriodBlocked",
+      "status": 409,
+      "response": {
+        "timestamp": "2026-11-06T19:13:54.173871785Z",
+        "status": 409,
+        "error": "Conflict",
+        "message": "El documento todavia no cumplio su periodo de conservacion",
+        "path": "/api/v1/document-transfers",
+        "code": "RESOURCE_CONFLICT"
+      }
+    },
+    {
+      "name": "cannotSkipLevel",
+      "status": 400,
+      "response": {
+        "timestamp": "2026-11-06T19:13:54.259303087Z",
+        "status": 400,
+        "error": "Bad Request",
+        "message": "Solo se permite transferir al siguiente nivel de archivo",
+        "path": "/api/v1/document-transfers",
+        "code": "BAD_REQUEST"
+      }
+    },
+    {
+      "name": "shortReason",
+      "status": 400,
+      "response": {
+        "timestamp": "2026-11-06T19:13:54.307788301Z",
+        "status": 400,
+        "error": "Validation failed",
+        "message": "reason: el tamaño debe estar entre 10 y 1000",
+        "path": "/api/v1/document-transfers",
+        "code": "VALIDATION_FAILED"
+      }
+    },
+    {
+      "name": "invalidPolicyMonths",
+      "status": 400,
+      "response": {
+        "timestamp": "2026-11-06T19:13:54.338165324Z",
+        "status": 400,
+        "error": "Validation failed",
+        "message": "retentionMonths: debe ser mayor que o igual a 0",
+        "path": "/api/v1/retention-policies",
+        "code": "VALIDATION_FAILED"
+      }
+    },
+    {
+      "name": "noPolicyBlocked",
+      "status": 409,
+      "response": {
+        "timestamp": "2026-11-06T19:14:48.586365443Z",
+        "status": 409,
+        "error": "Conflict",
+        "message": "Se requiere una politica vigente con accion Transferir",
+        "path": "/api/v1/document-transfers",
+        "code": "RESOURCE_CONFLICT"
+      }
+    },
+    {
+      "name": "inactivePolicyBlocked",
+      "status": 409,
+      "response": {
+        "timestamp": "2026-11-06T19:14:48.816955303Z",
+        "status": 409,
+        "error": "Conflict",
+        "message": "Se requiere una politica vigente con accion Transferir",
+        "path": "/api/v1/document-transfers",
+        "code": "RESOURCE_CONFLICT"
+      }
+    },
+    {
+      "name": "executeBeforeApprovalBlocked",
+      "status": 409,
+      "response": {
+        "timestamp": "2026-11-06T19:15:13.251472561Z",
+        "status": 409,
+        "error": "Conflict",
+        "message": "La transferencia no esta en el estado requerido",
+        "path": "/api/v1/document-transfers/51f5baf0-f10f-4231-80a8-28da14b06ef1/execute",
+        "code": "RESOURCE_CONFLICT"
+      }
+    },
+    {
+      "name": "duplicatePendingBlocked",
+      "status": 409,
+      "response": {
+        "timestamp": "2026-11-06T19:15:13.350555941Z",
+        "status": 409,
+        "error": "Conflict",
+        "message": "La operación entra en conflicto con datos existentes",
+        "path": "/api/v1/document-transfers",
+        "code": "RESOURCE_CONFLICT"
+      }
+    },
+    {
+      "name": "policyChangedAfterRequestBlocked",
+      "status": 409,
+      "response": {
+        "timestamp": "2026-11-06T19:15:36.46912589Z",
+        "status": 409,
+        "error": "Conflict",
+        "message": "La politica o el periodo cambio desde la solicitud; no se puede ejecutar esta transferencia",
+        "path": "/api/v1/document-transfers/51f5baf0-f10f-4231-80a8-28da14b06ef1/approve",
+        "code": "RESOURCE_CONFLICT"
+      }
+    },
+    {
+      "name": "reexecuteBlocked",
+      "status": 409,
+      "response": {
+        "timestamp": "2026-11-06T19:15:38.709926933Z",
+        "status": 409,
+        "error": "Conflict",
+        "message": "La transferencia no esta en el estado requerido",
+        "path": "/api/v1/document-transfers/51f5baf0-f10f-4231-80a8-28da14b06ef1/execute",
+        "code": "RESOURCE_CONFLICT"
+      }
+    },
+    {
+      "name": "nextPeriodMustElapse",
+      "status": 409,
+      "response": {
+        "timestamp": "2026-11-06T19:15:38.761720821Z",
+        "status": 409,
+        "error": "Conflict",
+        "message": "El documento todavia no cumplio su periodo de conservacion",
+        "path": "/api/v1/document-transfers",
+        "code": "RESOURCE_CONFLICT"
+      }
+    },
+    {
+      "name": "deleteReferencedPolicyBlocked",
+      "status": 409,
+      "response": {
+        "timestamp": "2026-11-06T19:18:54.665603253Z",
+        "status": 409,
+        "error": "Conflict",
+        "message": "La politica esta asociada a tipos o transferencias; desactivala para conservar sus referencias",
+        "path": "/api/v1/retention-policies/76c922df-1b15-4870-a460-c366ada7a07a",
+        "code": "RESOURCE_CONFLICT"
+      }
+    },
+    {
+      "name": "keepPolicyCannotExecute",
+      "status": 409,
+      "response": {
+        "timestamp": "2026-11-06T19:18:55.671719443Z",
+        "status": 409,
+        "error": "Conflict",
+        "message": "Se requiere una politica vigente con accion Transferir",
+        "path": "/api/v1/document-transfers/fb80fae2-d022-4153-b04d-dfc65760b7a0/execute",
+        "code": "RESOURCE_CONFLICT"
+      }
+    },
+    {
+      "name": "historicalHasNoNextLevel",
+      "status": 400,
+      "response": {
+        "timestamp": "2026-11-06T19:18:56.747704217Z",
+        "status": 400,
+        "error": "Bad Request",
+        "message": "El archivo historico es el ultimo nivel",
+        "path": "/api/v1/document-transfers",
+        "code": "BAD_REQUEST"
+      }
+    },
+    {
+      "name": "missingRetentionPeriodBlocked",
+      "status": 400,
+      "response": {
+        "timestamp": "2026-11-06T19:20:18.876257927Z",
+        "status": 400,
+        "error": "Validation failed",
+        "message": "retentionMonths: no debe ser nulo",
+        "path": "/api/v1/retention-policies",
+        "code": "VALIDATION_FAILED"
+      }
+    },
+    {
+      "name": "readerCannotApprove",
+      "status": 403,
+      "response": {
+        "timestamp": "2026-11-06T19:21:23.168096496Z",
+        "status": 403,
+        "error": "Forbidden",
+        "message": "Access Denied",
+        "path": "/api/v1/document-transfers/89d0922a-372a-40d3-bf5a-c70399cef74c/approve",
+        "code": "PERMISSION_DENIED"
+      }
+    },
+    {
+      "name": "readerCannotExecute",
+      "status": 403,
+      "response": {
+        "timestamp": "2026-11-06T19:21:23.221750106Z",
+        "status": 403,
+        "error": "Forbidden",
+        "message": "Access Denied",
+        "path": "/api/v1/document-transfers/89d0922a-372a-40d3-bf5a-c70399cef74c/execute",
+        "code": "PERMISSION_DENIED"
+      }
+    },
+    {
+      "name": "readerCannotCreatePolicy",
+      "status": 403,
+      "response": {
+        "timestamp": "2026-11-06T19:21:23.248956968Z",
+        "status": 403,
+        "error": "Forbidden",
+        "message": "Access Denied",
+        "path": "/api/v1/retention-policies",
+        "code": "PERMISSION_DENIED"
+      }
+    },
+    {
+      "name": "futureDisposalBlocked",
+      "status": 409,
+      "response": {
+        "timestamp": "2026-11-06T19:21:37.972132916Z",
+        "status": 409,
+        "error": "Conflict",
+        "message": "El documento aun debe conservarse hasta cumplir el plazo",
+        "path": "/api/v1/documents/6b503aa6-b352-404b-acd3-536acb7e01c4/status",
+        "code": "RESOURCE_CONFLICT"
+      }
+    },
+    {
+      "name": "elapsedDisposalAllowed",
+      "status": 200,
+      "response": {
+        "id": "b078cf5e-3455-4444-ab71-48444ee412b3",
+        "documentTypeId": "a7849d84-1ced-4024-8012-c422a0f8d07c",
+        "expedientId": null,
+        "authorId": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+        "responsibleId": null,
+        "departmentId": null,
+        "patientId": null,
+        "specialty": null,
+        "institutionalProcess": null,
+        "metadata": {},
+        "code": "HU16-PAPELERA",
+        "name": "HU16 - Proteccion de conservacion antes de eliminar",
+        "description": null,
+        "status": "TRASHED",
+        "currentVersion": null,
+        "issueDate": "2024-01-01",
+        "expiryDate": null,
+        "externalSource": false,
+        "source": null,
+        "createdAt": "2026-11-06T19:20:18.94185Z",
+        "updatedAt": "2026-11-06T19:21:38.052642851Z",
+        "documentTypeName": "HU16 - Informes de conservacion",
+        "documentTypeCode": "HU16-RET",
+        "categoryName": null,
+        "departmentName": null,
+        "authorName": "Revisor HU09",
+        "responsibleName": null,
+        "patientName": null,
+        "expedientCode": null
+      }
+    }
+  ],
+  "unusedPolicyDeleteHttp": 204,
+  "requestHttp": 201,
+  "levelAfterRequest": "MANAGEMENT",
+  "approveHttp": 200,
+  "levelAfterApproval": "MANAGEMENT",
+  "executeHttp": 200,
+  "documentAfterCentral": {
+    "id": "a1892a70-6d3f-4299-936e-ba922e83ff3d",
+    "name": "HU17 - Informe con conservacion cumplida",
+    "code": "HU17-APTO",
+    "status": "CURRENT",
+    "archive_level": "CENTRAL",
+    "period_start": "2026-11-06",
+    "type_name": "HU16 - Informes de conservacion",
+    "policy_id": "76c922df-1b15-4870-a460-c366ada7a07a",
+    "policy_name": "HU16 - Politica de transferencia anual",
+    "retention_months": 12,
+    "disposition_action": "TRANSFER",
+    "is_active": true,
+    "eligible_on": "2027-11-06",
+    "workflow_active": false
+  },
+  "historicalExecuteHttp": 200,
+  "finalTransferDocument": {
+    "id": "a1892a70-6d3f-4299-936e-ba922e83ff3d",
+    "name": "HU17 - Informe con conservacion cumplida",
+    "code": "HU17-APTO",
+    "status": "CURRENT",
+    "archive_level": "HISTORICAL",
+    "period_start": "2026-11-06",
+    "type_name": "HU16 - Informes de conservacion",
+    "policy_id": "76c922df-1b15-4870-a460-c366ada7a07a",
+    "policy_name": "HU16 - Politica de transferencia anual",
+    "retention_months": 12,
+    "disposition_action": "TRANSFER",
+    "is_active": true,
+    "eligible_on": "2027-11-06",
+    "workflow_active": false
+  },
+  "transfers": [
+    {
+      "id": "89d0922a-372a-40d3-bf5a-c70399cef74c",
+      "tenant_id": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "document_id": "e8f07738-b399-4396-a9e6-b029640fddeb",
+      "policy_id": "f8c61b61-b0e3-491e-a02c-79f3f59e2f03",
+      "retention_months": 0,
+      "eligible_on": "2024-01-01",
+      "from_level": "MANAGEMENT",
+      "to_level": "CENTRAL",
+      "reason": "Solicitud sintetica para verificar acceso de un lector sin permiso de archivo",
+      "status": "REQUESTED",
+      "requested_by": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+      "requested_at": "2026-11-06T19:20:53.406+00:00",
+      "approved_by": null,
+      "approved_at": null,
+      "executed_by": null,
+      "executed_at": null,
+      "name": "HU17 - Solicitud pendiente para prueba de permisos",
+      "code": "HU17-PERMISOS"
+    },
+    {
+      "id": "fb80fae2-d022-4153-b04d-dfc65760b7a0",
+      "tenant_id": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "document_id": "a1892a70-6d3f-4299-936e-ba922e83ff3d",
+      "policy_id": "f8c61b61-b0e3-491e-a02c-79f3f59e2f03",
+      "retention_months": 0,
+      "eligible_on": "2026-11-06",
+      "from_level": "CENTRAL",
+      "to_level": "HISTORICAL",
+      "reason": "Demostracion local con politica de cero meses: Central a Historico.",
+      "status": "EXECUTED",
+      "requested_by": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+      "requested_at": "2026-11-06T19:18:17.643+00:00",
+      "approved_by": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+      "approved_at": "2026-11-06T19:18:54.803+00:00",
+      "executed_by": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+      "executed_at": "2026-11-06T19:18:55.761+00:00",
+      "name": "HU17 - Informe con conservacion cumplida",
+      "code": "HU17-APTO"
+    },
+    {
+      "id": "51f5baf0-f10f-4231-80a8-28da14b06ef1",
+      "tenant_id": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "document_id": "a1892a70-6d3f-4299-936e-ba922e83ff3d",
+      "policy_id": "76c922df-1b15-4870-a460-c366ada7a07a",
+      "retention_months": 12,
+      "eligible_on": "2025-01-01",
+      "from_level": "MANAGEMENT",
+      "to_level": "CENTRAL",
+      "reason": "Cumplio el plazo anual; transferir el informe al archivo Central.",
+      "status": "EXECUTED",
+      "requested_by": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+      "requested_at": "2026-11-06T19:15:12.364+00:00",
+      "approved_by": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+      "approved_at": "2026-11-06T19:15:36.715+00:00",
+      "executed_by": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+      "executed_at": "2026-11-06T19:15:37.623+00:00",
+      "name": "HU17 - Informe con conservacion cumplida",
+      "code": "HU17-APTO"
+    }
+  ],
+  "trashWithTransferPolicy": {
+    "status": 409,
+    "body": {
+      "timestamp": "2026-11-06T19:20:19.120609442Z",
+      "status": 409,
+      "error": "Conflict",
+      "message": "La eliminacion requiere una politica vigente con accion Eliminar y plazo definido",
+      "path": "/api/v1/documents/b078cf5e-3455-4444-ab71-48444ee412b3/status",
+      "code": "RESOURCE_CONFLICT"
+    }
+  },
+  "fileIntegrity": {
+    "status": 200,
+    "before": "5a05ab593d6ddfafe0030aaa7149f573ada5035095723969087e848c4aa96dfb",
+    "after": "5a05ab593d6ddfafe0030aaa7149f573ada5035095723969087e848c4aa96dfb",
+    "version": 1
+  },
+  "policies": [
+    {
+      "id": "4718c488-1085-4c19-9518-a1856da0e946",
+      "tenant_id": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "name": "Custodia permanente",
+      "retention_months": null,
+      "disposition_action": "ARCHIVE",
+      "is_active": true,
+      "created_at": "2026-11-06T16:28:50.951+00:00",
+      "updated_at": "2026-11-06T16:28:50.951+00:00",
+      "type_count": 7
+    },
+    {
+      "id": "1285fc17-3dea-41c2-80d8-88a78eed8ca7",
+      "tenant_id": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "name": "General 5 anos",
+      "retention_months": 60,
+      "disposition_action": "REVIEW",
+      "is_active": true,
+      "created_at": "2026-11-06T16:28:50.951+00:00",
+      "updated_at": "2026-11-06T16:28:50.951+00:00",
+      "type_count": 0
+    },
+    {
+      "id": "b5385d2c-139e-48e0-8f18-24e027893f26",
+      "tenant_id": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "name": "HU16 - Conservacion indefinida verificada",
+      "retention_months": null,
+      "disposition_action": "KEEP",
+      "is_active": true,
+      "created_at": "2026-11-06T19:28:09.502+00:00",
+      "updated_at": "2026-11-06T19:28:10.549+00:00",
+      "type_count": 0
+    },
+    {
+      "id": "cb2641f2-4108-431b-bcac-3ff6440c4311",
+      "tenant_id": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "name": "HU16 - Disposicion logica de prueba",
+      "retention_months": 12,
+      "disposition_action": "DELETE",
+      "is_active": true,
+      "created_at": "2026-11-06T19:21:37.791+00:00",
+      "updated_at": "2026-11-06T19:21:37.791+00:00",
+      "type_count": 0
+    },
+    {
+      "id": "76c922df-1b15-4870-a460-c366ada7a07a",
+      "tenant_id": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "name": "HU16 - Politica de transferencia anual",
+      "retention_months": 12,
+      "disposition_action": "TRANSFER",
+      "is_active": true,
+      "created_at": "2026-11-06T19:12:36.598+00:00",
+      "updated_at": "2026-11-06T19:15:36.495+00:00",
+      "type_count": 1
+    },
+    {
+      "id": "f8c61b61-b0e3-491e-a02c-79f3f59e2f03",
+      "tenant_id": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "name": "HU17 - Demostracion de transferencia inmediata",
+      "retention_months": 0,
+      "disposition_action": "TRANSFER",
+      "is_active": true,
+      "created_at": "2026-11-06T19:18:15.330+00:00",
+      "updated_at": "2026-11-06T19:18:55.697+00:00",
+      "type_count": 1
+    }
+  ],
+  "upcoming": [
+    {
+      "id": "e8f07738-b399-4396-a9e6-b029640fddeb",
+      "name": "HU17 - Solicitud pendiente para prueba de permisos",
+      "code": "HU17-PERMISOS",
+      "status": "CURRENT",
+      "archive_level": "MANAGEMENT",
+      "period_start": "2024-01-01",
+      "type_name": "HU17 - Permisos de transferencia",
+      "policy_id": "f8c61b61-b0e3-491e-a02c-79f3f59e2f03",
+      "policy_name": "HU17 - Demostracion de transferencia inmediata",
+      "retention_months": 0,
+      "disposition_action": "TRANSFER",
+      "is_active": true,
+      "eligible_on": "2024-01-01",
+      "workflow_active": false
+    },
+    {
+      "id": "1bee6781-1f96-4a63-8515-acfeaa0432fa",
+      "name": "HU16 - Informe proximo a cumplir plazo",
+      "code": "HU16-PROXIMO",
+      "status": "CURRENT",
+      "archive_level": "MANAGEMENT",
+      "period_start": "2025-11-20",
+      "type_name": "HU16 - Informes de conservacion",
+      "policy_id": "76c922df-1b15-4870-a460-c366ada7a07a",
+      "policy_name": "HU16 - Politica de transferencia anual",
+      "retention_months": 12,
+      "disposition_action": "TRANSFER",
+      "is_active": true,
+      "eligible_on": "2026-11-20",
+      "workflow_active": false
+    }
+  ],
+  "pendingPermissionTransfer": "89d0922a-372a-40d3-bf5a-c70399cef74c",
+  "indefinitePolicy": {
+    "createHttp": 201,
+    "months": null,
+    "editHttp": 200,
+    "monthsAfterEdit": null
+  }
+}

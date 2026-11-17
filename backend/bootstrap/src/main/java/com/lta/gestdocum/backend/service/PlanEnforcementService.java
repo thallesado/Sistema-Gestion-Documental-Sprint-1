@@ -26,6 +26,7 @@ import java.util.UUID;
 import java.util.List;
 import java.time.Instant;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 
 /**
  * Punto central de control de la suscripción del tenant autenticado.
@@ -242,13 +243,38 @@ public class PlanEnforcementService {
         var tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new PlanLimitExceededException(message("plan.subscription.missing")));
         if (tenant.getStatus() == com.lta.gestdocum.backend.model.Tenant.Status.TRIAL
-                && tenant.getTrialEndsAt() != null && Instant.now().isAfter(tenant.getTrialEndsAt())) {
+                && tenant.getTrialEndsAt() != null
+                && TenantTrialLifecyclePolicy.phase(trialStartedAt(tenant), Instant.now())
+                != TenantTrialLifecyclePolicy.Phase.TRIAL) {
             throw new PlanLimitExceededException(message("plan.trial.expired"));
         }
         if (tenant.getStatus() == com.lta.gestdocum.backend.model.Tenant.Status.EXPIRED
                 || tenant.getStatus() == com.lta.gestdocum.backend.model.Tenant.Status.PAST_DUE) {
             throw new PlanLimitExceededException(message("plan.subscription.payment_required"));
         }
+    }
+
+    /** Keeps a tenant readable during the three-day grace, then requires payment for all tenant APIs. */
+    @Transactional(readOnly = true)
+    public void validateReadAccess(UUID tenantId) {
+        UUID currentTenantId = authenticatedUserContext.requireTenantId();
+        if (!currentTenantId.equals(tenantId)) throw new TenantMismatchException();
+        authenticatedUserContext.establishDatabaseContext();
+        var tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new PlanLimitExceededException(message("plan.subscription.missing")));
+        if (tenant.getStatus() != com.lta.gestdocum.backend.model.Tenant.Status.TRIAL
+                || tenant.getTrialEndsAt() == null) return;
+
+        if (TenantTrialLifecyclePolicy.phase(trialStartedAt(tenant), Instant.now())
+                == TenantTrialLifecyclePolicy.Phase.DELETE_ELIGIBLE) {
+            throw new PlanLimitExceededException(message("plan.subscription.payment_required"));
+        }
+    }
+
+    private Instant trialStartedAt(com.lta.gestdocum.backend.model.Tenant tenant) {
+        return tenant.getTrialStartAt() != null
+                ? tenant.getTrialStartAt()
+                : tenant.getTrialEndsAt().minus(TenantTrialLifecyclePolicy.TRIAL_DAYS, ChronoUnit.DAYS);
     }
 
     private long trialDaysRemaining(Instant trialEndsAt) {

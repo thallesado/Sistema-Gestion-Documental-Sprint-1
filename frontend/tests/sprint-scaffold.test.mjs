@@ -33,10 +33,10 @@ const SCAFFOLD_SCREENS = [
   { href: '/reports/voice', file: 'src/app/features/reportes/reportes-dinamicos.routes.ts', page: 'src/app/features/reportes/voice/voice-report-page.ts' },
 ];
 
-/** Pantallas del andamiaje que su responsable ya implementó (dejan de ser marcadores ocultos). */
-const IMPLEMENTED = new Set(['/users/form-permissions', '/settings/appearance']);
+/** Pantallas del andamiaje que ya tienen implementación funcional (no son placeholders). */
+const IMPLEMENTED = new Set(['/users/form-permissions', '/settings/appearance', '/reports/queries', '/reports/voice']);
 
-test('every scaffold screen has its own route file, a placeholder page and a guard', async () => {
+test('every scaffold screen has its own route file, a page and a guard', async () => {
   for (const screen of SCAFFOLD_SCREENS) {
     const routes = await read(screen.file);
     const routePath = screen.href.slice(1);
@@ -49,6 +49,16 @@ test('every scaffold screen has its own route file, a placeholder page and a gua
       assert.match(routes, /canActivate: \[authGuard\]/);
     } else if (!IMPLEMENTED.has(screen.href)) {
       assert.match(await read(screen.page), /<app-under-construction title="[^"]+" \/>/, screen.page);
+    } else if (screen.href === '/reports/queries') {
+      const page = await read(screen.page);
+      assert.match(page, /Consulta por ejemplo/);
+      assert.match(page, /this\.api\.getReport\(this\.kind\(\), filters/);
+      assert.match(page, /this\.api\.downloadCsv/);
+    } else if (screen.href === '/reports/voice') {
+      const page = await read(screen.page);
+      assert.match(page, /parseVoiceQuery/);
+      assert.match(page, /this\.api\.getReport\(this\.kind\(\), parsed\.filters/);
+      assert.match(page, /No dictes nombres, identificadores ni información clínica/);
     }
   }
 });
@@ -68,6 +78,16 @@ test('the backup design is visible in its own sidebar group', () => {
   assert.equal(entry?.moduleEnabled, true);
 });
 
+test('technical platform logs are reachable only through the platform admin route and menu', async () => {
+  const route = await read('src/app/features/platform-admin/platform-admin.routes.ts');
+  const page = await read('src/app/features/platform-admin/pages/platform-technical-logs-page.ts');
+  assert.match(route, /path: 'platform\/technical-logs'[\s\S]*platformAdminGuard/);
+  assert.match(page, /\/api\/v1\/platform\/technical-logs/);
+  assert.match(page, /ID de organización/);
+  assert.match(page, /No se guardan cuerpos de solicitudes/);
+  assert.ok(children.some((child) => child.href === '/platform/technical-logs'));
+});
+
 test('the appearance screen keeps its existing menu entry, now served by its own page', () => {
   const entry = children.find((child) => child.href === '/settings/appearance');
   assert.ok(entry);
@@ -77,7 +97,9 @@ test('the appearance screen keeps its existing menu entry, now served by its own
   assert.equal(entry.sprintEnabled, true);
   // General (/settings) es ahora la portada de Configuración; las entradas sin pantalla siguen ocultas.
   assert.equal(children.find((child) => child.href === '/settings')?.sprintEnabled, true, '/settings');
-  for (const href of ['/settings/security', '/settings/templates', '/settings/retention']) {
+  assert.equal(children.find((child) => child.href === '/settings/retention')?.sprintEnabled, true);
+  assert.match(appRoutes, /'settings\/retention'/);
+  for (const href of ['/settings/security', '/settings/templates']) {
     assert.equal(children.find((child) => child.href === href)?.sprintEnabled, false, href);
   }
 });

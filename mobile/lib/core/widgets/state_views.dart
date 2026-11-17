@@ -90,3 +90,19 @@ BadgeTone taskStatusTone(String? status) => switch (status) {
   'CHANGES_REQUESTED' => BadgeTone.warning,
   _ => BadgeTone.neutral,
 };
+
+BadgeTone workflowStatusTone(String? status) => switch (status) {
+  'COMPLETED' => BadgeTone.success,
+  'STARTED' || 'IN_PROGRESS' => BadgeTone.info,
+  'PAUSED' => BadgeTone.warning,
+  'REJECTED' || 'CANCELED' => BadgeTone.danger,
+  _ => BadgeTone.neutral,
+};
+
+BadgeTone expedientStatusTone(String? status) => switch (status) {
+  'ACTIVE' => BadgeTone.success,
+  'CLOSED' => BadgeTone.neutral,
+  'ARCHIVED' => BadgeTone.warning,
+  'BLOCKED' => BadgeTone.danger,
+  _ => BadgeTone.neutral,
+};

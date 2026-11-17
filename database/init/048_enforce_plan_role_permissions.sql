@@ -67,4 +67,7 @@ CREATE OR REPLACE FUNCTION app.has_permission(permission_code text) RETURNS bool
   )
 $$;
 
+  INSERT INTO app.schema_migrations(version) VALUES ('048_enforce_plan_role_permissions')
+  ON CONFLICT (version) DO NOTHING;
+
 COMMIT;

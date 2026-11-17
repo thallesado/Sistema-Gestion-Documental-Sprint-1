@@ -4,6 +4,10 @@
  * Para encontrar textos sin traducir: node scripts/i18n-audit.mjs <archivo>.
  */
 export const MODULE_TEXT_ROWS: ReadonlyArray<readonly [string, string, string, string]> = [
+  ['Conservación documental', 'Document retention', 'Conservation documentaire', '文档保管'],
+  ['Políticas por tipo, plazos de conservación y documentos próximos a vencer.', 'Policies by type, retention periods and documents approaching their retention date.', 'Politiques par type, durées de conservation et documents proches de leur échéance.', '按类型管理策略、保管期限及即将到期的文档。'],
+  ['Transferencias documentales', 'Document transfers', 'Transferts documentaires', '文档移交'],
+  ['Solicitar, aprobar y ejecutar movimientos entre niveles de archivo.', 'Request, approve and execute transfers between archive levels.', 'Demander, approuver et exécuter des transferts entre niveaux d’archivage.', '申请、审批并执行档案层级之间的移交。'],
   // Comunes
   ['Cargando…', 'Loading…', 'Chargement…', '加载中…'],
   ['Actualizar', 'Refresh', 'Actualiser', '刷新'],
@@ -251,6 +255,10 @@ export const MODULE_TEXT_ROWS: ReadonlyArray<readonly [string, string, string, s
   // Reportes
   ['📋 Reportes Tabulares Detallados', '📋 Detailed tabular reports', '📋 Rapports tabulaires détaillés', '📋 详细表格报表'],
   ['📊 Tablero Analítico y BI', '📊 Analytics and BI dashboard', '📊 Tableau analytique et BI', '📊 分析与 BI 看板'],
+  ['Tablero Analítico y Business Intelligence', 'Analytics and Business Intelligence Dashboard', 'Tableau analytique et Business Intelligence', '分析与商业智能看板'],
+  ['Métricas agregadas en tiempo real: evolución mensual, tiempos de ciclo, cuellos de botella y rendimiento de OCR.', 'Real-time aggregate metrics: monthly trends, cycle times, bottlenecks and OCR performance.', 'Indicateurs agrégés en temps réel : évolution mensuelle, temps de cycle, goulets d’étranglement et performance OCR.', '实时汇总指标：月度趋势、处理周期、瓶颈与 OCR 性能。'],
+  ['Todas las organizaciones', 'All organizations', 'Toutes les organisations', '所有组织'],
+  ['ReportIQ — Analítica IA & Consultas Dinámicas', 'ReportIQ — AI Analytics & Dynamic Queries', 'ReportIQ — Analytique IA & Requêtes Dynamiques', 'ReportIQ — 人工智能分析与动态查询'],
   ['← Dashboard de plataforma', '← Platform dashboard', '← Tableau de bord de la plateforme', '← 平台看板'],
   ['Pagos y costos', 'Payments and costs', 'Paiements et coûts', '付款与成本'],
   ['⏳ Consultando datos reales del servidor...', '⏳ Fetching real data from the server...', '⏳ Récupération des données réelles du serveur...', '⏳ 正在从服务器获取真实数据...'],

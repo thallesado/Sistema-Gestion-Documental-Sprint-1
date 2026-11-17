@@ -55,6 +55,8 @@ class MedicalNoteServiceTest {
     void setUp() {
         lenient().when(userContext.requireTenantId()).thenReturn(tenantId);
         lenient().when(userContext.requireUserId()).thenReturn(userId);
+        lenient().when(historyRepository.findByIdAndTenantIdAndDeletedAtIsNull(nullable(UUID.class), eq(tenantId)))
+                .thenReturn(Optional.of(ClinicalHistory.builder().id(historyId).tenantId(tenantId).build()));
         lenient().when(sanitizer.sanitize(anyString())).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(componentPermissions.current(ComponentFormCatalog.MEDICAL_NOTE_FORM))
                 .thenReturn(ComponentFormAccess.unrestricted(ComponentFormCatalog.require(ComponentFormCatalog.MEDICAL_NOTE_FORM)));
@@ -64,7 +66,7 @@ class MedicalNoteServiceTest {
     @DisplayName("create() should assign default status DRAFT to newly created medical note")
     void shouldCreateNoteWithDraftStatus() {
         ClinicalHistory history = ClinicalHistory.builder().id(historyId).tenantId(tenantId).build();
-        when(historyRepository.findByIdAndTenantId(historyId, tenantId)).thenReturn(Optional.of(history));
+        when(historyRepository.findByIdAndTenantIdAndDeletedAtIsNull(historyId, tenantId)).thenReturn(Optional.of(history));
 
         MedicalNoteRequest request = new MedicalNoteRequest(historyId, null, "EVOLUTION", "Nota clínica de prueba");
         
@@ -84,6 +86,33 @@ class MedicalNoteServiceTest {
     }
 
     @Test
+    @DisplayName("HU-10: persiste exclusivamente el HTML limpiado por Jsoup")
+    void shouldPersistSanitizedHtml() {
+        HtmlSanitizerService realSanitizer = new HtmlSanitizerService();
+        when(sanitizer.sanitize(anyString())).thenAnswer(inv -> realSanitizer.sanitize(inv.getArgument(0)));
+        when(repository.save(any(MedicalNote.class))).thenAnswer(inv -> inv.getArgument(0));
+        MedicalNoteResponse response = service.create(new MedicalNoteRequest(historyId, null, "EVOLUTION",
+                "<p onload='alert(1)'><strong>Control seguro</strong></p>"
+                        + "<script>alert(2)</script><iframe src='x'></iframe><img src='x' onerror='alert(3)'>"));
+        ArgumentCaptor<MedicalNote> captor = ArgumentCaptor.forClass(MedicalNote.class);
+        verify(repository).save(captor.capture());
+        assertEquals("<p><strong>Control seguro</strong></p>", captor.getValue().getContent());
+        assertEquals(captor.getValue().getContent(), response.content());
+    }
+
+    @Test
+    @DisplayName("HU-10: rechaza HTML vacío tras limpieza sin persistir la nota")
+    void shouldRejectContentRemovedBySanitization() {
+        HtmlSanitizerService realSanitizer = new HtmlSanitizerService();
+        when(sanitizer.sanitize(anyString())).thenAnswer(inv -> realSanitizer.sanitize(inv.getArgument(0)));
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.create(
+                new MedicalNoteRequest(historyId, null, "EVOLUTION",
+                        "<script>alert(1)</script><iframe src='x'></iframe><img src='x' onerror='alert(2)'>")));
+        assertTrue(error.getMessage().contains("vacío tras la sanitización"));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("transition() should allow DRAFT to APPROVED")
     void shouldAllowTransitionFromDraftToApproved() {
         MedicalNote existingNote = MedicalNote.builder()
@@ -92,7 +121,7 @@ class MedicalNoteServiceTest {
                 .status(DocumentStatus.DRAFT)
                 .build();
 
-        when(repository.findByIdAndTenantId(noteId, tenantId)).thenReturn(Optional.of(existingNote));
+        when(repository.findForTransition(noteId, tenantId)).thenReturn(Optional.of(existingNote));
         when(repository.save(any(MedicalNote.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         MedicalNoteResponse response = service.transition(noteId, DocumentStatus.APPROVED);
@@ -110,7 +139,7 @@ class MedicalNoteServiceTest {
                 .status(DocumentStatus.DRAFT)
                 .build();
 
-        when(repository.findByIdAndTenantId(noteId, tenantId)).thenReturn(Optional.of(existingNote));
+        when(repository.findForTransition(noteId, tenantId)).thenReturn(Optional.of(existingNote));
         when(repository.save(any(MedicalNote.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         MedicalNoteResponse response = service.transition(noteId, DocumentStatus.VOIDED);
@@ -128,9 +157,39 @@ class MedicalNoteServiceTest {
                 .status(DocumentStatus.APPROVED)
                 .build();
 
-        when(repository.findByIdAndTenantId(noteId, tenantId)).thenReturn(Optional.of(existingNote));
+        when(repository.findForTransition(noteId, tenantId)).thenReturn(Optional.of(existingNote));
 
         assertThrows(IllegalStateException.class, () -> service.transition(noteId, DocumentStatus.VOIDED));
+        verify(repository, never()).save(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = DocumentStatus.class, names = {"DRAFT"}, mode = org.junit.jupiter.params.provider.EnumSource.Mode.EXCLUDE)
+    void rejectsCreatingAnyNonDraftStatus(DocumentStatus status) {
+        when(historyRepository.findByIdAndTenantIdAndDeletedAtIsNull(historyId, tenantId))
+                .thenReturn(Optional.of(ClinicalHistory.builder().id(historyId).tenantId(tenantId).build()));
+        assertThrows(IllegalArgumentException.class, () -> service.create(
+                new MedicalNoteRequest(historyId, null, "EVOLUTION", "Nota de prueba", status)));
+        verify(repository, never()).save(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = DocumentStatus.class, names = {"APPROVED", "VOIDED"})
+    void rejectsEveryTransitionFromTerminalStates(DocumentStatus current) {
+        when(repository.findForTransition(noteId, tenantId)).thenReturn(Optional.of(
+                MedicalNote.builder().id(noteId).tenantId(tenantId).status(current).build()));
+        for (DocumentStatus target : DocumentStatus.values()) {
+            assertThrows(IllegalStateException.class, () -> service.transition(noteId, target));
+        }
+        verify(repository, never()).save(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = DocumentStatus.class, names = {"APPROVED", "VOIDED"}, mode = org.junit.jupiter.params.provider.EnumSource.Mode.EXCLUDE)
+    void rejectsOtherTargetsFromDraft(DocumentStatus target) {
+        when(repository.findForTransition(noteId, tenantId)).thenReturn(Optional.of(
+                MedicalNote.builder().id(noteId).tenantId(tenantId).status(DocumentStatus.DRAFT).build()));
+        assertThrows(IllegalStateException.class, () -> service.transition(noteId, target));
         verify(repository, never()).save(any());
     }
 }

@@ -28,9 +28,12 @@ public class DefaultAuditRecorder implements AuditRecorder {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultAuditRecorder.class);
     private static final int MAX_STRING_LENGTH = 300;
-    private static final Set<String> SENSITIVE_KEYS = Set.of(
-            "password", "passwordhash", "token", "secret", "apikey", "key",
-            "refreshtoken", "accesstoken", "credential", "pin", "authorization");
+    /** Se ocultan si aparecen dentro del nombre del campo (passwordHash, api_key, refreshToken...). */
+    private static final Set<String> SENSITIVE_FRAGMENTS = Set.of(
+            "password", "passwd", "contrasena", "contraseña", "token", "secret", "apikey", "privatekey",
+            "credential", "authorization");
+    /** Demasiado cortos para buscarlos como fragmento ("key" en keywords, "pin" en opinion): solo nombre exacto. */
+    private static final Set<String> SENSITIVE_EXACT = Set.of("key", "pin", "clave", "otp", "cvv");
 
     private final EntityManager entityManager;
     private final AuthenticatedUserContext userContext;
@@ -135,7 +138,7 @@ public class DefaultAuditRecorder implements AuditRecorder {
         if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes servletAttrs) {
             HttpServletRequest req = servletAttrs.getRequest();
             String forwarded = req.getHeader("X-Forwarded-For");
-            ipAddress = normalizeIp(forwarded != null ? forwarded : req.getRemoteAddr());
+            ipAddress = AuditClientIp.resolve(forwarded, req.getRemoteAddr());
             userAgent = req.getHeader("User-Agent") != null ? req.getHeader("User-Agent") : "";
             clientTimestamp = parseClientTimestamp(req.getHeader("X-Client-Timestamp"));
             clientTimezone = req.getHeader("X-Client-Timezone");
@@ -218,6 +221,8 @@ public class DefaultAuditRecorder implements AuditRecorder {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> typedMap = (Map<String, Object>) m;
                 sanitized.put(key, sanitizeMap(typedMap));
+            } else if (value instanceof java.util.Collection<?> list) {
+                sanitized.put(key, list.stream().map(this::sanitizeValue).toList());
             } else {
                 sanitized.put(key, value);
             }
@@ -225,10 +230,20 @@ public class DefaultAuditRecorder implements AuditRecorder {
         return sanitized;
     }
 
+    @SuppressWarnings("unchecked")
+    private Object sanitizeValue(Object value) {
+        if (value instanceof Map<?, ?> m) return sanitizeMap((Map<String, Object>) m);
+        if (value instanceof String s && s.length() > MAX_STRING_LENGTH) return s.substring(0, MAX_STRING_LENGTH) + "... [TRUNCATED]";
+        return value;
+    }
+
     public boolean isSensitive(String key) {
         if (key == null) return false;
-        String normalized = key.toLowerCase(Locale.ROOT).replaceAll("[_-]", "");
-        for (String sensitive : SENSITIVE_KEYS) {
+        String normalized = key.toLowerCase(Locale.ROOT).replaceAll("[_\\-\\s]", "");
+        if (SENSITIVE_EXACT.contains(normalized)) return true;
+        // apiKey, accessKey, encryptionKey, signingKey... sin ocultar keywords ni keyboard.
+        if (normalized.length() > 3 && normalized.endsWith("key")) return true;
+        for (String sensitive : SENSITIVE_FRAGMENTS) {
             if (normalized.contains(sensitive)) return true;
         }
         return false;
@@ -242,11 +257,7 @@ public class DefaultAuditRecorder implements AuditRecorder {
         }
     }
 
-    private String normalizeIp(String value) {
-        if (value == null || value.isBlank()) return "0.0.0.0";
-        int comma = value.indexOf(',');
-        return (comma < 0 ? value : value.substring(0, comma)).trim();
-    }
+
 
     private OffsetDateTime parseClientTimestamp(String raw) {
         if (raw == null || raw.isBlank()) return null;

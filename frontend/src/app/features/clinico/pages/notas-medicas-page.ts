@@ -9,6 +9,8 @@ import { RichTextEditorComponent } from '../../../shared';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 import { FieldPermissionDirective } from '../../../core/auth/field-permission.directive';
 import { ComponentPermissionService } from '../../../core/auth/component-permission.service';
+import { PermissionService } from '../../../core/auth/permission.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-notas-medicas-page',
@@ -124,6 +126,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
           </div>
         }
 
+        <p class="form-note">Toda nota se guarda como BORRADOR. Después puedes emitirla o anularla. Los estados VIGENTE y ANULADA son definitivos.</p>
         <!-- Grid: Formulario a la Izquierda y Línea de Tiempo de Evolución a la Derecha -->
         <div class="notes-grid">
           
@@ -134,24 +137,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                 <h2>Registrar Nota Médica / Receta</h2>
                 <small>Evolución clínica estructurada vinculada inalterablemente al expediente</small>
               </div>
-              <div class="status-selector" [appField]="'nota_medica.estado'">
-                <button
-                  type="button"
-                  class="status-btn"
-                  [class.active]="noteStatus() === 'DRAFT'"
-                  (click)="noteStatus.set('DRAFT')"
-                >
-                  🟡 Borrador (DRAFT)
-                </button>
-                <button
-                  type="button"
-                  class="status-btn"
-                  [class.active]="noteStatus() === 'APPROVED'"
-                  (click)="noteStatus.set('APPROVED')"
-                >
-                  🟢 Vigente (Emitida)
-                </button>
-              </div>
+              <span class="note-status-badge draft">BORRADOR</span>
             </div>
 
             <!-- Selector de Tipo de Nota -->
@@ -247,7 +233,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                   class="primary-btn"
                   [disabled]="noteForm.invalid || isSaving() || !patientHistory()"
                 >
-                  {{ isSaving() ? 'Guardando en Base de Datos...' : (noteStatus() === 'DRAFT' ? '💾 Guardar como Borrador' : '✍️ Firmar y Emitir Nota Médica') }}
+                  {{ isSaving() ? 'Guardando...' : 'Guardar como Borrador' }}
                 </button>
               </div>
 
@@ -300,15 +286,18 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
                     </div>
 
                     <div class="note-card-footer">
-                      <small>✍️ Médico Tratante: <strong>Laura Martínez</strong></small>
+                      <small>Autor registrado: <strong>{{ authorLabel(note) }}</strong></small>
                       <div class="note-actions">
-                        @if (note.status === 'DRAFT') {
+                        @if (note.status === 'DRAFT' && permissions.can('medical_note:update')) {
                           <button type="button" class="action-btn approve-btn" [appField]="'nota_medica.estado'" [disabled]="isUpdatingStatus()" (click)="changeStatus(note, 'APPROVED')">
                             ✓ Emitir
                           </button>
                           <button type="button" class="action-btn void-btn" [appField]="'nota_medica.estado'" [disabled]="isUpdatingStatus()" (click)="changeStatus(note, 'VOIDED')">
                             ✕ Anular
                           </button>
+                        }
+                        @if (note.status === 'APPROVED' || note.status === 'VOIDED') {
+                          <small class="terminal-state">🔒 Estado definitivo · Nota inmutable</small>
                         }
                         <button type="button" class="print-note-btn" (click)="openPrintNote(note)">
                           🖨️ Imprimir
@@ -366,7 +355,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
 
               <div class="doc-signature">
                 <div class="sig-line">
-                  <p>Dr(a). Laura Martínez</p>
+                  <p>{{ authorLabel(note) }}</p>
                   <small>Médico Especialista · Reg. Profesional 45920-LP</small>
                 </div>
               </div>
@@ -397,7 +386,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
     .search-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
     .search-header h2 { font-size: 18px; margin: 0 0 4px; color: #153a39; }
     .search-header small { color: #6b8583; font-size: 12px; }
-    .realtime-badge { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 4px 10px; }
+    .realtime-badge { background: var(--mint); color: var(--teal-strong); border: 1px solid var(--teal-muted); font-size: 11px; font-weight: 700; border-radius: 6px; padding: 4px 10px; }
 
     .search-input-wrap { position: relative; width: 100%; margin-bottom: 16px; }
     .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #8fa8a5; }
@@ -409,7 +398,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
     .patient-pill { display: inline-flex; align-items: center; gap: 10px; background: #f8fbfa; border: 1px solid #dcebe8; border-radius: 10px; padding: 8px 14px; cursor: pointer; text-align: left; transition: all 0.15s ease; font-family: inherit; }
     .patient-pill:hover { background: #eef8f6; border-color: #9dd8d1; }
     .patient-pill.active { background: #087f7b; color: #fff; border-color: #087f7b; box-shadow: 0 4px 12px rgba(8, 127, 123, 0.25); }
-    .pill-avatar { width: 28px; height: 28px; border-radius: 50%; background: #e0f2fe; color: #0369a1; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+    .pill-avatar { width: 28px; height: 28px; border-radius: 50%; background: #e6f5ef; color: #0f6b5f; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
     .patient-pill.active .pill-avatar { background: rgba(255,255,255,0.25); color: #fff; }
     .pill-text strong { display: block; font-size: 12px; }
     .pill-text small { display: block; font-size: 10px; opacity: 0.8; }
@@ -490,7 +479,7 @@ import { ComponentPermissionService } from '../../../core/auth/component-permiss
     .timeline-card.voided-card { border-left: 4px solid #ef4444; background: #fef2f2; opacity: 0.85; }
 
     .timeline-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-    .note-type-badge { background: #e0f2fe; color: #0369a1; font-size: 10px; font-weight: 800; border-radius: 4px; padding: 2px 6px; text-transform: uppercase; }
+    .note-type-badge { background: #e6f5ef; color: #0f6b5f; font-size: 10px; font-weight: 800; border-radius: 4px; padding: 2px 6px; text-transform: uppercase; }
     .note-type-badge.prescription { background: #fef3c7; color: #92400e; }
     .note-status-badge { font-size: 10px; font-weight: 800; border-radius: 4px; padding: 2px 6px; background: #ecfdf5; color: #065f46; }
     .note-status-badge.draft { background: #fef3c7; color: #b45309; }
@@ -561,7 +550,9 @@ export class NotasMedicasPage implements OnInit {
   readonly isSaving = signal<boolean>(false);
 
   readonly noteType = signal<'EVOLUTION' | 'PRESCRIPTION' | 'CONSULTATION'>('EVOLUTION');
-  readonly noteStatus = signal<MedicalNoteStatus>('APPROVED');
+  readonly permissions = inject(PermissionService);
+  private readonly auth = inject(AuthService);
+  readonly noteStatus = signal<MedicalNoteStatus>('DRAFT');
   /** Privilegios por componente: si el perfil no puede elegir tipo o estado, se fijan los valores que acepta el servidor. */
   private readonly lockedDefaults = effect(() => {
     if (!this.fields.editable('nota_medica.tipo')) this.noteType.set('EVOLUTION');
@@ -765,6 +756,13 @@ export class NotasMedicasPage implements OnInit {
         this.errorMessage.set(err?.error?.message || 'Error al cambiar el estado de la nota.');
       }
     });
+  }
+
+  authorLabel(note: MedicalNoteItem): string {
+    const user = this.auth.user();
+    return user?.id === note.authorId
+      ? `${user.firstName} ${user.lastName}`.trim() || user.username
+      : note.authorId;
   }
 
   getStatusLabel(status: MedicalNoteStatus | string): string {

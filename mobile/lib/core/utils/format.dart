@@ -24,6 +24,23 @@ const taskStatusLabels = {
   'CANCELED': 'Cancelada',
 };
 
+const workflowStatusLabels = {
+  'DRAFT': 'Borrador',
+  'STARTED': 'En curso',
+  'IN_PROGRESS': 'En curso',
+  'PAUSED': 'Pausado',
+  'COMPLETED': 'Completado',
+  'REJECTED': 'Rechazado',
+  'CANCELED': 'Cancelado',
+};
+
+const expedientStatusLabels = {
+  'ACTIVE': 'Activo',
+  'CLOSED': 'Cerrado',
+  'ARCHIVED': 'Archivado',
+  'BLOCKED': 'Bloqueado',
+};
+
 const stageTypeLabels = {
   'TASK': 'Tarea',
   'REVIEW': 'Revisión',
@@ -63,6 +80,8 @@ String _label(Map<String, String> labels, String? code, String fallback) {
 
 String documentStatusLabel(String? code) => _label(documentStatusLabels, code, '—');
 String taskStatusLabel(String? code) => _label(taskStatusLabels, code, '—');
+String workflowStatusLabel(String? code) => _label(workflowStatusLabels, code, '—');
+String expedientStatusLabel(String? code) => _label(expedientStatusLabels, code, '—');
 String stageTypeLabel(String? code) => _label(stageTypeLabels, code, '—');
 
 String priorityLabel(Object? priority) => switch (priority) {

@@ -94,11 +94,7 @@ class OcrApi {
 
   /// Obtiene los tipos documentales disponibles para indexar.
   Future<List<Map<String, dynamic>>> documentTypes() async {
-    try {
       final response = await _client.get('/document-types', query: {'active': true, 'size': 50}) as Map<String, dynamic>;
       return (response['content'] as List<dynamic>).cast<Map<String, dynamic>>();
-    } catch (_) {
-      return [];
-    }
   }
 }

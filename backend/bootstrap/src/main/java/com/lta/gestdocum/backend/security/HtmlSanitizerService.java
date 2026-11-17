@@ -19,6 +19,7 @@ public class HtmlSanitizerService {
         if (html == null || html.isBlank()) {
             return "";
         }
-        return Jsoup.clean(html, CLINICAL_NOTE_SAFELIST);
+        String clean = Jsoup.clean(html, CLINICAL_NOTE_SAFELIST);
+        return Jsoup.parseBodyFragment(clean).text().isBlank() ? "" : clean;
     }
 }

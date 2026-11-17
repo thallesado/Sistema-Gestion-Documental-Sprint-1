@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/auth_api.dart';
+import '../../core/auth/biometric_service.dart';
 import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
@@ -12,10 +13,16 @@ import '../../core/i18n/app_language.dart';
 /// Detalle de una tarea de workflow con las mismas acciones que la web.
 /// Devuelve `true` al cerrar si la tarea cambió, para refrescar el listado.
 class TaskDetailPage extends StatefulWidget {
-  const TaskDetailPage({super.key, required this.api, required this.taskId});
+  const TaskDetailPage({
+    super.key,
+    required this.api,
+    required this.taskId,
+    this.biometricService,
+  });
 
   final AuthApi api;
   final String taskId;
+  final BiometricService? biometricService;
 
   @override
   State<TaskDetailPage> createState() => _TaskDetailPageState();
@@ -27,13 +34,23 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
   bool loading = true;
   bool busy = false;
   bool changed = false;
+  bool biometricEnabled = false;
+  late final BiometricService _biometrics = widget.biometricService ?? BiometricService();
   final checklist = <String, bool>{};
   final commentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _checkBiometrics();
     load();
+  }
+
+  Future<void> _checkBiometrics() async {
+    try {
+      final enabled = await _biometrics.isEnabled();
+      if (mounted) setState(() => biometricEnabled = enabled);
+    } catch (_) {}
   }
 
   @override
@@ -135,6 +152,15 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       ),
     );
     if (result == null) return;
+    if (action == 'APPROVE' && await _biometrics.isEnabled()) {
+      final authenticated = await _biometrics.authenticate(
+        reason: tr('Confirma tu identidad para aprobar esta etapa'),
+      );
+      if (!authenticated) {
+        if (mounted) _showError(context.tr('Aprobación cancelada: se requiere verificación biométrica.'));
+        return;
+      }
+    }
     setState(() => busy = true);
     try {
       final updated = await widget.api.workflows.act(
@@ -223,11 +249,11 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
         ],
         const SizedBox(height: 16),
         _Section(title: tr('Información'), children: [
-          _Info('Etapa', t['stage_name']),
-          _Info('Prioridad', priorityLabel(t['priority'])),
-          _Info('Vencimiento', formatDate(t['due_at'], withTime: true)),
-          _Info('Categoría', t['category']),
-          if (t['description'] != null) _Info('Descripción', t['description']),
+          _Info(context.tr('Etapa'), t['stage_name']),
+          _Info(context.tr('Prioridad'), priorityLabel(t['priority'])),
+          _Info(context.tr('Vencimiento'), formatDate(t['due_at'], withTime: true)),
+          _Info(context.tr('Categoría'), t['category']),
+          if (t['description'] != null) _Info(context.tr('Descripción'), t['description']),
         ]),
         if (t['document_id'] != null)
           _Section(title: tr('Documento'), children: [
@@ -286,7 +312,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                 leading: const Icon(Icons.history, size: 18, color: Colors.grey),
                 title: Text(workflowEventLabel(e['event_type'] as String?)),
                 subtitle: Text([
-                  '${e['actor_name'] ?? 'Sistema'} · ${formatDate(e['performed_at'], withTime: true)}',
+                  '${e['actor_name'] ?? tr('Sistema')} · ${formatDate(e['performed_at'], withTime: true)}',
                   if ((e['comment'] as String?)?.isNotEmpty ?? false) e['comment'] as String,
                 ].join('\n')),
               ),
@@ -312,11 +338,14 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
             child: const Padding(padding: EdgeInsets.all(12), child: Icon(Icons.more_vert)),
           ),
         Expanded(
-          child: FilledButton(
+          child: FilledButton.icon(
             key: const Key('task-primary-action'),
             onPressed: busy || !canPrimary ? null : () => runAction(primaryAction),
             style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, padding: const EdgeInsets.symmetric(vertical: 14)),
-            child: Text(actionLabel(primaryAction)),
+            icon: primaryAction == 'APPROVE' && biometricEnabled
+                ? const Icon(Icons.fingerprint, size: 20)
+                : const SizedBox.shrink(),
+            label: Text(actionLabel(primaryAction)),
           ),
         ),
       ]),

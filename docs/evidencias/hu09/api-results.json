@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "label": "vigente a anulada",
+      "blocked": true,
+      "error": "/medical-notes/39e491e8-db03-43f1-90dc-6d2956e8c157/status HTTP 409 {\"timestamp\":\"2026-11-06T16:35:01.786854139Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"Transición de estado inválida: no se permite pasar de APPROVED a VOIDED\",\"path\":\"/api/v1/medical-notes/39e491e8-db03-43f1-90dc-6d2956e8c157/status\",\"code\":\"INVALID_TRANSITION\"}"
+    },
+    {
+      "label": "anulada a vigente",
+      "blocked": true,
+      "error": "/medical-notes/530d50aa-1787-4e31-91e1-3f448ef62b4d/status HTTP 409 {\"timestamp\":\"2026-11-06T16:35:01.828089351Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"Transición de estado inválida: no se permite pasar de VOIDED a APPROVED\",\"path\":\"/api/v1/medical-notes/530d50aa-1787-4e31-91e1-3f448ef62b4d/status\",\"code\":\"INVALID_TRANSITION\"}"
+    },
+    {
+      "label": "alta aprobada",
+      "blocked": true,
+      "error": "/medical-notes HTTP 400 {\"timestamp\":\"2026-11-06T16:35:01.862758261Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Toda nota médica debe crearse como BORRADOR; emítala o anúlela después\",\"path\":\"/api/v1/medical-notes\",\"code\":\"BAD_REQUEST\"}"
+    }
+  ],
+  "concurrent": [
+    "/medical-notes/706e5d27-a305-4bf1-8d13-d5729340e22f/status HTTP 409 {\"timestamp\":\"2026-11-06T16:35:01.923244982Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"Transición de estado inválida: no se permite pasar de VOIDED a APPROVED\",\"path\":\"/api/v1/medical-notes/706e5d27-a305-4bf1-8d13-d5729340e22f/status\",\"code\":\"INVALID_TRANSITION\"}",
+    "VOIDED"
+  ]
+}

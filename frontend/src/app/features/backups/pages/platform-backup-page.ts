@@ -80,7 +80,7 @@ const POLL_MS = 3000;
     .notice h2, .card h2 { font-size: 15px; margin: 0 0 6px; }
     .notice p { line-height: 1.5; margin: 4px 0 0; }
     .notice.warn { background: #fff8e6; border-color: #e8cf8a; color: #5c4300; }
-    .notice.info { background: #eef6ff; border-color: #b9d4f2; color: #12385f; }
+    .notice.info { background: #ecf7f2; border-color: #b9d4f2; color: #12385f; }
     .notice.error { background: #fdeeee; border-color: #e5b4b4; color: #7a1f1f; }
     dl { display: grid; gap: 10px; margin: 0; }
     dl div { display: grid; gap: 2px; }

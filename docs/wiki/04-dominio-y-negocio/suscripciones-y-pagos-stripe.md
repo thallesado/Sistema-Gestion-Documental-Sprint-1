@@ -1,6 +1,6 @@
 # Suscripciones y pagos recurrentes con Stripe
 
-> Revisión documental: 2026-10-27. Base `3f80c45` más implementación local sin commit (ciclo de vida de la suscripción, migración 061). Describe código; no acredita claves, precios ni webhook configurados en ningún servidor.
+> Revisión documental: 2026-11-05. Base `91fb767` más cambios locales sin commit (ciclo de vida y migración 086). Describe código; no acredita claves, precios ni webhook configurados en ningún servidor.
 
 ## Modelo
 
@@ -80,3 +80,5 @@ Variables: `STRIPE_API_KEY` (clave restringida con permisos de escritura en Chec
 - `invoice.payment_failed` no se escucha: el cambio a `past_due` llega por `customer.subscription.updated`.
 
 Fuentes: [SubscriptionLifecycleService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/SubscriptionLifecycleService.java), [061_subscription_lifecycle.sql](../../../database/init/061_subscription_lifecycle.sql), [subscription-page.ts](../../../frontend/src/app/features/billing/pages/subscription-page.ts), [StripeSubscriptionService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/StripeSubscriptionService.java), [StripeBillingProperties.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/billing/StripeBillingProperties.java), [PublicSubscriptionController.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PublicSubscriptionController.java), [BillingService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/BillingService.java), [059_stripe_subscription_billing.sql](../../../database/init/059_stripe_subscription_billing.sql), [pricing-page.ts](../../../frontend/src/app/features/pricing/pages/pricing-page.ts), [checkout-success-page.ts](../../../frontend/src/app/features/pricing/pages/checkout-success-page.ts).
+
+La migración `086_secure_subscription_maintenance` mueve las escrituras globales de los jobs de suscripción y vencimiento de complementos a funciones `SECURITY DEFINER` propiedad de `nexodocs_security`. `nexodocs_app` solo puede ejecutar esas funciones; no recibe `UPDATE` directo sobre `tenant_addons`. La auditoría valida tenant, usuario y permiso en operaciones de usuario, y limita las operaciones sin actor a los eventos esperados del job.

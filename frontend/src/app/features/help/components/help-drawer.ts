@@ -800,7 +800,7 @@ const FAQS: HelpFaq[] = [
       color: #64748b;
     }
     .assistant-btn {
-      background: #0284c7;
+      background: #0f7f6b;
       color: #ffffff;
       border: none;
       border-radius: 8px;
@@ -815,7 +815,7 @@ const FAQS: HelpFaq[] = [
       transition: background 0.15s;
     }
     .assistant-btn:hover {
-      background: #0369a1;
+      background: #0f6b5f;
     }
 
     /* Tabs */

@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:nexodocs_mobile/core/api/api_client.dart';
 import 'package:nexodocs_mobile/core/api/auth_api.dart';
+import 'package:nexodocs_mobile/core/errors/api_exception.dart';
 import 'package:nexodocs_mobile/core/auth/user_permissions.dart';
 import 'package:nexodocs_mobile/core/notifications/background_worker.dart';
 import 'package:nexodocs_mobile/core/notifications/workflow_notifications.dart';
@@ -45,6 +46,53 @@ AuthApi apiWith(FakeServer server, List<String> permissions) =>
 
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+
+  group('autenticación con backend', () {
+    test('login de plataforma y perfil verificado usan el contrato de sesión', () async {
+      final server = FakeServer({
+        'POST /auth/login': (_) => FakeServer.json({
+          'token': 'access', 'refreshToken': 'refresh', 'mustChangePassword': true,
+          'permissions': ['platform:tenant:manage'],
+        }),
+        'GET /auth/me': (_) => FakeServer.json({
+          'username': 'admin', 'platformAdmin': true, 'mustChangePassword': true,
+          'permissions': ['platform:tenant:manage'],
+        }),
+      });
+      final api = AuthApi(client: server.client);
+      await api.login(tenantId: '', username: 'admin', password: 'clave');
+      await api.restoreProfile();
+      expect(api.platformAdmin, isTrue);
+      expect(api.mustChangePassword, isTrue);
+      expect(jsonDecode(server.requests.first.body), {
+        'usernameOrEmail': 'admin', 'password': 'clave',
+      });
+    });
+
+    test('recuperación y cambio de contraseña envían los campos del backend', () async {
+      signedIn();
+      final server = FakeServer({
+        'POST /auth/forgot-password': (_) => FakeServer.json({'message': 'Solicitud recibida'}),
+        'PUT /auth/me/password': (_) => http.Response('', 204),
+      });
+      final api = AuthApi(client: server.client);
+      expect(await api.requestRecovery(tenantId: 'tenant-1', email: 'a@b.com'), 'Solicitud recibida');
+      await api.changePassword(currentPassword: 'actual', newPassword: 'nueva-segura');
+      expect(jsonDecode(server.requests[0].body), {'tenantId': 'tenant-1', 'email': 'a@b.com'});
+      expect(jsonDecode(server.requests[1].body), {'currentPassword': 'actual', 'newPassword': 'nueva-segura'});
+    });
+
+    test('MUST_CHANGE_PASSWORD avisa a la navegación de sesión', () async {
+      signedIn();
+      final server = FakeServer({
+        'GET /auth/me': (_) => FakeServer.json({'code': 'MUST_CHANGE_PASSWORD', 'message': 'Cambio obligatorio'}, 403),
+      });
+      final api = AuthApi(client: server.client);
+      expect(() => api.restoreProfile(), throwsA(isA<ApiException>()));
+      await Future<void>.delayed(Duration.zero);
+      expect(api.client.passwordChangeRequired.value, 1);
+    });
+  });
 
   group('permisos (punto 4)', () {
     test('sin el campo permissions no se oculta nada; con él solo lo concedido', () {
@@ -137,7 +185,10 @@ void main() {
     testWidgets('sin document:update no aparece el botón de nueva versión', (tester) async {
       signedIn();
       final server = FakeServer({
-        'GET /documents/doc-1': (_) => FakeServer.json(document()),
+        'GET /documents/doc-1': (_) => http.Response(
+              jsonEncode(document()), 200,
+              headers: {'content-type': 'application/json', 'etag': '"doc-state-1"'},
+            ),
         'GET /documents/doc-1/versions': (_) => FakeServer.json([]),
       });
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: DocumentDetailSheet(api: apiWith(server, ['document:read']), documentId: 'doc-1'))));
@@ -150,13 +201,19 @@ void main() {
       final photo = File('${Directory.systemTemp.createTempSync('nexodocs').path}/foto.jpg')..writeAsBytesSync([0xff, 0xd8, 0xff, 0xd9]);
       var versions = <Map<String, dynamic>>[];
       final server = FakeServer({
-        'GET /documents/doc-1': (_) => FakeServer.json(document()),
+        'GET /documents/doc-1': (_) => http.Response(
+              jsonEncode(document()), 200,
+              headers: {'content-type': 'application/json', 'etag': '"doc-state-1"'},
+            ),
         'GET /documents/doc-1/versions': (_) => FakeServer.json(versions),
         'POST /documents/doc-1/versions': (_) {
           versions = [
             {'id': 'v1', 'versionNumber': 1, 'fileName': 'foto_1.jpg', 'fileSizeBytes': 4},
           ];
-          return FakeServer.json(versions.first, 201);
+          return http.Response(
+            jsonEncode(versions.first), 201,
+            headers: {'content-type': 'application/json', 'etag': '"doc-state-2"'},
+          );
         },
       });
       Future<PickedUpload?> fakeCamera(UploadOrigin origin) async =>
@@ -185,6 +242,7 @@ void main() {
 
       final upload = server.requests.singleWhere((r) => r.method == 'POST');
       expect(upload.headers['content-type'], startsWith('multipart/form-data'));
+      expect(upload.headers['if-match'], '"doc-state-1"');
       final body = latin1.decode(upload.bodyBytes);
       expect(body, contains('name="changeReason"'));
       expect(body, contains('Firma del cliente'));

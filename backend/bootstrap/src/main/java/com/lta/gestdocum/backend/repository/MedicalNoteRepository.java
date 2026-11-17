@@ -13,6 +13,11 @@ import java.util.List;
 public interface MedicalNoteRepository extends JpaRepository<MedicalNote, UUID> {
     Optional<MedicalNote> findByIdAndTenantId(UUID id, UUID tenantId);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select n from MedicalNote n where n.id = :id and n.tenantId = :tenantId")
+    Optional<MedicalNote> findForTransition(@org.springframework.data.repository.query.Param("id") UUID id,
+                                         @org.springframework.data.repository.query.Param("tenantId") UUID tenantId);
+
     List<MedicalNote> findByTenantIdAndClinicalHistoryIdOrderByCreatedAtDesc(
             UUID tenantId, UUID clinicalHistoryId);
 

@@ -10,7 +10,6 @@ import '../../core/widgets/form_fields.dart';
 import '../../core/widgets/state_views.dart';
 import '../documents/create_document_page.dart';
 import '../documents/document_detail_sheet.dart';
-import 'expedient_labels.dart';
 
 /// Ficha de un expediente: datos, documentos vinculados y cambios de estado
 /// (cerrar, archivar, reabrir), con los mismos endpoints que la web.

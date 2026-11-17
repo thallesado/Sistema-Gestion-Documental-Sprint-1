@@ -51,6 +51,13 @@ public class ClinicalHistoryController {
         return ResponseEntity.ok(service.find(patientId, filter, pageable));
     }
 
+    @GetMapping("/deletion")
+    @PreAuthorize("hasAuthority('patient:read')")
+    public ResponseEntity<com.lta.gestdocum.backend.dto.ClinicalHistoryDeletionResponse> deletion(@RequestParam UUID patientId) {
+        var deletion = service.findDeletion(patientId);
+        return deletion == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(deletion);
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('patient:read')")
     @Operation(summary = "Consultar historia clínica")

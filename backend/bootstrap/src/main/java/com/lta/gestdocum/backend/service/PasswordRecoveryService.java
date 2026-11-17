@@ -15,7 +15,13 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import com.lta.gestdocum.backend.security.TenantDatabaseContext;
+import java.util.List;
+import java.util.UUID;
+import java.util.function.Supplier;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -40,6 +46,8 @@ public class PasswordRecoveryService {
     private final String frontendUrl;
     private final String mailFrom;
     private final long tokenExpirationMinutes;
+    private volatile JdbcTemplate tenantJdbc;
+    private volatile TransactionTemplate transactions;
 
     public PasswordRecoveryService(
             UserRepository userRepository,
@@ -50,7 +58,8 @@ public class PasswordRecoveryService {
             AuthSessionService authSessionService,
             @Value("${app.frontend-url:http://localhost:4200}") String frontendUrl,
             @Value("${app.mail-from:hello@demomailtrap.co}") String mailFrom,
-            @Value("${app.password-recovery-expiration-minutes:30}") long tokenExpirationMinutes) {
+            @Value("${app.password-recovery-expiration-minutes:30}") long tokenExpirationMinutes,
+            PlatformTransactionManager transactionManager) {
         this.userRepository = userRepository;
         this.requestRepository = requestRepository;
         this.passwordEncoder = passwordEncoder;
@@ -60,48 +69,87 @@ public class PasswordRecoveryService {
         this.frontendUrl = frontendUrl;
         this.mailFrom = mailFrom;
         this.tokenExpirationMinutes = tokenExpirationMinutes;
+        this.transactions = new TransactionTemplate(transactionManager);
     }
 
-    @Transactional
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setTenantJdbc(JdbcTemplate jdbc) { this.tenantJdbc = jdbc; }
+
     public String requestRecovery(ForgotPasswordRequest request) {
-        (request.tenantId() == null
-                ? userRepository.findByPlatformIdentifier(request.email())
-                : userRepository.findByTenantAndIdentifier(request.tenantId(), request.email()))
-                .filter(user -> user.getDeletedAt() == null && user.getStatus() == UserStatus.ACTIVE)
-                .ifPresent(user -> createAndSend(user));
-        return GENERIC_RESPONSE;
+        return inTenant(request.tenantId(), () -> {
+            JdbcTemplate jdbc = requireJdbc();
+            List<User> matches = jdbc.query("SELECT * FROM app.lookup_tenant_login(?::uuid, ?::text)",
+                    (row, index) -> User.builder().id(row.getObject("id", UUID.class))
+                            .tenantId(row.getObject("tenant_id", UUID.class)).username(row.getString("username"))
+                            .email(row.getString("email")).passwordHash(row.getString("password_hash"))
+                            .firstName(row.getString("first_name")).lastName(row.getString("last_name"))
+                            .status(UserStatus.valueOf(row.getString("status")))
+                            .deletedAt(row.getObject("deleted_at", OffsetDateTime.class))
+                            .isPlatformAdmin(row.getBoolean("is_platform_admin")).build(),
+                    request.tenantId(), request.email());
+            jdbc.execute("SET LOCAL ROLE nexodocs_app");
+            matches.stream().filter(user -> user.getDeletedAt() == null && user.getStatus() == UserStatus.ACTIVE)
+                    .findFirst().ifPresent(this::createAndSend);
+            return GENERIC_RESPONSE;
+        });
     }
 
-    @Transactional
     public AuthResponse resetPassword(ResetPasswordRequest request) {
-        String rawToken = normalizeToken(request.token());
-        PasswordRecoveryRequest recovery = requestRepository.findByTokenHashAndUsedAtIsNull(hash(rawToken))
-                .filter(item -> item.getExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC)))
-                .orElseThrow(InvalidCredentialsException::new);
+        UUID tenantId = request.tenantId();
+        return inTenant(tenantId, () -> {
+            JdbcTemplate jdbc = requireJdbc();
+            String rawToken = normalizeToken(request.token());
+            List<PasswordRecoveryRequest> found = jdbc.query(
+                    "SELECT * FROM app.lookup_password_recovery(?::text)",
+                    (row, index) -> PasswordRecoveryRequest.builder().id(row.getObject("id", UUID.class))
+                            .userId(row.getObject("user_id", UUID.class)).tenantId(row.getObject("tenant_id", UUID.class))
+                            .tokenHash(row.getString("token_hash")).expiresAt(row.getObject("expires_at", OffsetDateTime.class))
+                            .usedAt(row.getObject("used_at", OffsetDateTime.class))
+                            .createdAt(row.getObject("created_at", OffsetDateTime.class)).build(), hash(rawToken));
+            PasswordRecoveryRequest recovery = found.stream().findFirst()
+                    .filter(item -> tenantId == null || tenantId.equals(item.getTenantId()))
+                    .orElseThrow(InvalidCredentialsException::new);
+            jdbc.execute("SET LOCAL ROLE nexodocs_app");
+            return completeReset(request, recovery);
+        });
+    }
 
+    private AuthResponse completeReset(ResetPasswordRequest request, PasswordRecoveryRequest recovery) {
+        recovery = requestRepository.findByTokenHashAndUsedAtIsNull(recovery.getTokenHash())
+                .orElseThrow(InvalidCredentialsException::new);
+        if (!recovery.getExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC))) throw new InvalidCredentialsException();
         User user = userRepository.findByIdAndTenantIdAndDeletedAtIsNull(recovery.getUserId(), recovery.getTenantId())
                 .filter(candidate -> candidate.getStatus() == UserStatus.ACTIVE)
                 .orElseThrow(InvalidCredentialsException::new);
-
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         recovery.setUsedAt(OffsetDateTime.now(ZoneOffset.UTC));
         userRepository.save(user);
         requestRepository.save(recovery);
-
         authSessionService.revokeAll(user.getId());
-
         var authorities = user.isPlatformAdmin()
                 ? com.lta.gestdocum.backend.security.PlatformAuthorities.CODES
                 : userRepository.findAuthorityCodes(user.getId(), user.getTenantId());
-        if (authorities.isEmpty()) {
-            throw new InvalidCredentialsException();
-        }
-        String accessToken = jwtService.generateToken(
-                user.getId(), user.getTenantId(), user.getUsername(), authorities);
-        String refreshToken = jwtService.generateRefreshToken(
-                user.getId(), user.getTenantId(), user.getUsername());
+        if (authorities.isEmpty()) throw new InvalidCredentialsException();
+        String accessToken = jwtService.generateToken(user.getId(), user.getTenantId(), user.getUsername(), authorities);
+        String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getTenantId(), user.getUsername());
         authSessionService.issue(user, refreshToken, jwtService.getRefreshExpiration());
         return new AuthResponse(accessToken, "Bearer", refreshToken, jwtService.getExpiration(), authorities);
+    }
+
+    private <T> T inTenant(UUID tenantId, Supplier<T> work) {
+        TenantDatabaseContext.Scope scope = tenantId == null
+                ? TenantDatabaseContext.useControl() : TenantDatabaseContext.useTenant(tenantId);
+        try (scope) {
+            TransactionTemplate tx = transactions;
+            if (tx == null) throw new IllegalStateException("No está disponible la transacción de recuperación.");
+            return tx.execute(status -> work.get());
+        }
+    }
+
+    private JdbcTemplate requireJdbc() {
+        JdbcTemplate jdbc = tenantJdbc;
+        if (jdbc == null) throw new IllegalStateException("No está disponible la base de datos de recuperación.");
+        return jdbc;
     }
 
     private void createAndSend(User user) {
@@ -123,7 +171,7 @@ public class PasswordRecoveryService {
         message.setSubject("Recuperación de contraseña - NexoDocs");
         message.setText("Solicitaste recuperar tu contraseña. Usa este enlace dentro de "
                 + tokenExpirationMinutes + " minutos:\n\n"
-                + frontendUrl + "/reset-password/" + rawToken
+                + frontendUrl + "/reset-password/" + rawToken + "?tenantId=" + user.getTenantId()
                 + "\n\nSi no fuiste tú, ignora este correo.");
         try {
             mailSender.send(message);

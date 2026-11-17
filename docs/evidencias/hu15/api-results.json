@@ -1,0 +1,111 @@
+{
+  "documentId": "4e7f09da-5a2e-4018-a508-183ed649d826",
+  "archiveHttp": 200,
+  "sha256": "e70c2e73c90538778ed7b762ffd688c4faff5e2d47d94996569ea6e200f71340",
+  "archivedUpload": {
+    "status": 409,
+    "body": {
+      "timestamp": "2026-11-06T18:49:30.416031316Z",
+      "status": 409,
+      "error": "Conflict",
+      "message": "Restaura el documento antes de agregar una nueva version al archivo historico",
+      "path": "/api/v1/documents/4e7f09da-5a2e-4018-a508-183ed649d826/versions",
+      "code": "RESOURCE_CONFLICT"
+    }
+  },
+  "historicalDownload": {
+    "filename": "hu15-informe.pdf",
+    "sha256": "e70c2e73c90538778ed7b762ffd688c4faff5e2d47d94996569ea6e200f71340"
+  },
+  "restoreWithoutPermission": {
+    "status": 403,
+    "body": {
+      "timestamp": "2026-11-06T18:53:31.447827934Z",
+      "status": 403,
+      "error": "Forbidden",
+      "message": "Se requiere permiso document:archive para archivar o restaurar documentos",
+      "path": "/api/v1/documents/4e7f09da-5a2e-4018-a508-183ed649d826/status",
+      "code": "PERMISSION_DENIED"
+    }
+  },
+  "restoreHttp": 200,
+  "archiveWithoutPermission": {
+    "status": 403,
+    "body": {
+      "timestamp": "2026-11-06T18:51:33.396768459Z",
+      "status": 403,
+      "error": "Forbidden",
+      "message": "Se requiere permiso document:archive para archivar o restaurar documentos",
+      "path": "/api/v1/documents/4e7f09da-5a2e-4018-a508-183ed649d826/status",
+      "code": "PERMISSION_DENIED"
+    }
+  },
+  "restrictedAuthorities": [
+    "document:update",
+    "document:download",
+    "user:read",
+    "document_version:read",
+    "document:read",
+    "configuration:read",
+    "role:read"
+  ],
+  "filters": {
+    "activeAfterRestore": 1,
+    "historicalAfterRestore": 0,
+    "activeWhenArchived": 0,
+    "historicalWhenArchived": 1
+  },
+  "invalidArchiveFilter": 400,
+  "restoredDownload": {
+    "status": 200,
+    "sha256": "e70c2e73c90538778ed7b762ffd688c4faff5e2d47d94996569ea6e200f71340"
+  },
+  "restrictedRestoreButtons": 0,
+  "restrictedDownload": 200,
+  "finalDocument": {
+    "id": "4e7f09da-5a2e-4018-a508-183ed649d826",
+    "documentTypeId": "43dcb70e-0f19-41dc-a5fb-a76d19adc543",
+    "expedientId": null,
+    "authorId": "0faf0a14-5cfc-4a48-92c2-bf8add6ae039",
+    "responsibleId": null,
+    "departmentId": null,
+    "patientId": null,
+    "specialty": null,
+    "institutionalProcess": null,
+    "metadata": {
+      "reference": "REF-HU15"
+    },
+    "code": "HU15-ARCHIVO",
+    "name": "HU15 - Informe de archivo digital",
+    "description": "Documento sintetico para verificar archivo y restauracion sin perder versiones.",
+    "status": "CURRENT",
+    "currentVersion": 1,
+    "issueDate": "2026-11-06",
+    "expiryDate": null,
+    "externalSource": false,
+    "source": null,
+    "createdAt": "2026-11-06T18:46:29.857283Z",
+    "updatedAt": "2026-11-06T18:53:31.652643Z",
+    "documentTypeName": "Informe Tecnico",
+    "documentTypeCode": "TECH_REPORT",
+    "categoryName": "Administrativo",
+    "departmentName": null,
+    "authorName": "Revisor HU09",
+    "responsibleName": null,
+    "patientName": null,
+    "expedientCode": null
+  },
+  "finalVersions": [
+    {
+      "id": "b18fd8c9-ac9a-4c9a-add5-2a816302ccd7",
+      "documentId": "4e7f09da-5a2e-4018-a508-183ed649d826",
+      "versionNumber": 1,
+      "fileName": "hu15-informe.pdf",
+      "mimeType": "application/pdf",
+      "fileSizeBytes": 3329,
+      "checksumSha256": "e70c2e73c90538778ed7b762ffd688c4faff5e2d47d94996569ea6e200f71340",
+      "changeReason": "Carga inicial sintetica HU15",
+      "createdAt": "2026-11-06T18:46:44.703169Z"
+    }
+  ]
+}

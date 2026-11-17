@@ -1,27 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/auth_api.dart';
+import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
+import '../../core/models/workflow_task_model.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/state_views.dart';
-import '../../features/dashboard/presentation/widgets/dashboard_kpi_grid.dart';
-import '../../features/dashboard/presentation/widgets/dashboard_quick_actions.dart';
-import '../../features/dashboard/presentation/widgets/dashboard_welcome_card.dart';
-import '../../features/documents/presentation/widgets/document_item_tile.dart';
-import '../../features/tasks/presentation/widgets/task_item_card.dart';
-import '../documents/create_document_page.dart';
+import '../audit/audit_log_page.dart';
 import '../documents/document_detail_sheet.dart';
-import '../scan/scan_document_page.dart';
 import '../tasks/task_detail_page.dart';
 import '../../core/i18n/app_language.dart';
 
 class DashboardTab extends StatefulWidget {
-  const DashboardTab({super.key, required this.api, required this.onNavigateToTab, required this.isTabVisible});
+  const DashboardTab({super.key, required this.api, required this.onNavigateToTab});
 
   final AuthApi api;
   final void Function(int tabIndex) onNavigateToTab;
-  final bool Function(int tabIndex) isTabVisible;
 
   @override
   State<DashboardTab> createState() => _DashboardTabState();
@@ -29,7 +24,7 @@ class DashboardTab extends StatefulWidget {
 
 class _DashboardTabState extends State<DashboardTab> {
   Map<String, dynamic>? data;
-  List<Map<String, dynamic>> pendingTasks = [];
+  List<WorkflowTaskModel> pendingTasks = [];
   int pendingTotal = 0;
   bool loading = true;
   String? error;
@@ -52,9 +47,10 @@ class _DashboardTabState extends State<DashboardTab> {
       ]);
       if (!mounted) return;
       final tasksPage = results[1];
+      final rawItems = (tasksPage['content'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
       setState(() {
         data = results[0];
-        pendingTasks = (tasksPage['content'] as List<dynamic>).cast<Map<String, dynamic>>();
+        pendingTasks = rawItems.map(WorkflowTaskModel.fromJson).toList();
         pendingTotal = tasksPage['totalElements'] as int? ?? pendingTasks.length;
       });
     } on ApiException catch (exception) {
@@ -67,14 +63,14 @@ class _DashboardTabState extends State<DashboardTab> {
   /// Mismo saludo que la web según la hora local.
   String get greeting {
     final hour = DateTime.now().hour;
-    if (hour < 12) return tr('Buenos días');
-    if (hour < 19) return tr('Buenas tardes');
-    return tr('Buenas noches');
+    if (hour < 12) return context.tr('Buenos días');
+    if (hour < 19) return context.tr('Buenas tardes');
+    return context.tr('Buenas noches');
   }
 
-  Future<void> openTask(Map<String, dynamic> task) async {
+  Future<void> openTask(WorkflowTaskModel task) async {
     final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => TaskDetailPage(api: widget.api, taskId: task['id'] as String)),
+      MaterialPageRoute(builder: (_) => TaskDetailPage(api: widget.api, taskId: task.id)),
     );
     if (changed == true) loadData();
   }
@@ -88,7 +84,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
     final user = data?['currentUser'] as Map<String, dynamic>? ?? {};
     final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
-    final tenantName = user['tenantName'] as String? ?? tr('Plataforma');
+    final tenantName = user['tenantName'] as String? ?? context.tr('Plataforma');
     final docs = (data?['recentDocuments'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
     final activities = (data?['recentActivity'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
 
@@ -101,58 +97,139 @@ class _DashboardTabState extends State<DashboardTab> {
           if (error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text(context.tr('No se pudo actualizar: {error}', {'error': error}), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              child: Text(tr('No se pudo actualizar: {error}', {'error': error}), style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ),
-          DashboardWelcomeCard(
-            greeting: name.isEmpty ? greeting : '$greeting, $name',
-            tenantName: tenantName,
-            summary: tr('Aquí tienes un resumen de lo que está ocurriendo en tu organización.'),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [AppTheme.teal, AppTheme.tealDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.domain, color: Colors.white, size: 14),
+                  const SizedBox(width: 4),
+                  Text(tenantName, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                name.isEmpty ? greeting : '$greeting, $name',
+                key: const Key('dashboard-greeting'),
+                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                context.tr('Aquí tienes un resumen de lo que está ocurriendo en tu organización.'),
+                style: TextStyle(color: AppTheme.mint, fontSize: 13),
+              ),
+            ]),
           ),
           const SizedBox(height: 16),
-          DashboardKpiGrid(
-            pendingTotal: pendingTotal,
-            docCount: docs.length,
-            pendingTitle: tr('Tareas pendientes'),
-            pendingSubtitle: tr('Requieren tu atención'),
-            docsTitle: tr('Documentos'),
-            docsSubtitle: tr('Con actividad reciente'),
-            onNavigateToTab: widget.onNavigateToTab,
-          ),
-          const SizedBox(height: 20),
-          DashboardQuickActions(
-            onScan: () => Navigator.of(context).push<void>(MaterialPageRoute<void>(builder: (_) => ScanDocumentPage(api: widget.api))),
-            onNewDocument: () => Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(builder: (_) => CreateDocumentPage(api: widget.api))).then((created) {
-              if (created != null && mounted) loadData();
-            }),
-            onPatients: widget.isTabVisible(3) ? () => widget.onNavigateToTab(3) : null,
-          ),
-          _SectionHeader(title: tr('Mis tareas pendientes'), action: tr('Ver todas →'), onAction: () => widget.onNavigateToTab(2)),
+          Row(children: [
+            Expanded(
+              child: _KpiCard(
+                title: context.tr('Tareas pendientes'),
+                value: '$pendingTotal',
+                subtitle: context.tr('Requieren tu atención'),
+                icon: Icons.check_circle_outline,
+                color: const Color(0xffd97706),
+                onTap: () => widget.onNavigateToTab(2),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _KpiCard(
+                title: context.tr('Documentos'),
+                value: '${docs.length}',
+                subtitle: context.tr('Con actividad reciente'),
+                icon: Icons.description_outlined,
+                color: AppTheme.teal,
+                onTap: () => widget.onNavigateToTab(1),
+              ),
+            ),
+          ]),
+          if (widget.api.permissions.value.can(Permissions.expedientRead)) ...[
+            const SizedBox(height: 12),
+            Card(
+              key: const Key('dashboard-expedients-card'),
+              elevation: 0,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.grey.shade200),
+              ),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: AppTheme.mint,
+                  child: const Icon(Icons.folder_special, color: AppTheme.teal, size: 20),
+                ),
+                title: Text(context.tr('Expedientes Digitales'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: Text(context.tr('Consulta y seguimiento a tus radicaciones')),
+                trailing: const Icon(Icons.chevron_right, color: AppTheme.teal),
+                onTap: () => widget.onNavigateToTab(3),
+              ),
+            ),
+          ],
+          if (AuditPermissions.canRead(widget.api.permissions.value)) ...[
+            const SizedBox(height: 10),
+            Card(
+              key: const Key('dashboard-audit-card'),
+              elevation: 0,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.grey.shade200),
+              ),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: AppTheme.mint,
+                  child: const Icon(Icons.shield_outlined, color: AppTheme.teal, size: 20),
+                ),
+                title: Text(context.tr('Pistas de Auditoría y Trazabilidad'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: Text(context.tr('Accesos, descargas, estados y cadena SHA-256')),
+                trailing: const Icon(Icons.chevron_right, color: AppTheme.teal),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => AuditLogPage(api: widget.api)),
+                ),
+              ),
+            ),
+          ],
+          _SectionHeader(title: context.tr('Mis tareas pendientes'), action: context.tr('Ver todas →'), onAction: () => widget.onNavigateToTab(2)),
           if (pendingTasks.isEmpty)
-            _EmptyCard(tr('No tienes tareas pendientes.'))
+            _EmptyCard(context.tr('No tienes tareas pendientes.'))
           else
-            ...pendingTasks.take(3).map((task) => TaskItemCard(
-              task: task,
+            ...pendingTasks.take(3).map((task) => _Item(
+              icon: Icons.radio_button_unchecked,
+              iconColor: const Color(0xffd97706),
+              title: task.title,
+              subtitle: '${task.workflowTitle ?? ''} · vence ${formatDate(task['due_at'])}',
+              trailing: StatusBadge(stageTypeLabel(task.stageType), tone: BadgeTone.brand),
               onTap: () => openTask(task),
             )),
-          _SectionHeader(title: tr('Documentos recientes'), action: tr('Ver todos →'), onAction: () => widget.onNavigateToTab(1)),
+          _SectionHeader(title: context.tr('Documentos recientes'), action: context.tr('Ver todos →'), onAction: () => widget.onNavigateToTab(1)),
           if (docs.isEmpty)
-            _EmptyCard(tr('No hay documentos recientes.'))
+            _EmptyCard(context.tr('No hay documentos recientes.'))
           else
-            ...docs.take(3).map((doc) => DocumentItemTile(
-              doc: doc,
+            ...docs.take(3).map((doc) => _Item(
+              icon: Icons.description_outlined,
+              iconColor: AppTheme.teal,
+              title: doc['name'] as String? ?? context.tr('Documento'),
+              subtitle: [doc['code'], doc['size'], formatDate(doc['updatedAt'])].whereType<Object>().join(' · '),
+              trailing: StatusBadge(documentStatusLabel(doc['status'] as String?), tone: documentStatusTone(doc['status'] as String?)),
               onTap: () => showDocumentDetail(context, widget.api, doc['id'] as String),
             )),
-          _SectionHeader(title: tr('Actividad reciente')),
-          if (activities.isEmpty)
-            _EmptyCard(tr('No hay registros de actividad recientes.'))
-          else
-            ...activities.take(5).map((act) => _Item(
-              icon: Icons.history,
-              iconColor: Colors.grey,
-              title: '${act['action'] ?? 'Acción'} · ${act['entityType'] ?? ''}',
-              subtitle: '${act['actorName'] ?? 'Sistema'} · ${formatDate(act['occurredAt'], withTime: true)}',
+          if (activities.isNotEmpty) ...[
+            _SectionHeader(title: context.tr('Actividad reciente')),
+            ...activities.take(5).map((act) => _ActivityItem(
+              description: act['description'] as String? ?? context.tr('Actividad registrada'),
+              timestamp: formatDate(act['timestamp'], withTime: true),
+              userName: act['userName'] as String? ?? '',
             )),
-          const SizedBox(height: 24),
+          ],
         ],
       ),
     );
@@ -167,35 +244,121 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 20, bottom: 6),
-    child: Row(children: [
-      // Flexible: con letra grande (accesibilidad) el título no empuja el botón fuera de pantalla.
-      Expanded(
-        child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink)),
+    padding: const EdgeInsets.only(top: 20, bottom: 8),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.ink),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (action != null && onAction != null) ...[
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: onAction,
+            child: Text(action!, style: const TextStyle(fontSize: 12, color: AppTheme.teal, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({required this.title, required this.value, required this.subtitle, required this.icon, required this.color, required this.onTap});
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    elevation: 0,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(icon, color: color, size: 20),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 2),
+          Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ]),
       ),
-      if (action != null)
-        TextButton(onPressed: onAction, child: Text(action!, style: const TextStyle(color: AppTheme.teal, fontWeight: FontWeight.w600))),
-    ]),
+    ),
   );
 }
 
 class _Item extends StatelessWidget {
-  const _Item({required this.icon, required this.iconColor, required this.title, required this.subtitle});
+  const _Item({required this.icon, required this.iconColor, required this.title, required this.subtitle, this.trailing, required this.onTap});
   final IconData icon;
   final Color iconColor;
   final String title;
   final String subtitle;
+  final Widget? trailing;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(bottom: 8),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppTheme.line)),
+    elevation: 0,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.grey.shade200)),
     child: ListTile(
       dense: true,
       leading: Icon(icon, color: iconColor, size: 20),
-      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink)),
-      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), overflow: TextOverflow.ellipsis),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: trailing,
+      onTap: onTap,
     ),
+  );
+}
+
+class _ActivityItem extends StatelessWidget {
+  const _ActivityItem({required this.description, required this.timestamp, required this.userName});
+  final String description;
+  final String timestamp;
+  final String userName;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        margin: const EdgeInsets.only(top: 4, right: 10),
+        width: 8,
+        height: 8,
+        decoration: const BoxDecoration(color: AppTheme.teal, shape: BoxShape.circle),
+      ),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(description, style: const TextStyle(fontSize: 13, color: AppTheme.ink)),
+          const SizedBox(height: 2),
+          Text([userName, timestamp].where((s) => s.isNotEmpty).join(' · '), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        ]),
+      ),
+    ]),
   );
 }
 
@@ -206,7 +369,7 @@ class _EmptyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppTheme.line)),
-    child: Center(child: Text(message, style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
+    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade200)),
+    child: Text(message, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
   );
 }

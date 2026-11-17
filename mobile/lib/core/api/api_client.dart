@@ -26,6 +26,8 @@ class ApiClient {
 
   /// Se emite cuando la sesión no puede renovarse; la app vuelve al login.
   final ValueNotifier<int> sessionExpired = ValueNotifier(0);
+  /// El backend puede exigir el cambio de contraseña durante una sesión existente.
+  final ValueNotifier<int> passwordChangeRequired = ValueNotifier(0);
 
   Future<bool>? _refreshing;
 
@@ -65,6 +67,9 @@ class ApiClient {
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) async =>
       _decode(await _send(() => _client.get(uri(path, query), headers: _headers)));
 
+  Future<http.Response> getResponse(String path, {Map<String, dynamic>? query}) async =>
+      _send(() => _client.get(uri(path, query), headers: _headers));
+
   Future<dynamic> post(String path, [Object? body]) async =>
       _decode(await _send(() => _client.post(uri(path), headers: _jsonHeaders, body: jsonEncode(body ?? {}))));
 
@@ -77,13 +82,17 @@ class ApiClient {
   /// Envío `multipart/form-data` con la misma renovación de sesión que el resto de peticiones.
   /// La petición se reconstruye en cada intento porque un `MultipartRequest` solo se puede enviar una vez.
   Future<dynamic> postMultipart(String path, {Map<String, String> fields = const {}, required List<http.MultipartFile> Function() files}) async =>
-      _decode(await _send(() async {
+      _decode(await postMultipartResponse(path, fields: fields, files: files));
+
+  Future<http.Response> postMultipartResponse(String path, {Map<String, String> fields = const {}, Map<String, String> headers = const {}, required List<http.MultipartFile> Function() files}) async =>
+      _send(() async {
         final request = http.MultipartRequest('POST', uri(path))
           ..headers.addAll(_headers)
+          ..headers.addAll(headers)
           ..fields.addAll(fields)
           ..files.addAll(files());
         return http.Response.fromStream(await _client.send(request));
-      }));
+      });
 
   Future<Uint8List> getBytes(String path) async =>
       (await _send(() => _client.get(uri(path), headers: _headers))).bodyBytes;
@@ -95,8 +104,8 @@ class ApiClient {
     return _decode(response);
   }
 
-  Future<dynamic> getPublic(String path) async {
-    final response = await _guard(() => _client.get(uri(path), headers: _languageHeader));
+  Future<dynamic> getPublic(String path, {Map<String, dynamic>? query}) async {
+    final response = await _guard(() => _client.get(uri(path, query), headers: _languageHeader));
     _throwIfError(response);
     return _decode(response);
   }
@@ -166,7 +175,12 @@ class ApiClient {
     String? message;
     try {
       final body = jsonDecode(utf8.decode(response.bodyBytes));
-      if (body is Map && body['message'] is String) message = body['message'] as String;
+      if (body is Map) {
+        if (body['message'] is String) message = body['message'] as String;
+        if (response.statusCode == 403 && body['code'] == 'MUST_CHANGE_PASSWORD') {
+          passwordChangeRequired.value++;
+        }
+      }
     } catch (_) {}
     throw ApiException(message ?? _defaultMessage(response.statusCode), statusCode: response.statusCode);
   }

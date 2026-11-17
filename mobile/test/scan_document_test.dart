@@ -110,6 +110,26 @@ void main() {
   });
 
   group('ScanDocumentPage Widget', () {
+    testWidgets('revisa y envía correcciones antes de validar', (tester) async {
+      final server = FakeServer({
+        'GET /ocr/jobs': (_) => FakeServer.json([]),
+        'GET /ocr/jobs/job-review': (_) => FakeServer.json({'id': 'job-review', 'status': 'REQUIRES_VALIDATION', 'documentType': 'OTRO', 'patientName': 'Nombre anterior'}),
+        'POST /ocr/jobs/job-review/validate': (_) => FakeServer.json({'id': 'job-review', 'status': 'VALIDATED', 'patientName': 'Nombre corregido'}),
+      });
+      final api = AuthApi(client: server.client)..permissions.value = const UserPermissions({'ocr:read', 'ocr:update'});
+      await tester.pumpWidget(MaterialApp(home: ScanDocumentPage(api: api, initialJobId: 'job-review')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Validar'));
+      await tester.tap(find.text('Validar'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'Paciente'), 'Nombre corregido');
+      await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.widgetWithText(FilledButton, 'Validar')));
+      await tester.pumpAndSettle();
+      final request = server.requests.firstWhere((r) => r.method == 'POST') as http.Request;
+      expect(jsonDecode(request.body)['patientName'], 'Nombre corregido');
+      expect(find.text('Validado'), findsWidgets);
+      await tester.pump(const Duration(milliseconds: 500));
+    });
     testWidgets('renderiza opciones de escaneo y permite alternar a historial', (tester) async {
       final server = FakeServer({
         'GET /ocr/jobs': (_) => FakeServer.json([

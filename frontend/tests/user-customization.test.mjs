@@ -55,7 +55,7 @@ test('la portada de Configuración enlaza solo a pantallas reales y ofrece el ma
   assert.match(settingsRoutes, /path: 'settings',[\s\S]*?settings-home-page/);
   assert.match(routes, /sprintOwnedPaths = new Set\(\['settings',/);
   for (const href of [...page.matchAll(/href: '([^']+)'/g)].map((m) => m[1])) {
-    const known = ['/settings/appearance', '/users', '/users/roles', '/users/form-permissions', '/settings/statuses', '/settings/backups', '/audit', '/billing/subscription'];
+    const known = ['/settings/appearance', '/settings/retention', '/documents/transfers', '/users', '/users/roles', '/users/form-permissions', '/settings/statuses', '/settings/backups', '/audit', '/billing/subscription'];
     assert.ok(known.includes(href), `destino sin pantalla: ${href}`);
   }
   assert.match(page, /MANUAL_PDF_URL = '\/assets\/manual\/manual-de-uso-nexodocs\.pdf'/);

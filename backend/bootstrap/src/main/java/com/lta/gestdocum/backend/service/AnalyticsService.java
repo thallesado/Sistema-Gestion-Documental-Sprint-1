@@ -3,6 +3,7 @@ package com.lta.gestdocum.backend.service;
 import com.lta.gestdocum.backend.dto.analytics.AnalyticsDashboardResponse;
 import com.lta.gestdocum.backend.dto.analytics.AnalyticsDashboardResponse.*;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,12 @@ public class AnalyticsService {
 
     private final NamedParameterJdbcTemplate db;
     private final AuthenticatedUserContext context;
+    /** B2: opcional para conservar el constructor existente; sin él no se oculta nada. */
+    @Autowired(required = false)
+    private ComponentPermissionService componentPermissions;
+
+    /** B2: con el departamento oculto para el perfil, la distribución por área se agrega en una sola fila. */
+    static final String HIDDEN_AREA = "Área no visible para tu perfil";
 
     public AnalyticsService(NamedParameterJdbcTemplate db, AuthenticatedUserContext context) {
         this.db = db;
@@ -265,6 +272,13 @@ public class AnalyticsService {
         db.query(workflowSql, params, rs -> {
             areas.computeIfAbsent(rs.getString("area_name"), key -> new long[]{0, 0})[1] = rs.getLong("workflow_count");
         });
+
+        if (componentPermissions != null
+                && !componentPermissions.current(ComponentFormCatalog.DOCUMENT_FORM).visible("departamento")) {
+            long[] total = areas.values().stream()
+                    .reduce(new long[]{0, 0}, (a, b) -> new long[]{a[0] + b[0], a[1] + b[1]});
+            return areas.isEmpty() ? List.of() : List.of(new AreaDistribution(HIDDEN_AREA, total[0], total[1]));
+        }
 
         List<AreaDistribution> result = new ArrayList<>();
         areas.entrySet().stream()

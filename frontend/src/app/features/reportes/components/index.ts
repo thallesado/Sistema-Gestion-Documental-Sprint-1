@@ -5,3 +5,4 @@ export { ReportFilters } from './report-filters';
 export { ReportHeader } from './report-header';
 export { ReportTable } from './report-table';
 export { TenantSelector } from './tenant-selector';
+export { ReportiqEmbedComponent } from './reportiq-embed';

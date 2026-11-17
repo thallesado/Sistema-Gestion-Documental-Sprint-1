@@ -1,3 +1,4 @@
+import '../i18n/app_language.dart';
 /// Reglas de `POST /documents/{id}/versions`, copiadas de `DocumentStorageService` para
 /// avisar antes de enviar. El servidor vuelve a validarlas y calcula el SHA-256.
 abstract final class UploadRules {
@@ -24,12 +25,12 @@ abstract final class UploadRules {
 
   /// Mensaje de error para mostrar, o `null` si el archivo y el motivo son válidos.
   static String? validate({required String fileName, required int sizeBytes, required String reason}) {
-    if (mimeFor(fileName) == null) return 'Formato no permitido. Usa PDF, JPG, PNG o DOCX.';
-    if (sizeBytes <= 0) return 'El archivo está vacío.';
-    if (sizeBytes > maxBytes) return 'El archivo supera 25 MB.';
+    if (mimeFor(fileName) == null) return tr('Formato no permitido. Usa PDF, JPG, PNG o DOCX.');
+    if (sizeBytes <= 0) return tr('El archivo está vacío.');
+    if (sizeBytes > maxBytes) return tr('El archivo supera 25 MB.');
     final trimmed = reason.trim();
-    if (trimmed.isEmpty) return 'Indica el motivo de la nueva versión.';
-    if (trimmed.length > maxReasonLength) return 'El motivo no puede superar $maxReasonLength caracteres.';
+    if (trimmed.isEmpty) return tr('Indica el motivo de la nueva versión.');
+    if (trimmed.length > maxReasonLength) return tr('El motivo no puede superar {max} caracteres.', {'max': maxReasonLength});
     return null;
   }
 }

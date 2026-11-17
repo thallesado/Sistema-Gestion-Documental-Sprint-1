@@ -229,7 +229,7 @@ class _CreateDocumentPageState extends State<CreateDocumentPage> {
   ];
 
   Future<List<PickerOption>> _searchExpedients(String query) async => [
-    for (final e in await widget.api.expedients.list(filter: query, status: 'ACTIVE', size: 30))
+    for (final e in ((await widget.api.expedients.list(filter: query, status: 'ACTIVE', size: 30))['content'] as List<dynamic>).cast<Map<String, dynamic>>())
       PickerOption(e['id'] as String, '${e['code'] ?? ''} · ${e['name'] ?? ''}', subtitle: e['description'] as String?),
   ];
 

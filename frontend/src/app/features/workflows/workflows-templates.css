@@ -31,12 +31,12 @@
 .wf-template-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .wf-template-card{position:relative;display:flex;min-width:0;flex-direction:column;margin:0;padding:14px 15px 12px;border-radius:15px;box-shadow:0 4px 15px #153a3908}
 .wf-template-card-head{display:grid;grid-template-columns:48px auto 1fr 28px;align-items:center;gap:10px;margin:0 0 8px}
-.wf-template-card .wf-template-icon{display:grid;place-items:center;width:44px;height:44px;margin:0;border-radius:12px;background:#e6f0ff;color:#287ce1;font-size:23px}
+.wf-template-card .wf-template-icon{display:grid;place-items:center;width:44px;height:44px;margin:0;border-radius:12px;background:#e6f0ff;color:#1f9d7a;font-size:23px}
 .wf-template-card .wf-template-icon[data-category*=clín],.wf-template-card .wf-template-icon[data-category*=clin]{background:#ddf7f2;color:#07877f}
 .wf-template-card .wf-template-icon[data-category*=admin]{background:#f1e9ff;color:#8753ce}
 .wf-template-card .wf-template-icon[data-category*=compra]{background:#fff0d9;color:#ec8a09}
 .wf-template-card .wf-template-icon[data-category*=rrhh],.wf-template-card .wf-template-icon[data-category*=humano]{background:#ffe8ef;color:#d94773}
-.wf-template-category{justify-self:start;padding:5px 10px;background:#e8f1ff;color:#287ce1;font-size:10px;white-space:nowrap}
+.wf-template-category{justify-self:start;padding:5px 10px;background:#e8f5ee;color:#1f9d7a;font-size:10px;white-space:nowrap}
 .wf-template-category[data-category*=clín],.wf-template-category[data-category*=clin]{background:#ddf7f2;color:#07877f}
 .wf-template-category[data-category*=admin]{background:#f1e9ff;color:#8753ce}
 .wf-template-category[data-category*=compra]{background:#fff0d9;color:#b96400}

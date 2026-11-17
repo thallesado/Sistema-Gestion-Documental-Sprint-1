@@ -47,6 +47,8 @@ export const FORM_REGISTRY: readonly FormDefinition[] = [
       { key: 'vencimiento', label: 'Fecha de vencimiento' },
       { key: 'responsable', label: 'Responsable asignado' },
       { key: 'descripcion', label: 'Descripción / Resumen' },
+      { key: 'accion_cambiar_estado', label: 'Botón «Cambiar estado»' },
+      { key: 'accion_subir_version', label: 'Botón «Subir nueva versión»' },
     ],
   },
   {

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lta.gestdocum.backend.security.AuthenticatedUser;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
+import com.lta.gestdocum.backend.security.TenantDatabaseContext;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -29,6 +30,7 @@ import java.util.zip.*;
 /** Local tenant recovery. Packages and pinned evidence live on the existing storage volume. */
 @Service
 public class TenantBackupService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TenantBackupService.class);
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
     private final AuthenticatedUserContext context;
@@ -44,14 +46,120 @@ public class TenantBackupService {
     @PreDestroy void close() { jobs.shutdown(); }
     @FunctionalInterface private interface Work<T> { T get() throws Exception; }
     private <T> T tx(AuthenticatedUser user, String permission, Work<T> body) {
-        return transaction.execute(status -> {
+        try (TenantDatabaseContext.Scope ignored = TenantDatabaseContext.useTenant(user.tenantId())) {
+            return transaction.execute(status -> {
             jdbc.queryForObject("SELECT set_config('app.tenant_id',?,true)",String.class,user.tenantId().toString());
             jdbc.queryForObject("SELECT set_config('app.user_id',?,true)",String.class,user.userId().toString());
             if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT app.has_permission(?)",Boolean.class,permission))) throw new AccessDeniedException("Sin permiso de respaldos");
             try { return body.get(); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new IllegalStateException("Operación de respaldo fallida",e); }
-        });
+            });
+        }
     }
     private AuthenticatedUser user() { context.requireTenantId(); return context.require(); }
+
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void recoverInterruptedJobs() {
+        try {
+            List<UUID> tenants = jdbc.queryForList("""
+                    SELECT tenant_id FROM app.tenant_database_registry
+                    WHERE lifecycle_state IN ('LEGACY_SHARED','TRIAL','GRACE_READ_ONLY','ACTIVE')
+                    ORDER BY tenant_id
+                    """, UUID.class);
+            for (UUID tenantId : tenants) {
+                try (TenantDatabaseContext.Scope ignored = TenantDatabaseContext.useTenant(tenantId)) {
+                    UUID actorId = schedulerActor(tenantId, "backup:restore");
+                    String permission = "backup:restore";
+                    if (actorId == null) {
+                        actorId = schedulerActor(tenantId, "backup:create");
+                        permission = "backup:create";
+                    }
+                    if (actorId == null) continue;
+                    AuthenticatedUser actor = new AuthenticatedUser(actorId, tenantId, "backup-recovery", Set.of(permission));
+                    boolean canRetryBackup = "backup:create".equals(permission);
+                    tx(actor, permission, () -> { recoverCurrentDatabase(canRetryBackup); return null; });
+                } catch (Exception tenantFailure) {
+                    org.slf4j.LoggerFactory.getLogger(getClass()).warn(
+                            "No se pudieron recuperar las operaciones de respaldo del tenant {}", tenantId, tenantFailure);
+                }
+            }
+        } catch (Exception registryFailure) {
+            org.slf4j.LoggerFactory.getLogger(getClass()).warn(
+                    "No se pudo consultar el registro de bases; se omite la recuperación de respaldos.", registryFailure);
+        }
+    }
+
+    private UUID schedulerActor(UUID tenantId, String permission) {
+        return transaction.execute(status -> {
+            jdbc.queryForObject("SELECT set_config('app.tenant_id',?,true)", String.class, tenantId.toString());
+            return jdbc.queryForObject("SELECT app.backup_scheduler_actor(?,?)", UUID.class, tenantId, permission);
+        });
+    }
+
+    @Scheduled(fixedDelayString="${backups.poll-ms:60000}",initialDelayString="${backups.initial-delay-ms:30000}")
+    public void scheduled() {
+        try {
+            List<UUID> tenants = jdbc.queryForList("""
+                    SELECT tenant_id FROM app.tenant_database_registry
+                    WHERE lifecycle_state IN ('LEGACY_SHARED','TRIAL','GRACE_READ_ONLY','ACTIVE')
+                    ORDER BY tenant_id
+                    """, UUID.class);
+            for (UUID tenantId : tenants) {
+                try (TenantDatabaseContext.Scope ignored = TenantDatabaseContext.useTenant(tenantId)) {
+                    UUID actorId = schedulerActor(tenantId, "backup:create");
+                    if (actorId == null) continue;
+                    AuthenticatedUser actor = new AuthenticatedUser(actorId, tenantId, "backup-scheduler", Set.of("backup:create"));
+                    tx(actor, "backup:create", () -> { scheduledCurrentTenant(actor); return null; });
+                } catch (Exception tenantFailure) {
+                    org.slf4j.LoggerFactory.getLogger(getClass()).warn(
+                            "No se pudo ejecutar el ciclo de respaldos del tenant {}", tenantId, tenantFailure);
+                }
+            }
+        } catch (Exception registryFailure) {
+            org.slf4j.LoggerFactory.getLogger(getClass()).warn(
+                    "No se pudo consultar el registro de bases para el scheduler de respaldos.", registryFailure);
+        }
+    }
+
+    private void scheduledCurrentTenant(AuthenticatedUser actor) throws Exception {
+        UUID tenant = actor.tenantId();
+        jdbc.update("INSERT INTO tenant_backup_settings(tenant_id,timezone) SELECT id,timezone FROM tenants WHERE id=? ON CONFLICT DO NOTHING", tenant);
+        List<Map<String,Object>> settings = jdbc.queryForList(
+                "SELECT enabled,daily_time::text,timezone,retention_days,last_run_date FROM tenant_backup_settings WHERE tenant_id=?", tenant);
+        if (settings.isEmpty()) return;
+        Map<String,Object> setting = settings.get(0);
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.of(setting.get("timezone").toString()));
+        boolean due = Boolean.TRUE.equals(setting.get("enabled"))
+                && !now.toLocalTime().isBefore(LocalTime.parse(setting.get("daily_time").toString()))
+                && !now.toLocalDate().toString().equals(Objects.toString(setting.get("last_run_date"), ""));
+        if (due) {
+            UUID id = reserve(actor, "AUTOMATIC", false);
+            jdbc.update("UPDATE tenant_backup_settings SET last_run_date=?::date WHERE tenant_id=?", now.toLocalDate().toString(), tenant);
+            jobs.submit(() -> generate(actor, id));
+        }
+        List<UUID> expired = jdbc.queryForList("""
+                SELECT b.id FROM tenant_backups b JOIN tenant_backup_settings s ON s.tenant_id=b.tenant_id
+                WHERE b.tenant_id=? AND NOT b.pinned AND b.status='COMPLETED'
+                  AND b.created_at < now()-make_interval(days=>s.retention_days)
+                  AND NOT EXISTS(SELECT 1 FROM tenant_restore_operations o WHERE o.backup_id=b.id AND o.status='RUNNING')
+                """, UUID.class, tenant);
+        for (UUID id : expired) {
+            tx(actor, "backup:create", () -> {
+                List<UUID> eligible = jdbc.queryForList("""
+                        SELECT b.id FROM tenant_backups b JOIN tenant_backup_settings s ON s.tenant_id=b.tenant_id
+                        WHERE b.id=? AND b.tenant_id=? AND NOT b.pinned AND b.status='COMPLETED'
+                          AND b.created_at<now()-make_interval(days=>s.retention_days)
+                        FOR UPDATE OF b SKIP LOCKED
+                        """, UUID.class, id, tenant);
+                if (eligible.isEmpty()) return null;
+                try { Files.deleteIfExists(packagePath(tenant, id)); }
+                catch (IOException e) { throw new UncheckedIOException(e); }
+                jdbc.update("UPDATE tenant_backups SET status='EXPIRED',payload=NULL WHERE id=? AND tenant_id=? AND NOT pinned", id, tenant);
+                audit(actor, "BACKUP_EXPIRED", id, Map.of("automatic", true));
+                return null;
+            });
+        }
+    }
+
     private Map<String,Object> record(UUID tenant,UUID id) {
         List<Map<String,Object>> rows=jdbc.queryForList("SELECT id,origin,status,created_at,completed_at,file_size_bytes,checksum,error_message,pinned FROM tenant_backups WHERE tenant_id=? AND id=?",tenant,id);
         if(rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Respaldo no encontrado");
@@ -157,14 +265,20 @@ public class TenantBackupService {
     private Map<String,Object> verify(AuthenticatedUser u,UUID id,boolean prepare) {
         Map<String,Object> row=record(u.tenantId(),id);
         if(!"COMPLETED".equals(row.get("status"))) return Map.of("valid",false,"compatible",false,"message","Respaldo no disponible");
+        String stage = "open_package";
         try(ZipFile zip=new ZipFile(packagePath(u.tenantId(),id).toFile())) {
+            stage = "package_checksum";
             if(!Objects.equals(row.get("checksum"),sha(packagePath(u.tenantId(),id)))) throw new IOException("Checksum inválido");
+            stage = "manifest";
             JsonNode manifest=json.readTree(zip.getInputStream(zip.getEntry("manifest.json")));
             if(!u.tenantId().toString().equals(manifest.path("tenantId").asText())||!id.toString().equals(manifest.path("backupId").asText())) throw new IOException("Identidad inválida");
+            stage = "snapshot_checksum";
             byte[] snapshot=zip.getInputStream(zip.getEntry("snapshot.json")).readAllBytes();
             if(!sha(snapshot).equals(manifest.path("snapshotSha256").asText())) throw new IOException("Datos alterados");
+            stage = "stored_snapshot";
             String stored=jdbc.queryForObject("SELECT payload::text FROM tenant_backups WHERE id=? AND tenant_id=?",String.class,id,u.tenantId());
             if(!json.readTree(stored).equals(json.readTree(snapshot))) throw new IOException("Datos divergentes");
+            stage = "file_checksums";
             Set<String> references=new HashSet<>();collectReferences(json.readTree(snapshot),references);
             var it=manifest.path("files").fields();int count=0;
             while(it.hasNext()) {var e=it.next();Path file=backupFile(u.tenantId(),e.getKey(),references);ZipEntry item=zip.getEntry("files/"+e.getKey());if(item==null)throw new IOException("Archivo ausente");
@@ -174,9 +288,10 @@ public class TenantBackupService {
                     if(!Files.exists(file)){Files.createDirectories(file.getParent());Path temp=Files.createTempFile(file.getParent(),"restore-",".tmp");try(InputStream in=zip.getInputStream(item)){Files.copy(in,temp,StandardCopyOption.REPLACE_EXISTING);}Files.move(temp,file,StandardCopyOption.ATOMIC_MOVE);}
                 } count++;
             }
+            stage = "schema_compatibility";
             boolean compatible=Objects.equals(manifest.path("schema").asText(),jdbc.queryForObject("SELECT app.backup_schema_signature()",String.class));
             return Map.of("valid",true,"compatible",compatible,"files",count,"message",compatible?"Integridad válida y esquema compatible":"Formato de esquema incompatible");
-        }catch(Exception error){return Map.of("valid",false,"compatible",false,"message","El paquete está incompleto, alterado o sus archivos no se pueden preparar");}
+        }catch(Exception error){ log.warn("Tenant backup verification failed: tenant={}, backup={}, stage={}, cause={}", u.tenantId(), id, stage, error.getClass().getSimpleName()); return Map.of("valid",false,"compatible",false,"message","El paquete está incompleto, alterado o sus archivos no se pueden preparar");}
     }
     public Path download(UUID id) {AuthenticatedUser u=user();return tx(u,"backup:download",()->{if(!Boolean.TRUE.equals(verify(u,id,false).get("valid")))throw new ResponseStatusException(HttpStatus.CONFLICT,"Respaldo no válido");audit(u,"BACKUP_DOWNLOADED",id,Map.of());return packagePath(u.tenantId(),id);});}
     public Map<String,Object> restore(UUID id,String name) {
@@ -204,7 +319,25 @@ public class TenantBackupService {
     private void stage(AuthenticatedUser u,UUID op,String stage){tx(u,"backup:restore",()->{jdbc.update("UPDATE tenant_restore_operations SET stage=? WHERE id=? AND tenant_id=?",stage,op,u.tenantId());return null;});}
     private void failure(AuthenticatedUser u,UUID backup,UUID operation,String message) {
         // Operational record and audit remain outside the rolled-back data transaction.
-        transaction.execute(status->{if(backup!=null)jdbc.update("UPDATE tenant_backups SET status='FAILED',completed_at=now(),error_message=? WHERE id=? AND tenant_id=?",message,backup,u.tenantId());if(operation!=null)jdbc.update("UPDATE tenant_restore_operations SET status='FAILED',stage='FAILED',completed_at=now(),error_message=? WHERE id=? AND tenant_id=? AND status='RUNNING'",message,operation,u.tenantId());audit(u,operation==null?"BACKUP_FAILED":"RESTORE_FAILED",operation==null?backup:operation,Map.of());return null;});
+        String permission = operation == null ? "backup:create" : "backup:restore";
+        tx(u,permission,()->{
+            if(backup!=null) {
+                jdbc.update("UPDATE tenant_backups SET status='FAILED',completed_at=now(),error_message=? WHERE id=? AND tenant_id=?",message,backup,u.tenantId());
+                // A failed scheduled copy must be retried on the next poll, not silently
+                // postponed until tomorrow. Tie the reset to this automatic run's local date.
+                jdbc.update("""
+                    UPDATE tenant_backup_settings s SET last_run_date=NULL
+                    WHERE s.tenant_id=? AND EXISTS (
+                      SELECT 1 FROM tenant_backups b
+                      WHERE b.id=? AND b.tenant_id=s.tenant_id AND b.origin='AUTOMATIC'
+                        AND s.last_run_date=(b.created_at AT TIME ZONE s.timezone)::date
+                    )
+                    """,u.tenantId(),backup);
+            }
+            if(operation!=null)jdbc.update("UPDATE tenant_restore_operations SET status='FAILED',stage='FAILED',completed_at=now(),error_message=? WHERE id=? AND tenant_id=? AND status='RUNNING'",message,operation,u.tenantId());
+            audit(u,operation==null?"BACKUP_FAILED":"RESTORE_FAILED",operation==null?backup:operation,Map.of());
+            return null;
+        });
     }
     private void audit(AuthenticatedUser u,String action,UUID id,Map<String,Object> details) {
         try{jdbc.update("INSERT INTO audit_events(tenant_id,user_id,action,entity_type,entity_id,result,details) VALUES(?,?,?,'BACKUP',?, ?,?::jsonb)",u.tenantId(),u.userId(),action,id,action.endsWith("FAILED")?"FAILURE":"SUCCESS",json.writeValueAsString(details));}catch(IOException e){throw new UncheckedIOException(e);}
@@ -233,19 +366,82 @@ public class TenantBackupService {
         return rows.isEmpty()?Map.of("restoring",false):Map.of("restoring",true,"operation",rows.get(0));
     }
 
-    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
-    public void recoverInterruptedJobs() {
+    public void recoverInterruptedJobsLegacy() {
+        try {
+            List<UUID> isolated = jdbc.queryForList("""
+                    SELECT tenant_id FROM app.tenant_database_registry
+                    WHERE storage_mode='ISOLATED' AND lifecycle_state IN ('TRIAL','GRACE_READ_ONLY','ACTIVE')
+                    ORDER BY tenant_id
+                    """, UUID.class);
+            boolean hasShared = Boolean.TRUE.equals(jdbc.queryForObject("""
+                    SELECT EXISTS (SELECT 1 FROM app.tenant_database_registry WHERE storage_mode='LEGACY_SHARED')
+                    """, Boolean.class));
+            if (hasShared) recoverCurrentDatabase();
+            for (UUID tenantId : isolated) {
+                try (TenantDatabaseContext.Scope ignored = TenantDatabaseContext.useTenant(tenantId)) {
+                    recoverCurrentDatabase();
+                }
+            }
+        } catch (Exception registryFailure) {
+            // Fall back only for installations that have not applied the lifecycle migration.
+            // A permission or connectivity error must never make the API rewrite the control DB
+            // as if every tenant still shared one database.
+            boolean registryTableMissing = false;
+            for (Throwable cause = registryFailure; cause != null; cause = cause.getCause()) {
+                if (cause instanceof java.sql.SQLException sql && "42P01".equals(sql.getSQLState())) {
+                    registryTableMissing = true;
+                    break;
+                }
+            }
+            if (registryTableMissing) recoverCurrentDatabase();
+            else org.slf4j.LoggerFactory.getLogger(getClass()).warn(
+                    "No se pudo consultar el registro de bases; se omite la recuperaciÃ³n automÃ¡tica de respaldos.",
+                    registryFailure);
+        }
+    }
+
+    private void recoverCurrentDatabase(boolean canRetryBackup) {
         // A process restart rolls back any open PostgreSQL transaction. Files are only appended.
+        if (canRetryBackup) jdbc.update("""
+                UPDATE tenant_backup_settings s SET last_run_date=NULL
+                WHERE EXISTS (
+                  SELECT 1 FROM tenant_backups b
+                  WHERE b.tenant_id=s.tenant_id AND b.status='RUNNING' AND b.origin='AUTOMATIC'
+                    AND s.last_run_date=(b.created_at AT TIME ZONE s.timezone)::date
+                )
+                """);
         jdbc.update("UPDATE tenant_backups SET status='FAILED',error_message='Proceso interrumpido por reinicio del servidor',completed_at=now() WHERE status='RUNNING'");
         jdbc.update("UPDATE tenant_restore_operations SET status='FAILED',stage='FAILED',error_message='Proceso interrumpido. La transacción no confirmada se revirtió; revisar respaldo de seguridad.',completed_at=now() WHERE status='RUNNING'");
     }
+    private void recoverCurrentDatabase() { recoverCurrentDatabase(false); }
     static String sha(byte[] bytes){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));}catch(Exception e){throw new IllegalStateException(e);}}
     static String sha(InputStream in)throws IOException{try{MessageDigest d=MessageDigest.getInstance("SHA-256");byte[] buffer=new byte[65536];int size;while((size=in.read(buffer))!=-1)d.update(buffer,0,size);return HexFormat.of().formatHex(d.digest());}catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
     static String sha(Path path)throws IOException{try(InputStream in=Files.newInputStream(path)){return sha(in);}}
     private void entry(ZipOutputStream zip,String name,byte[] bytes)throws IOException{zip.putNextEntry(new ZipEntry(name));zip.write(bytes);zip.closeEntry();}
 
-    @Scheduled(fixedDelayString="${backups.poll-ms:60000}",initialDelayString="${backups.initial-delay-ms:30000}")
-    public void scheduled() {
+    private void scheduledLegacy() {
+        try {
+            List<UUID> isolated = jdbc.queryForList("""
+                    SELECT tenant_id FROM app.tenant_database_registry
+                    WHERE storage_mode='ISOLATED' AND lifecycle_state IN ('TRIAL','GRACE_READ_ONLY','ACTIVE')
+                    ORDER BY tenant_id
+                    """, UUID.class);
+            boolean hasShared = Boolean.TRUE.equals(jdbc.queryForObject("""
+                    SELECT EXISTS (SELECT 1 FROM app.tenant_database_registry WHERE storage_mode='LEGACY_SHARED')
+                    """, Boolean.class));
+            if (hasShared) scheduledCurrentDatabaseLegacy();
+            for (UUID tenantId : isolated) {
+                try (TenantDatabaseContext.Scope ignored = TenantDatabaseContext.useTenant(tenantId)) {
+                    scheduledCurrentDatabaseLegacy();
+                }
+            }
+        } catch (Exception missingRegistry) {
+            // Keep the previous single-database mode until migration 059 is applied.
+            scheduledCurrentDatabaseLegacy();
+        }
+    }
+
+    private void scheduledCurrentDatabaseLegacy() {
         try {
             jdbc.update("INSERT INTO tenant_backup_settings(tenant_id,timezone) SELECT id,timezone FROM tenants ON CONFLICT DO NOTHING");
             for(var s:jdbc.queryForList("SELECT * FROM tenant_backup_settings WHERE enabled")) {

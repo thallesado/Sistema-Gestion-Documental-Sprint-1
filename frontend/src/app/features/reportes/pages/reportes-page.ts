@@ -8,6 +8,7 @@ import {
   ReportFilters,
   ReportHeader,
   ReportTable,
+  ReportiqEmbedComponent,
 } from '../components';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ChartPoint, ReportDefinition, ReportRow, chartPointsFromRows, finiteNumber, reportDefinition, sessionLabels } from '../../../core/data/report-data';
@@ -19,54 +20,42 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
 @Component({
   selector: 'app-reports-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, Pagination, KpiCard, ReportChart, ReportFilters, ReportHeader, ReportTable],
+imports: [CommonModule, RouterLink, RouterLinkActive, Pagination, KpiCard, ReportChart, ReportFilters, ReportHeader, ReportTable, ReportiqEmbedComponent],
   styles: [`
     .platform-report-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
     .platform-report-links a { padding: 8px 14px; border-radius: 8px; background: #edf5f3; color: #087f7b; font-size: 13px; font-weight: 600; text-decoration: none; }
     .platform-report-links a.active { background: #087f7b; color: #fff; }
+    :host:has(app-reportiq-embed) .report-page,
+    .report-page:has(app-reportiq-embed) {
+      max-width: 100%;
+      padding: 12px 18px 24px;
+    }
   `],
   template: `
     <section class="page report-page">
-      <app-report-header
-        [title]="viewMode() === 'analytics' ? 'Tablero Analítico y Business Intelligence' : report.title"
-        [description]="viewMode() === 'analytics' ? 'Métricas agregadas en tiempo real: evolución mensual, tiempos de ciclo, cuellos de botella y rendimiento de OCR.' : report.description"
-        [tenant]="isPlatformReport ? 'Todas las organizaciones' : sessionInfo().tenant"
-        [role]="sessionInfo().role"
-        [filterSummary]="filterSummary()"
-        (export)="exportReport($event)"
-      />
-
-      @if (!isPlatformReport) {
-      <div class="report-view-mode-tabs" style="display: flex; gap: 8px; margin-bottom: 16px;">
-        <button
-          type="button"
-          class="btn"
-          [style.background]="viewMode() === 'tabular' ? '#087f7b' : '#edf5f3'"
-          [style.color]="viewMode() === 'tabular' ? '#ffffff' : '#087f7b'"
-          (click)="setViewMode('tabular')"
-          style="font-weight: 600; font-size: 13px; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
-        >
-          📋 Reportes Tabulares Detallados
-        </button>
-        <button
-          type="button"
-          class="btn"
-          [style.background]="viewMode() === 'analytics' ? '#087f7b' : '#edf5f3'"
-          [style.color]="viewMode() === 'analytics' ? '#ffffff' : '#087f7b'"
-          (click)="setViewMode('analytics')"
-          style="font-weight: 600; font-size: 13px; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
-        >
-          📊 Tablero Analítico y BI
-        </button>
-      </div>
+      @if (viewMode() === 'reportiq') {
+        <app-reportiq-embed
+          title="Reportes & Analítica IA"
+          subtitle="Consultas en lenguaje natural, constructor QBE y métricas en tiempo real"
+          tab="visual"
+        />
       } @else {
-      <nav class="platform-report-links" aria-label="Reportes de plataforma">
-        <a routerLink="/platform/dashboard">← Dashboard de plataforma</a>
-        <a routerLink="/platform/reports/tenants" routerLinkActive="active">Tenants</a>
-        <a routerLink="/platform/reports/payments" routerLinkActive="active">Pagos y costos</a>
-      </nav>
-      }
+        <app-report-header
+          [title]="viewMode() === 'analytics' ? 'Tablero Analítico y Business Intelligence' : report.title"
+          [description]="viewMode() === 'analytics' ? 'Métricas agregadas en tiempo real: evolución mensual, tiempos de ciclo, cuellos de botella y rendimiento de OCR.' : report.description"
+          [tenant]="isPlatformReport ? 'Todas las organizaciones' : sessionInfo().tenant"
+          [role]="sessionInfo().role"
+          [filterSummary]="filterSummary()"
+          (export)="exportReport($event)"
+        />
 
+        @if (isPlatformReport) {
+          <nav class="platform-report-links" aria-label="Reportes de plataforma">
+            <a routerLink="/platform/dashboard">← Dashboard de plataforma</a>
+            <a routerLink="/platform/reports/tenants" routerLinkActive="active">Tenants</a>
+            <a routerLink="/platform/reports/payments" routerLinkActive="active">Pagos y costos</a>
+          </nav>
+        }
       <app-report-filters
         [filters]="report.filters"
         [values]="filterValues()"
@@ -254,8 +243,9 @@ type Kpi = { icon: string; label: string; value: string; detail: string; tone: s
           (pageSizeChange)="changePageSize($event)"
         />
       }
+      }
     </section>
-  `,
+  `
 })
 export class ReportsPage implements OnInit {
   private readonly auth = inject(AuthService);
@@ -265,14 +255,18 @@ export class ReportsPage implements OnInit {
 
   private readonly routeKey = this.route.snapshot.data['routeInfo']?.href ?? '/reports';
   readonly report: ReportDefinition = reportDefinition(this.keyFromRoute(this.routeKey));
-  readonly isPlatformReport = this.report.key.startsWith('platform-');
+readonly isPlatformReport = this.report.key.startsWith('platform-');
 
-  readonly viewMode = signal<'tabular' | 'analytics'>(
-    this.routeKey === '/reports/productivity' || this.routeKey === '/reports/by-area' ? 'analytics' : 'tabular'
+  readonly viewMode = signal<'tabular' | 'analytics' | 'reportiq'>(
+    this.routeKey === '/reports'
+      ? 'reportiq'
+      : this.routeKey === '/reports/productivity' || this.routeKey === '/reports/by-area'
+        ? 'analytics'
+        : 'tabular'
   );
 
   readonly filterValues = signal<Record<string, string>>(this.defaultDates());
-  readonly page = signal(1);
+readonly page = signal(1);
   readonly pageSize = signal(10);
   readonly message = signal('');
   readonly errorMessage = signal('');
@@ -332,14 +326,14 @@ export class ReportsPage implements OnInit {
   readonly cycleTimePoints = computed<ChartPoint[]>(() => {
     const data = this.analyticsData();
     if (!data || !data.cycleTimes.length) return [];
-    const colors = ['#087f7b', '#4d9bd8', '#79c4bb', '#e3a633', '#7e5ab0'];
+    const colors = ['#087f7b', '#3f9a5b', '#79c4bb', '#e3a633', '#7e5ab0'];
     return data.cycleTimes.map((c, i) => ({ label: c.templateName, value: c.averageHours, color: colors[i % colors.length] }));
   });
 
   readonly areaPoints = computed<ChartPoint[]>(() => {
     const data = this.analyticsData();
     if (!data || !data.areaDistribution.length) return [];
-    const colors = ['#087f7b', '#4d9bd8', '#79c4bb', '#e3a633', '#7e5ab0'];
+    const colors = ['#087f7b', '#3f9a5b', '#79c4bb', '#e3a633', '#7e5ab0'];
     return data.areaDistribution.map((a, i) => ({ label: a.area, value: a.documentCount, color: colors[i % colors.length] }));
   });
 
@@ -353,12 +347,16 @@ export class ReportsPage implements OnInit {
   });
 
   ngOnInit(): void {
-    this.loadData();
+    if (this.viewMode() !== 'reportiq') {
+      this.loadData();
+    }
   }
 
-  setViewMode(mode: 'tabular' | 'analytics'): void {
+  setViewMode(mode: 'tabular' | 'analytics' | 'reportiq'): void {
     this.viewMode.set(mode);
-    this.loadData();
+    if (mode !== 'reportiq') {
+      this.loadData();
+    }
   }
 
   loadData(): void {

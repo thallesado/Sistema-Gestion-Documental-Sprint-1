@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.Normalizer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
  * Asistente contextual (H2): responde dudas de uso con Gemini usando un manual resumido de la aplicación
  * y el contexto de navegación que envía el frontend.
  *
- * <p>No consulta datos del tenant ni del paciente: lo único que llega a Gemini es la pregunta del usuario,
+ * <p>No consulta datos del tenant ni del paciente: a Gemini solo se envía una intención fija de ayuda,
  * el manual y un contexto saneado (rutas sin identificadores ni query string y códigos de permiso válidos).
  * Límite por usuario en ventana fija, en memoria (una instancia).
  */
@@ -65,15 +66,30 @@ public class AssistantService {
     }
 
     public AssistantChatResponse chat(UUID userId, AssistantChatRequest request) {
+        return chat(userId, null, request);
+    }
+
+    /**
+     * {@code serverPermissions}: permisos efectivos de la sesión autenticada. Si llegan, sustituyen a los que
+     * envía el navegador, que el cliente podría alterar para que el asistente sugiera acciones ajenas.
+     */
+    public AssistantChatResponse chat(UUID userId, java.util.Collection<String> serverPermissions, AssistantChatRequest request) {
         if (!gemini.isConfigured()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "El asistente no está disponible en este momento.");
         }
         consumeQuota(userId);
         try {
-            GeminiClient.TextResult result = gemini.generateText(request.message().trim(), systemPrompt(request.context()));
-            return new AssistantChatResponse(result.text().trim(), result.modelUsed());
+            // Only forward a fixed help intent so accidental clinical/personal data
+            // typed by the user is not sent to Gemini. Permissions remain server-derived.
+            GeminiClient.TextResult result = gemini.generateText(safeHelpIntent(request.message()),
+                    systemPrompt(request.context(), serverPermissions));
+            String reply = result.text() == null ? "" : result.text().trim();
+            if (reply.isEmpty()) {
+                throw new IllegalStateException("Respuesta vacía del modelo");
+            }
+            return new AssistantChatResponse(reply, result.modelUsed());
         } catch (RuntimeException e) {
-            log.warn("Fallo del asistente contextual: {}", e.getMessage());
+            log.warn("Fallo del asistente contextual: {}", e.getClass().getSimpleName());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "El asistente no pudo responder. Intenta nuevamente.");
         }
     }
@@ -93,7 +109,40 @@ public class AssistantService {
         }
     }
 
+    static String safeHelpIntent(String message) {
+        String normalized = Normalizer.normalize(Objects.requireNonNullElse(message, ""), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").toLowerCase(java.util.Locale.ROOT);
+        String topic;
+        if (containsAny(normalized, "workflow", "flujo", "tarea", "aprobacion", "revision")) {
+            topic = "workflows, tareas y aprobaciones";
+        } else if (containsAny(normalized, "respaldo", "backup", "restaurar", "restauracion")) {
+            topic = "respaldos y restauracion";
+        } else if (containsAny(normalized, "reporte", "informe", "qbe", "voz", "indicador", "kpi")) {
+            topic = "reportes e indicadores";
+        } else if (containsAny(normalized, "ocr", "digitalizacion", "escanear", "escaner")) {
+            topic = "digitalizacion y OCR";
+        } else if (containsAny(normalized, "expediente", "paciente", "historia clinica", "nota medica", "receta")) {
+            topic = "expedientes y modulo clinico";
+        } else if (containsAny(normalized, "documento", "archivo", "version", "carpeta")) {
+            topic = "gestion documental";
+        } else if (containsAny(normalized, "usuario", "permiso", "rol", "acceso", "contrasena", "sesion", "login")) {
+            topic = "acceso, usuarios y permisos";
+        } else {
+            topic = "uso general de NexoDocs";
+        }
+        return "El usuario necesita instrucciones generales del producto sobre " + topic
+                + ". Responde solamente con pasos del manual, sin solicitar ni inferir información de personas.";
+    }
+
+    private static boolean containsAny(String value, String... terms) {
+        return java.util.Arrays.stream(terms).anyMatch(value::contains);
+    }
+
     String systemPrompt(AssistantChatRequest.Context context) {
+        return systemPrompt(context, null);
+    }
+
+    String systemPrompt(AssistantChatRequest.Context context, java.util.Collection<String> serverPermissions) {
         StringBuilder prompt = new StringBuilder()
                 .append("Eres el asistente de uso de NexoDocs, un sistema de gestión documental clínica. ")
                 .append("Respondes en español, en pocas líneas y con pasos numerados cuando expliques cómo hacer algo. ")
@@ -123,7 +172,9 @@ public class AssistantService {
             prompt.append("Último error: ").append(method).append(' ').append(sanitizeRoute(error.url()))
                     .append(" -> HTTP ").append(error.status()).append('\n');
         }
-        String permissions = Objects.requireNonNullElse(context.permissions(), List.<String>of()).stream()
+        java.util.Collection<String> declared = serverPermissions != null
+                ? serverPermissions : Objects.requireNonNullElse(context.permissions(), List.<String>of());
+        String permissions = declared.stream().sorted()
                 .filter(code -> code != null && PERMISSION_CODE.matcher(code).matches())
                 .distinct()
                 .limit(MAX_PERMISSIONS)

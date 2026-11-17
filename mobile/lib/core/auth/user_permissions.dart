@@ -51,4 +51,45 @@ abstract final class Permissions {
   static const workflowReview = 'workflow:review';
   static const workflowReject = 'workflow:reject';
   static const workflowReturn = 'workflow:return';
+  static const workflowRead = 'workflow:read';
+  static const workflowCreate = 'workflow:create';
+  static const workflowStart = 'workflow:start';
+  static const workflowTemplateRead = 'workflow_template:read';
+  static const expedientTypeRead = 'expedient_type:read';
+  static const auditRead = 'audit:read';
+  static const auditReadTenant = 'audit:read_tenant';
+  static const auditReadGlobal = 'audit:read_global';
+}
+
+/// Reglas de auditoría equivalentes a AuditController; el servidor autoriza cada solicitud.
+abstract final class AuditPermissions {
+  static bool canRead(UserPermissions p) => p.canAny(const [
+        Permissions.auditRead,
+        Permissions.auditReadTenant,
+        Permissions.auditReadGlobal,
+      ]);
+}
+
+/// Reglas de expedientes equivalentes a ExpedientController; el servidor autoriza cada solicitud.
+abstract final class ExpedientPermissions {
+  static bool canRead(UserPermissions p) => p.can(Permissions.expedientRead);
+  static bool canCreate(UserPermissions p) => p.can(Permissions.expedientCreate);
+  static bool canUpdate(UserPermissions p) => p.can(Permissions.expedientUpdate);
+}
+
+/// Reglas de workflows equivalentes a WorkflowEngineService; el servidor autoriza cada solicitud.
+abstract final class WorkflowPermissions {
+  static bool canRead(UserPermissions p) => p.can(Permissions.workflowRead);
+  static bool canStart(UserPermissions p) =>
+      p.can(Permissions.workflowStart) &&
+      p.can(Permissions.workflowCreate) &&
+      p.can(Permissions.workflowTemplateRead);
+}
+
+/// Reglas de OCR equivalentes a OcrController; el servidor autoriza cada solicitud.
+abstract final class OcrPermissions {
+  static bool canRun(UserPermissions p) => p.canAny(const [Permissions.ocrCreate, Permissions.documentCreate, Permissions.documentUpdate, Permissions.patientCreate]);
+  static bool canRead(UserPermissions p) => p.canAny(const [Permissions.ocrRead, Permissions.ocrCreate, Permissions.documentCreate, Permissions.documentUpdate, Permissions.patientCreate]);
+  static bool canReview(UserPermissions p) => p.canAny(const [Permissions.ocrUpdate, Permissions.documentUpdate]);
+  static bool canIndex(UserPermissions p) => p.can(Permissions.documentCreate);
 }

@@ -1,11 +1,13 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ApiPatient, ClinicalApiService, ClinicalHistory, ClinicalLinkedDocument, ClinicalHistoryRevisionItem } from '../../../core/api/clinical-api.service';
 import { DocumentApiService, MedicalNote, ApiDocument } from '../../../core/api/document-api.service';
 import { activeLocale } from '../../../core/i18n/i18n.service';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
+import { PermissionService } from '../../../core/auth/permission.service';
 
 export interface SignosVitales {
   peso?: number | null;
@@ -36,7 +38,7 @@ export interface ConsultaMedicaItem {
 
 export function computeIMCStatus(imc: number | null | undefined): { label: string; color: string; bg: string } {
   if (!imc || isNaN(imc) || imc <= 0) return { label: 'Sin calcular', color: '#64748b', bg: '#f1f5f9' };
-  if (imc < 18.5) return { label: 'Bajo peso', color: '#0284c7', bg: '#e0f2fe' };
+  if (imc < 18.5) return { label: 'Bajo peso', color: '#0f7f6b', bg: '#e6f5ef' };
   if (imc < 25) return { label: 'Normal', color: '#16a34a', bg: '#dcfce7' };
   if (imc < 30) return { label: 'Sobrepeso', color: '#d97706', bg: '#fef3c7' };
   return { label: 'Obesidad', color: '#dc2626', bg: '#fee2e2' };
@@ -114,7 +116,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
 @Component({
   selector: 'app-historia-clinica-page',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, CommonModule, LocalizedContentDirective],
+  imports: [ReactiveFormsModule, FormsModule, CommonModule, LocalizedContentDirective, RouterLink],
   template: `
     <div class="page" i18nContent style="max-width: 1400px; margin: auto; padding: 24px 32px 48px; font-family: system-ui, -apple-system, sans-serif;">
       
@@ -143,7 +145,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
             (ngModelChange)="onSearchInput($event)"
             placeholder="Escribe para buscar: Ej. Silvia, Yesenia, Condori, 93868..."
             style="width: 100%; border: 2px solid; border-radius: 8px; padding: 11px 14px; font-size: 14px; outline: none; transition: all .2s; box-sizing: border-box;"
-            [style.borderColor]="searchQuery().trim() ? (filteredPatients().length > 0 ? '#2563eb' : '#dc2626') : '#cbd5e1'"
+            [style.borderColor]="searchQuery().trim() ? (filteredPatients().length > 0 ? 'var(--teal)' : '#dc2626') : '#cbd5e1'"
             [style.background]="searchQuery().trim() ? '#fafcff' : '#ffffff'"
           />
         </div>
@@ -152,7 +154,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
           <small style="font-size: 12px;">
             @if (searchQuery().trim()) {
               @if (filteredPatients().length > 0) {
-                <span style="color: #2563eb; font-weight: 700;">
+                <span style="color: var(--teal); font-weight: 700;">
                   Coincidencias encontradas: {{ filteredPatients().length }} paciente(s) remarcado(s) en azul en la lista izquierda.
                 </span>
               } @else {
@@ -202,17 +204,17 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
               @for (p of filteredPatients(); track p.id) {
                 <div
                   (click)="onSelectPatient(p.id)"
-                  [style.borderColor]="isHighlighted(p) ? '#2563eb' : (p.id === selectedPatientId() ? '#087f7b' : '#e2e8f0')"
-                  [style.background]="isHighlighted(p) ? '#eff6ff' : (p.id === selectedPatientId() ? '#f0fdfa' : '#ffffff')"
-                  [style.boxShadow]="isHighlighted(p) ? '0 0 0 2px rgba(37, 99, 235, 0.25)' : 'none'"
+                  [style.borderColor]="isHighlighted(p) ? 'var(--teal)' : (p.id === selectedPatientId() ? '#087f7b' : '#e2e8f0')"
+                  [style.background]="isHighlighted(p) ? 'var(--mint)' : (p.id === selectedPatientId() ? '#f0fdfa' : '#ffffff')"
+                  [style.boxShadow]="isHighlighted(p) ? '0 0 0 2px rgba(8, 127, 123, 0.25)' : 'none'"
                   style="border-radius: 10px; padding: 12px 14px; border: 2px solid; cursor: pointer; transition: all .15s; display: flex; flex-direction: column; gap: 4px;"
                 >
                   <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-                    <strong [style.color]="isHighlighted(p) ? '#1d4ed8' : '#153a39'" style="font-size: 13px;">
+                    <strong [style.color]="isHighlighted(p) ? 'var(--teal-strong)' : '#153a39'" style="font-size: 13px;">
                       {{ p.firstName }} {{ p.lastName }}
                     </strong>
                     @if (isHighlighted(p)) {
-                      <span style="background: #2563eb; color: #fff; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
+                      <span style="background: var(--teal); color: #fff; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
                         Coincidencia
                       </span>
                     } @else if (p.id === selectedPatientId()) {
@@ -223,7 +225,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                   </div>
 
                   <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #64748b;">
-                    <span>C.I.: <strong [style.color]="isHighlighted(p) ? '#1e40af' : '#334155'">{{ p.documentNumber }}</strong></span>
+                    <span>C.I.: <strong [style.color]="isHighlighted(p) ? 'var(--teal-strong)' : '#334155'">{{ p.documentNumber }}</strong></span>
                     <span>{{ p.gender || 'Sin sexo' }}</span>
                   </div>
                 </div>
@@ -317,7 +319,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                 </div>
 
                 <!-- Botón de acción adicional según la opción activa -->
-                @if (activeTab() === 'historial') {
+                @if (activeTab() === 'historial' && !deletedHistory()) {
                   <button
                     type="button"
                     (click)="openOfficialPreview()"
@@ -326,7 +328,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                   >
                     Ver Hoja Oficial
                   </button>
-                  @if (currentHistory()?.id) {
+                  @if (currentHistory()?.id && permissions.can(['clinical_history:delete', 'patient:delete'])) {
                     <button
                       type="button"
                       (click)="openDeleteModal()"
@@ -336,7 +338,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                       Dar de Baja
                     </button>
                   }
-                } @else if (activeTab() === 'consultas') {
+                } @else if (activeTab() === 'consultas' && currentHistory()?.id && !deletedHistory()) {
                   <button
                     type="button"
                     (click)="openNewConsultationModal()"
@@ -344,21 +346,22 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                   >
                     + Nueva Consulta
                   </button>
-                } @else if (activeTab() === 'documentos' && currentHistory()?.id) {
-                  <button
-                    type="button"
-                    (click)="openLinkDocModal()"
-                    style="background: #087f7b; color: #ffffff; border: 0; border-radius: 8px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(8, 127, 123, 0.2);"
-                  >
-                    + Vincular Documento
-                  </button>
                 }
 
               </div>
             </div>
 
+            @if (deletedHistory(); as deletion) {
+              <section role="status" style="padding:24px;border:1px solid #fca5a5;background:#fff1f2;border-radius:12px;margin:18px 0;">
+                <h3>Historia dada de baja - {{ deletion.code }}</h3>
+                <p>Fecha: {{ formatMedicalDate(deletion.deletedAt) }}</p>
+                <p style="white-space:pre-wrap">Motivo: {{ deletion.reason }}</p>
+                <p>Autor registrado: {{ deletion.deletedBy }}</p>
+                <p>La historia se conserva para auditoria. No se permite modificarla ni eliminarla fisicamente.</p>
+              </section>
+            }
             <!-- CONTENIDO DE LA OPCIÓN 1: HISTORIAL CLÍNICO -->
-            @if (activeTab() === 'historial') {
+            @if (activeTab() === 'historial' && !deletedHistory()) {
               <form [formGroup]="historyForm" (ngSubmit)="saveHistory()">
                 
                 <!-- Alerta visual de alta severidad de alergia -->
@@ -565,7 +568,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
             }
 
             <!-- CONTENIDO DE LA OPCIÓN 2: CONSULTAS HECHAS (FEED CON SCROLL) -->
-            @if (activeTab() === 'consultas') {
+            @if (activeTab() === 'consultas' && !deletedHistory()) {
               <div>
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
@@ -715,7 +718,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
             }
 
             <!-- CONTENIDO DE LA OPCIÓN 3: DOCUMENTOS ANEXOS AL EXPEDIENTE -->
-            @if (activeTab() === 'documentos') {
+            @if (activeTab() === 'documentos' && !deletedHistory()) {
               <div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
                   <div>
@@ -726,7 +729,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                       Trazabilidad de informes de laboratorio, consentimientos informados y estudios clínicos asociados.
                     </small>
                   </div>
-                  @if (currentHistory()?.id) {
+                  @if (currentHistory()?.id && permissions.can(['clinical_document:link', 'patient:update']) && permissions.can('document:read')) {
                     <button
                       type="button"
                       (click)="openLinkDocModal()"
@@ -737,6 +740,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                   }
                 </div>
 
+                @if (documentError()) { <p role="alert" style="color: #b91c1c">{{ documentError() }}</p> }
                 @if (linkedDocsLoading()) {
                   <div style="text-align: center; padding: 40px; color: #64748b; font-size: 13px;">
                     Cargando documentos vinculados...
@@ -751,7 +755,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                     @for (doc of linkedDocuments(); track doc.id) {
                       <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                          <div style="background: #e0f2fe; color: #0284c7; font-weight: 800; font-size: 11px; padding: 4px 8px; border-radius: 6px;">
+                          <div style="background: #e6f5ef; color: #0f7f6b; font-weight: 800; font-size: 11px; padding: 4px 8px; border-radius: 6px;">
                             {{ doc.code }}
                           </div>
                           <div>
@@ -761,14 +765,17 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                             </small>
                           </div>
                         </div>
-                        <button
+                        @if (permissions.can('document:read')) {
+                          <a [routerLink]="['/documents']" [queryParams]="{ documentId: doc.id }">Ver documento</a>
+                        }
+                        @if (permissions.can(['clinical_document:link', 'patient:update'])) { <button
                           type="button"
                           (click)="unlinkDoc(doc.id)"
                           style="background: #fef2f2; color: #dc2626; border: 1px solid #fecdd3; border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: 700; cursor: pointer;"
                           title="Desvincular este documento de la historia clínica"
                         >
                           Desvincular
-                        </button>
+                        </button> }
                       </div>
                     }
                   </div>
@@ -1373,6 +1380,7 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
                 <textarea
                   [ngModel]="deleteReason()"
                   (ngModelChange)="deleteReason.set($event)"
+                  maxlength="500"
                   rows="4"
                   placeholder="Ej. Duplicidad detectada en admisión con el expediente HC-2025-0012, verificado por dirección médica."
                   style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 13px; box-sizing: border-box; resize: vertical;"
@@ -1432,6 +1440,14 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
               <p style="margin: 0; font-size: 13px; color: #475569;">
                 Selecciona un documento del repositorio para asociarlo al expediente del paciente:
               </p>
+              @if (documentError()) { <p role="alert" style="color: #b91c1c">{{ documentError() }}</p> }
+              <input aria-label="Buscar documento para vincular" placeholder="Buscar por código o nombre"
+                     [value]="linkDocumentQuery()" (input)="searchAvailableDocuments($any($event.target).value)">
+              <div>
+                <button (click)="loadLinkDocumentPage(linkDocumentPage()-1)" [disabled]="linkDocumentPage()===0">Anterior</button>
+                <span>Página {{ linkDocumentPage()+1 }} de {{ linkDocumentPages() }}</span>
+                <button (click)="loadLinkDocumentPage(linkDocumentPage()+1)" [disabled]="linkDocumentPage()+1>=linkDocumentPages()">Siguiente</button>
+              </div>
 
               @if (availableDocuments().length === 0) {
                 <div style="text-align: center; padding: 24px; color: #64748b; font-size: 13px;">
@@ -1530,6 +1546,12 @@ function parseConsulta(note: MedicalNote): ConsultaMedicaItem {
 })
 export class HistoriaClinicaPage implements OnInit {
   private readonly clinicalService = inject(ClinicalApiService);
+  readonly permissions = inject(PermissionService);
+  readonly documentError = signal('');
+  readonly linkDocumentQuery = signal('');
+  readonly linkDocumentPage = signal(0);
+  readonly linkDocumentPages = signal(1);
+  readonly deletedHistory = signal<{code:string; deletedAt:string; reason:string; deletedBy:string} | null>(null);
   private readonly documentApi = inject(DocumentApiService);
   private readonly fb = inject(FormBuilder);
 
@@ -1654,6 +1676,7 @@ export class HistoriaClinicaPage implements OnInit {
   }
 
   onSelectPatient(patientId: string) {
+    this.deletedHistory.set(null);
     this.selectedPatientId.set(patientId);
     this.errorMessage.set('');
     this.successMessage.set('');
@@ -1692,6 +1715,10 @@ export class HistoriaClinicaPage implements OnInit {
         } else {
           this.currentHistory.set(null);
           this.resetFormFieldsKeepPatient(patientId);
+          this.clinicalService.historyDeletion(patientId).subscribe({
+            next: deletion => this.deletedHistory.set(deletion),
+            error: () => this.errorMessage.set('No se pudo consultar el estado de baja de la historia.')
+          });
           this.patientConsultations.set([]);
           this.linkedDocuments.set([]);
           this.historyRevisions.set([]);
@@ -2016,7 +2043,7 @@ export class HistoriaClinicaPage implements OnInit {
 
   confirmDelete() {
     const reason = this.deleteReason().trim();
-    if (reason.length < 10) {
+    if (reason.length < 10 || reason.length > 500) {
       this.deleteError.set('El motivo justificado debe tener al menos 10 caracteres.');
       return;
     }
@@ -2032,6 +2059,7 @@ export class HistoriaClinicaPage implements OnInit {
         this.successMessage.set('Historia clínica dada de baja exitosamente con registro inmutable en auditoría.');
         this.currentHistory.set(null);
         this.resetForm();
+        this.successMessage.set('Baja clinica registrada. La historia y su evidencia se conservan.');
         this.linkedDocuments.set([]);
         this.patientConsultations.set([]);
         if (this.selectedPatientId()) {
@@ -2052,6 +2080,7 @@ export class HistoriaClinicaPage implements OnInit {
       return;
     }
     this.linkedDocsLoading.set(true);
+    this.documentError.set('');
     this.clinicalService.getLinkedDocuments(id).subscribe({
       next: (docs) => {
         this.linkedDocsLoading.set(false);
@@ -2059,17 +2088,34 @@ export class HistoriaClinicaPage implements OnInit {
       },
       error: () => {
         this.linkedDocsLoading.set(false);
+        this.documentError.set('No se pudieron cargar los documentos vinculados. Intenta nuevamente.');
       }
     });
   }
 
   openLinkDocModal() {
+    this.documentError.set('');
+    this.availableDocuments.set([]);
     this.showLinkDocModal.set(true);
-    this.documentApi.documents('', undefined, 0, 50).subscribe({
+    this.linkDocumentQuery.set('');
+    this.loadLinkDocumentPage(0);
+  }
+
+  searchAvailableDocuments(query: string) {
+    this.linkDocumentQuery.set(query);
+    this.loadLinkDocumentPage(0);
+  }
+
+  loadLinkDocumentPage(page: number) {
+    this.documentApi.documents(this.linkDocumentQuery(), undefined, page, 50).subscribe({
       next: (res) => {
+        this.linkDocumentPage.set(page);
+        this.linkDocumentPages.set(Math.max(1, Math.ceil(res.totalElements / 50)));
         const linkedIds = new Set(this.linkedDocuments().map(d => d.id));
-        this.availableDocuments.set((res.content || []).filter(d => !linkedIds.has(d.id)));
-      }
+        const patientId = this.currentHistory()?.patientId;
+        this.availableDocuments.set((res.content || []).filter(d => !linkedIds.has(d.id) && (!d.patientId || d.patientId === patientId)));
+      },
+      error: () => this.documentError.set('No se pudo consultar el repositorio documental. Intenta nuevamente.')
     });
   }
 
@@ -2086,7 +2132,7 @@ export class HistoriaClinicaPage implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.isLinkingDoc.set(false);
-        alert(err.error?.message || 'No fue posible vincular el documento.');
+        this.documentError.set(err.error?.message || 'No fue posible vincular el documento.');
       }
     });
   }
@@ -2102,7 +2148,7 @@ export class HistoriaClinicaPage implements OnInit {
         this.loadLinkedDocuments(hist.id);
       },
       error: (err: HttpErrorResponse) => {
-        alert(err.error?.message || 'Error al desvincular el documento.');
+        this.documentError.set(err.error?.message || 'Error al desvincular el documento.');
       }
     });
   }

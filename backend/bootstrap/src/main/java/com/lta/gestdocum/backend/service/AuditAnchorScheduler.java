@@ -137,8 +137,11 @@ public class AuditAnchorScheduler {
 
     public AuditAnchorJobStatus status() {
         boolean configured = gateway.isConfigured();
-        return new AuditAnchorJobStatus(configured, configured ? "ENABLED" : "DISABLED",
-                configured ? "External audit anchoring is active." : DISABLED_MESSAGE,
+        boolean scheduled = cron != null && !"-".equals(cron.trim());
+        String state = !configured ? "DISABLED" : scheduled ? "ENABLED" : "MANUAL_ONLY";
+        String message = !configured ? DISABLED_MESSAGE : scheduled ? "External audit anchoring is active."
+                : "External destination configured but the scheduler is off (AUDIT_ANCHOR_CRON=-).";
+        return new AuditAnchorJobStatus(configured, state, message,
                 configured ? cron : null, gateway.destinationKinds(), lastRunAt, lastOutcome, lastPublished, lastFailed);
     }
 }

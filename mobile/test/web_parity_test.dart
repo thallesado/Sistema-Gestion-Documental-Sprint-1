@@ -111,6 +111,10 @@ void main() {
       'GET /documents/specialties': (_) => FakeServer.json([]),
       'GET /documents/processes': (_) => FakeServer.json([]),
       'POST /documents': (request) => FakeServer.json({...bodyOf(request), 'id': 'doc-9', 'code': bodyOf(request)['code'] ?? 'AUTO-1', 'status': 'DRAFT'}, 201),
+      'GET /documents/doc-9': (_) => http.Response.bytes(
+        utf8.encode(jsonEncode({'id': 'doc-9', 'name': 'Acta de reunión', 'status': 'DRAFT'})), 200,
+        headers: {'content-type': 'application/json', 'etag': '"0"'},
+      ),
       'POST /documents/doc-9/versions': (_) => FakeServer.json({'id': 'v1', 'versionNumber': 1}, 201),
     });
 
@@ -322,6 +326,29 @@ void main() {
         }
       }
       expect(missing, isEmpty);
+    });
+
+    test('ningún Text, labelText, hintText o tooltip de lib/screens muestra texto en español sin tr()', () {
+      // Se permiten literales sin letras (separadores, datos), códigos en mayúsculas (ACTIVE, CC) y nombres de marca.
+      final visible = RegExp(
+        r"""(?:\bText\(\s*(?:const\s+)?|\b(?:labelText|hintText|tooltip|helperText|errorText)\s*:\s*(?:const\s+)?)'((?:[^'\\\n]|\\.)*)'""",
+      );
+      final letters = RegExp(r'[A-Za-zÁÉÍÓÚáéíóúñÑ]{2,}');
+      final offenders = <String>[];
+      for (final file in Directory('lib/screens').listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('.dart'))) {
+        final lines = file.readAsStringSync().split('\n');
+        for (var i = 0; i < lines.length; i++) {
+          for (final match in visible.allMatches(lines[i])) {
+            final text = match.group(1)!;
+            final words = text.replaceAll(RegExp(r'\$\{[^}]*\}|\$\w+'), '').trim();
+            if (text.contains('tr(') || RegExp(r'\$\{[^}]*$').hasMatch(text)) continue; // ya traducido o con llaves anidadas
+            if (!letters.hasMatch(words) || words == 'NexoDocs' || words == 'FinoCode') continue;
+            if (RegExp(r'^[A-Z0-9_\-]+$').hasMatch(words)) continue;
+            offenders.add('${file.path}:${i + 1}: $text');
+          }
+        }
+      }
+      expect(offenders, isEmpty, reason: 'Textos visibles sin tr():\n${offenders.join('\n')}');
     });
 
     test('traduce con parámetros y conserva el español si falta la clave', () {
