@@ -770,4 +770,9 @@ const englishTranslations = <String, String>{
   'Esta acción actualizará el estado de la radicación {code}.': 'This action will update the status of filing {code}.',
   'Expediente actualizado: {status}': 'Case file updated: {status}',
   'Aprobación en bloque completada: {count} tareas procesadas.': 'Bulk approval completed: {count} tasks processed.',
+  'Entrar con huella': 'Sign in with fingerprint',
+  'Usa la huella guardada en este teléfono': 'Use the fingerprint saved on this phone',
+  'o inicia con contraseña': 'or sign in with password',
+  'Usar huella': 'Use fingerprint',
+  'Verificando…': 'Verifying…',
 };

@@ -385,6 +385,13 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 12),
                       Text('NexoDocs', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
                       Text(context.tr('Gestión Documental y Radicación Inteligente'), textAlign: TextAlign.center),
+                      if (biometricEnabled && accessMode == LoginAccessMode.administrative) ...[
+                        const SizedBox(height: 16),
+                        _biometricCard(),
+                        const SizedBox(height: 16),
+                        _orDivider(),
+                        const SizedBox(height: 16),
+                      ],
                       if (widget.notice != null) ...[
                         const SizedBox(height: 14),
                         Container(
@@ -670,20 +677,6 @@ class _LoginPageState extends State<LoginPage> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
-                      if (biometricEnabled && accessMode == LoginAccessMode.administrative) ...[
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          key: const Key('biometrics-login'),
-                          onPressed: submitting ? null : _unlockWithBiometrics,
-                          icon: const Icon(Icons.fingerprint, color: AppTheme.teal),
-                          label: Text(context.tr('Desbloquear con biometría')),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.teal,
-                            side: const BorderSide(color: AppTheme.teal),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -693,6 +686,66 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
     ),
+  );
+
+  Widget _biometricCard() => Container(
+    key: const Key('biometric-card'),
+    padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+    decoration: BoxDecoration(
+      color: AppTheme.mint.withValues(alpha: 0.4),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppTheme.teal.withValues(alpha: 0.35)),
+    ),
+    child: Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: const BoxDecoration(color: AppTheme.teal, shape: BoxShape.circle),
+          child: const Icon(Icons.fingerprint, color: Colors.white, size: 36),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          context.tr('Entrar con huella'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.ink),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          context.tr('Usa la huella guardada en este teléfono'),
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            key: const Key('biometrics-login'),
+            onPressed: submitting ? null : _unlockWithBiometrics,
+            icon: const Icon(Icons.fingerprint),
+            label: Text(submitting ? context.tr('Verificando…') : context.tr('Usar huella')),
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _orDivider() => Row(
+    children: [
+      const Expanded(child: Divider()),
+      Flexible(
+        flex: 3,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(
+            context.tr('o inicia con contraseña'),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+        ),
+      ),
+      const Expanded(child: Divider()),
+    ],
   );
 
   static String? requiredField(String? value) => value == null || value.trim().isEmpty ? tr('Campo obligatorio') : null;
