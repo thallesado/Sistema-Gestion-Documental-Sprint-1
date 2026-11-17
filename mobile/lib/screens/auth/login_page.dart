@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../features/auth/presentation/widgets/server_config_dialog.dart';
 import '../../core/api/auth_api.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../shell/main_shell_page.dart';
+import '../../core/i18n/app_language.dart';
 
 /// Valor del selector para el administrador de plataforma (sin organización), como en la web.
 const platformTenant = '';
@@ -57,7 +59,7 @@ class _LoginPageState extends State<LoginPage> {
     });
     try {
       final authenticated = await widget.authApi.biometrics.authenticate(
-        reason: 'Usa tu biometría para acceder a NexoDocs',
+        reason: tr('Usa tu biometría para acceder a NexoDocs'),
       );
       if (!authenticated) {
         if (mounted) setState(() => submitting = false);
@@ -95,48 +97,23 @@ class _LoginPageState extends State<LoginPage> {
         if (tenantId != null && tenantId != platformTenant && !result.any((t) => t.id == tenantId)) tenantId = null;
       });
     } on ApiException catch (exception) {
-      if (mounted) setState(() => tenantsError = 'No se pudo cargar la lista de organizaciones. ${exception.message}');
+      if (mounted) setState(() => tenantsError = tr('No se pudo cargar la lista de organizaciones. {detail}', {'detail': exception.message}));
     } finally {
       if (mounted) setState(() => tenantsLoading = false);
     }
   }
 
   void showServerDialog() {
-    final serverController = TextEditingController(text: apiBaseUrl);
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Servidor'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'URL de la API de NexoDocs. Desde un teléfono usa la IP del equipo que ejecuta el backend.',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              key: const Key('server-url'),
-              controller: serverController,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(labelText: 'URL del servidor', hintText: defaultApiBaseUrl),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await widget.authApi.client.saveServerUrl(serverController.text);
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Servidor: $apiBaseUrl')));
-              loadTenants();
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
+      builder: (_) => ServerConfigDialog(
+        currentUrl: apiBaseUrl,
+        onSave: (url) async {
+          await widget.authApi.client.saveServerUrl(url);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Servidor: {url}', {'url': apiBaseUrl}))));
+          loadTenants();
+        },
       ),
     );
   }
@@ -190,14 +167,14 @@ class _LoginPageState extends State<LoginPage> {
                         alignment: Alignment.topRight,
                         child: IconButton(
                           icon: const Icon(Icons.settings_outlined, size: 20, color: Colors.grey),
-                          tooltip: 'Configurar servidor',
+                          tooltip: context.tr('Configurar servidor'),
                           onPressed: showServerDialog,
                         ),
                       ),
                       const Icon(Icons.folder_shared_outlined, size: 52, color: AppTheme.teal),
                       const SizedBox(height: 12),
                       Text('NexoDocs', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
-                      const Text('Inicia sesión en tu organización', textAlign: TextAlign.center),
+                      Text(context.tr('Inicia sesión en tu organización'), textAlign: TextAlign.center),
                       if (widget.notice != null) ...[
                         const SizedBox(height: 14),
                         Container(
@@ -215,12 +192,12 @@ class _LoginPageState extends State<LoginPage> {
                           children: [
                             ActionChip(
                               avatar: const Icon(Icons.business, size: 14),
-                              label: const Text('Demo: Laura (admin)', style: TextStyle(fontSize: 12)),
+                              label: Text(context.tr('Demo: Laura (admin)'), style: TextStyle(fontSize: 12)),
                               onPressed: () => fillDemo('laura@acme.com', '20000000-0000-0000-0000-000000000001'),
                             ),
                             ActionChip(
                               avatar: const Icon(Icons.shield_outlined, size: 14),
-                              label: const Text('Demo: Carlos (plataforma)', style: TextStyle(fontSize: 12)),
+                              label: Text(context.tr('Demo: Carlos (plataforma)'), style: TextStyle(fontSize: 12)),
                               onPressed: () => fillDemo('carlos@nexodocs.com', platformTenant),
                             ),
                           ],
@@ -232,20 +209,20 @@ class _LoginPageState extends State<LoginPage> {
                         initialValue: tenantId,
                         isExpanded: true,
                         decoration: InputDecoration(
-                          labelText: 'Organización',
-                          helperText: tenantsLoading ? 'Cargando organizaciones…' : null,
+                          labelText: context.tr('Organización'),
+                          helperText: tenantsLoading ? tr('Cargando organizaciones…') : null,
                           errorText: tenantsError,
                           errorMaxLines: 3,
                           suffixIcon: tenantsError != null
-                              ? IconButton(icon: const Icon(Icons.refresh), tooltip: 'Reintentar', onPressed: loadTenants)
+                              ? IconButton(icon: const Icon(Icons.refresh), tooltip: context.tr('Reintentar'), onPressed: loadTenants)
                               : null,
                         ),
                         items: [
-                          const DropdownMenuItem(value: platformTenant, child: Text('[ Plataforma / Administración global ]')),
+                          DropdownMenuItem(value: platformTenant, child: Text(context.tr('[ Plataforma / Administración global ]'))),
                           ...tenants.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name, overflow: TextOverflow.ellipsis))),
                         ],
                         onChanged: tenantsLoading ? null : (value) => setState(() => tenantId = value),
-                        validator: (value) => value == null ? 'Selecciona tu organización' : null,
+                        validator: (value) => value == null ? tr('Selecciona tu organización') : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -253,7 +230,7 @@ class _LoginPageState extends State<LoginPage> {
                         controller: userController,
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const [AutofillHints.username],
-                        decoration: const InputDecoration(labelText: 'Correo o usuario'),
+                        decoration: InputDecoration(labelText: context.tr('Correo o usuario')),
                         validator: requiredField,
                       ),
                       const SizedBox(height: 12),
@@ -263,10 +240,10 @@ class _LoginPageState extends State<LoginPage> {
                         obscureText: !showPassword,
                         autofillHints: const [AutofillHints.password],
                         decoration: InputDecoration(
-                          labelText: 'Contraseña',
+                          labelText: context.tr('Contraseña'),
                           suffixIcon: IconButton(
                             icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
-                            tooltip: showPassword ? 'Ocultar contraseña' : 'Ver contraseña',
+                            tooltip: showPassword ? tr('Ocultar contraseña') : tr('Ver contraseña'),
                             onPressed: () => setState(() => showPassword = !showPassword),
                           ),
                         ),
@@ -282,7 +259,7 @@ class _LoginPageState extends State<LoginPage> {
                       FilledButton(
                         key: const Key('login-submit'),
                         onPressed: submitting ? null : submit,
-                        child: Text(submitting ? 'Validando…' : 'Iniciar sesión'),
+                        child: Text(submitting ? tr('Validando…') : tr('Iniciar sesión')),
                       ),
                       if (biometricEnabled) ...[
                         const SizedBox(height: 12),
@@ -290,7 +267,7 @@ class _LoginPageState extends State<LoginPage> {
                           key: const Key('biometrics-login'),
                           onPressed: submitting ? null : _unlockWithBiometrics,
                           icon: const Icon(Icons.fingerprint, color: AppTheme.teal),
-                          label: const Text('Desbloquear con biometría'),
+                          label: Text(context.tr('Desbloquear con biometría')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.teal,
                             side: const BorderSide(color: AppTheme.teal),
@@ -309,5 +286,5 @@ class _LoginPageState extends State<LoginPage> {
     ),
   );
 
-  static String? requiredField(String? value) => value == null || value.trim().isEmpty ? 'Campo obligatorio' : null;
+  static String? requiredField(String? value) => value == null || value.trim().isEmpty ? tr('Campo obligatorio') : null;
 }

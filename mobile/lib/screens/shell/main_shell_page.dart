@@ -11,32 +11,33 @@ import '../../core/onboarding/onboarding_steps.dart';
 import '../../core/onboarding/onboarding_storage.dart';
 import '../../core/theme/app_theme.dart';
 import '../dashboard/dashboard_tab.dart';
-import '../documents/documents_tab.dart';
+import '../documents/repository_tab.dart';
 import '../notifications/notifications_page.dart';
 import '../patients/patients_tab.dart';
 import '../profile/profile_tab.dart';
 import '../scan/scan_document_page.dart';
 import '../tasks/task_detail_page.dart';
 import '../tasks/tasks_tab.dart';
+import '../../core/i18n/app_language.dart';
 
 /// Pestañas de la app. El índice lógico (posición en [values]) es el que usa el Inicio para
 /// navegar; el índice visible cambia cuando el perfil no tiene permiso para alguna pestaña.
 enum ShellTab {
-  home('Inicio', 'NexoDocs', Icons.dashboard_outlined, Icons.dashboard, null),
-  documents('Documentos', 'Documentos', Icons.description_outlined, Icons.description, Permissions.documentRead),
-  tasks('Tareas', 'Mis tareas', Icons.check_circle_outline, Icons.check_circle, Permissions.taskRead),
-  clinical('Clínico', 'Pacientes', Icons.local_hospital_outlined, Icons.local_hospital, Permissions.patientRead),
-  profile('Perfil', 'Mi perfil', Icons.person_outline, Icons.person, null);
+  home('Inicio', 'NexoDocs', Icons.dashboard_outlined, Icons.dashboard, []),
+  documents('Documentos', 'Documentos', Icons.description_outlined, Icons.description, [Permissions.documentRead, Permissions.expedientRead]),
+  tasks('Tareas', 'Mis tareas', Icons.check_circle_outline, Icons.check_circle, [Permissions.taskRead]),
+  clinical('Clínico', 'Pacientes', Icons.local_hospital_outlined, Icons.local_hospital, [Permissions.patientRead]),
+  profile('Perfil', 'Mi perfil', Icons.person_outline, Icons.person, []);
 
-  const ShellTab(this.label, this.title, this.icon, this.selectedIcon, this.permission);
+  const ShellTab(this.label, this.title, this.icon, this.selectedIcon, this.permissions);
 
   final String label;
   final String title;
   final IconData icon;
   final IconData selectedIcon;
 
-  /// Permiso del endpoint que usa la pestaña (mismo criterio que el menú de la web).
-  final String? permission;
+  /// Permisos de los endpoints que usa la pestaña (basta uno, como el menú de la web); vacío = siempre visible.
+  final List<String> permissions;
 }
 
 class MainShellPage extends StatefulWidget {
@@ -65,7 +66,7 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
   WorkflowNotifications get _notifications => widget.notifications ?? WorkflowNotifications.instance;
   UserPermissions get permissions => widget.api.permissions.value;
 
-  List<ShellTab> get visibleTabs => ShellTab.values.where((tab) => tab.permission == null || permissions.can(tab.permission!)).toList();
+  List<ShellTab> get visibleTabs => ShellTab.values.where((tab) => tab.permissions.isEmpty || permissions.canAny(tab.permissions)).toList();
 
   bool get canSeeNotifications => permissions.can(Permissions.notificationRead);
 
@@ -147,6 +148,10 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
   }
 
   /// El Inicio navega con el índice lógico; si la pestaña no está permitida no hace nada.
+  /// Indica si la pestaña con ese índice lógico (el mismo de `_navigateFromHome`) es visible para el usuario.
+  bool _isLogicalTabVisible(int logicalIndex) =>
+      logicalIndex >= 0 && logicalIndex < ShellTab.values.length && visibleTabs.contains(ShellTab.values[logicalIndex]);
+
   void _navigateFromHome(int logicalIndex) {
     if (logicalIndex < 0 || logicalIndex >= ShellTab.values.length) return;
     final tab = ShellTab.values[logicalIndex];
@@ -154,8 +159,8 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
   }
 
   Widget _page(ShellTab tab) => switch (tab) {
-    ShellTab.home => DashboardTab(api: widget.api, onNavigateToTab: _navigateFromHome),
-    ShellTab.documents => DocumentsTab(api: widget.api),
+    ShellTab.home => DashboardTab(api: widget.api, onNavigateToTab: _navigateFromHome, isTabVisible: _isLogicalTabVisible),
+    ShellTab.documents => RepositoryTab(api: widget.api),
     ShellTab.tasks => TasksTab(api: widget.api),
     ShellTab.clinical => PatientsTab(api: widget.api),
     ShellTab.profile => ProfileTab(api: widget.api),
@@ -167,14 +172,14 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
     final index = tabs.indexOf(current).clamp(0, tabs.length - 1);
     return Scaffold(
       appBar: AppBar(
-        title: Text(tabs[index].title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(context.tr(tabs[index].title), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 1,
         actions: [
           IconButton(
             key: const Key('scan-button'),
-            tooltip: 'Escanear con cámara',
+            tooltip: context.tr('Escanear con cámara'),
             icon: const Icon(Icons.document_scanner_outlined, color: AppTheme.teal),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => ScanDocumentPage(api: widget.api)),
@@ -183,7 +188,7 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
           if (canSeeNotifications)
             IconButton(
               key: const Key('notifications-button'),
-              tooltip: 'Notificaciones',
+              tooltip: context.tr('Notificaciones'),
               icon: Badge(
                 isLabelVisible: unreadNotifications > 0,
                 label: Text('$unreadNotifications'),
@@ -202,7 +207,7 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
         backgroundColor: AppTheme.teal,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.camera_alt),
-        label: const Text('Escanear', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: Text(context.tr('Escanear'), style: TextStyle(fontWeight: FontWeight.bold)),
       )),
       bottomNavigationBar: _tour.wrap(OnboardingTarget.navigation, NavigationBar(
         selectedIndex: index,
@@ -215,7 +220,7 @@ class _MainShellPageState extends State<MainShellPage> with WidgetsBindingObserv
                   ? _tour.wrap(OnboardingTarget.profile, Icon(tab.icon), shape: const CircleBorder())
                   : Icon(tab.icon),
               selectedIcon: Icon(tab.selectedIcon, color: AppTheme.teal),
-              label: tab.label,
+              label: context.tr(tab.label),
             ),
         ],
       ), shape: const RoundedRectangleBorder()),

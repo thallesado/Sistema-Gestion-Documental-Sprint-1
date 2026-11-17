@@ -36,6 +36,14 @@ abstract final class Permissions {
   static const ocrUpdate = 'ocr:update';
   static const patientCreate = 'patient:create';
   static const patientRead = 'patient:read';
+  static const patientUpdate = 'patient:update';
+  static const medicalNoteRead = 'medical_note:read';
+  static const medicalNoteCreate = 'medical_note:create';
+  static const medicalNoteUpdate = 'medical_note:update';
+  static const clinicalDocumentLink = 'clinical_document:link';
+  static const expedientRead = 'expedient:read';
+  static const expedientCreate = 'expedient:create';
+  static const expedientUpdate = 'expedient:update';
   static const taskRead = 'task:read';
   static const taskUpdate = 'task:update';
   static const notificationRead = 'notification:read';

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/api/auth_api.dart';
+import 'core/i18n/app_language.dart';
 import 'core/notifications/workflow_notifications.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/auth/login_page.dart';
@@ -10,13 +12,18 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Registra el canal de avisos y detecta si la app se abrió tocando una notificación.
   await WorkflowNotifications.instance.init();
+  // Idioma elegido en el perfil (español por defecto, como la web).
+  await AppLanguageController.instance.load();
   runApp(const NexoDocsApp());
 }
 
 class NexoDocsApp extends StatefulWidget {
-  const NexoDocsApp({super.key, this.authApi});
+  const NexoDocsApp({super.key, this.authApi, this.language});
 
   final AuthApi? authApi;
+
+  /// Idioma de la interfaz; `null` usa [AppLanguageController.instance].
+  final AppLanguageController? language;
 
   @override
   State<NexoDocsApp> createState() => _NexoDocsAppState();
@@ -25,17 +32,31 @@ class NexoDocsApp extends StatefulWidget {
 class _NexoDocsAppState extends State<NexoDocsApp> {
   final navigatorKey = GlobalKey<NavigatorState>();
   late final AuthApi api = widget.authApi ?? AuthApi();
+  late final AppLanguageController language = widget.language ?? AppLanguageController.instance;
 
   @override
   void initState() {
     super.initState();
     api.client.sessionExpired.addListener(_onSessionExpired);
+    language.addListener(_onLanguageChanged);
   }
 
   @override
   void dispose() {
     api.client.sessionExpired.removeListener(_onSessionExpired);
+    language.removeListener(_onLanguageChanged);
     super.dispose();
+  }
+
+  /// Textos calculados fuera de `build` (etiquetas, mensajes) también deben cambiar de idioma:
+  /// se marca todo el árbol para reconstruirse, incluidas las pantallas apiladas.
+  void _onLanguageChanged() {
+    void rebuild(Element element) {
+      element.markNeedsBuild();
+      element.visitChildren(rebuild);
+    }
+
+    WidgetsBinding.instance.rootElement?.visitChildren(rebuild);
   }
 
   /// Sesión vencida sin posibilidad de renovarla: volver al login desde cualquier pantalla.
@@ -44,18 +65,27 @@ class _NexoDocsAppState extends State<NexoDocsApp> {
     final navigator = navigatorKey.currentState;
     if (navigator == null) return;
     navigator.pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => LoginPage(authApi: api, notice: 'Tu sesión expiró. Vuelve a iniciar sesión.')),
+      MaterialPageRoute<void>(builder: (_) => LoginPage(authApi: api, notice: tr('Tu sesión expiró. Vuelve a iniciar sesión.'))),
       (_) => false,
     );
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    navigatorKey: navigatorKey,
-    title: 'NexoDocs',
-    debugShowCheckedModeBanner: false,
-    theme: AppTheme.lightTheme,
-    home: _StartupGate(api: api),
+  Widget build(BuildContext context) => AppLanguageScope(
+    controller: language,
+    child: ValueListenableBuilder<AppLanguage>(
+      valueListenable: language,
+      builder: (context, current, _) => MaterialApp(
+        navigatorKey: navigatorKey,
+        title: 'NexoDocs',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        locale: current.locale,
+        supportedLocales: [for (final value in AppLanguage.values) value.locale],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: _StartupGate(api: api),
+      ),
+    ),
   );
 }
 

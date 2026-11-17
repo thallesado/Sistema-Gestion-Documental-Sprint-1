@@ -5,14 +5,23 @@ import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/state_views.dart';
+import '../../features/dashboard/presentation/widgets/dashboard_kpi_grid.dart';
+import '../../features/dashboard/presentation/widgets/dashboard_quick_actions.dart';
+import '../../features/dashboard/presentation/widgets/dashboard_welcome_card.dart';
+import '../../features/documents/presentation/widgets/document_item_tile.dart';
+import '../../features/tasks/presentation/widgets/task_item_card.dart';
+import '../documents/create_document_page.dart';
 import '../documents/document_detail_sheet.dart';
+import '../scan/scan_document_page.dart';
 import '../tasks/task_detail_page.dart';
+import '../../core/i18n/app_language.dart';
 
 class DashboardTab extends StatefulWidget {
-  const DashboardTab({super.key, required this.api, required this.onNavigateToTab});
+  const DashboardTab({super.key, required this.api, required this.onNavigateToTab, required this.isTabVisible});
 
   final AuthApi api;
   final void Function(int tabIndex) onNavigateToTab;
+  final bool Function(int tabIndex) isTabVisible;
 
   @override
   State<DashboardTab> createState() => _DashboardTabState();
@@ -58,9 +67,9 @@ class _DashboardTabState extends State<DashboardTab> {
   /// Mismo saludo que la web según la hora local.
   String get greeting {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Buenos días';
-    if (hour < 19) return 'Buenas tardes';
-    return 'Buenas noches';
+    if (hour < 12) return tr('Buenos días');
+    if (hour < 19) return tr('Buenas tardes');
+    return tr('Buenas noches');
   }
 
   Future<void> openTask(Map<String, dynamic> task) async {
@@ -79,7 +88,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
     final user = data?['currentUser'] as Map<String, dynamic>? ?? {};
     final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
-    final tenantName = user['tenantName'] as String? ?? 'Plataforma';
+    final tenantName = user['tenantName'] as String? ?? tr('Plataforma');
     final docs = (data?['recentDocuments'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
     final activities = (data?['recentActivity'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
 
@@ -92,88 +101,50 @@ class _DashboardTabState extends State<DashboardTab> {
           if (error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text('No se pudo actualizar: $error', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              child: Text(context.tr('No se pudo actualizar: {error}', {'error': error}), style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [AppTheme.teal, AppTheme.tealDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.domain, color: Colors.white, size: 14),
-                  const SizedBox(width: 4),
-                  Text(tenantName, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                ]),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                name.isEmpty ? greeting : '$greeting, $name',
-                key: const Key('dashboard-greeting'),
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Aquí tienes un resumen de lo que está ocurriendo en tu organización.',
-                style: TextStyle(color: AppTheme.mint, fontSize: 13),
-              ),
-            ]),
+          DashboardWelcomeCard(
+            greeting: name.isEmpty ? greeting : '$greeting, $name',
+            tenantName: tenantName,
+            summary: tr('Aquí tienes un resumen de lo que está ocurriendo en tu organización.'),
           ),
           const SizedBox(height: 16),
-          Row(children: [
-            Expanded(
-              child: _KpiCard(
-                title: 'Tareas pendientes',
-                value: '$pendingTotal',
-                subtitle: 'Requieren tu atención',
-                icon: Icons.check_circle_outline,
-                color: const Color(0xffd97706),
-                onTap: () => widget.onNavigateToTab(2),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _KpiCard(
-                title: 'Documentos',
-                value: '${docs.length}',
-                subtitle: 'Con actividad reciente',
-                icon: Icons.description_outlined,
-                color: AppTheme.teal,
-                onTap: () => widget.onNavigateToTab(1),
-              ),
-            ),
-          ]),
-          _SectionHeader(title: 'Mis tareas pendientes', action: 'Ver todas →', onAction: () => widget.onNavigateToTab(2)),
+          DashboardKpiGrid(
+            pendingTotal: pendingTotal,
+            docCount: docs.length,
+            pendingTitle: tr('Tareas pendientes'),
+            pendingSubtitle: tr('Requieren tu atención'),
+            docsTitle: tr('Documentos'),
+            docsSubtitle: tr('Con actividad reciente'),
+            onNavigateToTab: widget.onNavigateToTab,
+          ),
+          const SizedBox(height: 20),
+          DashboardQuickActions(
+            onScan: () => Navigator.of(context).push<void>(MaterialPageRoute<void>(builder: (_) => ScanDocumentPage(api: widget.api))),
+            onNewDocument: () => Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(builder: (_) => CreateDocumentPage(api: widget.api))).then((created) {
+              if (created != null && mounted) loadData();
+            }),
+            onPatients: widget.isTabVisible(3) ? () => widget.onNavigateToTab(3) : null,
+          ),
+          _SectionHeader(title: tr('Mis tareas pendientes'), action: tr('Ver todas →'), onAction: () => widget.onNavigateToTab(2)),
           if (pendingTasks.isEmpty)
-            const _EmptyCard('No tienes tareas pendientes.')
+            _EmptyCard(tr('No tienes tareas pendientes.'))
           else
-            ...pendingTasks.take(3).map((task) => _Item(
-              icon: Icons.radio_button_unchecked,
-              iconColor: const Color(0xffd97706),
-              title: task['title'] as String? ?? 'Tarea',
-              subtitle: '${task['workflow_title'] ?? ''} · vence ${formatDate(task['due_at'])}',
-              trailing: StatusBadge(stageTypeLabel(task['stage_type'] as String?), tone: BadgeTone.brand),
+            ...pendingTasks.take(3).map((task) => TaskItemCard(
+              task: task,
               onTap: () => openTask(task),
             )),
-          _SectionHeader(title: 'Documentos recientes', action: 'Ver todos →', onAction: () => widget.onNavigateToTab(1)),
+          _SectionHeader(title: tr('Documentos recientes'), action: tr('Ver todos →'), onAction: () => widget.onNavigateToTab(1)),
           if (docs.isEmpty)
-            const _EmptyCard('No hay documentos recientes.')
+            _EmptyCard(tr('No hay documentos recientes.'))
           else
-            ...docs.take(3).map((doc) => _Item(
-              icon: Icons.description_outlined,
-              iconColor: AppTheme.teal,
-              title: doc['name'] as String? ?? 'Documento',
-              subtitle: '${doc['code'] ?? ''} · ${formatDate(doc['updatedAt'])}',
-              trailing: StatusBadge(documentStatusLabel(doc['status'] as String?), tone: documentStatusTone(doc['status'] as String?)),
+            ...docs.take(3).map((doc) => DocumentItemTile(
+              doc: doc,
               onTap: () => showDocumentDetail(context, widget.api, doc['id'] as String),
             )),
-          const _SectionHeader(title: 'Actividad reciente'),
+          _SectionHeader(title: tr('Actividad reciente')),
           if (activities.isEmpty)
-            const _EmptyCard('No hay registros de actividad recientes.')
+            _EmptyCard(tr('No hay registros de actividad recientes.'))
           else
             ...activities.take(5).map((act) => _Item(
               icon: Icons.history,
@@ -208,49 +179,12 @@ class _SectionHeader extends StatelessWidget {
   );
 }
 
-class _KpiCard extends StatelessWidget {
-  const _KpiCard({required this.title, required this.value, required this.subtitle, required this.icon, required this.color, required this.onTap});
-  final String title;
-  final String value;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(12),
-    child: Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.line)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 18),
-        ]),
-        const SizedBox(height: 10),
-        Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-        const SizedBox(height: 2),
-        Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xff374151))),
-        Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-      ]),
-    ),
-  );
-}
-
 class _Item extends StatelessWidget {
-  const _Item({required this.icon, required this.iconColor, required this.title, required this.subtitle, this.trailing, this.onTap});
+  const _Item({required this.icon, required this.iconColor, required this.title, required this.subtitle});
   final IconData icon;
   final Color iconColor;
   final String title;
   final String subtitle;
-  final Widget? trailing;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -261,8 +195,6 @@ class _Item extends StatelessWidget {
       leading: Icon(icon, color: iconColor, size: 20),
       title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink)),
       subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-      trailing: trailing,
-      onTap: onTap,
     ),
   );
 }

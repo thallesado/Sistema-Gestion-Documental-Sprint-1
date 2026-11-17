@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/state_views.dart';
 import '../documents/document_detail_sheet.dart';
+import '../../core/i18n/app_language.dart';
 
 /// Detalle de una tarea de workflow con las mismas acciones que la web.
 /// Devuelve `true` al cerrar si la tarea cambió, para refrescar el listado.
@@ -113,11 +114,11 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
   }
 
   static String actionLabel(String action) => switch (action) {
-    'APPROVE' => 'Aprobar',
-    'REVIEW' => 'Marcar como revisada',
-    'COMPLETE' => 'Completar',
-    'REJECT' => 'Rechazar',
-    'RETURN' => 'Devolver para corrección',
+    'APPROVE' => tr('Aprobar'),
+    'REVIEW' => tr('Marcar como revisada'),
+    'COMPLETE' => tr('Completar'),
+    'REJECT' => tr('Rechazar'),
+    'RETURN' => tr('Devolver para corrección'),
     _ => action,
   };
 
@@ -145,7 +146,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       );
       changed = true;
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${actionLabel(action)}: operación realizada.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('{action}: operación realizada.', {'action': actionLabel(action)}))));
       if (updated != null) {
         await load();
       }
@@ -182,7 +183,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       if (!didPop) Navigator.of(context).pop(changed);
     },
     child: Scaffold(
-      appBar: AppBar(title: const Text('Detalle de tarea'), backgroundColor: Colors.white),
+      appBar: AppBar(title: Text(context.tr('Detalle de tarea')), backgroundColor: Colors.white),
       body: loading && task == null
           ? const Center(child: CircularProgressIndicator(color: AppTheme.teal))
           : error != null && task == null
@@ -201,27 +202,27 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       padding: const EdgeInsets.all(16),
       children: [
         if (busy) const LinearProgressIndicator(color: AppTheme.teal),
-        Text(t['title'] as String? ?? 'Tarea', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.ink)),
+        Text(t['title'] as String? ?? tr('Tarea'), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.ink)),
         const SizedBox(height: 4),
         Text('${t['workflow_title'] ?? ''} · ${t['workflow_code'] ?? ''}', style: TextStyle(color: Colors.grey.shade600)),
         const SizedBox(height: 10),
         Wrap(spacing: 6, runSpacing: 6, children: [
           StatusBadge(taskStatusLabel(status), tone: taskStatusTone(status)),
           StatusBadge(stageTypeLabel(stageType), tone: BadgeTone.brand),
-          if (isCorrection) const StatusBadge('Corrección', tone: BadgeTone.warning),
+          if (isCorrection) StatusBadge(context.tr('Corrección'), tone: BadgeTone.warning),
         ]),
         if (!assignedAndOpen && isOpen) ...[
           const SizedBox(height: 12),
-          const _Notice('Esta tarea no está asignada a ti: puedes consultarla, pero no resolverla.'),
+          _Notice(context.tr('Esta tarea no está asignada a ti: puedes consultarla, pero no resolverla.')),
         ] else if (assignedAndOpen && !canAct) ...[
           const SizedBox(height: 12),
-          const _Notice('Tu perfil no tiene permiso para resolver tareas. Pide al administrador el permiso task:update.'),
+          _Notice(context.tr('Tu perfil no tiene permiso para resolver tareas. Pide al administrador el permiso task:update.')),
         ] else if (canAct && !canPrimary) ...[
           const SizedBox(height: 12),
-          _Notice('Tu perfil no puede ${actionLabel(primaryAction).toLowerCase()} en esta etapa.'),
+          _Notice(context.tr('Tu perfil no puede {action} en esta etapa.', {'action': actionLabel(primaryAction).toLowerCase()})),
         ],
         const SizedBox(height: 16),
-        _Section(title: 'Información', children: [
+        _Section(title: tr('Información'), children: [
           _Info('Etapa', t['stage_name']),
           _Info('Prioridad', priorityLabel(t['priority'])),
           _Info('Vencimiento', formatDate(t['due_at'], withTime: true)),
@@ -229,18 +230,18 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
           if (t['description'] != null) _Info('Descripción', t['description']),
         ]),
         if (t['document_id'] != null)
-          _Section(title: 'Documento', children: [
+          _Section(title: tr('Documento'), children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.description_outlined, color: AppTheme.teal),
-              title: Text(t['document_name'] as String? ?? 'Documento'),
-              subtitle: Text('Versión ${t['document_version'] ?? '—'}'),
+              title: Text(t['document_name'] as String? ?? tr('Documento')),
+              subtitle: Text(context.tr('Versión {version}', {'version': t['document_version'] ?? '—'})),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => showDocumentDetail(context, widget.api, t['document_id'] as String),
             ),
           ]),
         if (checklist.isNotEmpty)
-          _Section(title: 'Checklist', children: [
+          _Section(title: tr('Checklist'), children: [
             for (final item in _items(t))
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
@@ -250,8 +251,8 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                 activeColor: AppTheme.teal,
               ),
           ]),
-        _Section(title: 'Comentarios', children: [
-          if (comments.isEmpty) Text('Sin comentarios.', style: TextStyle(color: Colors.grey.shade600)),
+        _Section(title: tr('Comentarios'), children: [
+          if (comments.isEmpty) Text(context.tr('Sin comentarios.'), style: TextStyle(color: Colors.grey.shade600)),
           for (final c in comments)
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -270,14 +271,14 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                 controller: commentController,
                 minLines: 1,
                 maxLines: 3,
-                decoration: const InputDecoration(hintText: 'Escribe un comentario…', isDense: true),
+                decoration: InputDecoration(hintText: context.tr('Escribe un comentario…'), isDense: true),
               ),
             ),
-            IconButton(onPressed: busy ? null : sendComment, icon: const Icon(Icons.send, color: AppTheme.teal), tooltip: 'Enviar'),
+            IconButton(onPressed: busy ? null : sendComment, icon: const Icon(Icons.send, color: AppTheme.teal), tooltip: context.tr('Enviar')),
           ]),
         ]),
         if (events.isNotEmpty)
-          _Section(title: 'Historial', children: [
+          _Section(title: tr('Historial'), children: [
             for (final e in events.take(15))
               ListTile(
                 dense: true,
@@ -302,7 +303,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
         if (canReject || canReturn)
           PopupMenuButton<String>(
             enabled: !busy,
-            tooltip: 'Más acciones',
+            tooltip: context.tr('Más acciones'),
             onSelected: runAction,
             itemBuilder: (_) => [
               if (canReturn) PopupMenuItem(value: 'RETURN', child: Text(actionLabel('RETURN'))),
@@ -360,7 +361,7 @@ class _ActionSheetState extends State<_ActionSheet> {
 
   void confirm() {
     if (widget.commentRequired && controller.text.trim().isEmpty) {
-      setState(() => error = 'El comentario es obligatorio para esta acción.');
+      setState(() => error = tr('El comentario es obligatorio para esta acción.'));
       return;
     }
     Navigator.pop(context, _ActionInput(controller.text, returnStageId));
@@ -378,8 +379,8 @@ class _ActionSheetState extends State<_ActionSheet> {
         if (widget.returnStages.isNotEmpty) ...[
           DropdownButtonFormField<String>(
             initialValue: returnStageId,
-            decoration: const InputDecoration(labelText: 'Devolver a la etapa'),
-            items: [for (final s in widget.returnStages) DropdownMenuItem(value: s['id'] as String, child: Text(s['name'] as String? ?? 'Etapa'))],
+            decoration: InputDecoration(labelText: context.tr('Devolver a la etapa')),
+            items: [for (final s in widget.returnStages) DropdownMenuItem(value: s['id'] as String, child: Text(s['name'] as String? ?? tr('Etapa')))],
             onChanged: (value) => setState(() => returnStageId = value),
           ),
           const SizedBox(height: 12),
@@ -390,7 +391,7 @@ class _ActionSheetState extends State<_ActionSheet> {
           minLines: 2,
           maxLines: 5,
           decoration: InputDecoration(
-            labelText: widget.commentRequired ? 'Comentario *' : 'Comentario (opcional)',
+            labelText: widget.commentRequired ? tr('Comentario *') : tr('Comentario (opcional)'),
             errorText: error,
           ),
         ),
@@ -402,7 +403,7 @@ class _ActionSheetState extends State<_ActionSheet> {
             backgroundColor: widget.destructive ? Colors.red.shade700 : AppTheme.teal,
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
-          child: const Text('Confirmar'),
+          child: Text(context.tr('Confirmar')),
         ),
       ],
     ),

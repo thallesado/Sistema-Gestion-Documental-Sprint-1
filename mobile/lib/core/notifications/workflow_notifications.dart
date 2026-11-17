@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'background_worker.dart';
+import '../i18n/app_language.dart';
 
 /// Avisos de workflow como notificaciones del sistema.
 ///
@@ -118,7 +119,7 @@ class WorkflowNotifications {
       await _plugin.show(
         id: 0,
         title: 'NexoDocs',
-        body: 'Tienes ${fresh.length - _maxPerBatch} avisos más pendientes.',
+        body: tr('Tienes {count} avisos más pendientes.', {'count': fresh.length - _maxPerBatch}),
         notificationDetails: _details,
       );
     }
@@ -127,7 +128,7 @@ class WorkflowNotifications {
 
   Future<void> _show(Map<String, dynamic> item) => _plugin.show(
     id: (item['id']?.toString() ?? '').hashCode & 0x7fffffff,
-    title: item['title'] as String? ?? 'Aviso de NexoDocs',
+    title: item['title'] as String? ?? tr('Aviso de NexoDocs'),
     body: item['message'] as String? ?? '',
     notificationDetails: _details,
     payload: item['related_entity_type'] == 'workflow_task' ? item['related_entity_id'] as String? : null,

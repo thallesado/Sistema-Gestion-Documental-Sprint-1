@@ -6,6 +6,7 @@ import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
 import '../auth/login_page.dart';
+import '../../core/i18n/app_language.dart';
 
 /// Datos de la cuenta autenticada (GET /auth/me), como "Mi perfil" de la web.
 class ProfileTab extends StatefulWidget {
@@ -46,19 +47,19 @@ class _ProfileTabState extends State<ProfileTab> {
     final messenger = ScaffoldMessenger.of(context);
     if (value) {
       final success = await widget.api.biometrics.authenticate(
-        reason: 'Confirma tu identidad para activar el desbloqueo biométrico',
+        reason: tr('Confirma tu identidad para activar el desbloqueo biométrico'),
       );
       if (!success) {
-        messenger.showSnackBar(const SnackBar(content: Text('No se pudo verificar la identidad biométrica.')));
+        messenger.showSnackBar(SnackBar(content: Text(tr('No se pudo verificar la identidad biométrica.'))));
         return;
       }
       await widget.api.biometrics.setEnabled(true);
       if (mounted) setState(() => biometricEnabled = true);
-      messenger.showSnackBar(const SnackBar(content: Text('Desbloqueo biométrico activado.')));
+      messenger.showSnackBar(SnackBar(content: Text(tr('Desbloqueo biométrico activado.'))));
     } else {
       await widget.api.biometrics.setEnabled(false);
       if (mounted) setState(() => biometricEnabled = false);
-      messenger.showSnackBar(const SnackBar(content: Text('Desbloqueo biométrico desactivado.')));
+      messenger.showSnackBar(SnackBar(content: Text(tr('Desbloqueo biométrico desactivado.'))));
     }
   }
 
@@ -81,14 +82,14 @@ class _ProfileTabState extends State<ProfileTab> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Seguro que deseas cerrar tu sesión en NexoDocs?'),
+        title: Text(context.tr('Cerrar sesión')),
+        content: Text(context.tr('¿Seguro que deseas cerrar tu sesión en NexoDocs?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(context.tr('Cancelar'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cerrar sesión'),
+            child: Text(context.tr('Cerrar sesión')),
           ),
         ],
       ),
@@ -127,7 +128,7 @@ class _ProfileTabState extends State<ProfileTab> {
               Text(u['email'] as String? ?? '', style: TextStyle(color: Colors.grey.shade600)),
               const SizedBox(height: 8),
               StatusBadge(
-                u['platformAdmin'] == true ? 'Administración de plataforma' : 'Organización: ${u['tenantName'] ?? '—'}',
+                u['platformAdmin'] == true ? tr('Administración de plataforma') : tr('Organización: {name}', {'name': u['tenantName'] ?? '—'}),
                 tone: BadgeTone.brand,
               ),
             ]),
@@ -137,14 +138,14 @@ class _ProfileTabState extends State<ProfileTab> {
             elevation: 0,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
             child: Column(children: [
-              _tile(Icons.badge_outlined, 'Usuario', u['username']),
+              _tile(Icons.badge_outlined, context.tr('Usuario'), u['username']),
               const Divider(height: 1),
-              _tile(Icons.admin_panel_settings_outlined, 'Roles', roles.isEmpty ? '—' : roles.join(', ')),
+              _tile(Icons.admin_panel_settings_outlined, context.tr('Roles'), roles.isEmpty ? '—' : roles.join(', ')),
               const Divider(height: 1),
-              _tile(Icons.medical_services_outlined, 'Perfil clínico', u['staffType'] ?? 'No asignado'),
-              if ((u['phone'] as String?)?.isNotEmpty ?? false) ...[const Divider(height: 1), _tile(Icons.phone_outlined, 'Teléfono', u['phone'])],
+              _tile(Icons.medical_services_outlined, context.tr('Perfil clínico'), u['staffType'] ?? tr('No asignado')),
+              if ((u['phone'] as String?)?.isNotEmpty ?? false) ...[const Divider(height: 1), _tile(Icons.phone_outlined, context.tr('Teléfono'), u['phone'])],
               const Divider(height: 1),
-              _tile(Icons.cloud_done_outlined, 'Servidor', apiBaseUrl),
+              _tile(Icons.cloud_done_outlined, context.tr('Servidor'), apiBaseUrl),
             ]),
           ),
           const SizedBox(height: 16),
@@ -154,18 +155,18 @@ class _ProfileTabState extends State<ProfileTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
-                  child: Text('Seguridad y Dispositivo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.teal)),
+                  child: Text(context.tr('Seguridad y Dispositivo'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.teal)),
                 ),
                 SwitchListTile(
                   key: const Key('biometrics-switch'),
                   secondary: const Icon(Icons.fingerprint, color: AppTheme.teal),
-                  title: const Text('Desbloqueo biométrico', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  title: Text(context.tr('Desbloqueo biométrico'), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   subtitle: Text(
                     biometricAvailable
-                        ? 'Acceso rápido con huella o reconocimiento facial'
-                        : 'Biometría no disponible en este dispositivo',
+                        ? tr('Acceso rápido con huella o reconocimiento facial')
+                        : tr('Biometría no disponible en este dispositivo'),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                   value: biometricEnabled,
@@ -176,12 +177,46 @@ class _ProfileTabState extends State<ProfileTab> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(context.tr('Idioma'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.teal)),
+                  const SizedBox(height: 4),
+                  Text(
+                    context.tr('Se aplica a toda la app y a los mensajes del servidor.'),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<AppLanguage>(
+                      key: const Key('language-selector'),
+                      showSelectedIcon: false,
+                      style: SegmentedButton.styleFrom(selectedBackgroundColor: AppTheme.mint, selectedForegroundColor: AppTheme.teal),
+                      segments: [
+                        for (final language in AppLanguage.values)
+                          ButtonSegment(value: language, label: Text(language.nativeName, key: Key('language-${language.name}'))),
+                      ],
+                      selected: {context.language},
+                      onSelectionChanged: (selected) => AppLanguageScope.controllerOf(context).use(selected.first),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 24),
           FilledButton.icon(
             key: const Key('logout'),
             onPressed: logout,
             icon: const Icon(Icons.logout),
-            label: const Text('Cerrar sesión'),
+            label: Text(context.tr('Cerrar sesión')),
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red.shade600,
               padding: const EdgeInsets.symmetric(vertical: 14),

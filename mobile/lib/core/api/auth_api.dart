@@ -5,10 +5,13 @@ import 'package:http/http.dart' as http;
 import '../auth/biometric_service.dart';
 import '../auth/user_permissions.dart';
 import '../errors/api_exception.dart';
+import '../i18n/app_language.dart';
 import '../notifications/workflow_notifications.dart';
 import 'api_client.dart';
 import 'clinical_api.dart';
+import 'component_permissions_api.dart';
 import 'documents_api.dart';
+import 'expedients_api.dart';
 import 'ocr_api.dart';
 import 'workflows_api.dart';
 
@@ -32,6 +35,11 @@ class AuthApi {
   late final workflows = WorkflowsApi(client);
   late final clinical = ClinicalApi(client);
   late final ocr = OcrApi(client);
+  late final expedients = ExpedientsApi(client);
+  late final componentPermissions = ComponentPermissionsApi(client);
+
+  /// Último `/auth/me` recibido (tipos documentales permitidos, datos del perfil).
+  Map<String, dynamic>? currentUser;
 
   /// Permisos por función del usuario actual; el shell y las pantallas se redibujan al cambiar.
   final ValueNotifier<UserPermissions> permissions = ValueNotifier(UserPermissions.unknown);
@@ -54,12 +62,12 @@ class AuthApi {
         'password': password,
       }) as Map<String, dynamic>;
     } on ApiException catch (error) {
-      if (error.statusCode == 401) throw const ApiException('Credenciales u organización inválidas.', statusCode: 401);
+      if (error.statusCode == 401) throw ApiException(tr('Credenciales u organización inválidas.'), statusCode: 401);
       rethrow;
     }
     final token = body['token'] as String?;
     final refreshToken = body['refreshToken'] as String?;
-    if (token == null || refreshToken == null) throw const ApiException('Respuesta de sesión incompleta.');
+    if (token == null || refreshToken == null) throw ApiException(tr('Respuesta de sesión incompleta.'));
     await client.saveTokens(token, refreshToken);
     permissions.value = UserPermissions.fromJson(body);
   }
@@ -68,7 +76,9 @@ class AuthApi {
   /// Si falla se mantienen los actuales: ocultar menús nunca sustituye la autorización del servidor.
   Future<UserPermissions> loadPermissions() async {
     try {
-      permissions.value = UserPermissions.fromJson(await me());
+      final user = await me();
+      currentUser = user;
+      permissions.value = UserPermissions.fromJson(user);
     } on ApiException {
       // Sin conexión o servidor antiguo: se conservan los permisos conocidos.
     }
@@ -86,11 +96,20 @@ class AuthApi {
       }
     }
     await client.clearSession();
+    componentPermissions.clear();
+    currentUser = null;
     permissions.value = UserPermissions.unknown;
     await WorkflowNotifications.instance.stop();
   }
 
   Future<Map<String, dynamic>> me() async => await client.get('/auth/me') as Map<String, dynamic>;
+
+  /// Tipos documentales que el perfil puede usar (personalización del usuario); vacío = todos.
+  Set<String> get allowedDocumentTypeIds {
+    final customization = currentUser?['customization'];
+    final ids = customization is Map ? customization['allowedDocumentTypeIds'] : null;
+    return ids is List ? ids.whereType<String>().toSet() : const <String>{};
+  }
 
   Future<Map<String, dynamic>> dashboard() async =>
       await client.get('/dashboard', query: {'limit': 10}) as Map<String, dynamic>;

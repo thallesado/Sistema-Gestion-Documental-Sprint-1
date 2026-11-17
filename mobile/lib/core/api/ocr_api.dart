@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../errors/api_exception.dart';
+import '../i18n/app_language.dart';
 import '../utils/upload_rules.dart';
 import 'api_client.dart';
 
@@ -21,11 +22,11 @@ class OcrApi {
   }) async {
     final file = File(filePath);
     if (!file.existsSync()) {
-      throw const ApiException('El archivo no existe en el dispositivo.');
+      throw ApiException(tr('El archivo no existe en el dispositivo.'));
     }
     final bytes = await file.readAsBytes();
     if (bytes.length > UploadRules.maxBytes) {
-      throw const ApiException('La imagen supera el límite de 25 MB.');
+      throw ApiException(tr('La imagen supera el límite de 25 MB.'));
     }
 
     final mime = UploadRules.mimeFor(fileName) ?? 'image/jpeg';

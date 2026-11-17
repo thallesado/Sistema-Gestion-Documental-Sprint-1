@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import '../i18n/app_language.dart';
 
 /// Servicio de autenticación biométrica (huella dactilar / reconocimiento facial)
 /// como segunda capacidad nativa del dispositivo (requisito de justificación móvil).
@@ -49,12 +50,12 @@ class BiometricService {
   }
 
   /// Solicita autenticación biométrica al usuario con el diálogo nativo del sistema.
-  Future<bool> authenticate({String reason = 'Confirma tu identidad para acceder a NexoDocs'}) async {
+  Future<bool> authenticate({String? reason}) async {
     try {
       final available = await isAvailable();
       if (!available) return false;
       return await _auth.authenticate(
-        localizedReason: reason,
+        localizedReason: reason ?? tr('Confirma tu identidad para acceder a NexoDocs'),
         biometricOnly: false,
         persistAcrossBackgrounding: true,
       );

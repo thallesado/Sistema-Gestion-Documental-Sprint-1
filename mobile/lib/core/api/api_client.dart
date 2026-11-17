@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
 import '../errors/api_exception.dart';
+import '../i18n/app_language.dart';
 
 /// Cliente HTTP de NexoDocs: adjunta el token, renueva la sesión una vez ante un
 /// 401 (igual que el interceptor de la web) y traduce los errores a [ApiException].
@@ -89,19 +90,21 @@ class ApiClient {
 
   /// Petición sin sesión (login, organizaciones públicas, renovación).
   Future<dynamic> postPublic(String path, Object body) async {
-    final response = await _guard(() => _client.post(uri(path), headers: {'Content-Type': 'application/json'}, body: jsonEncode(body)));
+    final response = await _guard(() => _client.post(uri(path), headers: {..._languageHeader, 'Content-Type': 'application/json'}, body: jsonEncode(body)));
     _throwIfError(response);
     return _decode(response);
   }
 
   Future<dynamic> getPublic(String path) async {
-    final response = await _guard(() => _client.get(uri(path)));
+    final response = await _guard(() => _client.get(uri(path), headers: _languageHeader));
     _throwIfError(response);
     return _decode(response);
   }
 
   String? _token;
-  Map<String, String> get _headers => {if (_token != null) 'Authorization': 'Bearer $_token'};
+  /// Idioma preferido para los mensajes del servidor, como el interceptor de la web.
+  Map<String, String> get _languageHeader => {'Accept-Language': AppLanguageController.current.name};
+  Map<String, String> get _headers => {..._languageHeader, if (_token != null) 'Authorization': 'Bearer $_token'};
   Map<String, String> get _jsonHeaders => {..._headers, 'Content-Type': 'application/json'};
 
   Future<http.Response> _send(Future<http.Response> Function() request) async {
@@ -152,9 +155,9 @@ class ApiClient {
     try {
       return await request().timeout(_timeout);
     } on TimeoutException {
-      throw const ApiException('El servidor tardó demasiado en responder. Inténtalo de nuevo.');
+      throw ApiException(tr('El servidor tardó demasiado en responder. Inténtalo de nuevo.'));
     } catch (_) {
-      throw ApiException('No se pudo conectar con el servidor ($apiBaseUrl). Revisa tu conexión.');
+      throw ApiException(tr('No se pudo conectar con el servidor ({url}). Revisa tu conexión.', {'url': apiBaseUrl}));
     }
   }
 
@@ -169,12 +172,12 @@ class ApiClient {
   }
 
   static String _defaultMessage(int status) => switch (status) {
-    400 => 'La solicitud no es válida.',
-    403 => 'No tienes permisos para realizar esta acción.',
-    404 => 'El recurso solicitado no existe.',
-    409 => 'La operación entra en conflicto con el estado actual.',
-    429 => 'Demasiadas solicitudes. Espera un minuto e inténtalo de nuevo.',
-    _ => 'El servidor respondió con un error ($status).',
+    400 => tr('La solicitud no es válida.'),
+    403 => tr('No tienes permisos para realizar esta acción.'),
+    404 => tr('El recurso solicitado no existe.'),
+    409 => tr('La operación entra en conflicto con el estado actual.'),
+    429 => tr('Demasiadas solicitudes. Espera un minuto e inténtalo de nuevo.'),
+    _ => tr('El servidor respondió con un error ({status}).', {'status': status}),
   };
 
   dynamic _decode(http.Response response) {

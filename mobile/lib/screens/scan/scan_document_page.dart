@@ -10,18 +10,19 @@ import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/upload_rules.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/i18n/app_language.dart';
 
 /// Mensaje comprensible cuando falla la captura (permiso denegado u otro error).
 String scanPickErrorMessage(Object error) {
   if (error is PlatformException) {
     switch (error.code) {
       case 'camera_access_denied':
-        return 'Sin permiso de la cámara. Actívalo en Ajustes > Aplicaciones > NexoDocs > Permisos o elige una imagen de la galería.';
+        return tr('Sin permiso de la cámara. Actívalo en Ajustes > Aplicaciones > NexoDocs > Permisos o elige una imagen de la galería.');
       case 'photo_access_denied':
-        return 'Sin permiso para acceder a la galería. Actívalo en Ajustes > Aplicaciones > NexoDocs > Permisos.';
+        return tr('Sin permiso para acceder a la galería. Actívalo en Ajustes > Aplicaciones > NexoDocs > Permisos.');
     }
   }
-  return 'No se pudo acceder a la cámara o a la imagen. Inténtalo de nuevo.';
+  return tr('No se pudo acceder a la cámara o a la imagen. Inténtalo de nuevo.');
 }
 
 class ScanDocumentPage extends StatefulWidget {
@@ -95,7 +96,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
       if (size > UploadRules.maxBytes) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('La imagen supera el límite permitido de 25 MB.')),
+          SnackBar(content: Text(context.tr('La imagen supera el límite permitido de 25 MB.'))),
         );
         return;
       }
@@ -133,7 +134,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
       setState(() {
         _currentJob = result;
         if (result['status'] == 'FAILED') {
-          _errorMessage = result['errorMessage'] as String? ?? 'La extracción OCR falló al procesar el archivo.';
+          _errorMessage = result['errorMessage'] as String? ?? tr('La extracción OCR falló al procesar el archivo.');
         }
       });
       _loadRecentJobs();
@@ -142,7 +143,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
       setState(() => _errorMessage = e.message);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _errorMessage = 'Error inesperado al conectar con el servidor OCR: $e');
+      setState(() => _errorMessage = tr('Error inesperado al conectar con el servidor OCR: {error}', {'error': e}));
     } finally {
       _stopTimer();
       if (mounted) setState(() => _isProcessing = false);
@@ -191,16 +192,16 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
       if (!mounted) return;
       setState(() => _currentJob = updated);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           backgroundColor: Color(0xff065f46),
-          content: Text('✓ Digitalización validada exitosamente.'),
+          content: Text(context.tr('✓ Digitalización validada exitosamente.')),
         ),
       );
       _loadRecentJobs();
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: const Color(0xff991b1b), content: Text('Error: ${e.message}')),
+        SnackBar(backgroundColor: const Color(0xff991b1b), content: Text(tr('Error: {error}', {'error': e.message}))),
       );
     } finally {
       if (mounted) setState(() => _actionBusy = false);
@@ -215,17 +216,17 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Rechazar digitalización'),
+        title: Text(context.tr('Rechazar digitalización')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Indique el motivo por el cual la extracción no es válida:'),
+            Text(context.tr('Indique el motivo por el cual la extracción no es válida:')),
             const SizedBox(height: 12),
             TextField(
               controller: reasonController,
-              decoration: const InputDecoration(
-                hintText: 'Ej. Imagen ilegible o datos incompletos',
+              decoration: InputDecoration(
+                hintText: context.tr('Ej. Imagen ilegible o datos incompletos'),
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
@@ -233,11 +234,11 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(context.tr('Cancelar'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: const Color(0xffdc2626)),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Rechazar'),
+            child: Text(context.tr('Rechazar')),
           ),
         ],
       ),
@@ -251,13 +252,13 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
       if (!mounted) return;
       setState(() => _currentJob = updated);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Digitalización marcada como rechazada.')),
+        SnackBar(content: Text(context.tr('Digitalización marcada como rechazada.'))),
       );
       _loadRecentJobs();
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: const Color(0xff991b1b), content: Text('Error: ${e.message}')),
+        SnackBar(backgroundColor: const Color(0xff991b1b), content: Text(tr('Error: {error}', {'error': e.message}))),
       );
     } finally {
       if (mounted) setState(() => _actionBusy = false);
@@ -273,13 +274,13 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
 
     if (types.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay tipos documentales configurados en la organización.')),
+        SnackBar(content: Text(context.tr('No hay tipos documentales configurados en la organización.'))),
       );
       return;
     }
 
     String selectedTypeId = types.first['id'] as String;
-    final nameCtrl = TextEditingController(text: _currentJob?['documentType'] ?? 'Documento Digitalizado');
+    final nameCtrl = TextEditingController(text: _currentJob?['documentType'] ?? tr('Documento Digitalizado'));
     final codeCtrl = TextEditingController();
     final descCtrl = TextEditingController(text: _currentJob?['extractedSummary'] ?? '');
 
@@ -302,12 +303,12 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Indexar en Repositorio', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(context.tr('Indexar en Repositorio'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     IconButton(onPressed: () => Navigator.pop(ctx, false), icon: const Icon(Icons.close)),
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text('Tipo documental *', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(context.tr('Tipo documental *'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   initialValue: selectedTypeId,
@@ -317,7 +318,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                     for (final t in types)
                       DropdownMenuItem(
                         value: t['id'] as String,
-                        child: Text(t['name'] as String? ?? 'Tipo sin nombre'),
+                        child: Text(t['name'] as String? ?? tr('Tipo sin nombre')),
                       ),
                   ],
                   onChanged: (val) {
@@ -325,26 +326,26 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                   },
                 ),
                 const SizedBox(height: 12),
-                const Text('Nombre del documento', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(context.tr('Nombre del documento'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(hintText: 'Título descriptivo'),
+                  decoration: InputDecoration(hintText: context.tr('Título descriptivo')),
                 ),
                 const SizedBox(height: 12),
-                const Text('Código documental (opcional)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(context.tr('Código documental (opcional)'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: codeCtrl,
-                  decoration: const InputDecoration(hintText: 'Auto-generado si se deja en blanco'),
+                  decoration: InputDecoration(hintText: context.tr('Auto-generado si se deja en blanco')),
                 ),
                 const SizedBox(height: 12),
-                const Text('Descripción / Resumen', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(context.tr('Descripción / Resumen'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: descCtrl,
                   maxLines: 3,
-                  decoration: const InputDecoration(hintText: 'Detalles del documento'),
+                  decoration: InputDecoration(hintText: context.tr('Detalles del documento')),
                 ),
                 const SizedBox(height: 20),
                 SizedBox(
@@ -354,7 +355,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                     style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
                     onPressed: () => Navigator.pop(ctx, true),
                     icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Confirmar e Indexar Documento', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: Text(context.tr('Confirmar e Indexar Documento'), style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -379,16 +380,16 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
       if (!mounted) return;
       setState(() => _currentJob = updated);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           backgroundColor: Color(0xff065f46),
-          content: Text('✓ ¡Documento indexado con éxito! Ya está disponible en el repositorio web.'),
+          content: Text(context.tr('✓ ¡Documento indexado con éxito! Ya está disponible en el repositorio web.')),
         ),
       );
       _loadRecentJobs();
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: const Color(0xff991b1b), content: Text('Error al indexar: ${e.message}')),
+        SnackBar(backgroundColor: const Color(0xff991b1b), content: Text(tr('Error al indexar: {error}', {'error': e.message}))),
       );
     } finally {
       if (mounted) setState(() => _actionBusy = false);
@@ -399,7 +400,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Digitalización con Cámara', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(context.tr('Digitalización con Cámara'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 1,
@@ -407,9 +408,9 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
           controller: _tabController,
           indicatorColor: AppTheme.teal,
           labelColor: AppTheme.tealDark,
-          tabs: const [
-            Tab(icon: Icon(Icons.camera_alt_outlined), text: 'Escanear'),
-            Tab(icon: Icon(Icons.history), text: 'Historial Reciente'),
+          tabs: [
+            Tab(icon: Icon(Icons.camera_alt_outlined), text: tr('Escanear')),
+            Tab(icon: Icon(Icons.history), text: tr('Historial Reciente')),
           ],
         ),
       ),
@@ -437,14 +438,14 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                 child: CircularProgressIndicator(strokeWidth: 3, color: AppTheme.teal),
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Analizando documento con IA (Gemini)...',
+              Text(
+                context.tr('Analizando documento con IA (Gemini)...'),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink),
               ),
               const SizedBox(height: 8),
               Text(
-                'Extrayendo texto, tipo y entidades (${_elapsedSeconds}s transcurridos)',
+                context.tr('Extrayendo texto, tipo y entidades ({seconds}s transcurridos)', {'seconds': _elapsedSeconds}),
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
             ],
@@ -473,7 +474,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Fallo en la digitalización', style: TextStyle(color: Color(0xff991b1b), fontWeight: FontWeight.bold, fontSize: 15)),
+                      Text(context.tr('Fallo en la digitalización'), style: TextStyle(color: Color(0xff991b1b), fontWeight: FontWeight.bold, fontSize: 15)),
                       const SizedBox(height: 4),
                       Text(_errorMessage!, style: const TextStyle(color: Color(0xff7f1d1d), fontSize: 13)),
                     ],
@@ -490,7 +491,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                   child: OutlinedButton.icon(
                     onPressed: _processImage,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Reintentar'),
+                    label: Text(context.tr('Reintentar')),
                   ),
                 ),
               if (_selectedFile != null) const SizedBox(width: 12),
@@ -499,7 +500,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                   style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
                   onPressed: () => _pickImage(ImageSource.camera),
                   icon: const Icon(Icons.camera_alt),
-                  label: const Text('Nueva Foto'),
+                  label: Text(context.tr('Nueva Foto')),
                 ),
               ),
             ],
@@ -540,13 +541,13 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                   child: const Icon(Icons.document_scanner, size: 44, color: AppTheme.teal),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Captura de Documentos',
+                Text(
+                  context.tr('Captura de Documentos'),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.ink),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Fotografía un documento físico para extraer automáticamente su contenido, clasificarlo e indexarlo en el repositorio.',
+                  context.tr('Fotografía un documento físico para extraer automáticamente su contenido, clasificarlo e indexarlo en el repositorio.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.4),
                 ),
@@ -561,7 +562,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                     ),
                     onPressed: () => _pickImage(ImageSource.camera),
                     icon: const Icon(Icons.camera_alt, size: 22),
-                    label: const Text('Usar Cámara Nativa', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    label: Text(context.tr('Usar Cámara Nativa'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -576,7 +577,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                     ),
                     onPressed: () => _pickImage(ImageSource.gallery),
                     icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('Seleccionar de Galería'),
+                    label: Text(context.tr('Seleccionar de Galería')),
                   ),
                 ),
               ],
@@ -584,11 +585,11 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
           ),
         ),
         const SizedBox(height: 24),
-        const Text('Recomendaciones para mejor precisión:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.ink)),
+        Text(context.tr('Recomendaciones para mejor precisión:'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.ink)),
         const SizedBox(height: 10),
-        _tipItem(Icons.wb_sunny_outlined, 'Buena iluminación: Evita sombras directas sobre el texto.'),
-        _tipItem(Icons.crop_free, 'Encuadre plano: Asegúrate de que las 4 esquinas sean visibles.'),
-        _tipItem(Icons.compress, 'Tamaño optimizado: La app comprime la foto automáticamente para no exceder 25 MB.'),
+        _tipItem(Icons.wb_sunny_outlined, context.tr('Buena iluminación: Evita sombras directas sobre el texto.')),
+        _tipItem(Icons.crop_free, context.tr('Encuadre plano: Asegúrate de que las 4 esquinas sean visibles.')),
+        _tipItem(Icons.compress, context.tr('Tamaño optimizado: La app comprime la foto automáticamente para no exceder 25 MB.')),
       ],
     );
   }
@@ -654,12 +655,12 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Revisión humana requerida', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff92400e), fontSize: 14)),
+                      Text(context.tr('Revisión humana requerida'), style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff92400e), fontSize: 14)),
                       const SizedBox(height: 2),
                       Text(
                         docType.toUpperCase() == 'OTRO'
-                            ? 'El tipo documental se identificó como "OTRO". Verifica los datos antes de validar.'
-                            : 'La confianza de extracción es baja (${(confidence * 100).toStringAsFixed(0)}%). Verifica los campos antes de validar.',
+                            ? tr('El tipo documental se identificó como "OTRO". Verifica los datos antes de validar.')
+                            : tr('La confianza de extracción es baja ({percent}%). Verifica los campos antes de validar.', {'percent': (confidence * 100).toStringAsFixed(0)}),
                         style: const TextStyle(color: Color(0xffb45309), fontSize: 12),
                       ),
                     ],
@@ -682,22 +683,22 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Resultado del Escaneo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(context.tr('Resultado del Escaneo'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     StatusBadge(_statusLabel(status), tone: _statusTone(status)),
                   ],
                 ),
                 const Divider(height: 24),
-                _fieldRow('Tipo Documental', docType, isHighlight: true),
-                _fieldRow('Confianza del Modelo', '${(confidence * 100).toStringAsFixed(1)}%'),
+                _fieldRow(context.tr('Tipo Documental'), docType, isHighlight: true),
+                _fieldRow(context.tr('Confianza del Modelo'), '${(confidence * 100).toStringAsFixed(1)}%'),
                 if (patientName != null && patientName.isNotEmpty)
-                  _fieldRow('Paciente', '$patientName ${patientDni != null ? '($patientDni)' : ''}'),
+                  _fieldRow(context.tr('Paciente'), '$patientName ${patientDni != null ? '($patientDni)' : ''}'),
                 if (doctorName != null && doctorName.isNotEmpty)
-                  _fieldRow('Médico Tratante', doctorName),
+                  _fieldRow(context.tr('Médico Tratante'), doctorName),
                 if (issueDate != null && issueDate.isNotEmpty)
-                  _fieldRow('Fecha de Emisión', issueDate),
+                  _fieldRow(context.tr('Fecha de Emisión'), issueDate),
                 if (summary != null && summary.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  const Text('Resumen extraído:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.grey)),
+                  Text(context.tr('Resumen extraído:'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.grey)),
                   const SizedBox(height: 4),
                   Container(
                     width: double.infinity,
@@ -726,7 +727,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                   ),
                   onPressed: _actionBusy ? null : _rejectCurrentJob,
                   icon: const Icon(Icons.thumb_down_outlined, size: 20),
-                  label: const Text('Rechazar'),
+                  label: Text(context.tr('Rechazar')),
                 ),
               ),
               const SizedBox(width: 12),
@@ -740,7 +741,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                   icon: _actionBusy
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.thumb_up_outlined, size: 20),
-                  label: const Text('Validar'),
+                  label: Text(context.tr('Validar')),
                 ),
               ),
             ],
@@ -750,11 +751,11 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(color: const Color(0xffd1fae5), borderRadius: BorderRadius.circular(8)),
-            child: const Row(
+            child: Row(
               children: [
                 Icon(Icons.check_circle, color: Color(0xff065f46), size: 20),
                 SizedBox(width: 8),
-                Expanded(child: Text('Documento validado. Listo para indexar en el repositorio.', style: TextStyle(color: Color(0xff065f46), fontSize: 12, fontWeight: FontWeight.w600))),
+                Expanded(child: Text(context.tr('Documento validado. Listo para indexar en el repositorio.'), style: TextStyle(color: Color(0xff065f46), fontSize: 12, fontWeight: FontWeight.w600))),
               ],
             ),
           ),
@@ -767,7 +768,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
               icon: _actionBusy
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.folder_shared_outlined),
-              label: const Text('Indexar en Repositorio', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              label: Text(context.tr('Indexar en Repositorio'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             ),
           ),
         ] else if (status == 'INDEXED') ...[
@@ -783,9 +784,9 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('¡Documento Indexado!', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff065f46))),
+                      Text(context.tr('¡Documento Indexado!'), style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xff065f46))),
                       const SizedBox(height: 2),
-                      Text('ID Documento: ${job['documentId'] ?? ''}', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                      Text(context.tr('ID Documento: {id}', {'id': job['documentId'] ?? ''}), style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
                     ],
                   ),
                 ),
@@ -803,7 +804,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
                 });
               },
               icon: const Icon(Icons.camera_alt),
-              label: const Text('Escanear Otro Documento'),
+              label: Text(context.tr('Escanear Otro Documento')),
             ),
           ),
         ],
@@ -840,7 +841,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
     if (_recentJobs.isEmpty) {
       return RefreshIndicator(
         onRefresh: _loadRecentJobs,
-        child: const EmptyStateView(message: 'No hay digitalizaciones registradas aún.', icon: Icons.history_edu),
+        child: EmptyStateView(message: tr('No hay digitalizaciones registradas aún.'), icon: Icons.history_edu),
       );
     }
 
@@ -853,7 +854,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
         itemBuilder: (ctx, i) {
           final job = _recentJobs[i];
           final status = job['status'] as String? ?? 'UNKNOWN';
-          final type = job['documentType'] as String? ?? 'Documento';
+          final type = job['documentType'] as String? ?? tr('Documento');
           final date = job['createdAt'] as String? ?? '';
           final shortDate = date.length >= 10 ? date.substring(0, 10) : date;
           final fileName = job['originalFilename'] as String? ?? job['fileName'] as String? ?? 'archivo';
@@ -886,11 +887,11 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> with SingleTickerPr
   }
 
   String _statusLabel(String status) => switch (status) {
-    'REQUIRES_VALIDATION' => 'Por validar',
-    'VALIDATED' => 'Validado',
-    'INDEXED' => 'Indexado',
-    'REJECTED' => 'Rechazado',
-    'FAILED' => 'Fallido',
+    'REQUIRES_VALIDATION' => tr('Por validar'),
+    'VALIDATED' => tr('Validado'),
+    'INDEXED' => tr('Indexado'),
+    'REJECTED' => tr('Rechazado'),
+    'FAILED' => tr('Fallido'),
     _ => status,
   };
 

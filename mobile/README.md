@@ -42,17 +42,20 @@ lib/
 │   ├── api/
 │   │   ├── api_client.dart   # HTTP + token + renovación automática ante 401 (como el interceptor web)
 │   │   ├── auth_api.dart     # Login, logout, perfil, organizaciones; acceso a los servicios
-│   │   ├── documents_api.dart
-│   │   ├── workflows_api.dart
-│   │   └── clinical_api.dart
+│   │   ├── documents_api.dart        # Documentos, versiones, alta y catálogos (tipos, áreas…)
+│   │   ├── expedients_api.dart       # Expedientes: listado, alta y cambios de estado
+│   │   ├── clinical_api.dart         # Pacientes, historia clínica, notas médicas, cronología
+│   │   ├── component_permissions_api.dart  # Privilegios por campo (B2) de cada formulario
+│   │   └── workflows_api.dart
 │   ├── auth/user_permissions.dart   # Permisos por función de /auth/me (menú y botones)
+│   ├── i18n/                 # Idiomas es/en: app_language.dart (tr, selector) y translations_en.dart
 │   ├── notifications/        # Avisos del sistema: comprobación en primer y segundo plano
 │   ├── errors/api_exception.dart
 │   ├── theme/app_theme.dart  # Paleta compartida con la web
 │   ├── utils/format.dart     # Fechas y etiquetas de estado (mismos textos que la web)
 │   ├── utils/upload_rules.dart  # Formatos y límites de POST /documents/{id}/versions
-│   └── widgets/state_views.dart
-└── screens/                  # auth, dashboard, documents, tasks, notifications, patients, profile, shell
+│   └── widgets/              # state_views.dart y form_fields.dart (fechas, buscador, secciones)
+└── screens/                  # auth, dashboard, documents, expedients, tasks, notifications, patients, profile, shell
 ```
 
 Si una llamada a la API falla, las pantallas muestran el error con un botón **Reintentar**.
@@ -65,15 +68,20 @@ La app nunca muestra datos de ejemplo en su lugar.
 | Login con selector de organización, renovación y cierre de sesión | ✅ |
 | Inicio (resumen, tareas pendientes, documentos y actividad) | ✅ |
 | Documentos: listado, filtros, detalle, versiones y descarga | ✅ |
-| Subir nueva versión con la cámara, la galería o un archivo | ✅ (crear documentos: pendiente) |
+| Subir nueva versión con la cámara, la galería o un archivo | ✅ |
+| Crear documentos desde cero (tipo, clasificación, paciente, expediente, fechas y archivo v1) | ✅ |
+| Expedientes: listado, búsqueda, alta, cerrar/archivar/reabrir y documentos del expediente | ✅ (participantes: solo web) |
 | Permisos por función: pestañas, campana y acciones según `/auth/me` | ✅ |
 | Avisos de workflow como notificaciones del sistema | ✅ Android (iOS: solo con la app abierta) |
 | Workflows: mis tareas, detalle, aprobar/revisar/completar/rechazar/devolver, checklist y comentarios | ✅ (diseñador e inicio de workflows: pendiente) |
 | Notificaciones | ✅ |
-| Pacientes y resumen clínico | ⚠️ parcial (antecedentes y notas médicas: pendiente) |
+| Pacientes: búsqueda, alta y ficha clínica | ✅ |
+| Historia clínica: apertura y edición (antecedentes, alergias, medicación, diagnósticos) | ✅ (baja justificada y revisiones: solo web) |
+| Notas médicas: registro, borrador/firma, emitir y anular; documentos vinculados y cronología | ✅ (episodios: solo lectura en la cronología) |
 | Perfil | ✅ consulta (edición, contraseña y foto: pendiente) |
-| Expedientes, Digitalización/OCR, Auditoría, Usuarios y roles, Reportes, Facturación | ❌ pendiente |
-| Idiomas (es/en/fr/zh) | ❌ pendiente (solo castellano) |
+| Digitalización/OCR | ✅ |
+| Auditoría, Usuarios y roles, Reportes, Facturación | ❌ solo web |
+| Idiomas | ✅ español e inglés (fr/zh: solo web) |
 
 ## Permisos, nueva versión y avisos
 
@@ -82,12 +90,30 @@ puede usar, con los mismos códigos que el backend:
 
 | Elemento | Permiso |
 |---|---|
-| Pestaña Documentos / Tareas / Clínico | `document:read` / `task:read` / `patient:read` |
+| Pestaña Documentos / Tareas / Clínico | `document:read` o `expedient:read` / `task:read` / `patient:read` |
+| Crear documento | `document:create` (archivo inicial: `document:update`) |
+| Expedientes: ver / crear / cerrar, archivar, reabrir | `expedient:read` / `expedient:create` / `expedient:update` |
+| Nuevo paciente y abrir historia clínica | `patient:create` |
+| Editar historia clínica | `patient:update` |
+| Notas médicas: ver / registrar / emitir o anular | `medical_note:read` / `medical_note:create` / `medical_note:update` |
 | Campana y avisos | `notification:read` |
 | Resolver y comentar tareas | `task:update` (+ `workflow:approve`, `workflow:review`, `workflow:reject` o `workflow:return` según la acción) |
 | Nueva versión de un documento | `document:update` |
 
 Si el servidor no informa `permissions` no se oculta nada; el backend sigue rechazando con 403.
+
+**Privilegios por campo.** Los formularios de alta de documento (`documento.nuevo`) y de nota
+médica (`nota_medica`) leen `GET /component-permissions/me`, igual que la web: un campo oculto no
+se muestra y uno de solo lectura no se envía (lo asigna el servidor). Los tipos documentales se
+limitan a `customization.allowedDocumentTypeIds` de `/auth/me` cuando el perfil los restringe.
+
+**Documentos de un expediente.** `GET /documents` no filtra por expediente, así que la ficha revisa
+los 200 documentos más recientes y muestra los que tienen ese `expedientId`.
+
+**Idioma.** Perfil → Idioma (Español / English). Se guarda en el teléfono con la misma clave que la web
+(`nexodocs_lang`) y se envía al servidor en `Accept-Language`. Los textos se escriben en español en
+el código con `context.tr('…')` (o `tr('…')` fuera de los widgets) y su traducción está en
+`lib/core/i18n/translations_en.dart`; la prueba `web_parity_test.dart` falla si falta alguna.
 
 **Nueva versión.** Detalle del documento → **Nueva versión** → Cámara, Galería o Archivo, y un
 motivo obligatorio. Formatos PDF, JPG, PNG o DOCX hasta 25 MB (las mismas reglas que

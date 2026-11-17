@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../core/api/auth_api.dart';
+import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/state_views.dart';
+import '../../features/documents/presentation/widgets/document_filter_chips.dart';
+import '../../features/documents/presentation/widgets/document_item_tile.dart';
 import '../scan/scan_document_page.dart';
+import 'create_document_page.dart';
 import 'document_detail_sheet.dart';
+import '../../core/i18n/app_language.dart';
 
 class DocumentsTab extends StatefulWidget {
   const DocumentsTab({super.key, required this.api, this.onOpenFile});
@@ -64,7 +69,7 @@ class _DocumentsTabState extends State<DocumentsTab> {
     try {
       final versions = await widget.api.documents.versions(docId);
       if (versions.isEmpty) {
-        messenger.showSnackBar(const SnackBar(content: Text('Este documento aún no tiene archivos registrados.')));
+        messenger.showSnackBar(SnackBar(content: Text(tr('Este documento aún no tiene archivos registrados.'))));
         return;
       }
       final latest = versions.first;
@@ -75,18 +80,18 @@ class _DocumentsTabState extends State<DocumentsTab> {
         final result = await OpenFilex.open(file.path);
         if (result.type != ResultType.done) {
           messenger.showSnackBar(SnackBar(
-            content: Text('Archivo guardado: ${latest['fileName'] ?? file.path.split(RegExp(r'[/\\]')).last}'),
+            content: Text(tr('Archivo guardado: {name}', {'name': latest['fileName'] ?? file.path.split(RegExp(r'[/\\]')).last})),
           ));
         }
       }
     } on ApiException catch (exception) {
       messenger.showSnackBar(SnackBar(
-        content: Text(exception.isNotFound ? 'El archivo de este documento no está disponible en el servidor.' : exception.message),
+        content: Text(exception.isNotFound ? tr('El archivo de este documento no está disponible en el servidor.') : exception.message),
         backgroundColor: Colors.red.shade700,
       ));
     } catch (e) {
       messenger.showSnackBar(SnackBar(
-        content: Text('Error al descargar: $e'),
+        content: Text(tr('Error al descargar: {error}', {'error': e})),
         backgroundColor: Colors.red.shade700,
       ));
     } finally {
@@ -94,26 +99,13 @@ class _DocumentsTabState extends State<DocumentsTab> {
     }
   }
 
-  Widget _chip(String label, String? value) {
-    final selected = selectedStatus == value;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) {
-          setState(() => selectedStatus = value);
-          loadDocuments();
-        },
-        selectedColor: AppTheme.mint,
-        checkmarkColor: AppTheme.teal,
-        labelStyle: TextStyle(
-          fontSize: 12,
-          fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-          color: selected ? AppTheme.teal : const Color(0xff374151),
-        ),
-      ),
+  Future<void> createDocument() async {
+    final created = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(builder: (_) => CreateDocumentPage(api: widget.api)),
     );
+    if (created == null || !mounted) return;
+    await loadDocuments();
+    if (mounted) showDocumentDetail(context, widget.api, created['id'] as String);
   }
 
   @override
@@ -125,7 +117,7 @@ class _DocumentsTabState extends State<DocumentsTab> {
         child: Column(children: [
           SearchBar(
             controller: searchController,
-            hintText: 'Buscar por código o nombre...',
+            hintText: context.tr('Buscar por código o nombre...'),
             leading: const Icon(Icons.search, color: AppTheme.teal, size: 20),
             trailing: [
               if (searchController.text.isNotEmpty)
@@ -136,9 +128,16 @@ class _DocumentsTabState extends State<DocumentsTab> {
                     loadDocuments();
                   },
                 ),
+              if (widget.api.permissions.value.can(Permissions.documentCreate))
+                IconButton(
+                  key: const Key('documents-create'),
+                  tooltip: context.tr('Nuevo documento'),
+                  icon: const Icon(Icons.note_add_outlined, color: AppTheme.teal, size: 20),
+                  onPressed: createDocument,
+                ),
               IconButton(
                 key: const Key('documents-scan-button'),
-                tooltip: 'Escanear con cámara',
+                tooltip: context.tr('Escanear con cámara'),
                 icon: const Icon(Icons.document_scanner, color: AppTheme.teal, size: 20),
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => ScanDocumentPage(api: widget.api)),
@@ -152,12 +151,15 @@ class _DocumentsTabState extends State<DocumentsTab> {
             shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
           ),
           const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              _chip('Todos', null),
-              for (final status in statuses) _chip(documentStatusLabel(status), status),
-            ]),
+          DocumentFilterChips(
+            statuses: statuses,
+            selected: selectedStatus,
+            allLabel: context.tr('Todos'),
+            labelFor: documentStatusLabel,
+            onChanged: (value) {
+              setState(() => selectedStatus = value);
+              loadDocuments();
+            },
           ),
         ]),
       ),
@@ -169,59 +171,17 @@ class _DocumentsTabState extends State<DocumentsTab> {
           child: error != null
               ? ErrorStateView(message: error!, onRetry: loadDocuments)
               : documents.isEmpty && !loading
-              ? const EmptyStateView(message: 'No se encontraron documentos.', icon: Icons.description_outlined)
+              ? EmptyStateView(message: tr('No se encontraron documentos.'), icon: Icons.description_outlined)
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: documents.length,
                   itemBuilder: (context, index) {
                     final doc = documents[index];
-                    final status = doc['status'] as String?;
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                        leading: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(color: AppTheme.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                          child: const Icon(Icons.description_outlined, color: AppTheme.teal),
-                        ),
-                        title: Text(
-                          doc['name'] as String? ?? 'Documento',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                        ),
-                        subtitle: Text(
-                          [doc['code'], doc['documentTypeName'], 'v${doc['currentVersion'] ?? 1}'].whereType<Object>().join(' · '),
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            StatusBadge(documentStatusLabel(status), tone: documentStatusTone(status)),
-                            const SizedBox(width: 4),
-                            downloadingDocId == doc['id']
-                                ? const Padding(
-                                    padding: EdgeInsets.all(8),
-                                    child: SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.teal),
-                                    ),
-                                  )
-                                : IconButton(
-                                    key: Key('download-doc-${doc['id']}'),
-                                    icon: const Icon(Icons.download_outlined, color: AppTheme.teal, size: 22),
-                                    tooltip: 'Descargar archivo',
-                                    onPressed: downloadingDocId == null ? () => downloadDocument(doc) : null,
-                                  ),
-                          ],
-                        ),
-                        onTap: () => showDocumentDetail(context, widget.api, doc['id'] as String),
-                      ),
+                    return DocumentItemTile(
+                      doc: doc,
+                      onTap: () => showDocumentDetail(context, widget.api, doc['id'] as String),
+                      downloading: downloadingDocId == doc['id'],
+                      onDownload: downloadingDocId == null ? () => downloadDocument(doc) : null,
                     );
                   },
                 ),

@@ -9,6 +9,7 @@ import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/utils/upload_rules.dart';
+import '../../core/i18n/app_language.dart';
 
 /// Origen del archivo de la nueva versión.
 enum UploadOrigin { camera, gallery, file }
@@ -29,7 +30,7 @@ typedef UploadPicker = Future<PickedUpload?> Function(UploadOrigin origin);
 Future<PickedUpload?> pickWithDevice(UploadOrigin origin) async {
   if (origin == UploadOrigin.file) {
     final file = await openFile(acceptedTypeGroups: [
-      XTypeGroup(label: 'Documentos', extensions: UploadRules.allowedExtensions, mimeTypes: UploadRules.allowedMimeTypes),
+      XTypeGroup(label: tr('Documentos'), extensions: UploadRules.allowedExtensions, mimeTypes: UploadRules.allowedMimeTypes),
     ]);
     if (file == null) return null;
     return PickedUpload(path: file.path, name: file.name, sizeBytes: await file.length());
@@ -89,8 +90,8 @@ class _UploadVersionSheetState extends State<UploadVersionSheet> {
       if (mounted) {
         setState(
           () => error = origin == UploadOrigin.camera
-              ? 'No se pudo abrir la cámara. Revisa el permiso de cámara de NexoDocs.'
-              : 'No se pudo leer el archivo seleccionado.',
+              ? tr('No se pudo abrir la cámara. Revisa el permiso de cámara de NexoDocs.')
+              : tr('No se pudo leer el archivo seleccionado.'),
         );
       }
     }
@@ -99,12 +100,12 @@ class _UploadVersionSheetState extends State<UploadVersionSheet> {
   Future<void> upload() async {
     final file = picked;
     if (file == null) {
-      setState(() => error = 'Toma una foto o elige un archivo.');
+      setState(() => error = tr('Toma una foto o elige un archivo.'));
       return;
     }
     final invalid = UploadRules.validate(fileName: file.name, sizeBytes: file.sizeBytes, reason: reason.text);
     if (invalid != null) {
-      setState(() => error = invalid);
+      setState(() => error = tr(invalid));
       return;
     }
     setState(() {
@@ -120,11 +121,11 @@ class _UploadVersionSheetState extends State<UploadVersionSheet> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Versión v${version['versionNumber'] ?? ''} subida correctamente.')));
+          .showSnackBar(SnackBar(content: Text(tr('Versión v{number} subida correctamente.', {'number': version['versionNumber'] ?? ''}))));
       Navigator.of(context).pop(true);
     } on ApiException catch (exception) {
       if (mounted) {
-        setState(() => error = exception.isForbidden ? 'Tu perfil no puede subir versiones de este documento.' : exception.message);
+        setState(() => error = exception.isForbidden ? tr('Tu perfil no puede subir versiones de este documento.') : exception.message);
       }
     } finally {
       if (mounted) setState(() => uploading = false);
@@ -147,23 +148,23 @@ class _UploadVersionSheetState extends State<UploadVersionSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Subir nueva versión',
+          Text(
+            context.tr('Subir nueva versión'),
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.ink),
           ),
           const SizedBox(height: 4),
           Text(
-            'PDF, JPG, PNG o DOCX hasta 25 MB. El servidor registra la huella SHA-256.',
+            context.tr('PDF, JPG, PNG o DOCX hasta 25 MB. El servidor registra la huella SHA-256.'),
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _originButton(UploadOrigin.camera, Icons.photo_camera_outlined, 'Cámara')),
+              Expanded(child: _originButton(UploadOrigin.camera, Icons.photo_camera_outlined, context.tr('Cámara'))),
               const SizedBox(width: 8),
-              Expanded(child: _originButton(UploadOrigin.gallery, Icons.photo_library_outlined, 'Galería')),
+              Expanded(child: _originButton(UploadOrigin.gallery, Icons.photo_library_outlined, context.tr('Galería'))),
               const SizedBox(width: 8),
-              Expanded(child: _originButton(UploadOrigin.file, Icons.attach_file, 'Archivo')),
+              Expanded(child: _originButton(UploadOrigin.file, Icons.attach_file, context.tr('Archivo'))),
             ],
           ),
           if (picked != null) ...[
@@ -202,7 +203,7 @@ class _UploadVersionSheetState extends State<UploadVersionSheet> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Quitar archivo',
+                    tooltip: context.tr('Quitar archivo'),
                     icon: const Icon(Icons.close),
                     onPressed: uploading ? null : () => setState(() => picked = null),
                   ),
@@ -218,7 +219,7 @@ class _UploadVersionSheetState extends State<UploadVersionSheet> {
             maxLength: UploadRules.maxReasonLength,
             minLines: 2,
             maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Motivo de la nueva versión *', border: OutlineInputBorder()),
+            decoration: InputDecoration(labelText: context.tr('Motivo de la nueva versión *'), border: OutlineInputBorder()),
           ),
           if (error != null) ...[
             Text(
@@ -235,7 +236,7 @@ class _UploadVersionSheetState extends State<UploadVersionSheet> {
             icon: uploading
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : const Icon(Icons.cloud_upload_outlined),
-            label: Text(uploading ? 'Subiendo…' : 'Subir versión'),
+            label: Text(uploading ? tr('Subiendo…') : tr('Subir versión')),
           ),
         ],
       ),

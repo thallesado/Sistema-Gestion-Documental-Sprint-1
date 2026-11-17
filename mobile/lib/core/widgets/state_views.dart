@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../i18n/app_language.dart';
 
 /// Mensaje de error con reintento. Sustituye a los antiguos datos de ejemplo:
 /// si la API falla, el usuario lo ve en lugar de recibir información inventada.
@@ -22,7 +23,7 @@ class ErrorStateView extends StatelessWidget {
       Text(message, key: const Key('error-state'), textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700)),
       const SizedBox(height: 16),
       Center(
-        child: OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
+        child: OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: Text(context.tr('Reintentar'))),
       ),
     ],
   );

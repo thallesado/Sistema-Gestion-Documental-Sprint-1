@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/state_views.dart';
 import 'upload_version_sheet.dart';
+import '../../core/i18n/app_language.dart';
 
 /// Abre el detalle de un documento (metadatos + versiones descargables).
 Future<void> showDocumentDetail(BuildContext context, AuthApi api, String documentId) => showModalBottomSheet<void>(
@@ -78,11 +79,11 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
       final file = await widget.api.documents.downloadVersion(widget.documentId, version);
       final result = await OpenFilex.open(file.path);
       if (result.type != ResultType.done) {
-        messenger.showSnackBar(SnackBar(content: Text('Archivo guardado en ${file.path}. No hay una app para abrirlo.')));
+        messenger.showSnackBar(SnackBar(content: Text(tr('Archivo guardado en {path}. No hay una app para abrirlo.', {'path': file.path}))));
       }
     } on ApiException catch (exception) {
       messenger.showSnackBar(SnackBar(
-        content: Text(exception.isNotFound ? 'El archivo de esta versión no está disponible en el servidor.' : exception.message),
+        content: Text(exception.isNotFound ? tr('El archivo de esta versión no está disponible en el servidor.') : exception.message),
         backgroundColor: Colors.red.shade700,
       ));
     } finally {
@@ -118,7 +119,7 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(doc['name'] as String? ?? 'Documento', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(doc['name'] as String? ?? tr('Documento'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               Text(doc['code'] as String? ?? '', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
             ]),
           ),
@@ -147,7 +148,7 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
               icon: downloadingId == versions.first['id']
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.download, size: 20),
-              label: Text(downloadingId == versions.first['id'] ? 'Descargando...' : 'Descargar archivo (v${versions.first['versionNumber']})'),
+              label: Text(downloadingId == versions.first['id'] ? tr('Descargando...') : 'Descargar archivo (v${versions.first['versionNumber']})'),
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.teal,
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -158,7 +159,7 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
         ],
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: Text('Versiones (${versions.length})', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.ink))),
+          Expanded(child: Text(context.tr('Versiones ({count})', {'count': versions.length}), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.ink))),
           // Subir una versión exige document:update, igual que POST /documents/{id}/versions.
           ValueListenableBuilder<UserPermissions>(
             valueListenable: widget.api.permissions,
@@ -167,14 +168,14 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
                     key: const Key('upload-version'),
                     onPressed: uploadVersion,
                     icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-                    label: const Text('Nueva versión'),
+                    label: Text(context.tr('Nueva versión')),
                     style: TextButton.styleFrom(foregroundColor: AppTheme.teal),
                   )
                 : const SizedBox.shrink(),
           ),
         ]),
         const SizedBox(height: 6),
-        if (versions.isEmpty) Text('Este documento aún no tiene archivos.', style: TextStyle(color: Colors.grey.shade600)),
+        if (versions.isEmpty) Text(context.tr('Este documento aún no tiene archivos.'), style: TextStyle(color: Colors.grey.shade600)),
         for (final version in versions)
           Card(
             elevation: 0,
@@ -185,7 +186,7 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
                 backgroundColor: AppTheme.mint,
                 child: Text('v${version['versionNumber']}', style: const TextStyle(fontSize: 12, color: AppTheme.teal, fontWeight: FontWeight.bold)),
               ),
-              title: Text(version['fileName'] as String? ?? 'Archivo', maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(version['fileName'] as String? ?? tr('Archivo'), maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text('${formatBytes(version['fileSizeBytes'])} · ${formatDate(version['createdAt'], withTime: true)}'
                   '${(version['changeReason'] as String?)?.isNotEmpty ?? false ? '\n${version['changeReason']}' : ''}'),
               isThreeLine: (version['changeReason'] as String?)?.isNotEmpty ?? false,
@@ -193,7 +194,7 @@ class _DocumentDetailSheetState extends State<DocumentDetailSheet> {
                   ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.teal))
                   : IconButton(
                       icon: const Icon(Icons.download, color: AppTheme.teal),
-                      tooltip: 'Descargar',
+                      tooltip: context.tr('Descargar'),
                       onPressed: downloadingId == null ? () => download(version) : null,
                     ),
             ),

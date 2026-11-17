@@ -4,6 +4,7 @@ import 'package:showcaseview/showcaseview.dart';
 import '../theme/app_theme.dart';
 import 'onboarding_steps.dart';
 import 'onboarding_storage.dart';
+import '../i18n/app_language.dart';
 
 /// Coordina el recorrido guiado: registra [ShowcaseView], entrega una [GlobalKey] por paso,
 /// lo inicia solo si `hasCompletedTour` es falso y guarda la bandera al terminar u omitir.
@@ -32,8 +33,8 @@ class AppTourController {
     final step = stepFor(target);
     return Showcase(
       key: keyFor(target),
-      title: step.title,
-      description: step.description,
+      title: tr(step.title),
+      description: tr(step.description),
       titleTextStyle: const TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.bold,
