@@ -8,6 +8,7 @@ import '../errors/api_exception.dart';
 import '../i18n/app_language.dart';
 import '../models/user_profile_model.dart';
 import '../notifications/workflow_notifications.dart';
+import '../push/push_service.dart';
 import 'api_client.dart';
 import 'audit_api.dart';
 import 'auth_repository.dart';
@@ -122,6 +123,9 @@ class AuthApi {
 
   /// Cierra la sesión también en el servidor (revoca el refresh token), como la web.
   Future<void> logout() async {
+    // Primero el token del dispositivo: así el usuario deja de recibir avisos push en este teléfono.
+    // Va antes de leer el refresh token, porque si el access token caducó la petición lo renueva.
+    await PushService.instance.unregister(registry: ApiPushTokenRegistry(client));
     final refreshToken = await client.storage.read(key: ApiClient.refreshTokenKey);
     if (refreshToken != null) {
       try {
@@ -143,6 +147,16 @@ class AuthApi {
   }
 
   Future<Map<String, dynamic>> me() => auth.profile();
+
+  /// Preferencia push del perfil. Sin valor en el perfil cargado se considera activa (igual que el servidor).
+  bool get pushNotificationsEnabled => currentUser?['pushNotifications'] != false;
+
+  /// Guarda el switch del perfil en el servidor, conservando el aviso por correo.
+  Future<void> setPushNotifications(bool enabled) async {
+    final email = currentUser?['emailNotifications'] != false;
+    final saved = await auth.updateNotifications(emailNotifications: email, pushNotifications: enabled);
+    currentUser = {...?currentUser, 'pushNotifications': saved['pushNotifications'] ?? enabled};
+  }
 
   /// Tipos documentales que el perfil puede usar (personalización del usuario); vacío = todos.
   Set<String> get allowedDocumentTypeIds {

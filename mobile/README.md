@@ -64,7 +64,8 @@ lib/
 │   │   └── ocr_job_model.dart       # OcrJobModel
 │   ├── auth/user_permissions.dart   # Permisos por función de /auth/me (menú y botones)
 │   ├── i18n/                 # Idiomas es/en: app_language.dart (tr, selector) y translations_en.dart
-│   ├── notifications/        # Avisos del sistema: comprobación en primer y segundo plano
+│   ├── notifications/        # Avisos del sistema: sondeo, WorkManager y avisos ya vistos (seen_notifications.dart)
+│   ├── push/                 # Avisos push FCM: push_messaging.dart (interfaz y Firebase) y push_service.dart
 │   ├── errors/api_exception.dart
 │   ├── voice/voice_recorder.dart # Interfaz VoiceRecorder (grabación de dictado) y adaptador con `record`
 │   ├── theme/app_theme.dart  # Paleta compartida con la web
@@ -94,7 +95,7 @@ La app nunca muestra datos de ejemplo en su lugar.
 | Creación de documentos / nuevos trámites | ✅ Modal con selección de tipo y archivo/cámara (`POST /documents`) |
 | Subir nueva versión con la cámara, la galería o un archivo | ✅ (`POST /documents/{id}/versions`) |
 | Permisos por función: pestañas, campana y acciones según `/auth/me` | ✅ |
-| Avisos de workflow como notificaciones del sistema | ✅ Android (iOS: solo con la app abierta) |
+| Avisos de workflow como notificaciones del sistema | ✅ Android: push FCM y sondeo de respaldo (iOS: solo con la app abierta). Ver [Avisos](#avisos) |
 | Workflows: mis tareas, detalle, checklist y comentarios | ✅ |
 | Seguimiento de trámites en tiempo real (etapas, timeline de eventos, progreso) | ✅ Modal de seguimiento con etapas y observaciones (`GET /workflows/{id}`) |
 | Inicio de workflows desde documentos con plantillas activas | ✅ Modal con validación (`POST /workflows`) |
@@ -165,14 +166,53 @@ el código con `context.tr('…')` (o `tr('…')` fuera de los widgets) y su tra
 motivo obligatorio. Formatos PDF, JPG, PNG o DOCX hasta 25 MB (las mismas reglas que
 `DocumentStorageService`); el servidor calcula el SHA-256.
 
-**Avisos.** No usa Firebase. Con la app abierta consulta `/workflows/notifications` cada minuto y
-al volver a primer plano; en Android, WorkManager lo hace con la app cerrada (como mínimo cada
-15 minutos y solo con red). Los avisos ya vistos no se repiten y, al iniciar sesión, los antiguos
-no se notifican. En segundo plano solo se usa el token de acceso: nunca se renueva la sesión,
-para no invalidar el refresh token que usa la app. Al tocar el aviso se abre la tarea.
+**Avisos.** Hay dos vías: push de Firebase (FCM) y el sondeo de respaldo. Ver la sección [Avisos](#avisos).
 
 Para pruebas de instalación usa `flutter build apk --debug` y `build/app/outputs/flutter-apk/app-debug.apk`.
 No instales un APK `release` de desarrollo: la compilación release requiere un keystore privado de publicación.
 Configúralo en `mobile/android/key.properties` usando `key.properties.example`; ese archivo y el keystore
 están ignorados por Git. No guardes el keystore ni sus contraseñas en el repositorio. Para validar avisos,
 configura la URL del servidor, acepta el permiso y asigna una tarea a ese usuario desde la web.
+
+## Avisos
+
+Los avisos de workflow llegan por dos vías. Las dos son necesarias para la versión completa; sin la
+primera, la app funciona igual que antes:
+
+- **Push de Firebase (FCM), Android.** El servidor envía una notificación cuando asigna una tarea,
+  pide revisión o aprobación. El sistema la muestra aunque la app esté cerrada, y al tocarla se abre
+  la tarea. Requiere `google-services.json` en la app y credenciales de Firebase en el servidor.
+- **Sondeo (respaldo).** Con la app abierta consulta `/workflows/notifications` cada minuto y al volver
+  a primer plano. Con la app cerrada, WorkManager lo hace como mínimo cada 15 minutos y solo con red.
+
+Ambas vías comparten la lista de avisos ya vistos (`core/notifications/seen_notifications.dart`), así que
+un mismo aviso no se muestra dos veces. Al iniciar sesión, los avisos antiguos no se notifican.
+
+### Configurar Firebase
+
+1. **Móvil.** En la consola de Firebase, crea o abre el proyecto, añade una app Android con el
+   paquete `com.nexodocs.nexodocs_mobile` y descarga `google-services.json`. Colócalo en
+   `mobile/android/app/google-services.json`. Este archivo **no se sube a git** (está en `.gitignore`).
+   Sin él, la compilación funciona y la app no recibe push.
+2. **Servidor.** En la consola de Firebase, en Configuración del proyecto → Cuentas de servicio, genera
+   una clave privada nueva. Guarda el JSON **fuera del repositorio** y configura una de estas variables
+   en `infrastructure/.env` (no en git):
+   - `FIREBASE_CREDENTIALS_PATH`: ruta dentro del contenedor del backend. Monta el archivo con un
+     override de compose.
+   - `FIREBASE_CREDENTIALS_JSON`: el contenido completo del JSON.
+
+   Sin ninguna de las dos, el backend arranca con los avisos push desactivados y registra una advertencia.
+   Los nombres están en `infrastructure/.env.example`, sin valores.
+
+Documentación del diseño, endpoints y límites: [avisos push (FCM)](../docs/wiki/04-dominio-y-negocio/avisos-push-fcm.md).
+
+### Comprobar en el teléfono
+
+1. Abre la app, inicia sesión y acepta el permiso de notificaciones.
+2. Desde la web, asigna una tarea a ese mismo usuario.
+3. Con la app **cerrada**, el aviso debe llegar en pocos segundos. Al tocarlo, se abre la tarea.
+
+Al cerrar sesión, la app borra el token del servidor, así que ese teléfono deja de recibir avisos de la
+cuenta anterior.
+
+Pruebas automáticas: `flutter test test/push_notifications_test.dart` (usa un cliente FCM simulado).

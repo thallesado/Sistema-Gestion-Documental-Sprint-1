@@ -14,6 +14,10 @@ class AuthRepository {
 
   Future<Map<String, dynamic>> profile() async => await client.get('/auth/me') as Map<String, dynamic>;
 
+  /// Preferencias de aviso del perfil (`PUT /auth/me/notifications`). El servidor las respeta al enviar push.
+  Future<Map<String, dynamic>> updateNotifications({required bool emailNotifications, required bool pushNotifications}) async =>
+      await client.put('/auth/me/notifications', {'emailNotifications': emailNotifications, 'pushNotifications': pushNotifications}) as Map<String, dynamic>;
+
   Future<void> logout(String refreshToken) async {
     await client.post('/auth/logout', {'refreshToken': refreshToken});
   }

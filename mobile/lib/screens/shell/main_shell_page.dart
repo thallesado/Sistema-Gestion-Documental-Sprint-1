@@ -7,6 +7,7 @@ import '../../core/api/auth_api.dart';
 import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/notifications/workflow_notifications.dart';
+import '../../core/push/push_service.dart';
 import '../../core/onboarding/app_tour_controller.dart';
 import '../../core/onboarding/onboarding_steps.dart';
 import '../../core/onboarding/onboarding_storage.dart';
@@ -77,6 +78,7 @@ class MainShellPage extends StatefulWidget {
     super.key,
     required this.api,
     this.notifications,
+    this.push,
     this.onboarding = const OnboardingStorage(),
   });
 
@@ -87,6 +89,9 @@ class MainShellPage extends StatefulWidget {
 
   /// Avisos del sistema; `null` usa [WorkflowNotifications.instance].
   final WorkflowNotifications? notifications;
+
+  /// Avisos push (FCM); `null` usa [PushService.instance]. Sin Firebase no hace nada.
+  final PushService? push;
 
   @override
   State<MainShellPage> createState() => _MainShellPageState();
@@ -105,6 +110,7 @@ class _MainShellPageState extends State<MainShellPage>
 
   WorkflowNotifications get _notifications =>
       widget.notifications ?? WorkflowNotifications.instance;
+  PushService get _push => widget.push ?? PushService.instance;
   UserPermissions get permissions => widget.api.permissions.value;
 
   List<ShellTab> get visibleTabs => ShellTab.values
@@ -142,6 +148,9 @@ class _MainShellPageState extends State<MainShellPage>
 
   Future<void> _start() async {
     await widget.api.loadPermissions();
+    if (!mounted) return;
+    // Tras iniciar sesión o restaurarla: permiso, token push y registro en el servidor (si hay Firebase).
+    await _push.start(ApiPushTokenRegistry(widget.api.client));
     if (!mounted) return;
     if (canSeeNotifications) {
       await _notifications.start();

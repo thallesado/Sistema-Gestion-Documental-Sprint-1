@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/api/auth_api.dart';
 import 'core/i18n/app_language.dart';
 import 'core/notifications/workflow_notifications.dart';
+import 'core/push/push_service.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/password_page.dart';
 import 'screens/auth/app_lock_overlay.dart';
@@ -14,6 +15,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Registra el canal de avisos y detecta si la app se abrió tocando una notificación.
   await WorkflowNotifications.instance.init();
+  // Firebase para avisos push. Sin google-services.json no hace nada y la app sigue por sondeo.
+  await PushService.instance.prepare();
   // Idioma elegido en el perfil (español por defecto, como la web).
   await AppLanguageController.instance.load();
   runApp(const NexoDocsApp());

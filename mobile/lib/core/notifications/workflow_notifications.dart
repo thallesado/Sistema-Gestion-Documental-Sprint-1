@@ -5,27 +5,32 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:workmanager/workmanager.dart';
 
-import 'background_worker.dart';
 import '../i18n/app_language.dart';
+import '../push/push_messaging.dart';
+import 'seen_notifications.dart';
+import 'background_worker.dart';
 
 /// Avisos de workflow como notificaciones del sistema.
 ///
-/// No usa servicios externos (Firebase): la app consulta `GET /workflows/notifications`
-/// mientras está abierta y, en Android, un trabajo periódico de WorkManager lo hace con la app
-/// cerrada (el sistema lo ejecuta como mínimo cada 15 minutos y solo con red).
-/// Primer plano y segundo plano comparten la marca [seenUntilKey] para no avisar dos veces.
-class WorkflowNotifications {
+/// Dos vías: los avisos push de FCM (ver `core/push`), cuando Firebase está configurado, y el sondeo
+/// de `GET /workflows/notifications` (con la app abierta, y en Android con WorkManager cerrada: como
+/// mínimo cada 15 minutos y solo con red). El sondeo es el respaldo y nunca se elimina.
+/// Ambas vías comparten [SeenNotifications]: cada aviso se muestra una sola vez.
+/// La marca temporal [seenUntilKey] sigue sirviendo para no avisar de lo antiguo al iniciar sesión.
+class WorkflowNotifications implements PushPresenter {
   WorkflowNotifications._();
 
   static final instance = WorkflowNotifications._();
 
   static const seenUntilKey = 'notifications_seen_until';
   static const periodicTaskName = 'nexodocs-workflow-notifications';
-  static const _channelId = 'workflow_tasks';
+  /// Canal de Android de los avisos de tareas. El servidor lo nombra en cada push (`android.channelId`).
+  static const channelId = 'workflow_tasks';
   static const _channelName = 'Tareas de workflow';
   static const _maxPerBatch = 5;
 
   final _plugin = FlutterLocalNotificationsPlugin();
+  final _seen = SeenNotifications.instance;
   bool _initialized = false;
 
   /// Tarea pendiente de abrir cuando la app se lanzó tocando una notificación.
@@ -44,6 +49,15 @@ class WorkflowNotifications {
         ),
         onDidReceiveNotificationResponse: (response) => _open(response.payload),
       );
+      // Los avisos push del servidor usan este canal: debe existir antes de que llegue el primero.
+      await _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          channelId,
+          _channelName,
+          description: 'Tareas asignadas, devoluciones y vencimientos de workflows',
+          importance: Importance.high,
+        ),
+      );
       final launch = await _plugin.getNotificationAppLaunchDetails();
       if (launch?.didNotificationLaunchApp ?? false) {
         final payload = launch!.notificationResponse?.payload;
@@ -61,6 +75,32 @@ class WorkflowNotifications {
     final taskId = _pendingTaskId;
     _pendingTaskId = null;
     return taskId;
+  }
+
+  @override
+  Future<void> showIncoming({
+    required String? notificationId,
+    required String title,
+    required String body,
+    String? taskId,
+  }) async {
+    await init();
+    if (!_initialized) return;
+    await _plugin.show(
+      id: (notificationId ?? '${DateTime.now().microsecondsSinceEpoch}').hashCode & 0x7fffffff,
+      title: title,
+      body: body,
+      notificationDetails: _details,
+      payload: taskId,
+    );
+  }
+
+  @override
+  void openTask(String taskId) => _open(taskId);
+
+  @override
+  void queueTask(String taskId) {
+    if (taskId.isNotEmpty) _pendingTaskId = taskId;
   }
 
   /// Tras iniciar sesión: pide permiso de notificaciones y programa la comprobación periódica.
@@ -108,11 +148,14 @@ class WorkflowNotifications {
       await storage.write(key: seenUntilKey, value: newest.toUtc().toIso8601String());
     }
     if (marker == null) return 0;
-    final fresh = unreadSince(items, marker);
+    // Descartados los avisos que ya salieron por push o en una comprobación anterior.
+    final fresh = dropSeen(unreadSince(items, marker), await _seen.seenIds());
     if (fresh.isEmpty) return 0;
     await init();
     if (!_initialized) return 0;
     for (final item in fresh.take(_maxPerBatch)) {
+      final id = item['id']?.toString();
+      if (id != null && !await _seen.markSeen(id)) continue;
       await _show(item);
     }
     if (fresh.length > _maxPerBatch) {
@@ -136,7 +179,7 @@ class WorkflowNotifications {
 
   static const _details = NotificationDetails(
     android: AndroidNotificationDetails(
-      _channelId,
+      channelId,
       _channelName,
       channelDescription: 'Tareas asignadas, devoluciones y vencimientos de workflows',
       importance: Importance.high,
@@ -167,6 +210,11 @@ List<Map<String, dynamic>> unreadSince(List<Map<String, dynamic>> items, DateTim
   fresh.sort((a, b) => a['created_at'].toString().compareTo(b['created_at'].toString()));
   return fresh;
 }
+
+/// Quita los avisos cuyo identificador ya está en [seen] (evita mostrar dos veces el mismo aviso).
+@visibleForTesting
+List<Map<String, dynamic>> dropSeen(List<Map<String, dynamic>> items, Set<String> seen) =>
+    items.where((item) => !seen.contains(item['id']?.toString())).toList();
 
 @visibleForTesting
 DateTime? newestCreatedAt(List<Map<String, dynamic>> items) {

@@ -79,6 +79,9 @@ class ApiClient {
   Future<dynamic> patch(String path, [Object? body]) async =>
       _decode(await _send(() => _client.patch(uri(path), headers: _jsonHeaders, body: jsonEncode(body ?? {}))));
 
+  Future<dynamic> delete(String path) async =>
+      _decode(await _send(() => _client.delete(uri(path), headers: _headers)));
+
   /// Envío `multipart/form-data` con la misma renovación de sesión que el resto de peticiones.
   /// La petición se reconstruye en cada intento porque un `MultipartRequest` solo se puede enviar una vez.
   Future<dynamic> postMultipart(String path, {Map<String, String> fields = const {}, required List<http.MultipartFile> Function() files}) async =>

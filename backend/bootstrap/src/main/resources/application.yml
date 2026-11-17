@@ -111,6 +111,11 @@ app:
 
 # Anclaje externo de la cadena de auditoria (C3). Sin destino configurado el job queda DISABLED.
 nexodocs:
+  # Avisos push (FCM). Sin credenciales el servicio queda desactivado; ver .env.example.
+  push:
+    firebase:
+      credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+      credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
   audit:
     # Sin AUDIT_ANCHOR_SECRET se genera una clave aleatoria en AUDIT_ANCHOR_KEY_FILE (por defecto junto al archivo de anclas).
     anchor-secret: ${AUDIT_ANCHOR_SECRET:}

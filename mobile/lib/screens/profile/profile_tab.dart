@@ -4,6 +4,7 @@ import '../../core/api/auth_api.dart';
 import '../../core/auth/user_permissions.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/errors/api_exception.dart';
+import '../../core/push/push_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
 import '../audit/audit_log_page.dart';
@@ -27,6 +28,7 @@ class _ProfileTabState extends State<ProfileTab> {
   bool loading = true;
   bool biometricAvailable = false;
   bool biometricEnabled = false;
+  late bool pushEnabled = widget.api.pushNotificationsEnabled;
 
   @override
   void initState() {
@@ -43,6 +45,30 @@ class _ProfileTabState extends State<ProfileTab> {
         biometricAvailable = available;
         biometricEnabled = enabled;
       });
+    }
+  }
+
+  /// Switch de notificaciones push: guarda la preferencia en el servidor y, en este teléfono,
+  /// registra el token al activarla o lo borra al desactivarla.
+  Future<void> _togglePush(bool value) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final previous = pushEnabled;
+    setState(() => pushEnabled = value);
+    try {
+      await widget.api.setPushNotifications(value);
+      final registry = ApiPushTokenRegistry(widget.api.client);
+      if (value) {
+        await PushService.instance.start(registry);
+        if (!PushService.instance.enabled) {
+          if (mounted) setState(() => pushEnabled = previous);
+          messenger.showSnackBar(SnackBar(content: Text(tr('Las notificaciones push no están disponibles en este dispositivo.'))));
+        }
+      } else {
+        await PushService.instance.unregister(registry: registry);
+      }
+    } on ApiException catch (error) {
+      if (mounted) setState(() => pushEnabled = previous);
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 
@@ -162,6 +188,17 @@ class _ProfileTabState extends State<ProfileTab> {
                   padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
                   child: Text(context.tr('Seguridad y Dispositivo'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.teal)),
                 ),
+                SwitchListTile(
+                  key: const Key('push-switch'),
+                  secondary: const Icon(Icons.notifications_active_outlined, color: AppTheme.teal),
+                  title: Text(context.tr('Notificaciones push'), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  subtitle: Text(context.tr('Avisos de tareas en este dispositivo'), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  value: pushEnabled,
+                  onChanged: _togglePush,
+                  activeTrackColor: AppTheme.mint,
+                  activeThumbColor: AppTheme.teal,
+                ),
+                const Divider(height: 1),
                 SwitchListTile(
                   key: const Key('biometrics-switch'),
                   secondary: const Icon(Icons.fingerprint, color: AppTheme.teal),

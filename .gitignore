@@ -10,6 +10,10 @@ __v0_jsx-dev-runtime.ts
 .env*.local
 .env
 
+# Firebase (avisos push): archivos de cliente y de cuenta de servicio. Nunca se versionan.
+mobile/android/app/google-services.json
+**/firebase-adminsdk*.json
+
 # Common ignores
 node_modules
 .next/
@@ -39,3 +43,6 @@ odd/
 
 # Local documents and technical specifications
 /*.docx
+
+# Override local de compose (rutas de secretos del equipo). Nunca se versiona.
+infrastructure/docker-compose.override.yml
