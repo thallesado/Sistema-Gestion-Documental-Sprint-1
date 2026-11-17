@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
+import '../../core/api/auth_api.dart';
 import '../../core/api/expedients_api.dart';
 import '../../core/errors/api_exception.dart';
+import '../../core/models/patient_model.dart';
 import '../../core/models/public_radicacion_model.dart';
 import '../../core/models/radicacion_receipt_model.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
+import '../patients/patient_appointments_sheet.dart';
 import 'radicacion_receipt_sheet.dart';
+import 'radicacion_wizard_sheet.dart';
 
 /// Pantalla pública de consulta de radicación y trámites ciudadanos (modo externo / sin login).
 const defaultPublicTenantsMap = [
@@ -15,9 +19,18 @@ const defaultPublicTenantsMap = [
 ];
 
 class PublicRadicacionPage extends StatefulWidget {
-  const PublicRadicacionPage({super.key, required this.client});
+  const PublicRadicacionPage({
+    super.key,
+    required this.client,
+    this.authApi,
+    this.initialEmail,
+    this.initialTenantId,
+  });
 
   final ApiClient client;
+  final AuthApi? authApi;
+  final String? initialEmail;
+  final String? initialTenantId;
 
   @override
   State<PublicRadicacionPage> createState() => _PublicRadicacionPageState();
@@ -25,6 +38,7 @@ class PublicRadicacionPage extends StatefulWidget {
 
 class _PublicRadicacionPageState extends State<PublicRadicacionPage> {
   late final ExpedientsApi _expedientsApi;
+  late final AuthApi _authApi = widget.authApi ?? AuthApi.withClient(widget.client);
   final TextEditingController _codeController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
@@ -40,6 +54,9 @@ class _PublicRadicacionPageState extends State<PublicRadicacionPage> {
   void initState() {
     super.initState();
     _expedientsApi = ExpedientsApi(widget.client);
+    if (widget.initialTenantId != null) {
+      _selectedTenantId = widget.initialTenantId;
+    }
     _loadPublicTenants();
   }
 
@@ -129,6 +146,62 @@ class _PublicRadicacionPageState extends State<PublicRadicacionPage> {
     showRadicacionReceiptSheet(context, receipt);
   }
 
+  void _openAppointments() {
+    final docController = TextEditingController(text: '');
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.calendar_month, color: AppTheme.teal),
+            SizedBox(width: 8),
+            Text('Citas Médicas', style: TextStyle(fontSize: 17)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Ingresa tu Cédula o Documento de Identidad para consultar o solicitar tu cita en Clínica Central.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: docController,
+              decoration: const InputDecoration(
+                labelText: 'Documento / Cédula',
+                hintText: 'Ej. 10203040',
+                prefixIcon: Icon(Icons.badge_outlined),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
+            onPressed: () {
+              final doc = docController.text.trim();
+              if (doc.isEmpty) return;
+              Navigator.pop(ctx);
+              final patient = PatientModel(
+                id: doc,
+                name: _radicacionResult?.citizenName ?? (widget.initialEmail != null ? 'Paciente (${widget.initialEmail})' : 'Paciente $doc'),
+                documentId: doc,
+              );
+              showPatientAppointmentsSheet(context, _authApi.clinical, patient);
+            },
+            child: const Text('Consultar Citas'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -183,7 +256,73 @@ class _PublicRadicacionPageState extends State<PublicRadicacionPage> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          if (widget.initialEmail != null && widget.initialEmail!.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.teal.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.teal.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_user_outlined, color: AppTheme.teal, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Portal Ciudadano: ${widget.initialEmail}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.ink),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Acciones directas ciudadanas
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  key: const Key('public-radicar-action-button'),
+                  onPressed: () => showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => RadicacionWizardSheet(
+                      api: _authApi,
+                      initialCitizenEmail: widget.initialEmail,
+                    ),
+                  ),
+                  icon: const Icon(Icons.edit_document, size: 18),
+                  label: const Text('Radicar PQRS', style: TextStyle(fontSize: 13)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.teal,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('public-citas-action-button'),
+                  onPressed: _openAppointments,
+                  icon: const Icon(Icons.calendar_month_outlined, size: 18, color: AppTheme.teal),
+                  label: const Text('Mis Citas', style: TextStyle(fontSize: 13, color: AppTheme.teal)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppTheme.teal),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
 
           // Formulario de búsqueda
           Card(

@@ -12,6 +12,22 @@ import '../expedients/public_radicacion_page.dart';
 /// Valor del selector para el administrador de plataforma (sin organización), como en la web.
 const platformTenant = '';
 
+/// Modo de acceso seleccionado para ofrecer la mejor experiencia UI/UX.
+enum LoginAccessMode {
+  administrative,
+  citizen,
+}
+
+/// Rol o perfil detectado de forma inteligente según el correo o usuario.
+enum DetectedUserRole {
+  unknown,
+  ownerOrAdmin,
+  supervisor,
+  operative,
+  healthcare,
+  citizen,
+}
+
 /// Organizaciones por defecto para garantizar inicialización inmediata y resiliente ante fallas de red.
 const defaultPublicTenants = [
   PublicTenant('20000000-0000-0000-0000-000000000001', 'FinoCode'),
@@ -43,11 +59,85 @@ class _LoginPageState extends State<LoginPage> {
   bool biometricEnabled = false;
   String? error;
 
+  LoginAccessMode accessMode = LoginAccessMode.administrative;
+  DetectedUserRole detectedRole = DetectedUserRole.unknown;
+  String? detectedRoleDescription;
+  bool isMultiTenantOwner = false;
+
   @override
   void initState() {
     super.initState();
+    userController.addListener(_handleUserChanged);
     loadTenants();
     _checkBiometrics();
+  }
+
+  void _handleUserChanged() {
+    final text = userController.text.trim().toLowerCase();
+    if (text.isEmpty) {
+      if (detectedRole != DetectedUserRole.unknown) {
+        setState(() {
+          detectedRole = DetectedUserRole.unknown;
+          detectedRoleDescription = null;
+          isMultiTenantOwner = false;
+        });
+      }
+      return;
+    }
+
+    DetectedUserRole role = DetectedUserRole.unknown;
+    String? roleDesc;
+    bool multi = false;
+    String? autoTenant;
+
+    if (text.contains('laura') || text.contains('superadmin') || text == 'carlos@nexodocs.com') {
+      role = DetectedUserRole.ownerOrAdmin;
+      roleDesc = text.contains('superadmin') ? 'Superadministrador de Plataforma' : 'Dueña / Administradora General';
+      multi = true;
+      autoTenant = text == 'carlos@nexodocs.com' ? platformTenant : '20000000-0000-0000-0000-000000000001';
+    } else if (text.contains('clinicacentral') || text.contains('maria') || text.contains('medico')) {
+      role = DetectedUserRole.healthcare;
+      roleDesc = 'Sector Salud / Personal Clínico';
+      autoTenant = '20000000-0000-0000-0000-000000000002';
+    } else if (text.contains('supervisor') || (text.contains('carlos') && !text.contains('nexodocs'))) {
+      role = DetectedUserRole.supervisor;
+      roleDesc = 'Supervisor / Aprobador de Tareas';
+      autoTenant = '20000000-0000-0000-0000-000000000001';
+    } else if (text.contains('operativo') || text.contains('ana')) {
+      role = DetectedUserRole.operative;
+      roleDesc = 'Funcionario Operativo / Radicación';
+      autoTenant = '20000000-0000-0000-0000-000000000001';
+    } else if (text.endsWith('@acme.com')) {
+      role = DetectedUserRole.operative;
+      roleDesc = 'Funcionario FinoCode';
+      autoTenant = '20000000-0000-0000-0000-000000000001';
+    } else if (text.endsWith('@gmail.com') ||
+               text.endsWith('@hotmail.com') ||
+               text.endsWith('@yahoo.com') ||
+               text.endsWith('@outlook.com') ||
+               text.endsWith('@live.com') ||
+               text.endsWith('@icloud.com') ||
+               text.contains('ciudadano') ||
+               text.contains('cliente') ||
+               text.contains('paciente')) {
+      role = DetectedUserRole.citizen;
+      roleDesc = 'Usuario Ciudadano / Cliente';
+      autoTenant = '20000000-0000-0000-0000-000000000001';
+    }
+
+    setState(() {
+      detectedRole = role;
+      detectedRoleDescription = roleDesc;
+      isMultiTenantOwner = multi;
+      if (autoTenant != null && tenantId == null) {
+        tenantId = autoTenant;
+      }
+      if (role == DetectedUserRole.citizen && accessMode != LoginAccessMode.citizen) {
+        accessMode = LoginAccessMode.citizen;
+      } else if (role != DetectedUserRole.citizen && role != DetectedUserRole.unknown && accessMode == LoginAccessMode.citizen) {
+        accessMode = LoginAccessMode.administrative;
+      }
+    });
   }
 
   Future<void> _checkBiometrics() async {
@@ -86,6 +176,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
+    userController.removeListener(_handleUserChanged);
     userController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -184,8 +275,87 @@ class _LoginPageState extends State<LoginPage> {
     tenantId = tenant;
     userController.text = email;
     passwordController.text = 'DemoPass123!';
+    accessMode = LoginAccessMode.administrative;
     error = null;
   });
+
+  /// Rellena perfil ciudadano de demostración.
+  void fillCitizenDemo(String email) => setState(() {
+    tenantId = '20000000-0000-0000-0000-000000000001';
+    userController.text = email;
+    passwordController.clear();
+    accessMode = LoginAccessMode.citizen;
+    detectedRole = DetectedUserRole.citizen;
+    detectedRoleDescription = 'Usuario Ciudadano / Cliente';
+    error = null;
+  });
+
+  Widget _tenantCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required String id,
+  }) {
+    final isSelected = tenantId == id;
+    return InkWell(
+      onTap: () => setState(() => tenantId = id),
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.teal.withValues(alpha: 0.1) : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppTheme.teal : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.teal : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isSelected ? Colors.white : Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isSelected ? AppTheme.teal : Colors.black87,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isSelected ? AppTheme.teal.withValues(alpha: 0.8) : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle, color: AppTheme.teal, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -214,7 +384,7 @@ class _LoginPageState extends State<LoginPage> {
                       const Icon(Icons.folder_shared_outlined, size: 52, color: AppTheme.teal),
                       const SizedBox(height: 12),
                       Text('NexoDocs', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
-                      const Text('Inicia sesión en tu organización', textAlign: TextAlign.center),
+                      const Text('Gestión Documental y Radicación Inteligente', textAlign: TextAlign.center),
                       if (widget.notice != null) ...[
                         const SizedBox(height: 14),
                         Container(
@@ -223,102 +393,272 @@ class _LoginPageState extends State<LoginPage> {
                           child: Text(widget.notice!, key: const Key('login-notice'), style: const TextStyle(fontSize: 13)),
                         ),
                       ],
-                      if (kDebugMode) ...[
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            ActionChip(
-                              avatar: const Icon(Icons.business, size: 14),
-                              label: const Text('Demo: Laura (admin)', style: TextStyle(fontSize: 12)),
-                              onPressed: () => fillDemo('laura@acme.com', '20000000-0000-0000-0000-000000000001'),
-                            ),
-                            ActionChip(
-                              avatar: const Icon(Icons.shield_outlined, size: 14),
-                              label: const Text('Demo: Carlos (plataforma)', style: TextStyle(fontSize: 12)),
-                              onPressed: () => fillDemo('carlos@nexodocs.com', platformTenant),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        key: const Key('tenant'),
-                        // ignore: deprecated_member_use
-                        value: tenantId,
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          labelText: 'Organización',
-                          helperText: tenantsLoading ? 'Cargando organizaciones…' : null,
-                          errorText: tenantsError,
-                          errorMaxLines: 3,
-                          suffixIcon: tenantsError != null
-                              ? IconButton(icon: const Icon(Icons.refresh), tooltip: 'Reintentar', onPressed: loadTenants)
-                              : null,
-                        ),
-                        items: [
-                          const DropdownMenuItem(value: platformTenant, child: Text('[ Plataforma / Administración global ]')),
-                          ...tenants.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name, overflow: TextOverflow.ellipsis))),
-                          if (tenantId != null && tenantId != platformTenant && !tenants.any((t) => t.id == tenantId))
-                            DropdownMenuItem(
-                              value: tenantId,
-                              child: Text(tenantId == '20000000-0000-0000-0000-000000000001' ? 'FinoCode' : 'Organización ($tenantId)'),
-                            ),
-                        ],
-                        onChanged: (value) => setState(() => tenantId = value),
-                        validator: (value) => value == null ? 'Selecciona tu organización' : null,
-                      ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 20),
+
+                      // Campo de Correo o Usuario
                       TextFormField(
                         key: const Key('username'),
                         controller: userController,
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const [AutofillHints.username],
-                        decoration: const InputDecoration(labelText: 'Correo o usuario'),
+                        decoration: const InputDecoration(
+                          labelText: 'Correo o usuario',
+                          prefixIcon: Icon(Icons.account_circle_outlined),
+                        ),
                         validator: requiredField,
                       ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        key: const Key('password'),
-                        controller: passwordController,
-                        obscureText: !showPassword,
-                        autofillHints: const [AutofillHints.password],
-                        decoration: InputDecoration(
-                          labelText: 'Contraseña',
-                          suffixIcon: IconButton(
-                            icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
-                            tooltip: showPassword ? 'Ocultar contraseña' : 'Ver contraseña',
-                            onPressed: () => setState(() => showPassword = !showPassword),
+
+                      // Badge dinámico de rol detectado
+                      if (detectedRoleDescription != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: detectedRole == DetectedUserRole.citizen
+                                ? const Color(0xfff0fdf4)
+                                : const Color(0xffeff6ff),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: detectedRole == DetectedUserRole.citizen
+                                  ? const Color(0xff86efac)
+                                  : const Color(0xffbfdbfe),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                detectedRole == DetectedUserRole.citizen
+                                    ? Icons.how_to_reg
+                                    : (isMultiTenantOwner ? Icons.workspace_premium : Icons.badge),
+                                size: 18,
+                                color: detectedRole == DetectedUserRole.citizen
+                                    ? const Color(0xff16a34a)
+                                    : const Color(0xff2563eb),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  detectedRoleDescription!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: detectedRole == DetectedUserRole.citizen
+                                        ? const Color(0xff15803d)
+                                        : const Color(0xff1d4ed8),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        validator: requiredField,
-                        onFieldSubmitted: (_) => submitting ? null : submit(),
-                      ),
-                      if (error != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Text(error!, key: const Key('login-error'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                      ],
+
+                      // Conmutador Inteligente de Modo (Administrativo vs Ciudadano)
+                      if (detectedRole != DetectedUserRole.unknown) ...[
+                        const SizedBox(height: 14),
+                        SegmentedButton<LoginAccessMode>(
+                          segments: const [
+                            ButtonSegment<LoginAccessMode>(
+                              value: LoginAccessMode.administrative,
+                              icon: Icon(Icons.business_center_outlined, size: 16),
+                              label: Text('Administrativo', style: TextStyle(fontSize: 12)),
+                            ),
+                            ButtonSegment<LoginAccessMode>(
+                              value: LoginAccessMode.citizen,
+                              icon: Icon(Icons.person_outline, size: 16),
+                              label: Text('Ciudadano', style: TextStyle(fontSize: 12)),
+                            ),
+                          ],
+                          selected: {accessMode},
+                          onSelectionChanged: (newSelection) {
+                            setState(() => accessMode = newSelection.first);
+                          },
                         ),
-                      const SizedBox(height: 18),
-                      FilledButton(
-                        key: const Key('login-submit'),
-                        onPressed: submitting ? null : submit,
-                        child: Text(submitting ? 'Validando…' : 'Iniciar sesión'),
-                      ),
-                      TextButton(onPressed: submitting ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(
-                        builder: (_) => RecoveryPage(api: widget.authApi, tenants: tenants))),
-                        child: const Text('¿Olvidaste tu contraseña?')),
-                      TextButton(onPressed: submitting ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(
-                        builder: (_) => ResetPasswordPage(api: widget.authApi))),
-                        child: const Text('Tengo un enlace de recuperación')),
+                      ],
+
+                      // MODO CIUDADANO / CLIENTE
+                      if (accessMode == LoginAccessMode.citizen) ...[
+                        Container(
+                          margin: const EdgeInsets.only(top: 14),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xfff0fdfa),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xff99f6e4)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.verified_user_outlined, color: AppTheme.teal, size: 20),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Portal Ciudadano y Radicación',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: AppTheme.teal,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Como ciudadano o usuario final no requieres contraseña corporativa. Puedes radicar trámites formalmente, firmar en pantalla, adjuntar fotos y consultar el avance de tus radicaciones.',
+                                style: TextStyle(fontSize: 12, color: Colors.black87),
+                              ),
+                              const SizedBox(height: 14),
+                              FilledButton.icon(
+                                key: const Key('citizen-portal-submit'),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => PublicRadicacionPage(
+                                      client: widget.authApi.client,
+                                      authApi: widget.authApi,
+                                      initialEmail: userController.text.trim(),
+                                      initialTenantId: tenantId ?? '20000000-0000-0000-0000-000000000001',
+                                    ),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.arrow_forward, size: 18),
+                                label: const Text('Entrar a Ventanilla Ciudadana'),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppTheme.teal,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Center(
+                                child: TextButton(
+                                  onPressed: () => setState(() => accessMode = LoginAccessMode.administrative),
+                                  child: const Text(
+                                    '¿Eres funcionario con contraseña? Ingresar aquí',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      // MODO ADMINISTRATIVO
+                      if (accessMode == LoginAccessMode.administrative) ...[
+                        if (isMultiTenantOwner) ...[
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Sedes disponibles (selección rápida):',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54),
+                          ),
+                          const SizedBox(height: 8),
+                          _tenantCard(
+                            title: 'FinoCode',
+                            subtitle: 'Sede Principal / Documental',
+                            icon: Icons.business,
+                            id: '20000000-0000-0000-0000-000000000001',
+                          ),
+                          const SizedBox(height: 6),
+                          _tenantCard(
+                            title: 'Clínica Central',
+                            subtitle: 'Sector Salud y Pacientes',
+                            icon: Icons.local_hospital,
+                            id: '20000000-0000-0000-0000-000000000002',
+                          ),
+                          const SizedBox(height: 6),
+                          _tenantCard(
+                            title: 'Plataforma Global',
+                            subtitle: 'Administración NexoDocs',
+                            icon: Icons.language,
+                            id: platformTenant,
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          key: const Key('tenant'),
+                          // ignore: deprecated_member_use
+                          value: tenantId,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: 'Organización',
+                            helperText: tenantsLoading ? 'Cargando organizaciones…' : null,
+                            errorText: tenantsError,
+                            errorMaxLines: 3,
+                            suffixIcon: tenantsError != null
+                                ? IconButton(icon: const Icon(Icons.refresh), tooltip: 'Reintentar', onPressed: loadTenants)
+                                : null,
+                          ),
+                          items: [
+                            const DropdownMenuItem(value: platformTenant, child: Text('[ Plataforma / Administración global ]')),
+                            ...tenants.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name, overflow: TextOverflow.ellipsis))),
+                            if (tenantId != null && tenantId != platformTenant && !tenants.any((t) => t.id == tenantId))
+                              DropdownMenuItem(
+                                value: tenantId,
+                                child: Text(tenantId == '20000000-0000-0000-0000-000000000001' ? 'FinoCode' : 'Organización ($tenantId)'),
+                              ),
+                          ],
+                          onChanged: (value) => setState(() => tenantId = value),
+                          validator: (value) => value == null ? 'Selecciona tu organización' : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          key: const Key('password'),
+                          controller: passwordController,
+                          obscureText: !showPassword,
+                          autofillHints: const [AutofillHints.password],
+                          decoration: InputDecoration(
+                            labelText: 'Contraseña',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
+                              tooltip: showPassword ? 'Ocultar contraseña' : 'Ver contraseña',
+                              onPressed: () => setState(() => showPassword = !showPassword),
+                            ),
+                          ),
+                          validator: requiredField,
+                          onFieldSubmitted: (_) => submitting ? null : submit(),
+                        ),
+                        if (error != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(error!, key: const Key('login-error'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                          ),
+                        const SizedBox(height: 18),
+                        FilledButton(
+                          key: const Key('login-submit'),
+                          onPressed: submitting ? null : submit,
+                          child: Text(submitting ? 'Validando…' : 'Iniciar sesión'),
+                        ),
+                        TextButton(
+                          onPressed: submitting ? null : () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(builder: (_) => RecoveryPage(api: widget.authApi, tenants: tenants)),
+                          ),
+                          child: const Text('¿Olvidaste tu contraseña?'),
+                        ),
+                        TextButton(
+                          onPressed: submitting ? null : () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(builder: (_) => ResetPasswordPage(api: widget.authApi)),
+                          ),
+                          child: const Text('Tengo un enlace de recuperación'),
+                        ),
+                      ],
+
                       const Divider(height: 24),
                       OutlinedButton.icon(
                         key: const Key('public-radicacion-button'),
                         onPressed: submitting ? null : () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => PublicRadicacionPage(client: widget.authApi.client),
+                            builder: (_) => PublicRadicacionPage(
+                              client: widget.authApi.client,
+                              authApi: widget.authApi,
+                              initialEmail: userController.text.trim(),
+                              initialTenantId: tenantId,
+                            ),
                           ),
                         ),
                         icon: const Icon(Icons.search, color: AppTheme.teal),
@@ -330,7 +670,7 @@ class _LoginPageState extends State<LoginPage> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
-                      if (biometricEnabled) ...[
+                      if (biometricEnabled && accessMode == LoginAccessMode.administrative) ...[
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
                           key: const Key('biometrics-login'),

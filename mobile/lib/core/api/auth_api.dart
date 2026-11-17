@@ -29,6 +29,9 @@ class AuthApi {
     : client = ApiClient(client: client, storage: storage),
       biometrics = biometrics ?? BiometricService(storage: storage);
 
+  AuthApi.withClient(this.client, {BiometricService? biometrics})
+    : biometrics = biometrics ?? BiometricService(storage: client.storage);
+
   final ApiClient client;
   final BiometricService biometrics;
   late final AuthRepository auth = AuthRepository(client);

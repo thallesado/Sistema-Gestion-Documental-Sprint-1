@@ -41,11 +41,15 @@ class RadicacionWizardSheet extends StatefulWidget {
     required this.api,
     this.picker = pickWithDevice,
     this.initialOcrPreFill,
+    this.initialCitizenEmail,
+    this.initialCitizenName,
   });
 
   final AuthApi api;
   final UploadPicker picker;
   final OcrRadicacionPreFill? initialOcrPreFill;
+  final String? initialCitizenEmail;
+  final String? initialCitizenName;
 
   @override
   State<RadicacionWizardSheet> createState() => _RadicacionWizardSheetState();
@@ -83,6 +87,12 @@ class _RadicacionWizardSheetState extends State<RadicacionWizardSheet> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialCitizenEmail != null && widget.initialCitizenEmail!.isNotEmpty) {
+      emailController.text = widget.initialCitizenEmail!;
+    }
+    if (widget.initialCitizenName != null && widget.initialCitizenName!.isNotEmpty) {
+      nameController.text = widget.initialCitizenName!;
+    }
     if (widget.initialOcrPreFill != null) {
       _applyOcrPreFill(widget.initialOcrPreFill!);
     }
