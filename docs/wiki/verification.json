@@ -1673,6 +1673,9 @@
       "includes": [
         "props.setProperty(prefix+\"fetchsize\",\"1048576\");",
         "record DownloadProgress(String phase,String fileName,long downloadedBytes)",
+        "new jakarta.mail.search.ReceivedDateTerm",
+        "long nextAtStart=u.getUIDNext();",
+        "if(!more&&nextAtStart>0)latest=Math.max(latest,nextAtStart-1);",
         "new DownloadProgress(\"DOWNLOADING\",name,0)",
         "new DownloadProgress(\"VALIDATING\",name,data.length)",
         "!subject.isBlank()"

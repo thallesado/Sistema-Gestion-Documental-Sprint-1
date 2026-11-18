@@ -54,8 +54,19 @@ public class MailboxGateway {
             Folder f=store.getFolder(folder);try{
                 f.open(Folder.READ_ONLY);if(!(f instanceof UIDFolder u))throw new IllegalArgumentException("Buzón sin UID");
                 long validity=u.getUIDValidity();long cursor=validity==knownValidity?lastUid:0;
-                // At most 100 UID positions per poll: bounded even for very large inboxes.
-                long end=cursor+100;Message[] messages=u.getMessagesByUID(cursor+1,end);
+                // Search by activation date on the server, then handle at most 100 unseen messages.
+                // A one-day margin covers IMAP date-only comparisons; the exact instant is checked below.
+                long nextAtStart=u.getUIDNext();
+                Date earliest=Date.from(since.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate().minusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant());
+                Message[] candidates=f.search(new jakarta.mail.search.ReceivedDateTerm(jakarta.mail.search.ComparisonTerm.GE,earliest));
+                FetchProfile uidProfile=new FetchProfile();uidProfile.add(UIDFolder.FetchProfileItem.UID);f.fetch(candidates,uidProfile);
+                Arrays.sort(candidates,Comparator.comparingInt(Message::getMessageNumber));
+                List<Message> messages=new ArrayList<>();boolean more=false;
+                for(Message candidate:candidates){
+                    if(u.getUID(candidate)<=cursor)continue;
+                    if(messages.size()==100){more=true;break;}
+                    messages.add(candidate);
+                }
                 int processed=0;long latest=cursor;
                 for(Message message:messages){
                     if(message==null)continue;long uid=u.getUID(message);latest=Math.max(latest,uid);processed++;
@@ -78,8 +89,9 @@ public class MailboxGateway {
                         consumer.accept(new Attachment(validity,uid,index,identity(message),trim(from,254),trim(title,255),received,name,mime,data));
                     }
                 }
-                // Empty UID gaps are expected; never skip past the server's current UIDNEXT.
-                long next=u.getUIDNext();if(next>0)latest=Math.max(latest,Math.min(end,next-1));
+                // Advance over excluded history/gaps only when the selected batch was not truncated.
+                // Use the pre-search watermark so mail arriving during the search is never skipped.
+                if(!more&&nextAtStart>0)latest=Math.max(latest,nextAtStart-1);
                 return new Cursor(validity,latest,processed);
             }finally{if(f.isOpen())f.close(false);}
         }
