@@ -1,5 +1,6 @@
 package com.lta.gestdocum.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -21,6 +22,8 @@ public record AssistantChatRequest(
             @Size(max = 500) List<String> permissions) {
     }
 
+    // The browser records a timestamp for local error history; it is not provider context.
+    @JsonIgnoreProperties("at")
     public record ErrorInfo(int status, @Size(max = 10) String method, @Size(max = 300) String url) {
     }
 }

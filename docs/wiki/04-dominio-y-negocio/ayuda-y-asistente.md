@@ -2,6 +2,12 @@
 
 > Revisión documental: 2026-11-18. Fuente: checkout `4d7c663` mas cambios locales; asistente verificado con Gemini real en localhost:4201, sin inspeccion de AWS.
 
+## Compatibilidad del contexto de errores (2026-11-18)
+
+El navegador incluye `context.lastError.at` como fecha del ultimo error. El backend rechazaba ese campo con HTTP 400 antes de llamar a Gemini. `AssistantChatRequest.ErrorInfo` ahora descarta exclusivamente `at` mediante `@JsonIgnoreProperties("at")`: la fecha no se conserva ni se envia al proveedor y los demas campos desconocidos siguen rechazandose con deserializacion estricta. No se modifica la configuracion global de Jackson.
+
+Prueba de regresion: [AssistantChatRequestTest](../../../backend/bootstrap/src/test/java/com/lta/gestdocum/backend/dto/AssistantChatRequestTest.java), junto con `AssistantServiceTest`. Esta correccion local no acredita despliegue ni respuesta real de Gemini en EC2.
+
 ## Qué hay
 
 - **Centro de ayuda:** panel lateral (botón Ayuda) con artículos y preguntas frecuentes. Cada artículo existe en dos copias que deben mantenerse idénticas: el archivo `frontend/public/assets/help/<id>.md` y el contenido embebido en `help-drawer.ts`. Un test (`frontend/tests/help-content.test.mjs`) vigila que coincidan y que no se afirmen capacidades que el sistema no tiene (por ejemplo, corrección de perspectiva en OCR o etapas paralelas en workflows).

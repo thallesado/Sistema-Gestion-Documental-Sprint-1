@@ -492,6 +492,11 @@
       ]
     },
     {
+      "page": "04-dominio-y-negocio/ayuda-y-asistente.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AssistantChatRequest.java",
+      "includes": ["@JsonIgnoreProperties(\"at\")"]
+    },
+    {
       "page": "06-operacion/anclaje-externo-auditoria.md",
       "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AuditAnchorScheduler.java",
       "includes": [
