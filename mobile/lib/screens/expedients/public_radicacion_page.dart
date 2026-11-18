@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/auth_api.dart';
@@ -26,12 +27,17 @@ class PublicRadicacionPage extends StatefulWidget {
     this.authApi,
     this.initialEmail,
     this.initialTenantId,
+    this.demoTenants = kDebugMode,
   });
 
   final ApiClient client;
   final AuthApi? authApi;
   final String? initialEmail;
   final String? initialTenantId;
+
+  /// Organizaciones del seed como lista inicial y respaldo si /tenants/public falla. Solo en debug: en release
+  /// mostrarían organizaciones que no existen en el servidor.
+  final bool demoTenants;
 
   @override
   State<PublicRadicacionPage> createState() => _PublicRadicacionPageState();
@@ -43,8 +49,8 @@ class _PublicRadicacionPageState extends State<PublicRadicacionPage> {
   final TextEditingController _codeController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  List<Map<String, dynamic>> _tenants = List.of(defaultPublicTenantsMap);
-  String? _selectedTenantId = '20000000-0000-0000-0000-000000000001';
+  late List<Map<String, dynamic>> _tenants = widget.demoTenants ? List.of(defaultPublicTenantsMap) : [];
+  late String? _selectedTenantId = widget.demoTenants ? defaultPublicTenantsMap.first['id'] as String : null;
   bool _loadingTenants = true;
 
   bool _searching = false;

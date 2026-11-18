@@ -171,6 +171,23 @@ void main() {
     });
   });
 
+  group('Organizaciones del portal ciudadano', () {
+    testWidgets('sin datos de demostración (release) no muestra organizaciones inventadas si la lista falla', (tester) async {
+      final server = FakeServer({
+        'GET /tenants/public': (_) => FakeServer.json({'message': 'Servicio no disponible'}, 503),
+      });
+
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: PublicRadicacionPage(client: ApiClient(client: server.client), demoTenants: false),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('FinoCode'), findsNothing);
+      expect(find.text('Clínica Central'), findsNothing);
+    });
+  });
+
   group('Comprobante Oficial de Radicación con Sello de Tiempo', () {
     testWidgets('radicacion_receipt_sheet muestra sello cronológico, hash SHA-256 y permite copiar', (tester) async {
       usePhoneScreen(tester);
