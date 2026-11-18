@@ -33,11 +33,15 @@ class WorkflowNotifications implements PushPresenter {
   final _seen = SeenNotifications.instance;
   bool _initialized = false;
 
-  /// Tarea pendiente de abrir cuando la app se lanzó tocando una notificación.
+  /// Tarea o trámite pendiente de abrir cuando la app se lanzó tocando una notificación.
   String? _pendingTaskId;
+  String? _pendingWorkflowId;
 
   /// La registra el shell: abre el detalle de la tarea al tocar una notificación.
   void Function(String taskId)? onOpenTask;
+
+  /// La registra el shell: abre el trámite cuando el aviso es del flujo, no de una tarea.
+  void Function(String workflowId)? onOpenWorkflow;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -60,8 +64,7 @@ class WorkflowNotifications implements PushPresenter {
       );
       final launch = await _plugin.getNotificationAppLaunchDetails();
       if (launch?.didNotificationLaunchApp ?? false) {
-        final payload = launch!.notificationResponse?.payload;
-        if (payload != null && payload.isNotEmpty) _pendingTaskId = payload;
+        _rememberPending(launch!.notificationResponse?.payload);
       }
       _initialized = true;
     } catch (error) {
@@ -75,6 +78,23 @@ class WorkflowNotifications implements PushPresenter {
     final taskId = _pendingTaskId;
     _pendingTaskId = null;
     return taskId;
+  }
+
+  /// Trámite que abrió la app desde una notificación (se entrega una sola vez).
+  String? takePendingWorkflow() {
+    final workflowId = _pendingWorkflowId;
+    _pendingWorkflowId = null;
+    return workflowId;
+  }
+
+  void _rememberPending(String? payload) {
+    final destination = parseNotificationPayload(payload);
+    if (destination == null) return;
+    if (destination.kind == 'workflow') {
+      _pendingWorkflowId = destination.id;
+    } else {
+      _pendingTaskId = destination.id;
+    }
   }
 
   @override
@@ -174,7 +194,7 @@ class WorkflowNotifications implements PushPresenter {
     title: item['title'] as String? ?? tr('Aviso de NexoDocs'),
     body: item['message'] as String? ?? '',
     notificationDetails: _details,
-    payload: item['related_entity_type'] == 'workflow_task' ? item['related_entity_id'] as String? : null,
+    payload: notificationPayload(item),
   );
 
   static const _details = NotificationDetails(
@@ -188,15 +208,58 @@ class WorkflowNotifications implements PushPresenter {
     iOS: DarwinNotificationDetails(),
   );
 
-  void _open(String? taskId) {
-    if (taskId == null || taskId.isEmpty) return;
+  void _open(String? payload) {
+    final destination = parseNotificationPayload(payload);
+    if (destination == null) return;
+    if (destination.kind == 'workflow') {
+      final handler = onOpenWorkflow;
+      if (handler != null) {
+        handler(destination.id);
+      } else {
+        _pendingWorkflowId = destination.id;
+      }
+      return;
+    }
     final handler = onOpenTask;
     if (handler != null) {
-      handler(taskId);
+      handler(destination.id);
     } else {
-      _pendingTaskId = taskId;
+      _pendingTaskId = destination.id;
     }
   }
+}
+
+/// Destino al tocar un aviso. El motor guarda el flujo como `workflow`; la tarea, como `workflow_task`.
+@visibleForTesting
+({String kind, String id})? notificationDestination(Map<String, dynamic> item) {
+  final id = item['related_entity_id']?.toString();
+  if (id == null || id.isEmpty) return null;
+  return switch (item['related_entity_type']) {
+    'workflow_task' => (kind: 'task', id: id),
+    'workflow' => (kind: 'workflow', id: id),
+    _ => null,
+  };
+}
+
+/// Carga de la notificación del sistema. La tarea sigue siendo el id pelado, compatible con el push.
+@visibleForTesting
+String? notificationPayload(Map<String, dynamic> item) {
+  final destination = notificationDestination(item);
+  if (destination == null) return null;
+  return destination.kind == 'workflow' ? 'workflow:${destination.id}' : destination.id;
+}
+
+/// Interpreta la carga. Un id sin prefijo es una tarea, como los push que ya traen `taskId`.
+@visibleForTesting
+({String kind, String id})? parseNotificationPayload(String? payload) {
+  if (payload == null || payload.isEmpty) return null;
+  const prefix = 'workflow:';
+  if (payload.startsWith(prefix)) {
+    final id = payload.substring(prefix.length);
+    if (id.isEmpty) return null;
+    return (kind: 'workflow', id: id);
+  }
+  return (kind: 'task', id: payload);
 }
 
 /// Avisos no leídos creados después de [marker], del más antiguo al más reciente.

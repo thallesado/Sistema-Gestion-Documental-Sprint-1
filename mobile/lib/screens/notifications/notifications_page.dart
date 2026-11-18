@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/auth_api.dart';
 import '../../core/errors/api_exception.dart';
+import '../../core/notifications/workflow_notifications.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/state_views.dart';
 import '../tasks/task_detail_page.dart';
+import '../workflows/workflow_tracking_sheet.dart';
 import '../../core/i18n/app_language.dart';
 
 /// Avisos internos de workflows (los mismos que la campana de la web).
@@ -55,11 +57,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
       }
     }
     if (!mounted) return;
-    if (item['related_entity_type'] == 'workflow_task' && item['related_entity_id'] != null) {
-      await Navigator.of(context).push(MaterialPageRoute<bool>(
-        builder: (_) => TaskDetailPage(api: widget.api, taskId: item['related_entity_id'] as String),
-      ));
+    final destination = notificationDestination(item);
+    if (destination == null) return;
+    if (destination.kind == 'workflow') {
+      await showWorkflowTrackingSheet(context, widget.api, destination.id);
+      return;
     }
+    await Navigator.of(context).push(MaterialPageRoute<bool>(
+      builder: (_) => TaskDetailPage(api: widget.api, taskId: destination.id),
+    ));
   }
 
   Future<void> markAllRead() async {

@@ -14,6 +14,7 @@ Los avisos de workflow (tarea asignada, revisión, aprobación) llegan al teléf
 | Sin credenciales: servicio desactivado con una advertencia | Implementado y probado |
 | App Android: token, permiso, `onTokenRefresh`, baja al cerrar sesión | Implementado; pruebas con interfaz simulada |
 | Deduplicación entre push y sondeo (`notificationId`) | Implementado y probado |
+| Aviso guardado como `workflow` abre el trámite; `workflow_task` abre la tarea | Implementado en la lista y en la notificación local |
 | Prueba en teléfono con Firebase real | **Pendiente**: requiere `google-services.json` y la cuenta de servicio |
 | Avisos de vencimiento (`Tarea por vencer`) | **Pendiente**: se generan en SQL (`app.process_workflow_deadlines`) y no pasan por el código Java |
 | iOS y web | Fuera de alcance |

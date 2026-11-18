@@ -21,6 +21,7 @@ import '../profile/profile_tab.dart';
 import '../scan/scan_document_page.dart';
 import '../tasks/task_detail_page.dart';
 import '../tasks/tasks_tab.dart';
+import '../workflows/workflow_tracking_sheet.dart';
 
 /// Pestañas de la app. El índice lógico (posición en [values]) es el que usa el Inicio para
 /// navegar; el índice visible cambia cuando el perfil no tiene permiso para alguna pestaña.
@@ -131,6 +132,7 @@ class _MainShellPageState extends State<MainShellPage>
     WidgetsBinding.instance.addObserver(this);
     widget.api.permissions.addListener(_onPermissionsChanged);
     _notifications.onOpenTask = _openTask;
+    _notifications.onOpenWorkflow = _openWorkflow;
     _tour.register();
     _start();
   }
@@ -139,8 +141,8 @@ class _MainShellPageState extends State<MainShellPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.api.permissions.removeListener(_onPermissionsChanged);
-    if (_notifications.onOpenTask == _openTask)
-      _notifications.onOpenTask = null;
+    if (_notifications.onOpenTask == _openTask) _notifications.onOpenTask = null;
+    if (_notifications.onOpenWorkflow == _openWorkflow) _notifications.onOpenWorkflow = null;
     _timer?.cancel();
     _tour.unregister();
     super.dispose();
@@ -156,6 +158,11 @@ class _MainShellPageState extends State<MainShellPage>
       await _notifications.start();
       await loadUnread();
       _timer = Timer.periodic(_refreshInterval, (_) => loadUnread());
+    }
+    final pendingWorkflow = _notifications.takePendingWorkflow();
+    if (pendingWorkflow != null && mounted) {
+      _openWorkflow(pendingWorkflow);
+      return;
     }
     final pending = _notifications.takePendingTask();
     if (pending != null && mounted) {
@@ -205,6 +212,11 @@ class _MainShellPageState extends State<MainShellPage>
       ),
     );
     loadUnread();
+  }
+
+  void _openWorkflow(String workflowId) {
+    if (!mounted) return;
+    showWorkflowTrackingSheet(context, widget.api, workflowId);
   }
 
   void _openTask(String taskId) {
