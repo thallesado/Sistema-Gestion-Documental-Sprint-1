@@ -53,7 +53,7 @@ class MedicalNoteAiServiceTest {
     @BeforeEach
     void setUp() {
         service = new MedicalNoteAiService(geminiClient, historyRepository, patientRepository,
-                userContext, auditRecorder, new ObjectMapper());
+                userContext, auditRecorder, new ObjectMapper(), new FakeTransactionManager());
         history = ClinicalHistory.builder()
                 .id(historyId).tenantId(tenantId).patientId(patientId)
                 .allergies(new java.util.ArrayList<>(List.of(new AllergyEntry("Penicilina", "ALTA", "urticaria"))))
@@ -74,6 +74,37 @@ class MedicalNoteAiServiceTest {
     private void geminiReturns(String modelText) {
         when(geminiClient.generateRaw(anyMap())).thenReturn(new GeminiClient.RawResult("{}", "gemini-test", 1));
         when(geminiClient.extractFirstCandidateText("{}")).thenReturn(modelText);
+    }
+
+    /** Gestor mínimo: marca la transacción como activa mientras dura, como el real. */
+    static class FakeTransactionManager extends org.springframework.transaction.support.AbstractPlatformTransactionManager {
+        @Override protected Object doGetTransaction() { return new Object(); }
+        @Override protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) { }
+        @Override protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) { }
+        @Override protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) { }
+    }
+
+    @Test
+    void geminiSeLlamaFueraDeLaTransaccionYLasLecturasYLaAuditoriaDentro() {
+        // Gemini puede tardar más de un minuto (3 intentos de 25 s): no debe retener una conexión de la base.
+        when(historyRepository.findByIdAndTenantIdAndDeletedAtIsNull(historyId, tenantId)).thenAnswer(invocation -> {
+            assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            return Optional.of(history);
+        });
+        when(geminiClient.generateRaw(anyMap())).thenAnswer(invocation -> {
+            assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive(),
+                    "Gemini se llamó dentro de una transacción");
+            return new GeminiClient.RawResult("{}", "gemini-test", 1);
+        });
+        when(geminiClient.extractFirstCandidateText("{}")).thenReturn(
+                "{\"transcript\":\"Paciente estable\",\"noteType\":\"EVOLUTION\",\"subjective\":\"\",\"objective\":\"\",\"assessment\":\"\",\"plan\":\"\"}");
+        doAnswer(invocation -> {
+            assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            return null;
+        }).when(auditRecorder).record(anyString(), anyString(), any(UUID.class), isNull(), anyMap());
+
+        assertEquals("Paciente estable", service.draft(wav(), historyId, "es").transcript());
+        verify(auditRecorder).record(anyString(), anyString(), any(UUID.class), isNull(), anyMap());
     }
 
     @Test

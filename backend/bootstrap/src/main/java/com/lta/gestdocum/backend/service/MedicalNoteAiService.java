@@ -14,7 +14,8 @@ import com.lta.gestdocum.backend.repository.PatientRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -61,27 +62,39 @@ public class MedicalNoteAiService {
     private final AuthenticatedUserContext userContext;
     private final AuditRecorder auditRecorder;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transaction;
 
     public MedicalNoteAiService(GeminiClient geminiClient, ClinicalHistoryRepository historyRepository,
                                 PatientRepository patientRepository, AuthenticatedUserContext userContext,
-                                AuditRecorder auditRecorder, ObjectMapper objectMapper) {
+                                AuditRecorder auditRecorder, ObjectMapper objectMapper,
+                                PlatformTransactionManager transactionManager) {
         this.geminiClient = geminiClient;
         this.historyRepository = historyRepository;
         this.patientRepository = patientRepository;
         this.userContext = userContext;
         this.auditRecorder = auditRecorder;
         this.objectMapper = objectMapper;
+        this.transaction = new TransactionTemplate(transactionManager);
     }
 
-    @Transactional
+    /**
+     * Sin @Transactional a propósito: Gemini puede tardar más de un minuto (reintentos de 25 s) y no debe retener
+     * una conexión de la base. Las lecturas y la auditoría usan transacciones cortas propias.
+     */
     public MedicalNoteAiDraftResponse draft(MultipartFile audio, UUID clinicalHistoryId, String requestedLanguage) {
         UUID tenantId = userContext.requireTenantId();
-        userContext.establishDatabaseContext();
 
-        ClinicalHistory history = historyRepository.findByIdAndTenantIdAndDeletedAtIsNull(clinicalHistoryId, tenantId)
-                .orElseThrow(() -> new NotFoundException("Historia clínica no encontrada"));
-        Patient patient = patientRepository.findByIdAndTenantIdAndDeletedAtIsNull(history.getPatientId(), tenantId)
-                .orElseThrow(() -> new NotFoundException("Paciente no encontrado"));
+        ClinicalHistory history = transaction.execute(status -> {
+            userContext.establishDatabaseContext();
+            ClinicalHistory found = historyRepository.findByIdAndTenantIdAndDeletedAtIsNull(clinicalHistoryId, tenantId)
+                    .orElseThrow(() -> new NotFoundException("Historia clínica no encontrada"));
+            patientRepository.findByIdAndTenantIdAndDeletedAtIsNull(found.getPatientId(), tenantId)
+                    .orElseThrow(() -> new NotFoundException("Paciente no encontrado"));
+            // Las listas se leen aquí, con la sesión abierta, para calcular las advertencias después.
+            if (found.getAllergies() != null) found.getAllergies().size();
+            if (found.getCurrentMedications() != null) found.getCurrentMedications().size();
+            return found;
+        });
 
         String mimeType = validateAudio(audio);
         if (!geminiClient.isConfigured()) {
@@ -114,12 +127,17 @@ public class MedicalNoteAiService {
         }
 
         if (auditRecorder != null) {
-            // Solo metadatos: sin transcripción ni contenido clínico en el detalle.
-            auditRecorder.record("AI_DRAFT", "CLINICAL_HISTORIES", clinicalHistoryId, null,
-                    Map.of("feature", "MEDICAL_NOTE_VOICE_DRAFT",
-                            "noteType", draft.noteType(),
-                            "language", language,
-                            "warningCount", draft.warnings().size()));
+            String noteType = draft.noteType();
+            int warningCount = draft.warnings().size();
+            transaction.executeWithoutResult(status -> {
+                userContext.establishDatabaseContext();
+                // Solo metadatos: sin transcripción ni contenido clínico en el detalle.
+                auditRecorder.record("AI_DRAFT", "CLINICAL_HISTORIES", clinicalHistoryId, null,
+                        Map.of("feature", "MEDICAL_NOTE_VOICE_DRAFT",
+                                "noteType", noteType,
+                                "language", language,
+                                "warningCount", warningCount));
+            });
         }
         return draft;
     }

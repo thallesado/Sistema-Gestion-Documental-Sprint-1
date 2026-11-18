@@ -99,6 +99,10 @@ services:
       # Avisos push (FCM). Vacío = desactivado. PATH es una ruta DENTRO del contenedor (monta el JSON fuera del repo).
       FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-}
       FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
+      # ReportIQ embebido. Sin REPORTIQ_API_KEY la vista ReportIQ responde 503.
+      REPORTIQ_API_URL: ${REPORTIQ_API_URL:-}
+      REPORTIQ_FRONTEND_URL: ${REPORTIQ_FRONTEND_URL:-}
+      REPORTIQ_API_KEY: ${REPORTIQ_API_KEY:-}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     volumes:

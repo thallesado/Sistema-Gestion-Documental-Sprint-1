@@ -59,7 +59,7 @@ public class MailboxGateway {
                     String title=Objects.toString(message.getSubject(),"");if(!sender.isBlank()&&!from.equalsIgnoreCase(sender))continue;if(!subject.isBlank()&&!title.toLowerCase(Locale.ROOT).contains(subject.toLowerCase(Locale.ROOT)))continue;
                     if(message.getSize()>26*1024*1024){consumer.accept(new Attachment(validity,uid,1,identity(message),trim(from,254),trim(title,255),received,"mensaje-demasiado-grande","application/octet-stream",new byte[0]));continue;}
                     List<Part> parts=new ArrayList<>();attachments(message,parts,0);int index=0;
-                    for(Part part:parts){if(++index>10)break;String name=trim(MimeUtility.decodeText(Objects.toString(part.getFileName(),"adjunto")),255);String mime=part.getContentType().split(";")[0].trim().toLowerCase(Locale.ROOT);
+                    for(Part part:parts){if(++index>10)break;String name=trim(MimeUtility.decodeText(Objects.toString(part.getFileName(),"adjunto")),255);String mime=normalizeMime(part.getContentType());
                         byte[] data;try(InputStream input=part.getInputStream()){data=input.readNBytes(25*1024*1024+1);}
                         consumer.accept(new Attachment(validity,uid,index,identity(message),trim(from,254),trim(title,255),received,name,mime,data));
                     }
@@ -77,6 +77,11 @@ public class MailboxGateway {
         if(depth>5||result.size()>=10)return;
         if(p.isMimeType("multipart/*")){Multipart m=(Multipart)p.getContent();for(int i=0;i<m.getCount()&&result.size()<10;i++)attachments(m.getBodyPart(i),result,depth+1);}
         else if(Part.ATTACHMENT.equalsIgnoreCase(p.getDisposition())||p.getFileName()!=null)result.add(p);
+    }
+    /** Tipo MIME sin parámetros, apto para mime_type varchar(150); si no es válido, binario genérico. */
+    static String normalizeMime(String contentType){
+        String mime=contentType==null?"":contentType.split(";")[0].trim().toLowerCase(Locale.ROOT);
+        return mime.isEmpty()||mime.length()>150||!mime.matches("[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+")?"application/octet-stream":mime;
     }
     private static String trim(String value,int max){return value.substring(0,Math.min(max,value.length())).replaceAll("[\\r\\n]"," ");}
 }

@@ -28,6 +28,15 @@ class ReportEmbedServiceTest {
     }
 
     @Test
+    void reportIqCaidoRespondeBadGatewaySinDetalleInterno() {
+        // 127.0.0.1:9 rechaza la conexión: ReportIQ no está disponible.
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> service("clave-de-prueba").getEmbedConfig(TENANT, USER, "viewer"));
+        assertEquals(HttpStatus.BAD_GATEWAY, error.getStatusCode());
+        assertEquals("ReportIQ no está disponible en este momento", error.getReason());
+    }
+
+    @Test
     void sinOrganizacionNoSeEmiteTokenDeOtroTenant() {
         ResponseStatusException error = assertThrows(ResponseStatusException.class,
                 () -> service("clave-de-prueba").getEmbedConfig(null, USER, "admin"));

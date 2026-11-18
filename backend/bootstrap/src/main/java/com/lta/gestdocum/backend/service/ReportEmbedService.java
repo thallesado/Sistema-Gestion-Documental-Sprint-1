@@ -82,8 +82,9 @@ public class ReportEmbedService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() >= 400) {
-                log.error("ReportIQ /v1/embed-tokens error (HTTP {}): {}", response.statusCode(), response.body());
-                throw new IllegalStateException("Error al comunicarse con ReportIQ: " + response.body());
+                // Sin el cuerpo: puede traer datos de la cuenta de ReportIQ.
+                log.error("ReportIQ /v1/embed-tokens respondió HTTP {}", response.statusCode());
+                throw unavailable(null);
             }
 
             JsonNode root = objectMapper.readTree(response.body());
@@ -93,9 +94,19 @@ public class ReportEmbedService {
             String embedUrl = frontendUrl + "/embed?token=" + token;
 
             return new ReportEmbedResponse(token, embedUrl, expiresAt, "6703edc9-7436-45c3-b71d-360adfdf6916");
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw unavailable(e);
         } catch (Exception e) {
-            log.error("Error al generar Embed Token de ReportIQ", e);
-            throw new RuntimeException("No se pudo generar la sesión de reportes con ReportIQ: " + e.getMessage(), e);
+            log.error("Error al generar Embed Token de ReportIQ ({})", e.getClass().getSimpleName());
+            throw unavailable(e);
         }
+    }
+
+    /** 502: el fallo es del servicio externo; el detalle queda en el log, no en la respuesta. */
+    private static ResponseStatusException unavailable(Exception cause) {
+        return new ResponseStatusException(HttpStatus.BAD_GATEWAY, "ReportIQ no está disponible en este momento", cause);
     }
 }
