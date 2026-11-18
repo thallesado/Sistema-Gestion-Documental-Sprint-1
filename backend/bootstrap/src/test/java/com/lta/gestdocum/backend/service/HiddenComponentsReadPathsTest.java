@@ -134,7 +134,8 @@ class HiddenComponentsReadPathsTest {
     // ---- Vistas de workflow que incrustan el documento ----------------------------------------------
 
     private WorkflowEngineService workflows() {
-        return new WorkflowEngineService(jdbc, context, new ObjectMapper(), componentPermissions);
+        return new WorkflowEngineService(jdbc, context, new ObjectMapper(), componentPermissions,
+                org.mockito.Mockito.mock(PushService.class));
     }
 
     private void workflowRow() {

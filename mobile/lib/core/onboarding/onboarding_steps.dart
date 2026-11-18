@@ -4,6 +4,8 @@
 /// [OnboardingTarget] a su widget mediante la `GlobalKey` que le entrega [AppTourController].
 library;
 
+import '../i18n/app_language.dart';
+
 /// Elementos de la interfaz que el recorrido señala, en el mismo orden que la web.
 enum OnboardingTarget { navigation, primaryAction, profile }
 
@@ -20,10 +22,10 @@ class OnboardingStep {
 }
 
 /// Pasos del recorrido de bienvenida de la app móvil.
-const List<OnboardingStep> appTourSteps = [
+List<OnboardingStep> appTourSteps = [
   OnboardingStep(
     target: OnboardingTarget.navigation,
-    title: 'Navega por NexoDocs',
+    title: tr('Navega por NexoDocs'),
     description: 'Desde esta barra cambias entre Inicio, Documentos, Tareas y los módulos que tu perfil tiene habilitados.',
   ),
   OnboardingStep(
@@ -33,7 +35,7 @@ const List<OnboardingStep> appTourSteps = [
   ),
   OnboardingStep(
     target: OnboardingTarget.profile,
-    title: 'Tu perfil',
+    title: tr('Tu perfil'),
     description: 'Aquí revisas tus datos, activas el acceso con huella o rostro y cierras sesión.',
   ),
 ];

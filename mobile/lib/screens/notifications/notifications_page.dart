@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/state_views.dart';
 import '../tasks/task_detail_page.dart';
+import '../../core/i18n/app_language.dart';
 
 /// Avisos internos de workflows (los mismos que la campana de la web).
 class NotificationsPage extends StatefulWidget {
@@ -76,11 +77,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final visible = onlyUnread ? items.where((i) => i['is_read'] != true).toList() : items;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notificaciones'),
+        title: Text(context.tr('Notificaciones')),
         backgroundColor: Colors.white,
         actions: [
           if (items.any((i) => i['is_read'] != true))
-            TextButton(onPressed: markAllRead, child: const Text('Marcar todo leído')),
+            TextButton(onPressed: markAllRead, child: Text(context.tr('Marcar todo leído'))),
         ],
       ),
       body: Column(children: [
@@ -88,9 +89,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
           color: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(children: [
-            ChoiceChip(label: const Text('Todas'), selected: !onlyUnread, onSelected: (_) => setState(() => onlyUnread = false), selectedColor: AppTheme.mint),
+            ChoiceChip(label: Text(context.tr('Todas')), selected: !onlyUnread, onSelected: (_) => setState(() => onlyUnread = false), selectedColor: AppTheme.mint),
             const SizedBox(width: 8),
-            ChoiceChip(label: const Text('No leídas'), selected: onlyUnread, onSelected: (_) => setState(() => onlyUnread = true), selectedColor: AppTheme.mint),
+            ChoiceChip(label: Text(context.tr('No leídas')), selected: onlyUnread, onSelected: (_) => setState(() => onlyUnread = true), selectedColor: AppTheme.mint),
           ]),
         ),
         if (loading) const LinearProgressIndicator(color: AppTheme.teal),
@@ -101,7 +102,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             child: error != null
                 ? ErrorStateView(message: error!, onRetry: load)
                 : visible.isEmpty && !loading
-                ? const EmptyStateView(message: 'No tienes notificaciones.', icon: Icons.notifications_none)
+                ? EmptyStateView(message: tr('No tienes notificaciones.'), icon: Icons.notifications_none)
                 : ListView.separated(
                     itemCount: visible.length,
                     separatorBuilder: (_, _) => const Divider(height: 1),
@@ -111,7 +112,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       return ListTile(
                         tileColor: unread ? AppTheme.mint.withValues(alpha: 0.45) : Colors.white,
                         leading: Icon(unread ? Icons.notifications_active : Icons.notifications_none, color: unread ? AppTheme.teal : Colors.grey),
-                        title: Text(item['title'] as String? ?? 'Aviso', style: TextStyle(fontWeight: unread ? FontWeight.bold : FontWeight.normal)),
+                        title: Text(item['title'] as String? ?? tr('Aviso'), style: TextStyle(fontWeight: unread ? FontWeight.bold : FontWeight.normal)),
                         subtitle: Text('${item['message'] ?? ''}\n${formatDate(item['created_at'], withTime: true)}'),
                         isThreeLine: true,
                         onTap: () => open(item),

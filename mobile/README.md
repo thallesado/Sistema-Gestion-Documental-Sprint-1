@@ -41,18 +41,44 @@ lib/
 ├── core/
 │   ├── api/
 │   │   ├── api_client.dart   # HTTP + token + renovación automática ante 401 (como el interceptor web)
-│   │   ├── auth_api.dart     # Login, logout, perfil, organizaciones; acceso a los servicios
+│   │   ├── auth_api.dart     # Sesión, permisos, biometría y orquestación
+│   │   ├── auth_repository.dart # Contratos HTTP desacoplados de autenticación (SRP)
 │   │   ├── documents_api.dart
+│   │   ├── expedients_api.dart # Consulta y ciclo de vida de expedientes/radicaciones
+│   │   ├── audit_api.dart      # Consulta de bitácora y verificación de cadena SHA-256
 │   │   ├── workflows_api.dart
 │   │   └── clinical_api.dart
+│   ├── models/               # Modelos de dominio tipados e inmutables (Clean Architecture)
+│   │   ├── document_model.dart      # DocumentModel y DocumentVersionModel
+│   │   ├── expedient_model.dart     # ExpedientModel, ExpedientParticipantModel y ExpedientTypeModel
+│   │   ├── radicacion_model.dart    # RadicacionRequestModel, RadicacionResultModel, RadicacionType
+│   │   ├── public_radicacion_model.dart # PublicRadicacionModel, PublicRadicacionEventModel
+│   │   ├── radicacion_receipt_model.dart # RadicacionReceiptModel (sello de tiempo, firma y hash SHA-256)
+│   │   ├── audit_event_model.dart   # AuditEventModel y AuditVerificationModel
+│   │   ├── medical_appointment_model.dart # MedicalAppointmentModel (citas y agendamiento)
+│   │   ├── workflow_task_model.dart # WorkflowTaskModel y WorkflowNotificationModel
+│   │   ├── workflow_instance_model.dart # WorkflowInstanceModel, WorkflowStageProgressModel, WorkflowEventModel
+│   │   ├── user_profile_model.dart  # UserProfileModel
+│   │   ├── patient_model.dart       # PatientModel
+│   │   ├── clinical_history_model.dart # ClinicalHistoryModel, ClinicalAllergyModel, etc.
+│   │   └── ocr_job_model.dart       # OcrJobModel
 │   ├── auth/user_permissions.dart   # Permisos por función de /auth/me (menú y botones)
-│   ├── notifications/        # Avisos del sistema: comprobación en primer y segundo plano
+│   ├── i18n/                 # Idiomas es/en: app_language.dart (tr, selector) y translations_en.dart
+│   ├── notifications/        # Avisos del sistema: sondeo, WorkManager y avisos ya vistos (seen_notifications.dart)
+│   ├── push/                 # Avisos push FCM: push_messaging.dart (interfaz y Firebase) y push_service.dart
 │   ├── errors/api_exception.dart
+│   ├── voice/voice_recorder.dart # Interfaz VoiceRecorder (grabación de dictado) y adaptador con `record`
 │   ├── theme/app_theme.dart  # Paleta compartida con la web
-│   ├── utils/format.dart     # Fechas y etiquetas de estado (mismos textos que la web)
-│   ├── utils/upload_rules.dart  # Formatos y límites de POST /documents/{id}/versions
-│   └── widgets/state_views.dart
-└── screens/                  # auth, dashboard, documents, tasks, notifications, patients, profile, shell
+│   ├── utils/
+│   │   ├── format.dart       # Fechas y etiquetas de estado (mismos textos que la web)
+│   │   ├── upload_rules.dart # Formatos y límites de POST /documents/{id}/versions
+│   │   ├── pdf_generator.dart # Generador nativo en Dart puro de comprobantes y certificados PDF 1.4
+│   │   └── ocr_field_extractor.dart # Extracción inteligente de metadatos OCR para radicar sin tecleo
+│   └── widgets/
+│       ├── state_views.dart
+│       ├── signature_pad_widget.dart # Lienzo de firma manuscrita/biométrica con sello SHA-256
+│       └── verification_qr_widget.dart # Renderizado determinista de código QR de autenticidad
+└── screens/                  # audit, auth, dashboard, documents, expedients, tasks, notifications, patients, profile, scan, shell, workflows
 ```
 
 Si una llamada a la API falla, las pantallas muestran el error con un botón **Reintentar**.
@@ -62,18 +88,35 @@ La app nunca muestra datos de ejemplo en su lugar.
 
 | Módulo | Estado en móvil |
 |---|---|
-| Login con selector de organización, renovación y cierre de sesión | ✅ |
+| Login de tenant o plataforma, sesión verificada, renovación y cierre | ✅ |
+| Contraseña temporal obligatoria, cambio voluntario y recuperación | ✅ API y formularios (enlace por correo requiere SMTP) |
 | Inicio (resumen, tareas pendientes, documentos y actividad) | ✅ |
 | Documentos: listado, filtros, detalle, versiones y descarga | ✅ |
-| Subir nueva versión con la cámara, la galería o un archivo | ✅ (crear documentos: pendiente) |
+| Creación de documentos / nuevos trámites | ✅ Modal con selección de tipo y archivo/cámara (`POST /documents`) |
+| Subir nueva versión con la cámara, la galería o un archivo | ✅ (`POST /documents/{id}/versions`) |
 | Permisos por función: pestañas, campana y acciones según `/auth/me` | ✅ |
-| Avisos de workflow como notificaciones del sistema | ✅ Android (iOS: solo con la app abierta) |
-| Workflows: mis tareas, detalle, aprobar/revisar/completar/rechazar/devolver, checklist y comentarios | ✅ (diseñador e inicio de workflows: pendiente) |
+| Avisos de workflow como notificaciones del sistema | ✅ Android: push FCM y sondeo de respaldo (iOS: solo con la app abierta). Ver [Avisos](#avisos) |
+| Workflows: mis tareas, detalle, checklist y comentarios | ✅ |
+| Seguimiento de trámites en tiempo real (etapas, timeline de eventos, progreso) | ✅ Modal de seguimiento con etapas y observaciones (`GET /workflows/{id}`) |
+| Inicio de workflows desde documentos con plantillas activas | ✅ Modal con validación (`POST /workflows`) |
+| Firma biométrica nativa (Face ID / Huella dactilar) para aprobaciones | ✅ Verificación obligatoria al aprobar en detalle, acción rápida y en bloque |
+| Bandeja de Aprobación Múltiple (Bulk Approve) | ✅ Selección múltiple de tareas y firma biométrica única en lote |
 | Notificaciones | ✅ |
-| Pacientes y resumen clínico | ⚠️ parcial (antecedentes y notas médicas: pendiente) |
-| Perfil | ✅ consulta (edición, contraseña y foto: pendiente) |
-| Expedientes, Digitalización/OCR, Auditoría, Usuarios y roles, Reportes, Facturación | ❌ pendiente |
-| Idiomas (es/en/fr/zh) | ❌ pendiente (solo castellano) |
+| Expedientes Digitales (radicaciones, trámites y documentos agrupados, ciclo de vida) | ✅ Pestaña dedicada, buscador, filtros por estado, detalle con workflows y documentos (`/api/v1/expedients`) |
+| Buzón de Radicación Digital Directa (PQRS / Solicitudes Ciudadanas) | ✅ Wizard guiado (3 pasos: tipo/solicitante, descripción, soporte adjunto cámara/PDF y firma digital en pantalla), código único `RAD-YYYY-XXXXXX` y comprobante |
+| Firma Digital Manuscrita / Biométrica para Ciudadanos | ✅ Lienzo interactivo para firmar con dedo o stylus con sello criptográfico SHA-256 |
+| Consulta Pública / Externa sin Autenticación (Modo Invitado) | ✅ Acceso directo desde el login por código `RAD-...`, estado del trámite, cronología de etapas y sello de verificación |
+| Comprobante Oficial de Radicación Digital y Exportación PDF Nativa | ✅ Membrete institucional, estampado cronológico, hash SHA-256, código QR y descarga de archivo `.pdf` nativo |
+| Certificados de Autenticidad con Código QR para Documentos | ✅ Constancia oficial con código QR y descarga PDF en el detalle de documentos para presentar ante terceros |
+| Pacientes, Historial Clínico y Agendamiento de Citas Médicas (Sector Salud) | ✅ Ficha del paciente, Historia Clínica completa (Antecedentes, Diagnósticos CIE-10, Evolución) y módulo de Citas Médicas (consulta y agendamiento) bajo `patient:read` |
+| Digitalización con OCR y Extracción de Metadatos sin Tecleo | ✅ Escaneo con cámara/galería (`/api/v1/ocr`), validación, indexación y autocompletado directo del Buzón de Radicación |
+| Pistas de Auditoría y Trazabilidad en Tiempo Real (Audit Log) | ✅ Historial de accesos, descargas, estados, filtro de alertas sospechosas y verificación en vivo de cadena SHA-256 (`/api/v1/audit`, `/api/v1/audit/verify`) |
+| Perfil | ✅ consulta y cambio de contraseña (edición y foto: pendiente) |
+| Usuarios y roles, Reportes, Facturación | ❌ pendiente |
+| Idiomas | ✅ español e inglés (selector en Perfil, `Accept-Language` en cada petición; fr/zh: solo web) |
+| Notas médicas: registro, borrador, emitir y anular | ✅ desde la ficha clínica del paciente (`/medical-notes`) |
+| Dictado de nota médica por voz con IA (SOAP, avisos de alergias y medicamentos) | ✅ botón «Dictar nota» en la pestaña Evolución (`POST /medical-notes/ai-draft`), solo con `medical_note:create`; requiere permiso de micrófono; nada se guarda sin confirmar en el formulario |
+| Privilegios por campo (formularios) | ✅ `GET /component-permissions/me` oculta o bloquea campos según el perfil |
 
 ## Permisos, nueva versión y avisos
 
@@ -82,25 +125,94 @@ puede usar, con los mismos códigos que el backend:
 
 | Elemento | Permiso |
 |---|---|
-| Pestaña Documentos / Tareas / Clínico | `document:read` / `task:read` / `patient:read` |
+| Pestaña Documentos / Tareas / Expedientes / Clínico | `document:read` / `task:read` / `expedient:read` / `patient:read` |
+| Notas médicas: ver / registrar / emitir o anular | `medical_note:read` / `medical_note:create` / `medical_note:update` |
+| Dictar nota (grabación y borrador con IA) | `medical_note:create` + permiso de micrófono (Android `RECORD_AUDIO`, iOS `NSMicrophoneUsageDescription`) |
 | Campana y avisos | `notification:read` |
 | Resolver y comentar tareas | `task:update` (+ `workflow:approve`, `workflow:review`, `workflow:reject` o `workflow:return` según la acción) |
 | Nueva versión de un documento | `document:update` |
+| Seguimiento de trámites en documentos | `workflow:read` |
+| Iniciar workflow / trámite desde documento | `workflow:start` o `workflow:create` + `workflow_template:read` |
+| Radicar solicitud / PQRS ciudadana | `expedient:create` (y `document:create` si adjunta soporte) |
+| Ciclo de vida de expediente (cerrar/archivar/reabrir) | `expedient:update` |
 
 Si el servidor no informa `permissions` no se oculta nada; el backend sigue rechazando con 403.
+
+**Dictado de nota por voz.** El audio se graba como WAV PCM 16 bits, 16 kHz, mono (`AudioEncoder.wav` del
+paquete `record`) y se envía como `audio/wav`. La API de Gemini (ai.google.dev, con `GEMINI_API_KEY`) admite
+`audio/wav`, `audio/mp3`, `audio/aiff`, `audio/aac`, `audio/ogg` y `audio/flac`; `audio/m4a` solo aparece en
+Vertex AI, así que no se usa. 5 minutos de WAV pesan ~9,6 MB: dentro de los 25 MB de subida y de los 13 MB
+en bruto que el backend admite para la petición inline a Gemini (~17,3 MB en base64).
+Permisos: `android.permission.RECORD_AUDIO` en `android/app/src/main/AndroidManifest.xml` e
+`NSMicrophoneUsageDescription` en `ios/Runner/Info.plist` (el proyecto no localiza ese archivo, así que el
+texto va en español e inglés). Si el usuario niega el micrófono, la app indica activarlo en Ajustes. El
+archivo temporal se borra al enviar con éxito, al escribir la nota a mano o al cancelar. Pruebas:
+`test/voice_note_dictation_test.dart` (grabador simulado, servidor simulado).
+
+**Privilegios por campo.** Los formularios de alta de documento (`documento.nuevo`) y de nota
+médica (`nota_medica`) leen `GET /component-permissions/me`, igual que la web: un campo oculto no
+se muestra y uno de solo lectura no se envía (lo asigna el servidor). Los tipos documentales se
+limitan a `customization.allowedDocumentTypeIds` de `/auth/me` cuando el perfil los restringe.
+
+**Documentos de un expediente.** `GET /documents` no filtra por expediente, así que la ficha revisa
+los 200 documentos más recientes y muestra los que tienen ese `expedientId`.
+
+**Idioma.** Perfil → Idioma (Español / English). Se guarda en el teléfono con la misma clave que la web
+(`nexodocs_lang`) y se envía al servidor en `Accept-Language`. Los textos se escriben en español en
+el código con `context.tr('…')` (o `tr('…')` fuera de los widgets) y su traducción está en
+`lib/core/i18n/translations_en.dart`; la prueba `web_parity_test.dart` falla si falta alguna.
 
 **Nueva versión.** Detalle del documento → **Nueva versión** → Cámara, Galería o Archivo, y un
 motivo obligatorio. Formatos PDF, JPG, PNG o DOCX hasta 25 MB (las mismas reglas que
 `DocumentStorageService`); el servidor calcula el SHA-256.
 
-**Avisos.** No usa Firebase. Con la app abierta consulta `/workflows/notifications` cada minuto y
-al volver a primer plano; en Android, WorkManager lo hace con la app cerrada (como mínimo cada
-15 minutos y solo con red). Los avisos ya vistos no se repiten y, al iniciar sesión, los antiguos
-no se notifican. En segundo plano solo se usa el token de acceso: nunca se renueva la sesión,
-para no invalidar el refresh token que usa la app. Al tocar el aviso se abre la tarea.
+**Avisos.** Hay dos vías: push de Firebase (FCM) y el sondeo de respaldo. Ver la sección [Avisos](#avisos).
 
 Para pruebas de instalación usa `flutter build apk --debug` y `build/app/outputs/flutter-apk/app-debug.apk`.
 No instales un APK `release` de desarrollo: la compilación release requiere un keystore privado de publicación.
 Configúralo en `mobile/android/key.properties` usando `key.properties.example`; ese archivo y el keystore
 están ignorados por Git. No guardes el keystore ni sus contraseñas en el repositorio. Para validar avisos,
 configura la URL del servidor, acepta el permiso y asigna una tarea a ese usuario desde la web.
+
+## Avisos
+
+Los avisos de workflow llegan por dos vías. Las dos son necesarias para la versión completa; sin la
+primera, la app funciona igual que antes:
+
+- **Push de Firebase (FCM), Android.** El servidor envía una notificación cuando asigna una tarea,
+  pide revisión o aprobación. El sistema la muestra aunque la app esté cerrada, y al tocarla se abre
+  la tarea. Requiere `google-services.json` en la app y credenciales de Firebase en el servidor.
+- **Sondeo (respaldo).** Con la app abierta consulta `/workflows/notifications` cada minuto y al volver
+  a primer plano. Con la app cerrada, WorkManager lo hace como mínimo cada 15 minutos y solo con red.
+
+Ambas vías comparten la lista de avisos ya vistos (`core/notifications/seen_notifications.dart`), así que
+un mismo aviso no se muestra dos veces. Al iniciar sesión, los avisos antiguos no se notifican.
+
+### Configurar Firebase
+
+1. **Móvil.** En la consola de Firebase, crea o abre el proyecto, añade una app Android con el
+   paquete `com.nexodocs.nexodocs_mobile` y descarga `google-services.json`. Colócalo en
+   `mobile/android/app/google-services.json`. Este archivo **no se sube a git** (está en `.gitignore`).
+   Sin él, la compilación funciona y la app no recibe push.
+2. **Servidor.** En la consola de Firebase, en Configuración del proyecto → Cuentas de servicio, genera
+   una clave privada nueva. Guarda el JSON **fuera del repositorio** y configura una de estas variables
+   en `infrastructure/.env` (no en git):
+   - `FIREBASE_CREDENTIALS_PATH`: ruta dentro del contenedor del backend. Monta el archivo con un
+     override de compose.
+   - `FIREBASE_CREDENTIALS_JSON`: el contenido completo del JSON.
+
+   Sin ninguna de las dos, el backend arranca con los avisos push desactivados y registra una advertencia.
+   Los nombres están en `infrastructure/.env.example`, sin valores.
+
+Documentación del diseño, endpoints y límites: [avisos push (FCM)](../docs/wiki/04-dominio-y-negocio/avisos-push-fcm.md).
+
+### Comprobar en el teléfono
+
+1. Abre la app, inicia sesión y acepta el permiso de notificaciones.
+2. Desde la web, asigna una tarea a ese mismo usuario.
+3. Con la app **cerrada**, el aviso debe llegar en pocos segundos. Al tocarlo, se abre la tarea.
+
+Al cerrar sesión, la app borra el token del servidor, así que ese teléfono deja de recibir avisos de la
+cuenta anterior.
+
+Pruebas automáticas: `flutter test test/push_notifications_test.dart` (usa un cliente FCM simulado).

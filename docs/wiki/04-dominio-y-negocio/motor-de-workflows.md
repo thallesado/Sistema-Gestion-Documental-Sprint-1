@@ -37,4 +37,8 @@ Diseñador: nodos Inicio/Tarea/Revisión/Aprobación/Decisión/Notificación/Arc
 
 Guardar nueva versión DRAFT desactiva la publicada anterior en el motor local; no presentarlo como comportamiento deseado. dueSoon usa ventanas distintas en lista y widget. Ver estado y probar antes de garantizar corrección.
 
+## Avisos push
+
+Cada aviso que `WorkflowEngineService.notify` inserta en `notifications` se envía también por push (FCM) al destinatario, si no es quien ejecutó la acción. El envío ocurre después del commit y nunca bloquea la transacción. Títulos genéricos, sin datos clínicos ni del documento. Detalle, configuración y límites: [avisos push (FCM)](avisos-push-fcm.md). Los avisos de vencimiento generados en SQL por `app.process_workflow_deadlines` **no** envían push todavía.
+
 Fuentes: [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/WorkflowEngineService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/WorkflowEngineService.java), [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/WorkflowRequests.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/WorkflowRequests.java), [database/init/032_workflow_template_publication.sql](../../../database/init/032_workflow_template_publication.sql). Guías detalladas existentes: [workflows](../../workflows.md), [historias](../../workflows-user-stories.md), [matriz 1-121](../../workflows-compliance-1-50.md), [matriz 122-215](../../workflows-compliance-122-215.md). Sus resultados son históricos, no pruebas ejecutadas hoy.

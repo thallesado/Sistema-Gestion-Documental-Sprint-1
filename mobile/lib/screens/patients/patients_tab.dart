@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/api/auth_api.dart';
 import '../../core/errors/api_exception.dart';
+import '../../core/models/patient_model.dart';
+import 'patient_appointments_sheet.dart';
+import 'patient_clinical_history_sheet.dart';
 import 'widgets/summary_card.dart';
+import '../../core/i18n/app_language.dart';
 
 class PatientsTab extends StatefulWidget {
   const PatientsTab({super.key, required this.api});
@@ -14,7 +18,7 @@ class PatientsTab extends StatefulWidget {
 
 class _PatientsTabState extends State<PatientsTab> {
   final searchController = TextEditingController();
-  List<Map<String, dynamic>> patients = [];
+  List<PatientModel> patients = [];
   Map<String, dynamic>? summary;
   bool loading = false;
   String? error;
@@ -38,14 +42,14 @@ class _PatientsTabState extends State<PatientsTab> {
       summary = null;
     });
     try {
-      final result = await widget.api.clinical.patients(searchController.text.trim());
+      final result = await widget.api.clinical.getPatients(searchController.text.trim());
       if (mounted) setState(() => patients = result);
     } catch (exception) {
       if (mounted) {
         setState(
           () => error = exception is ApiException
               ? exception.message
-              : 'No se pudo buscar pacientes.',
+              : context.tr('No se pudo buscar pacientes.'),
         );
       }
     } finally {
@@ -66,7 +70,7 @@ class _PatientsTabState extends State<PatientsTab> {
         setState(
           () => error = exception is ApiException
               ? exception.message
-              : 'No se pudo abrir el resumen clínico.',
+              : context.tr('No se pudo abrir el resumen clínico.'),
         );
       }
     } finally {
@@ -83,13 +87,13 @@ class _PatientsTabState extends State<PatientsTab> {
           padding: const EdgeInsets.all(16),
           child: SearchBar(
             controller: searchController,
-            hintText: 'Buscar por CI, seguro o nombre...',
+            hintText: context.tr('Buscar por CI, seguro o nombre...'),
             leading: const Icon(Icons.search, color: Color(0xff087f7b), size: 20),
             trailing: [
               IconButton(
                 onPressed: loading ? null : search,
                 icon: const Icon(Icons.arrow_forward),
-                tooltip: 'Buscar',
+                tooltip: context.tr('Buscar'),
               ),
             ],
             onSubmitted: (_) => search(),
@@ -103,77 +107,60 @@ class _PatientsTabState extends State<PatientsTab> {
         if (loading) const LinearProgressIndicator(color: Color(0xff087f7b)),
         if (error != null)
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             child: Text(
               error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              style: const TextStyle(color: Color(0xffb73838)),
             ),
           ),
         Expanded(
-          child: summary != null
-              ? SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () => setState(() => summary = null),
-                        icon: const Icon(Icons.arrow_back, size: 18),
-                        label: const Text('Volver al listado'),
-                      ),
-                      const SizedBox(height: 8),
-                      SummaryCard(summary: summary!),
-                    ],
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (summary != null) SummaryCard(summary: summary!),
+              if (patients.isEmpty && !loading)
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 40),
+                    child: Text(context.tr('No se encontraron pacientes.')),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: search,
-                  color: const Color(0xff087f7b),
-                  child: patients.isEmpty && !loading
-                      ? Center(
-                          child: Text(
-                            'No se encontraron pacientes.',
-                            style: TextStyle(color: Colors.grey.shade500),
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: patients.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final patient = patients[index];
-                            final firstName = patient['firstName'] as String? ?? '';
-                            final lastName = patient['lastName'] as String? ?? '';
-                            final docType = patient['documentType'] as String? ?? 'CI';
-                            final docNumber = patient['documentNumber'] as String? ?? '';
-                            final id = patient['id'] as String? ?? '$index';
-
-                            return Card(
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(color: Colors.grey.shade200),
-                              ),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: const Color(0xff087f7b).withValues(alpha: 0.1),
-                                  child: const Icon(Icons.person, color: Color(0xff087f7b)),
-                                ),
-                                title: Text(
-                                  '$firstName $lastName',
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                                ),
-                                subtitle: Text(
-                                  '$docType: $docNumber',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                                ),
-                                trailing: const Icon(Icons.chevron_right, size: 20),
-                                onTap: () => openSummary(id),
-                              ),
-                            );
-                          },
-                        ),
                 ),
+              ...patients.map((patient) {
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0xffc5efe4),
+                      child: Icon(Icons.person, color: Color(0xff087f7b)),
+                    ),
+                    title: Text(patient.fullName),
+                    subtitle: Text(
+                      'CI: ${patient.documentNumber.isNotEmpty ? patient.documentNumber : '—'} · Sangre: ${patient.bloodGroup ?? '—'}',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          key: Key('patient-appointments-${patient.id}'),
+                          icon: const Icon(Icons.calendar_month_outlined, color: Color(0xff087f7b)),
+                          tooltip: context.tr('Citas médicas y agendamiento'),
+                          onPressed: () => showPatientAppointmentsSheet(context, widget.api.clinical, patient),
+                        ),
+                        IconButton(
+                          key: Key('patient-history-${patient.id}'),
+                          icon: const Icon(Icons.medical_information_outlined, color: Color(0xff087f7b)),
+                          tooltip: context.tr('Historial clínico completo'),
+                          onPressed: () => showPatientClinicalHistorySheet(context, widget.api.clinical, patient, auth: widget.api),
+                        ),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
+                    onTap: () => openSummary(patient.id),
+                  ),
+                );
+              }),
+            ],
+          ),
         ),
       ],
     );

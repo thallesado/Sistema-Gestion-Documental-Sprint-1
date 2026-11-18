@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:gestdocum}
-    username: ${DB_USER:gestdocum_user}
-    password: ${DB_PASSWORD:gestdocum_pass}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${POSTGRES_PORT:${DB_PORT:5434}}/${POSTGRES_DB:${DB_NAME:nexodocs}}}
+    username: ${SPRING_DATASOURCE_USERNAME:${POSTGRES_USER:${DB_USER:nexodocs}}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:${DB_PASSWORD:nexodocs_dev}}}
     driver-class-name: org.postgresql.Driver
   jpa:
     show-sql: true

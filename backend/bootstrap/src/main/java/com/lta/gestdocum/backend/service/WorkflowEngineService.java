@@ -22,9 +22,10 @@ public class WorkflowEngineService {
     private final AuthenticatedUserContext context;
     private final ObjectMapper mapper;
     private final ComponentPermissionService componentPermissions;
+    private final PushService push;
     public WorkflowEngineService(NamedParameterJdbcTemplate db,AuthenticatedUserContext context,ObjectMapper mapper,
-                                 ComponentPermissionService componentPermissions) {
-        this.db=db;this.context=context;this.mapper=mapper;this.componentPermissions=componentPermissions;
+                                 ComponentPermissionService componentPermissions,PushService push) {
+        this.db=db;this.context=context;this.mapper=mapper;this.componentPermissions=componentPermissions;this.push=push;
     }
     /** Columnas de las consultas de workflows que exponen un componente del formulario de documentos (B2). */
     private static final Map<String,String> DOCUMENT_COLUMNS=Map.of(
@@ -786,7 +787,7 @@ public class WorkflowEngineService {
         }
         event(p,uuid(q.get("newTask")),"TASK_ASSIGNED","PENDING",null,Map.of("assignedUser",user));
         String noticeType=node.get("stage_type").equals("REVIEW")?"REVIEW_REQUIRED":node.get("stage_type").equals("APPROVAL")?"APPROVAL_REQUIRED":"TASK_ASSIGNED";
-        notify(p,user,noticeType,"Nueva tarea",title);
+        notify(p,user,noticeType,"Nueva tarea",title,uuid(q.get("newTask")));
     }
     private UUID createStepInstance(Map<String,Object> p,Map<String,Object> stage) {
         Map<String,Object> step=new HashMap<>(p);UUID id=UUID.randomUUID();step.put("newStep",id);step.put("templateStep",stage.get("id"));step.put("stepName",stage.get("name"));
@@ -852,9 +853,17 @@ public class WorkflowEngineService {
         notify(p,recipient,"WORKFLOW",title,message);
     }
     private void notify(Map<String,Object> p,UUID recipient,String type,String title,String message) {
+        notify(p,recipient,type,title,message,null);
+    }
+    /** Inserta el aviso y, tras confirmar la transacción, lo envía por push (sin autoavisos del actor). */
+    private void notify(Map<String,Object> p,UUID recipient,String type,String title,String message,UUID taskId) {
         if(recipient==null)return;
-        Map<String,Object> n=new HashMap<>(p);n.put("recipient",recipient);n.put("noticeType",type);n.put("noticeTitle",title);n.put("message",message);
-        db.update("INSERT INTO notifications(tenant_id,user_id,type,title,message,related_entity_type,related_entity_id) VALUES(:tenant,:recipient,:noticeType,:noticeTitle,:message,'workflow',:id)",n);
+        // El id se genera aquí y no con RETURNING: la política RLS de SELECT (notification_recipient)
+        // solo deja ver los avisos propios, así que RETURNING fallaría al notificar a otro usuario.
+        UUID notificationId=UUID.randomUUID();
+        Map<String,Object> n=new HashMap<>(p);n.put("notificationId",notificationId);n.put("recipient",recipient);n.put("noticeType",type);n.put("noticeTitle",title);n.put("message",message);
+        db.update("INSERT INTO notifications(id,tenant_id,user_id,type,title,message,related_entity_type,related_entity_id) VALUES(:notificationId,:tenant,:recipient,:noticeType,:noticeTitle,:message,'workflow',:id)",n);
+        if(!recipient.equals(p.get("actor")))push.notifyAfterCommit(uuid(p.get("tenant")),recipient,notificationId,taskId,type);
     }
     public void comment(UUID task,Comment comment) {
         Map<String,Object> detail=task(task);permit("task:update");Map<String,Object> p=with(scope(),"task",task);

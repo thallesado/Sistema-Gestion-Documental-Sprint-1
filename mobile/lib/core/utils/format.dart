@@ -1,4 +1,7 @@
+import '../i18n/app_language.dart';
+
 /// Etiquetas y formatos compartidos; coinciden con los textos de la web.
+/// Los mapas guardan el texto en español y las funciones lo devuelven en el idioma activo.
 const documentStatusLabels = {
   'DRAFT': 'Borrador',
   'PENDING': 'Pendiente',
@@ -19,6 +22,23 @@ const taskStatusLabels = {
   'CHANGES_REQUESTED': 'Devuelta',
   'REJECTED': 'Rechazada',
   'CANCELED': 'Cancelada',
+};
+
+const workflowStatusLabels = {
+  'DRAFT': 'Borrador',
+  'STARTED': 'En curso',
+  'IN_PROGRESS': 'En curso',
+  'PAUSED': 'Pausado',
+  'COMPLETED': 'Completado',
+  'REJECTED': 'Rechazado',
+  'CANCELED': 'Cancelado',
+};
+
+const expedientStatusLabels = {
+  'ACTIVE': 'Activo',
+  'CLOSED': 'Cerrado',
+  'ARCHIVED': 'Archivado',
+  'BLOCKED': 'Bloqueado',
 };
 
 const stageTypeLabels = {
@@ -51,17 +71,24 @@ const workflowEventLabels = {
   'TASK_EXPIRED': 'Tarea vencida',
 };
 
-String workflowEventLabel(String? code) => workflowEventLabels[code] ?? code ?? 'Evento';
+String workflowEventLabel(String? code) => _label(workflowEventLabels, code, 'Evento');
 
-String documentStatusLabel(String? code) => documentStatusLabels[code] ?? code ?? '—';
-String taskStatusLabel(String? code) => taskStatusLabels[code] ?? code ?? '—';
-String stageTypeLabel(String? code) => stageTypeLabels[code] ?? code ?? '—';
+String _label(Map<String, String> labels, String? code, String fallback) {
+  final label = labels[code];
+  return label != null ? tr(label) : code ?? tr(fallback);
+}
+
+String documentStatusLabel(String? code) => _label(documentStatusLabels, code, '—');
+String taskStatusLabel(String? code) => _label(taskStatusLabels, code, '—');
+String workflowStatusLabel(String? code) => _label(workflowStatusLabels, code, '—');
+String expedientStatusLabel(String? code) => _label(expedientStatusLabels, code, '—');
+String stageTypeLabel(String? code) => _label(stageTypeLabels, code, '—');
 
 String priorityLabel(Object? priority) => switch (priority) {
-  1 => 'Urgente',
-  2 => 'Alta',
-  3 => 'Media',
-  _ => 'Baja',
+  1 => tr('Urgente'),
+  2 => tr('Alta'),
+  3 => tr('Media'),
+  _ => tr('Baja'),
 };
 
 String _two(int value) => value.toString().padLeft(2, '0');

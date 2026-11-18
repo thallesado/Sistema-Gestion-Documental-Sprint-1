@@ -1,10 +1,14 @@
 package com.lta.gestdocum.backend.controller;
 
+import com.lta.gestdocum.backend.dto.MedicalNoteAiDraftResponse;
 import com.lta.gestdocum.backend.dto.MedicalNoteRequest;
 import com.lta.gestdocum.backend.dto.MedicalNoteResponse;
 import com.lta.gestdocum.backend.dto.MedicalNoteStatusRequest;
 import com.lta.gestdocum.backend.model.Document.DocumentStatus;
+import com.lta.gestdocum.backend.service.MedicalNoteAiService;
 import com.lta.gestdocum.backend.service.MedicalNoteService;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,9 +27,11 @@ import java.util.UUID;
 @SecurityRequirement(name = "BearerAuth")
 public class MedicalNoteController {
     private final MedicalNoteService service;
+    private final MedicalNoteAiService aiService;
 
-    public MedicalNoteController(MedicalNoteService service) {
+    public MedicalNoteController(MedicalNoteService service, MedicalNoteAiService aiService) {
         this.service = service;
+        this.aiService = aiService;
     }
 
     @GetMapping
@@ -41,6 +47,19 @@ public class MedicalNoteController {
     @PreAuthorize("hasAuthority('medical_note:create')")
     public ResponseEntity<MedicalNoteResponse> create(@Valid @RequestBody MedicalNoteRequest request) {
         return ResponseEntity.status(201).body(service.create(request));
+    }
+
+    @PostMapping(value = "/ai-draft", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('medical_note:create')")
+    @Operation(summary = "Borrador de nota médica a partir de un dictado de voz (IA)",
+            description = "Transcribe y estructura el audio en SOAP. No guarda nada: el médico revisa y guarda con POST /medical-notes.")
+    public ResponseEntity<MedicalNoteAiDraftResponse> aiDraft(
+            @RequestPart("audio") MultipartFile audio,
+            @RequestParam UUID clinicalHistoryId,
+            @RequestParam(required = false) String language,
+            @RequestHeader(value = "Accept-Language", required = false) String acceptLanguage) {
+        String requested = language != null && !language.isBlank() ? language : acceptLanguage;
+        return ResponseEntity.ok(aiService.draft(audio, clinicalHistoryId, requested));
     }
 
     @PatchMapping("/{id}/status")

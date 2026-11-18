@@ -5,10 +5,17 @@ import 'package:http/http.dart' as http;
 import '../auth/biometric_service.dart';
 import '../auth/user_permissions.dart';
 import '../errors/api_exception.dart';
+import '../i18n/app_language.dart';
+import '../models/user_profile_model.dart';
 import '../notifications/workflow_notifications.dart';
+import '../push/push_service.dart';
 import 'api_client.dart';
+import 'audit_api.dart';
+import 'auth_repository.dart';
 import 'clinical_api.dart';
+import 'component_permissions_api.dart';
 import 'documents_api.dart';
+import 'expedients_api.dart';
 import 'ocr_api.dart';
 import 'workflows_api.dart';
 
@@ -25,16 +32,34 @@ class AuthApi {
     : client = ApiClient(client: client, storage: storage),
       biometrics = biometrics ?? BiometricService(storage: storage);
 
+  AuthApi.withClient(this.client, {BiometricService? biometrics})
+    : biometrics = biometrics ?? BiometricService(storage: client.storage);
+
   final ApiClient client;
   final BiometricService biometrics;
+  late final AuthRepository auth = AuthRepository(client);
+  bool mustChangePassword = false;
+  bool platformAdmin = false;
 
   late final documents = DocumentsApi(client);
   late final workflows = WorkflowsApi(client);
   late final clinical = ClinicalApi(client);
   late final ocr = OcrApi(client);
+  late final expedients = ExpedientsApi(client, documents);
+  late final audit = AuditApi(client);
+  late final componentPermissions = ComponentPermissionsApi(client);
+
+  /// Último perfil recibido (`/auth/me`): tipos documentales permitidos y datos del usuario.
+  Map<String, dynamic>? currentUser;
 
   /// Permisos por función del usuario actual; el shell y las pantallas se redibujan al cambiar.
   final ValueNotifier<UserPermissions> permissions = ValueNotifier(UserPermissions.unknown);
+
+  /// Bloqueo local: la sesión sigue guardada, pero la app pide huella (o contraseña) antes de mostrar contenido.
+  /// No llama al servidor ni borra tokens.
+  final ValueNotifier<bool> locked = ValueNotifier(false);
+
+  void lock() => locked.value = true;
 
   Future<List<PublicTenant>> publicTenants() async {
     final list = await client.getPublic('/tenants/public') as List<dynamic>;
@@ -48,27 +73,48 @@ class AuthApi {
   Future<void> login({required String tenantId, required String username, required String password}) async {
     final Map<String, dynamic> body;
     try {
-      body = await client.postPublic('/auth/login', {
-        if (tenantId.trim().isNotEmpty) 'tenantId': tenantId.trim(),
-        'usernameOrEmail': username.trim(),
-        'password': password,
-      }) as Map<String, dynamic>;
+      body = await auth.login(tenantId: tenantId, username: username, password: password);
     } on ApiException catch (error) {
-      if (error.statusCode == 401) throw const ApiException('Credenciales u organización inválidas.', statusCode: 401);
+      if (error.statusCode == 401) throw ApiException(tr('Credenciales u organización inválidas.'), statusCode: 401);
       rethrow;
     }
-    final token = body['token'] as String?;
-    final refreshToken = body['refreshToken'] as String?;
-    if (token == null || refreshToken == null) throw const ApiException('Respuesta de sesión incompleta.');
-    await client.saveTokens(token, refreshToken);
+    await establishSession(body);
+  }
+
+  Future<void> establishSession(Map<String, dynamic> body) async {
+    await client.saveTokens(body['token'] as String, body['refreshToken'] as String);
     permissions.value = UserPermissions.fromJson(body);
+    mustChangePassword = body['mustChangePassword'] == true;
+  }
+
+  Future<UserProfileModel> restoreProfile() async {
+    final profile = UserProfileModel.fromJson(await auth.profile());
+    currentUser = profile.rawJson;
+    permissions.value = profile.permissions;
+    mustChangePassword = profile.rawJson['mustChangePassword'] == true;
+    platformAdmin = profile.rawJson['platformAdmin'] == true;
+    return profile;
+  }
+
+  Future<String> requestRecovery({required String tenantId, required String email}) =>
+      auth.requestRecovery(tenantId: tenantId, email: email);
+
+  Future<void> resetPassword({required String token, required String newPassword, String? tenantId}) async =>
+      establishSession(await auth.resetPassword(token: token, newPassword: newPassword, tenantId: tenantId));
+
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
+    await auth.changePassword(currentPassword: currentPassword, newPassword: newPassword);
+    if (mustChangePassword) {
+      await client.clearSession();
+      mustChangePassword = false;
+    }
   }
 
   /// Recarga los permisos desde `/auth/me` (sesión restaurada al abrir la app).
   /// Si falla se mantienen los actuales: ocultar menús nunca sustituye la autorización del servidor.
   Future<UserPermissions> loadPermissions() async {
     try {
-      permissions.value = UserPermissions.fromJson(await me());
+      await restoreProfile();
     } on ApiException {
       // Sin conexión o servidor antiguo: se conservan los permisos conocidos.
     }
@@ -77,20 +123,53 @@ class AuthApi {
 
   /// Cierra la sesión también en el servidor (revoca el refresh token), como la web.
   Future<void> logout() async {
+    // Primero el token del dispositivo: así el usuario deja de recibir avisos push en este teléfono.
+    // Va antes de leer el refresh token, porque si el access token caducó la petición lo renueva.
+    await PushService.instance.unregister(registry: ApiPushTokenRegistry(client));
     final refreshToken = await client.storage.read(key: ApiClient.refreshTokenKey);
     if (refreshToken != null) {
       try {
-        await client.post('/auth/logout', {'refreshToken': refreshToken});
+        await auth.logout(refreshToken);
       } on ApiException {
         // La sesión local se elimina igualmente.
       }
     }
     await client.clearSession();
+    // Cierre completo: también se desactiva el desbloqueo con huella del dispositivo.
+    await biometrics.setEnabled(false);
+    locked.value = false;
+    componentPermissions.clear();
+    currentUser = null;
     permissions.value = UserPermissions.unknown;
+    mustChangePassword = false;
+    platformAdmin = false;
     await WorkflowNotifications.instance.stop();
   }
 
-  Future<Map<String, dynamic>> me() async => await client.get('/auth/me') as Map<String, dynamic>;
+  Future<Map<String, dynamic>> me() => auth.profile();
+
+  /// Preferencia push del perfil. Sin valor en el perfil cargado se considera activa (igual que el servidor).
+  bool get pushNotificationsEnabled => currentUser?['pushNotifications'] != false;
+
+  /// Guarda el switch del perfil en el servidor, conservando el aviso por correo.
+  Future<void> setPushNotifications(bool enabled) async {
+    final email = currentUser?['emailNotifications'] != false;
+    final saved = await auth.updateNotifications(emailNotifications: email, pushNotifications: enabled);
+    currentUser = {...?currentUser, 'pushNotifications': saved['pushNotifications'] ?? enabled};
+  }
+
+  /// Tipos documentales que el perfil puede usar (personalización del usuario); vacío = todos.
+  Set<String> get allowedDocumentTypeIds {
+    final customization = currentUser?['customization'];
+    final ids = customization is Map ? customization['allowedDocumentTypeIds'] : null;
+    return ids is List ? ids.whereType<String>().toSet() : const <String>{};
+  }
+
+  /// Perfil fuertemente tipado del usuario autenticado (Clean Architecture / SRP).
+  Future<UserProfileModel> getProfile() async {
+    final raw = await me();
+    return UserProfileModel.fromJson(raw);
+  }
 
   Future<Map<String, dynamic>> dashboard() async =>
       await client.get('/dashboard', query: {'limit': 10}) as Map<String, dynamic>;

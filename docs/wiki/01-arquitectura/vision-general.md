@@ -13,7 +13,7 @@ NexoDocs es un gestor documental SaaS para organizaciones de distintos rubros. E
 | `backend/modules` | Scaffold Maven, sin implementación funcional de los módulos anunciados. |
 | `frontend/src/app/features` | Funciones Angular standalone con lazy loading. |
 | `frontend/src/app/shell` | Layout activo, sidebar, topbar y perfil. |
-| `mobile/lib/screens` | Cliente Flutter MVP con limitaciones; no BLoC completo. |
+| `mobile/lib/screens` | Cliente Flutter: documentos (alta, versiones), expedientes, workflows, OCR, módulo clínico (historia y notas) y es/en; sin BLoC completo. Detalle en `mobile/README.md`. |
 | `packages/shared` | Tipos/utilidades TS; no hay generación automática de DTOs Java. |
 | `database/init` | SQL versionado e inicialización histórica. |
 | `infrastructure` | Compose, Dockerfiles y Nginx. |

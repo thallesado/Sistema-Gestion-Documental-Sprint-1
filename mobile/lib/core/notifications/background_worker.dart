@@ -8,6 +8,7 @@ import 'package:workmanager/workmanager.dart';
 import '../api/api_client.dart';
 import '../constants/api_constants.dart';
 import 'workflow_notifications.dart';
+import '../i18n/app_language.dart';
 
 /// Punto de entrada del trabajo periódico de Android (se ejecuta en un isolate aparte, sin UI).
 ///
@@ -19,6 +20,8 @@ void notificationsCallbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     DartPluginRegistrant.ensureInitialized();
     try {
+      // El aislado de segundo plano no comparte memoria con la app: se lee el idioma guardado.
+      await AppLanguageController.instance.load();
       await checkWorkflowNotificationsInBackground();
     } catch (_) {
       // Un fallo de red no debe reintentar en bucle: se volverá a comprobar en el siguiente ciclo.

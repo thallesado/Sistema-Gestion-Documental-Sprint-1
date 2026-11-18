@@ -67,6 +67,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/public/subscriptions/checkout").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/public/contact").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/external-deliveries/code", "/api/v1/external-deliveries/verify", "/api/v1/external-deliveries/info", "/api/v1/external-deliveries/content").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/public/radicaciones/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/public/subscriptions/checkout/*/status").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/billing/webhooks/stripe").permitAll()
                 .requestMatchers(

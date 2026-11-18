@@ -6,6 +6,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Avisos push: google-services.json no se versiona (ver mobile/README.md). Sin el archivo el plugin
+// no se aplica, la app compila igual y Firebase no se inicializa: los avisos siguen por sondeo.
+if (file("google-services.json").isFile) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val signingProperties = Properties()
 val signingPropertiesFile = rootProject.file("key.properties")
 if (signingPropertiesFile.isFile) {

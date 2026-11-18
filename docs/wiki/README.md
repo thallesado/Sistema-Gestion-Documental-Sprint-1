@@ -39,6 +39,7 @@ El código de referencia incluye el OCR persistido y la migración 035. La revis
 | Angular | [Arquitectura](03-frontend/arquitectura-angular.md), [estado/API](03-frontend/estado-y-comunicacion-api.md) |
 | Documentos/expedientes | [Almacenamiento](04-dominio-y-negocio/documentos-y-almacenamiento.md), [núcleo por tenant](04-dominio-y-negocio/nucleo-documental-y-tenants.md) |
 | Workflows | [Motor y reglas](04-dominio-y-negocio/motor-de-workflows.md) |
+| Avisos push (FCM, Android) | [Registro de tokens, envío tras commit y límites](04-dominio-y-negocio/avisos-push-fcm.md) |
 | OCR | [Digitalización por revisión](04-dominio-y-negocio/digitalizacion-y-ocr.md) |
 | Clínica | [Extensión clínica](04-dominio-y-negocio/modulo-clinico.md) |
 | Suscripciones, pagos y alta pública | [Stripe Billing, webhooks y estados](04-dominio-y-negocio/suscripciones-y-pagos-stripe.md) |
