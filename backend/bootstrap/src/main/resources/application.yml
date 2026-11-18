@@ -1,6 +1,7 @@
 ﻿server:
   port: ${BACKEND_PORT:8080}
-  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:framework}
+  # none: no aceptar X-Forwarded-For de cualquier cliente. Detrás de Nginx de confianza, definir SERVER_FORWARD_HEADERS_STRATEGY=framework.
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
 
 spring:
   application:

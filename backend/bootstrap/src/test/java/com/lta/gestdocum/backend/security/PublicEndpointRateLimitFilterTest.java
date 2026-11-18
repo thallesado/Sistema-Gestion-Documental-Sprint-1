@@ -4,6 +4,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class PublicEndpointRateLimitFilterTest {
@@ -67,5 +70,29 @@ class PublicEndpointRateLimitFilterTest {
             assertEquals(200, invoke(filter, "GET", "/api/v1/plans").getStatus());
             assertEquals(200, invoke(filter, "GET", "/api/v1/public/signup").getStatus());
         }
+    }
+
+    @Test
+    void laCabeceraReenviadaNoComparteElCupoDeOtraConexion() throws Exception {
+        PublicEndpointRateLimitFilter filter = new PublicEndpointRateLimitFilter(1, 60, 100, 60);
+        assertEquals(200, invokeWithForwarded(filter, "192.0.2.1", "203.0.113.9").getStatus());
+        assertEquals(429, invokeWithForwarded(filter, "192.0.2.1", "198.51.100.8").getStatus());
+        assertEquals(200, invokeWithForwarded(filter, "192.0.2.2", "203.0.113.9").getStatus());
+    }
+
+    @Test
+    void porDefectoNoSeConfiaEnLasCabecerasReenviadas() throws Exception {
+        String config = Files.readString(Path.of("src/main/resources/application.yml"));
+        assertTrue(config.contains("forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}"));
+    }
+
+    private static MockHttpServletResponse invokeWithForwarded(PublicEndpointRateLimitFilter filter, String remote, String forwarded)
+            throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/public/radicaciones/ABC");
+        request.setRemoteAddr(remote);
+        request.addHeader("X-Forwarded-For", forwarded);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> ((jakarta.servlet.http.HttpServletResponse) res).setStatus(200));
+        return response;
     }
 }
