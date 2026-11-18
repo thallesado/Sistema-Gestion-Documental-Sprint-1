@@ -305,6 +305,12 @@ void main() {
       await tester.tap(find.byKey(const Key('note-approve-n1')));
       await tester.pumpAndSettle();
 
+      // Emitir firma la nota y no se puede deshacer: primero pide confirmación.
+      expect(find.text('Emitir nota médica'), findsOneWidget);
+      expect(fake.called('PATCH', '/medical-notes/n1/status'), isEmpty);
+      await tester.tap(find.byKey(const Key('note-approve-confirm')));
+      await tester.pumpAndSettle();
+
       expect(bodyOf(fake.called('PATCH', '/medical-notes/n1/status').single), {'status': 'APPROVED'});
       expect(find.byKey(const Key('note-approve-n1')), findsNothing);
     });

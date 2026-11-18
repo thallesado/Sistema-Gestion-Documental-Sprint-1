@@ -124,4 +124,28 @@ void main() {
 
     expect(find.text('Supervisor / Aprobador de Tareas'), findsOneWidget);
   });
+
+  testWidgets('sin pistas de demostración (release) no adivina el rol ni elige organización', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.lightTheme,
+      home: LoginPage(authApi: authApi, demoHints: false),
+    ));
+    await tester.pumpAndSettle();
+
+    // "mariana" contiene "maria": con las pistas activas preseleccionaría Clínica Central.
+    await tester.enterText(find.byKey(const Key('username')), 'mariana@empresa.com');
+    await tester.pumpAndSettle();
+    expect(find.text('Sector Salud / Personal Clínico'), findsNothing);
+    // El selector cerrado solo muestra la organización elegida: no debe haber ninguna.
+    expect(find.descendant(of: find.byKey(const Key('tenant')), matching: find.text('Clínica Central')), findsNothing);
+
+    // Un correo personal tampoco cambia solo al portal ciudadano.
+    await tester.enterText(find.byKey(const Key('username')), 'persona@gmail.com');
+    await tester.pumpAndSettle();
+    expect(find.text('Portal Ciudadano y Radicación'), findsNothing);
+  });
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
 import '../../core/api/auth_api.dart';
@@ -35,9 +36,21 @@ const defaultPublicTenants = [
 ];
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.authApi, this.notice, this.lockedMode = false, this.onUnlocked, this.onFullLogout});
+  const LoginPage({
+    super.key,
+    required this.authApi,
+    this.notice,
+    this.lockedMode = false,
+    this.onUnlocked,
+    this.onFullLogout,
+    this.demoHints = kDebugMode,
+  });
 
   final AuthApi authApi;
+
+  /// Pistas de la demo: adivinar el perfil por el correo y preseleccionar las organizaciones del seed.
+  /// Solo en debug: con usuarios reales un correo como "mariana@…" elegiría la organización equivocada.
+  final bool demoHints;
 
   /// Aviso informativo, p. ej. cuando la sesión expiró.
   final String? notice;
@@ -86,6 +99,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _handleUserChanged() {
+    if (!widget.demoHints) return;
     final text = userController.text.trim().toLowerCase();
     if (text.isEmpty) {
       if (detectedRole != DetectedUserRole.unknown) {

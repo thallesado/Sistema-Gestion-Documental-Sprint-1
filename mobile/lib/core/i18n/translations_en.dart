@@ -26,6 +26,9 @@ const englishTranslations = <String, String>{
   'Anulado': 'Voided',
   'Anular': 'Void',
   'Anular nota médica': 'Void medical note',
+  'Emitir nota médica': 'Issue medical note',
+  'La nota quedará firmada como vigente y ya no podrá editarse; solo podrá anularse.':
+      'The note will be signed as current and can no longer be edited; it can only be voided.',
   'Apellidos': 'Last names',
   'Apertura de historia': 'Record opened',
   'Aprobación': 'Approval',

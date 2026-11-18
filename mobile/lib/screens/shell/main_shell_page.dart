@@ -289,8 +289,12 @@ class _MainShellPageState extends State<MainShellPage>
         index: index,
         children: [for (final tab in tabs) _page(tab)],
       ),
+      // En Expedientes la pestaña ya tiene su botón "Radicar solicitud" en la misma esquina; escanear
+      // sigue disponible en el icono de la barra superior.
       floatingActionButton:
-          widget.api.platformAdmin || !OcrPermissions.canRead(permissions)
+          widget.api.platformAdmin ||
+                  !OcrPermissions.canRead(permissions) ||
+                  (current == ShellTab.expedients && ExpedientPermissions.canCreate(permissions))
           ? null
           : _tour.wrap(
               OnboardingTarget.primaryAction,

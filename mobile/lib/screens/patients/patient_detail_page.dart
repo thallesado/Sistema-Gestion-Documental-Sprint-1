@@ -15,6 +15,7 @@ import 'clinical_history_form_page.dart';
 import 'clinical_labels.dart';
 import 'medical_note_sheet.dart';
 import 'widgets/summary_card.dart';
+import 'note_emission_dialog.dart';
 
 /// Ficha clínica del paciente: resumen, historia clínica, notas médicas, documentos
 /// vinculados y cronología, con los mismos endpoints que el módulo clínico de la web.
@@ -152,6 +153,7 @@ class _PatientDetailPageState extends State<PatientDetailPage> {
   }
 
   Future<void> changeNoteStatus(Map<String, dynamic> note, String status) async {
+    if (status == 'APPROVED' && (!await confirmNoteEmission(context) || !mounted)) return;
     if (status == 'VOIDED') {
       final confirmed = await showDialog<bool>(
         context: context,

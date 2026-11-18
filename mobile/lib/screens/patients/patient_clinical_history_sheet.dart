@@ -12,6 +12,7 @@ import '../../core/models/patient_model.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/state_views.dart';
+import 'note_emission_dialog.dart';
 
 /// Modal para consultar antecedentes médicos, notas de evolución y diagnósticos de manera segura bajo patient:read.
 Future<void> showPatientClinicalHistorySheet(
@@ -227,7 +228,7 @@ class _PatientClinicalHistorySheetState extends State<PatientClinicalHistoryShee
                   children: history.allergies.map((a) {
                     final isSevere = a.isSevere;
                     return Chip(
-                      label: Text('${a.allergen} (${a.severity})'),
+                      label: Text('${a.allergen} (${severityLabel(a.severity)})'),
                       backgroundColor: isSevere ? Colors.red.shade50 : Colors.orange.shade50,
                       side: BorderSide(color: isSevere ? Colors.red.shade300 : Colors.orange.shade300),
                       labelStyle: TextStyle(
@@ -420,7 +421,11 @@ class _PatientClinicalHistorySheetState extends State<PatientClinicalHistoryShee
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                // Wrap: tipo, estado y fecha bajan de línea en pantallas estrechas en vez de desbordarse.
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -429,11 +434,15 @@ class _PatientClinicalHistorySheetState extends State<PatientClinicalHistoryShee
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        note.noteType.toUpperCase(),
+                        noteTypeLabel(note.noteType),
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.teal),
                       ),
                     ),
-                    const Spacer(),
+                    // Estado visible: sin él no se distingue un borrador de una nota ya emitida.
+                    Text(
+                      noteStatusLabel(note.status),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                    ),
                     Text(
                       formatDate(note.createdAt.toIso8601String(), withTime: true),
                       style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
@@ -538,6 +547,7 @@ class _PatientClinicalHistorySheetState extends State<PatientClinicalHistoryShee
 
   /// Emitir (DRAFT → APPROVED) o anular (→ VOIDED), igual que la web (requiere `medical_note:update`).
   Future<void> _changeNoteStatus(String noteId, String status) async {
+    if (status == 'APPROVED' && (!await confirmNoteEmission(context) || !mounted)) return;
     if (status == 'VOIDED') {
       final confirmed = await showDialog<bool>(
         context: context,

@@ -430,5 +430,35 @@ void main() {
       // El dashboard muestra el card de acceso a Expedientes
       expect(find.byKey(const Key('dashboard-expedients-card')), findsOneWidget);
     });
+
+    testWidgets('en Expedientes, Radicar solicitud y Escanear no se tapan entre sí', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
+      const permissions = ['expedient:read', 'expedient:create', 'document:read', 'document:create', 'task:read'];
+      final server = FakeServer({
+        'GET /auth/me': (_) => FakeServer.json({
+              'id': 'usr-1', 'username': 'admin', 'email': 'admin@nexodocs.com', 'firstName': 'Admin', 'lastName': 'NexoDocs',
+              'permissions': permissions,
+            }),
+        'GET /workflows/notifications': (_) => FakeServer.json({'content': [], 'totalElements': 0}),
+        'GET /workflows/tasks': (_) => FakeServer.json({'content': [], 'totalElements': 0}),
+        'GET /dashboard': (_) => FakeServer.json({'currentUser': {'firstName': 'Admin'}, 'pendingTasks': [], 'recentDocuments': [], 'recentActivity': []}),
+        'GET /expedients': (_) => FakeServer.json({'content': [], 'totalElements': 0}),
+        'GET /documents': (_) => FakeServer.json({'content': [], 'totalElements': 0}),
+      });
+
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: MainShellPage(api: apiWith(server, permissions))));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('scan-fab')), findsOneWidget);
+
+      await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Expedientes')));
+      await tester.pumpAndSettle();
+
+      // Un solo botón flotante en la esquina: Radicar solicitud. Escanear sigue en la barra superior.
+      expect(find.byKey(const Key('new-radicacion-fab')), findsOneWidget);
+      expect(find.byKey(const Key('scan-fab')), findsNothing);
+      expect(find.byTooltip('Escanear con cámara'), findsOneWidget);
+    });
   });
 }

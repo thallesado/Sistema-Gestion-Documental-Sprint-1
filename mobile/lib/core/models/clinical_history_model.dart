@@ -24,8 +24,9 @@ class ClinicalAllergyModel {
   final String? reaction;
   final String status;
 
-  bool get isSevere => severity == 'SEVERE';
-  bool get isModerate => severity == 'MODERATE';
+  // El backend y la web usan LOW/MEDIUM/HIGH (ver allergySeverities); SEVERE/MODERATE se aceptan por compatibilidad.
+  bool get isSevere => severity == 'HIGH' || severity == 'SEVERE';
+  bool get isModerate => severity == 'MEDIUM' || severity == 'MODERATE';
 }
 
 /// Medicamento actual prescrito al paciente.

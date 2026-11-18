@@ -437,5 +437,47 @@ void main() {
       expect(find.byKey(const Key('clinical-new-note')), findsOneWidget);
       expect(find.byKey(const Key('clinical-dictate-note')), findsOneWidget);
     });
+
+    testWidgets('la historia muestra severidad, tipo y estado de nota en español, no los códigos', (tester) async {
+      usePhoneScreen(tester);
+      final server = FakeServer({
+        'GET /patients': (_) => FakeServer.json(page([
+              {'id': 'pat-100', 'name': 'Beatriz Morales', 'documentId': '43210987'},
+            ])),
+        'GET /clinical-histories': (_) => FakeServer.json(page([
+              {
+                'id': 'history-100', 'code': 'HC-00100', 'patientId': 'pat-100', 'patientLabel': 'Beatriz Morales',
+                'allergies': [
+                  {'allergen': 'Penicilina', 'severity': 'HIGH', 'reaction': ''},
+                ],
+                'currentMedications': [], 'baseDiagnoses': [],
+              },
+            ])),
+        'GET /medical-notes': (_) => FakeServer.json(page([
+              {
+                'id': 'n1', 'clinicalHistoryId': 'history-100', 'noteType': 'EVOLUTION', 'status': 'DRAFT',
+                'content': '<p>Paciente estable</p>', 'createdAt': '2026-11-17T23:42:00Z',
+              },
+            ])),
+      });
+      final authApi = AuthApi(client: server.client)..permissions.value = UserPermissions({'patient:read', 'medical_note:read'});
+
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: Scaffold(body: PatientsTab(api: authApi))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('patient-history-pat-100')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Penicilina (Alta (grave))'), findsOneWidget);
+      expect(find.text('Penicilina (HIGH)'), findsNothing);
+      // HIGH es grave: el chip se pinta en rojo, como las alergias graves de la web.
+      final chip = tester.widget<Chip>(find.ancestor(of: find.text('Penicilina (Alta (grave))'), matching: find.byType(Chip)));
+      expect(chip.backgroundColor, Colors.red.shade50);
+
+      await tester.tap(find.text('Evolución'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nota de evolución'), findsOneWidget);
+      expect(find.text('Borrador'), findsOneWidget);
+      expect(find.text('EVOLUTION'), findsNothing);
+    });
   });
 }
