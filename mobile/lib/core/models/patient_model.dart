@@ -13,10 +13,17 @@ class PatientModel {
   });
 
   factory PatientModel.fromJson(Map<String, dynamic> json) {
+    // GET /patients (PatientResponse) envía firstName/lastName/documentNumber; name/documentId/ci
+    // se mantienen para datos armados en la app y respuestas anteriores.
+    final fullName = [json['firstName'], json['lastName']]
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .join(' ');
     return PatientModel(
       id: json['id'] as String? ?? '',
-      name: json['name'] as String? ?? 'Sin nombre',
-      documentId: json['documentId'] as String? ?? json['ci'] as String?,
+      name: json['name'] as String? ?? (fullName.isEmpty ? 'Sin nombre' : fullName),
+      documentId: json['documentId'] as String? ?? json['documentNumber'] as String? ?? json['ci'] as String?,
       age: json['age'] as int?,
       bloodType: json['bloodType'] as String?,
       lastVisit: json['lastVisit'] as String?,
