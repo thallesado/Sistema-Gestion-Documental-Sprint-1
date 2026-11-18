@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-18",
+  "environment": "localhost:4201",
+  "endpoint": "/api/v1/assistant/chat",
+  "http": 200,
+  "model": "gemini-3.5-flash-lite",
+  "real_provider": true,
+  "browser": "Chromium",
+  "synthetic_question": true
+}

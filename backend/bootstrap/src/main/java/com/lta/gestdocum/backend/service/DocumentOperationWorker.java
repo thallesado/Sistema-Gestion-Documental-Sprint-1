@@ -30,7 +30,7 @@ public class DocumentOperationWorker {
                 if(jobs.isEmpty())return null;var j=jobs.getFirst();o.db.update("UPDATE document_operation_jobs SET status='RUNNING',started_at=now(),lease_until=now()+interval '10 minutes' WHERE tenant_id=:tenant AND id=:id",o.args("id",j.get("id")));return j;
             });
             if(job!=null)try{o.as(actor,"mailbox:manage",()->{var locked=o.one("SELECT * FROM document_operation_jobs WHERE tenant_id=:tenant AND id=:id AND status='RUNNING' FOR UPDATE",o.args("id",job.get("id")));intake.runJob(locked);return null;});}
-            catch(RuntimeException e){o.as(actor,"mailbox:manage",()->{o.db.update("UPDATE document_operation_jobs SET status='FAILED',completed_at=now(),lease_until=NULL,error_code='MAILBOX_CONNECTION_FAILED' WHERE tenant_id=:tenant AND id=:id",o.args("id",job.get("id")));o.db.update("UPDATE mailbox_connections SET state='AUTH_ERROR',error_code='MAILBOX_CONNECTION_FAILED' WHERE tenant_id=:tenant AND id=:id",o.args("id",job.get("connection_id")));o.audit("MAILBOX_SYNC_FAILED","MAILBOX",(UUID)job.get("connection_id"),Map.of());return null;});}
+            catch(RuntimeException e){o.as(actor,"mailbox:manage",()->{o.db.update("UPDATE document_operation_jobs SET status='FAILED',completed_at=now(),lease_until=NULL,error_code='MAILBOX_CONNECTION_FAILED' WHERE tenant_id=:tenant AND id=:id",o.args("id",job.get("id")));o.db.update("UPDATE mailbox_connections SET state='SYNC_ERROR',error_code='MAILBOX_CONNECTION_FAILED' WHERE tenant_id=:tenant AND id=:id",o.args("id",job.get("connection_id")));o.audit("MAILBOX_SYNC_FAILED","MAILBOX",(UUID)job.get("connection_id"),Map.of());return null;});}
         });
     }
     private void sendOne(){

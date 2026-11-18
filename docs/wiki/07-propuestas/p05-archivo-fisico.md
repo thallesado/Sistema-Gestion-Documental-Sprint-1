@@ -1,7 +1,7 @@
 # P05: ubicación y préstamo de originales físicos
 
-> **Actualizacion 2026-11-17:** este archivo conserva el diseno original. Ya existe implementacion local; consultar [contratos, configuracion y limites actuales](../04-dominio-y-negocio/operaciones-documentales.md). Las imagenes siguen siendo conceptuales; las APIs propuestas no sustituyen las rutas reales.
-> Revisión documental: 2026-11-17. Referencia: `c0c49ab` más cambios locales. Propuesta no implementada; no registra movimientos reales por generar estas imágenes.
+> **Actualizacion 2026-11-18:** diseno original de P05, ahora identificado como HU-26. Ver [implementacion, contratos y pruebas actuales](../04-dominio-y-negocio/archivo-fisico-y-prestamos.md). Las imagenes de esta propuesta siguen siendo conceptuales.
+> Revisión documental: 2026-11-18. Referencia: `4d7c663` mas cambios locales. El recorrido descrito orienta el alcance; las rutas reales y capturas verificadas se documentan en la guia de HU-26.
 
 **Como** archivista, **quiero** saber dónde está un original y quién lo recibió, **para** localizarlo, prestarlo y comprobar su devolución.
 

@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface OperationRow { [key: string]: any; id: string; }
-export interface OperationPage { content: OperationRow[]; totalElements: number; jobs?: OperationRow[]; }
+export interface OperationPage { content: OperationRow[]; totalElements: number; jobs?: OperationRow[]; receiveOnly?: boolean; }
 export function operationError(e: any): string {
   return e?.status === 0 ? 'No se pudo conectar con el servidor.' :
     e?.error?.message || e?.error?.detail || `La operación no pudo completarse (HTTP ${e?.status || 'desconocido'}).`;

@@ -1,15 +1,23 @@
 # Wiki de NexoDocs: contexto verificable para desarrollo e IA
 
-> Revisión documental: 2026-11-17. Fuente: checkout `c0c49ab` más cambios locales. Actualización parcial; evidencia EC2 del 2026-11-14, sin inspección remota actual.
+> Revisión documental: 2026-11-18. Fuente: checkout `4d7c663` más cambios locales. Actualización parcial de HU-26; otras páginas conservan sus fechas y fuentes. Sin inspección actual de AWS.
 
-**Contexto más reciente (2026-11-17):** [integración de main y estado de las dos EC2](06-operacion/contexto-sesion-2026-11-17.md). Checkout local en `c0c49ab` más cambios sin commit; EC2 conserva evidencia histórica distinta. Esta referencia prevalece para continuar la sesión; las notas anteriores conservan sus fechas y alcance.
+**Antecedente de despliegue (2026-11-17):** [integración de main y estado de las dos EC2](06-operacion/contexto-sesion-2026-11-17.md). Checkout local en `c0c49ab` más cambios sin commit; EC2 conserva evidencia histórica distinta. Esta referencia prevalece para continuar la sesión; las notas anteriores conservan sus fechas y alcance.
 
 
 Esta wiki es documentación de referencia contrastada con el código, no una garantía de producción ni sustituto de inspección. Resume el sistema para reducir lecturas repetidas. Si una fuente cambia o contradice una página, identificar la diferencia antes de modificar negocio o seguridad.
 
 **Actualización parcial 2026-10-21:** consultar [cambios locales, puertos y respaldos](06-operacion/cambios-locales-2026-10-21.md). Documenta `8c3dcb8` más cambios sin commit, correcciones de arranque y navegación, y la interfaz de Respaldos aún sin backend. El snapshot de 2026-10-16 se conserva como antecedente; las páginas no revisadas mantienen su alcance histórico.
 
+**Continuacion local 2026-11-18:** [HU-26, archivo fisico y prestamos](04-dominio-y-negocio/archivo-fisico-y-prestamos.md): roles separados, custodia, recuperacion de evidencia en respaldos y capturas reales. Los cambios siguen locales; esta nota no acredita despliegue en EC2.
+
 ## Lectura mínima
+
+**Demostracion de HU-25 a HU-28:** [cuentas DEMO verificadas y recorrido paso a paso](05-guias-ia/demostracion-hu25-28.md) para localhost:4201. Incluye que mostrar, resultado esperado y solucion de problemas por HU.
+
+**Preparacion main/EC2 HU-25 a HU-28 (2026-11-18):** [contenedores actualizados, archivos que deben publicarse y configuracion del servidor](06-operacion/preparacion-main-ec2-hu25-28.md). Aplicado en 4201; 4200 conserva imagenes/esquema anteriores.
+
+**Auditoria HU-25 a HU-28 (2026-11-18):** [dictamen, pruebas y limites de cierre local](04-dominio-y-negocio/auditoria-hu25-28.md). Incluye el nuevo alcance de HU-28 y una prueba visual con API real; no certifica EC2.
 
 Integración posterior del 2026-10-21: [15 commits hasta c93a8b4, permisos de sesión y actualización Docker](06-operacion/integracion-main-c93a8b4.md). Incluye los problemas detectados en 048 y la corrección local 049, con límites de las verificaciones.
 
@@ -81,3 +89,5 @@ La CI documental comprueba enlaces y contratos relevantes. No reemplaza pruebas 
 **Sprint HU-19 a HU-24 (2026-11-04):** [estado funcional, criterios cubiertos, límites y pruebas](04-dominio-y-negocio/sprint-hu19-24.md). HU-23 aún no cumple cifrado en reposo; no se presenta como 100% terminado.
 
 - [Entregas externas, buzon documental y archivo fisico: implementacion local](04-dominio-y-negocio/operaciones-documentales.md).
+
+**HU-27, pruebas locales 2026-11-18:** [cuenta de revision, recorrido y Gemini real](04-dominio-y-negocio/traduccion-pruebas-locales.md). Solo entorno 4201.

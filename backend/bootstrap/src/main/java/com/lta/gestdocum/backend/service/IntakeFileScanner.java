@@ -13,10 +13,18 @@ public class IntakeFileScanner {
     public IntakeFileScanner(@Value("${document-operations.clamav-host:}") String host,@Value("${document-operations.clamav-port:3310}") int port){this.host=host;this.port=port;}
     public boolean configured(){return !host.isBlank();}
     public String scan(byte[] content,String mime){
+        String validation=validate(content,mime);if(!validation.equals("NOT_SCANNED"))return validation;
+        return scanMalware(content);
+    }
+    /** File format checks only; never certifies that the content is malware-free. */
+    public String validate(byte[] content,String mime){
         if(content.length==0||content.length>25*1024*1024)return "REJECTED_SIZE";
         try{DocumentStorageService.requireMatchingContent(new IntakeMultipartFile("adjunto",mime,content));}catch(Exception e){return "REJECTED_TYPE";}
         if(!Set.of("application/pdf","image/png","image/jpeg","application/vnd.openxmlformats-officedocument.wordprocessingml.document").contains(mime))return "REJECTED_TYPE";
         try{validateStructure(content,mime);}catch(org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException e){return "REJECTED_ENCRYPTED";}catch(Exception e){return "REJECTED_STRUCTURE";}
+        return "NOT_SCANNED";
+    }
+    private String scanMalware(byte[] content){
         if(host.isBlank())return "SCANNER_UNAVAILABLE";
         try(Socket socket=new Socket()){
             socket.connect(new InetSocketAddress(host,port),5000);socket.setSoTimeout(20000);var output=new DataOutputStream(socket.getOutputStream());output.write("zINSTREAM\0".getBytes(java.nio.charset.StandardCharsets.US_ASCII));

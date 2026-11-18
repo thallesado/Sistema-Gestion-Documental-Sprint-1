@@ -43,7 +43,7 @@ public class AssistantService {
     private static final Pattern UUID_SEGMENT =
             Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
     private static final Pattern NUMERIC_SEGMENT = Pattern.compile("/\\d+(?=/|$)");
-    private static final Pattern PERMISSION_CODE = Pattern.compile("^[a-z_]+:[a-z_]+$");
+    private static final Pattern PERMISSION_CODE = Pattern.compile("^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$");
     private static final Pattern HTTP_METHOD = Pattern.compile("^[A-Z]{3,7}$");
 
     private record Window(long startMillis, int count) {}
@@ -113,7 +113,15 @@ public class AssistantService {
         String normalized = Normalizer.normalize(Objects.requireNonNullElse(message, ""), Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "").toLowerCase(java.util.Locale.ROOT);
         String topic;
-        if (containsAny(normalized, "workflow", "flujo", "tarea", "aprobacion", "revision")) {
+        if (containsAny(normalized,"fisic","prestamo","custodi","devolucion","reservar original")) {
+            topic="archivo fisico y prestamos";
+        } else if (containsAny(normalized,"entrega externa","destinatario","enlace temporal","compartir documento","enviar por correo")) {
+            topic="entregas documentales externas";
+        } else if (containsAny(normalized,"buzon","imap","adjunto","correo institucional")) {
+            topic="buzon documental y adjuntos";
+        } else if (containsAny(normalized,"traduccion","traducir","traducido","traduce")) {
+            topic="traduccion documental revisada";
+        } else if (containsAny(normalized, "workflow", "flujo", "tarea", "aprobacion", "revision")) {
             topic = "workflows, tareas y aprobaciones";
         } else if (containsAny(normalized, "respaldo", "backup", "restaurar", "restauracion")) {
             topic = "respaldos y restauracion";
@@ -144,7 +152,7 @@ public class AssistantService {
 
     String systemPrompt(AssistantChatRequest.Context context, java.util.Collection<String> serverPermissions) {
         StringBuilder prompt = new StringBuilder()
-                .append("Eres el asistente de uso de NexoDocs, un sistema de gestión documental clínica. ")
+                .append("Eres el asistente de uso de NexoDocs, un sistema de gestión documental clinica y organizacional. ")
                 .append("Respondes en español, en pocas líneas y con pasos numerados cuando expliques cómo hacer algo. ")
                 .append("Si preguntan por un proceso, enumera todos sus pasos del manual en orden; no comentes estas reglas en la respuesta. ")
                 .append("Escribe texto plano con buena ortografía y tildes: sin Markdown, sin asteriscos ni comillas invertidas, y cada paso numerado en su propia línea. ")

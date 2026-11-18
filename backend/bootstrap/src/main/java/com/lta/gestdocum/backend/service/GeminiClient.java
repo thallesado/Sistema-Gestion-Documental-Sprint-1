@@ -170,6 +170,24 @@ public class GeminiClient {
         return new TextResult(text, raw.modelUsed(), raw.elapsedMs());
     }
 
+    /** Document generation must reject truncated/blocked candidates, unlike conversational partial text. */
+    public TextResult generateCompleteText(String prompt, String systemInstruction) {
+        var payload=new LinkedHashMap<String,Object>();
+        payload.put("contents",List.of(Map.of("role","user","parts",List.of(Map.of("text",prompt)))));
+        payload.put("system_instruction",Map.of("parts",List.of(Map.of("text",systemInstruction))));
+        var raw=generateRaw(payload);
+        try {
+            var candidate=objectMapper.readTree(raw.responseBody()).path("candidates").path(0);
+            if(!"STOP".equals(candidate.path("finishReason").asText()))
+                throw new IllegalStateException("El proveedor no completo la generacion documental");
+            var text=new StringBuilder();
+            for(var part:candidate.path("content").path("parts"))
+                if(part.has("text") && !part.path("thought").asBoolean(false))text.append(part.path("text").asText());
+            if(text.toString().isBlank())throw new IllegalStateException("El proveedor no devolvio texto documental");
+            return new TextResult(text.toString(),raw.modelUsed(),raw.elapsedMs());
+        }catch(java.io.IOException failure){throw new IllegalStateException("Respuesta documental no valida");}
+    }
+
     public TextResult generateText(String prompt) {
         return generateText(prompt, null);
     }

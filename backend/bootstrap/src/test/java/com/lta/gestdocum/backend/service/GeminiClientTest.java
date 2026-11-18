@@ -179,4 +179,11 @@ class GeminiClientTest {
         GeminiClient client = client("test-api-key", "gemini-3.5-flash-lite");
         assertThrows(RuntimeException.class, () -> client.extractFirstCandidateText("{\"candidates\":[]}"));
     }
+    @Test void completeDocumentGenerationRejectsTruncationAndCollectsAllTextParts() {
+        statusFunction=path->200;
+        bodyFunction=path->"{\"candidates\":[{\"finishReason\":\"MAX_TOKENS\",\"content\":{\"parts\":[{\"text\":\"Incomplete\"}]}}]}";
+        assertThrows(IllegalStateException.class,()->client("test-api-key","test-model").generateCompleteText("Document","Translate"));
+        bodyFunction=path->"{\"candidates\":[{\"finishReason\":\"STOP\",\"content\":{\"parts\":[{\"text\":\"First \"},{\"text\":\"Second\"}]}}]}";
+        assertEquals("First Second",client("test-api-key","test-model").generateCompleteText("Document","Translate").text());
+    }
 }

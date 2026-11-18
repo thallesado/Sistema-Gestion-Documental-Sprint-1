@@ -116,6 +116,7 @@ app:
 
 document-operations:
   intake-ocr-enabled: ${MAIL_INTAKE_OCR_ENABLED:false}
+  intake-receive-only: ${MAIL_INTAKE_RECEIVE_ONLY:true}
   worker-enabled: ${DOCUMENT_OPERATIONS_WORKER_ENABLED:true}
   poll-ms: ${DOCUMENT_OPERATIONS_POLL_MS:60000}
   initial-delay-ms: ${DOCUMENT_OPERATIONS_INITIAL_DELAY_MS:30000}

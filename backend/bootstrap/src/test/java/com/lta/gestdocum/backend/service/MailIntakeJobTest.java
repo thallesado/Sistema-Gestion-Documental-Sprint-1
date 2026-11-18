@@ -89,7 +89,7 @@ class MailIntakeJobTest {
             updates.add(sql);
             return 1;
         });
-        when(gateway.read(anyString(), anyString(), anyLong(), anyLong(), any(), anyString(), anyString(), any()))
+        when(gateway.read(anyString(), anyString(), anyLong(), anyLong(), any(), anyString(), anyString(), any(), any()))
                 .thenAnswer(invocation -> {
                     @SuppressWarnings("unchecked")
                     Consumer<MailboxGateway.Attachment> consumer = invocation.getArgument(7);

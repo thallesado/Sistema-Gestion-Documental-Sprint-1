@@ -29,8 +29,9 @@ public class DocumentTranslationController {
     ) {}
 
     public record UpdateSegment(
-        @NotBlank @Size(max = 5000) String reviewedText,
-        String status
+        @NotBlank @Size(max = 30000) String reviewedText,
+        String status,
+        @NotNull @jakarta.validation.constraints.Min(0) Integer revision
     ) {}
 
     public record PublishRequest(
@@ -81,7 +82,7 @@ public class DocumentTranslationController {
         @PathVariable UUID segmentId,
         @Valid @RequestBody UpdateSegment b
     ) {
-        return s.updateSegment(id, segmentId, b.reviewedText(), b.status());
+        return s.updateSegment(id, segmentId, b.reviewedText(), b.status(), b.revision());
     }
 
     @PostMapping("/requests/{id}/publish")

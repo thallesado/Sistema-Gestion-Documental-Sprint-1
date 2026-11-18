@@ -4,16 +4,15 @@ import test from 'node:test';
 
 const page = await readFile(new URL('../src/app/features/document-operations/translations-page.ts', import.meta.url), 'utf8');
 
-test('crear y publicar traducciones no se ofrecen mientras el backend responde 503', () => {
-  // DocumentTranslationService.create/publish lanzan 503 siempre (ver operaciones-documentales.md).
-  assert.match(page, /readonly creationEnabled = false;/);
+test('crear y publicar traducciones reales respeta permisos y revision por otra persona', () => {
+  assert.match(page, /readonly creationEnabled = true;/);
   assert.match(page, /@if\(creationEnabled && can\('translation:create'\)\)\{\s*<button[^>]*\(click\)="openNewDialog\(\)"/);
-  assert.match(page, /@if\(creationEnabled && can\('translation:publish'\)/);
+  assert.match(page, /@if\(can\('translation:publish'\) && editable\(d\) && !isRequester\(d\)\)/);
 });
 
 test('cancelar y editar segmentos respetan permisos y estados que acepta el backend', () => {
-  assert.match(page, /@if\(d\['status'\] === 'REVIEW_PENDING' && can\('translation:create'\)\)\{\s*<button class="danger"/);
-  assert.match(page, /@if\(can\('translation:review'\) && \(d\['status'\] === 'REVIEW_PENDING' \|\| d\['status'\] === 'CHANGES_REQUESTED'\)\)\{\s*<textarea/);
+  assert.match(page, /@if\(can\('translation:create'\) && editable\(d\)\)\{\s*<button class="danger"/);
+  assert.match(page, /@if\(!editable\(d\) \|\| isRequester\(d\) \|\| !can\('translation:review'\)\)/);
 });
 
 test('todos los estados de 097_document_translations tienen etiqueta', () => {

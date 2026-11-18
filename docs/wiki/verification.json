@@ -4,6 +4,9 @@
   "localRevision": "91fb767",
   "remoteRevision": "91fb767",
   "pages": [
+    "05-guias-ia/demostracion-hu25-28.md",
+    "06-operacion/preparacion-main-ec2-hu25-28.md",
+    "04-dominio-y-negocio/auditoria-hu25-28.md",
     "06-operacion/respaldo-completo.md",
     "06-operacion/integracion-main-c93a8b4.md",
     "06-operacion/cambios-locales-2026-10-21.md",
@@ -42,9 +45,42 @@
     "07-propuestas/p05-archivo-fisico.md",
     "07-propuestas/p06-traduccion.md",
     "06-operacion/contexto-sesion-2026-11-17.md",
-    "04-dominio-y-negocio/operaciones-documentales.md"
+    "04-dominio-y-negocio/operaciones-documentales.md",
+    "04-dominio-y-negocio/archivo-fisico-y-prestamos.md",
+    "04-dominio-y-negocio/traduccion-pruebas-locales.md"
   ],
   "contracts": [
+    {
+      "page": "06-operacion/preparacion-main-ec2-hu25-28.md",
+      "path": "infrastructure/docker-compose.yml",
+      "includes": [
+        "MAIL_INTAKE_RECEIVE_ONLY: ${MAIL_INTAKE_RECEIVE_ONLY:-true}",
+        "DOCUMENT_OPERATIONS_KEY_FILE: /data/storage/.operations/key",
+        "MAILBOX_PROFILES_JSON: ${MAILBOX_PROFILES_JSON:-}",
+        "tenant-worker:"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/auditoria-hu25-28.md",
+      "path": "scripts/tests/mail-intake-receive-browser.cjs",
+      "includes": [
+        "HU28_RECEIVE_BROWSER_OK",
+        "download.suggestedFilename()",
+        "solo-recepcion.pdf",
+        "page.waitForEvent('download')"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/auditoria-hu25-28.md",
+      "path": "backend/bootstrap/src/test/java/com/lta/gestdocum/backend/service/DocumentOperationsIntegrationTest.java",
+      "includes": [
+        "receiveOnlyDownloadsWithoutScannerOrReview",
+        "receiveOnlyBrowserUsesRealApiAndDownloadsFile",
+        "concurrentReservationsAndExpiryPreservePhysicalCustody",
+        "deliverySmtpOtpDownloadAndRevocation",
+        "translationExtractsReviewsAndPublishesSeparateDocument"
+      ]
+    },
     {
       "page": "04-dominio-y-negocio/digitalizacion-y-ocr.md",
       "path": "mobile/lib/screens/scan/scan_document_page.dart",
@@ -1605,9 +1641,56 @@
     },
     {
       "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "database/init/101_mail_intake_receive_only.sql",
+      "includes": [
+        "101_mail_intake_receive_only",
+        "CHECK(status IN('RECEIVED','SCAN_PENDING'"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/MailIntakeService.java",
+      "includes": [
+        "${document-operations.intake-receive-only:true}",
+        "receiveOnly?scanner.validate(a.data(),a.mime()):scanner.scan(a.data(),a.mime())",
+        "MAIL_ATTACHMENT_DOWNLOADED",
+        "requireReviewMode();"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "frontend/src/app/features/document-operations/mail-intake-page.ts",
+      "includes": [
+        "Recepción de documentos",
+        "Adjunto detectado en el correo. Descargando…",
+        "formatBytes(progress.downloadedBytes)",
+        "syncInProgress(c.id)"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/MailboxGateway.java",
+      "includes": [
+        "props.setProperty(prefix+\"fetchsize\",\"1048576\");",
+        "record DownloadProgress(String phase,String fileName,long downloadedBytes)",
+        "new DownloadProgress(\"DOWNLOADING\",name,0)",
+        "new DownloadProgress(\"VALIDATING\",name,data.length)",
+        "!subject.isBlank()"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/IntakeFileScanner.java",
+      "includes": [
+        "if(host.isBlank())return \"SCANNER_UNAVAILABLE\";"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
       "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/PhysicalArchiveService.java",
       "includes": [
-        "a.display_name AS actor_name"
+        "coalesce(m.actor_name,a.display_name",
+        "app.physical_history_people()"
       ]
     },
     {
@@ -1616,6 +1699,128 @@
       "includes": [
         "RESERVE:'Reserva'",
         "m.actor_name||m.actor_id"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "database/init/098_translation_restore_references.sql",
+      "includes": [
+        "098_translation_restore_references",
+        "public.translation_requests",
+        "pg_constraint"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "database/init/099_translation_review_concurrency.sql",
+      "includes": [
+        "review_revision",
+        "099_translation_review_concurrency"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentTranslationService.java",
+      "includes": [
+        "verifiedSource",
+        "expireInterrupted",
+        "TRANSLATION_INTERRUPTED",
+        "review_revision=review_revision+1",
+        "derived_available",
+        "generateTranslatedPdf"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/GeminiClient.java",
+      "includes": [
+        "generateCompleteText",
+        "finishReason",
+        "STOP"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/archivo-fisico-y-prestamos.md",
+      "path": "database/init/100_physical_archive_recovery.sql",
+      "includes": [
+        "_physical_archive",
+        "physical_request_unit",
+        "physical_release_reservation",
+        "physical_return_location",
+        "physical_identity_snapshot",
+        "RECOVERED_FOR_RECONCILIATION",
+        "backup_schema_signature() SECURITY DEFINER"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/archivo-fisico-y-prestamos.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/PhysicalArchiveService.java",
+      "includes": [
+        "documentIdentityVisible",
+        "can_manage_custody",
+        "CUSTODIAN_REASSIGNED",
+        "resultingStatus",
+        "app.physical_return_location",
+        "app.physical_request_unit"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/archivo-fisico-y-prestamos.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PhysicalArchiveController.java",
+      "includes": [
+        "/items/{id}/custodian",
+        "Integer revision"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/archivo-fisico-y-prestamos.md",
+      "path": "backend/bootstrap/src/test/java/com/lta/gestdocum/backend/service/DocumentOperationsIntegrationTest.java",
+      "includes": [
+        "physicalSeparatedRolesCancellationAndCustody",
+        "physicalOverdueIsNotReturnedAndReminderIsDaily",
+        "physicalSelectorsDoNotExposeHiddenDocumentIdentity",
+        "physicalBackupRecoversMissingEvidenceWithoutRewindingLaterCustody",
+        "physicalEvidenceIsInTheDownloadedZipAndApiRestoreCompletes"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/archivo-fisico-y-prestamos.md",
+      "path": "scripts/tests/document-operations-browser.cjs",
+      "includes": [
+        "HU26_BROWSER_OK",
+        "requesterToken",
+        "custodianToken",
+        "cycle<=2",
+        "custodyReason"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/ayuda-y-asistente.md",
+      "path": "backend/bootstrap/src/main/resources/assistant/manual.md",
+      "includes": [
+        "Archivo físico y préstamos (HU-26)",
+        "Entregas documentales externas (HU-25)",
+        "Buzón documental y adjuntos (HU-28)",
+        "Traducción documental revisada (HU-27)"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/traduccion-pruebas-locales.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentTranslationService.java",
+      "includes": [
+        "generateCompleteText",
+        "updateSegment",
+        "generateTranslatedPdf",
+        "translation:publish"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/traduccion-pruebas-locales.md",
+      "path": "frontend/src/app/features/document-operations/translations-page.ts",
+      "includes": [
+        "isRequester(d: OperationRow)",
+        "editable(d: OperationRow)",
+        "can('translation:review')"
       ]
     }
   ],
@@ -1713,8 +1918,8 @@
       "revision": "c93a8b4"
     },
     "README.md": {
-      "reviewedAt": "2026-11-17",
-      "revision": "c0c49ab"
+      "reviewedAt": "2026-11-18",
+      "revision": "4d7c663"
     },
     "04-dominio-y-negocio/respaldos-y-restauracion.md": {
       "reviewedAt": "2026-11-04",
@@ -1725,8 +1930,8 @@
       "revision": "3876454"
     },
     "04-dominio-y-negocio/ayuda-y-asistente.md": {
-      "reviewedAt": "2026-11-04",
-      "revision": "123419c"
+      "reviewedAt": "2026-11-18",
+      "revision": "4d7c663"
     },
     "06-operacion/anclaje-externo-auditoria.md": {
       "reviewedAt": "2026-10-27",
@@ -1761,20 +1966,40 @@
       "revision": "c0c49ab"
     },
     "07-propuestas/p05-archivo-fisico.md": {
-      "reviewedAt": "2026-11-17",
-      "revision": "c0c49ab"
+      "reviewedAt": "2026-11-18",
+      "revision": "4d7c663"
     },
     "07-propuestas/p06-traduccion.md": {
       "reviewedAt": "2026-11-17",
-      "revision": "c0c49ab"
+      "revision": "c62e9fc"
     },
     "06-operacion/contexto-sesion-2026-11-17.md": {
       "reviewedAt": "2026-11-17",
       "revision": "c0c49ab"
     },
     "04-dominio-y-negocio/operaciones-documentales.md": {
-      "reviewedAt": "2026-11-17",
-      "revision": "c0c49ab"
+      "reviewedAt": "2026-11-18",
+      "revision": "4d7c663"
+    },
+    "04-dominio-y-negocio/archivo-fisico-y-prestamos.md": {
+      "reviewedAt": "2026-11-18",
+      "revision": "4d7c663"
+    },
+    "05-guias-ia/demostracion-hu25-28.md": {
+      "reviewedAt": "2026-11-18",
+      "revision": "4d7c663"
+    },
+    "06-operacion/preparacion-main-ec2-hu25-28.md": {
+      "reviewedAt": "2026-11-18",
+      "revision": "4d7c663"
+    },
+    "04-dominio-y-negocio/auditoria-hu25-28.md": {
+      "reviewedAt": "2026-11-18",
+      "revision": "4d7c663"
+    },
+    "04-dominio-y-negocio/traduccion-pruebas-locales.md": {
+      "reviewedAt": "2026-11-18",
+      "revision": "4d7c663"
     }
   }
 }

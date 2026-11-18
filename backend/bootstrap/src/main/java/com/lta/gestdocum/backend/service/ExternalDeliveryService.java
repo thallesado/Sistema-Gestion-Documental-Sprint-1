@@ -32,7 +32,7 @@ public class ExternalDeliveryService {
         o.require("document:read");o.require("delivery:read");fullAccess();
         var p=o.args("document",document);
         String extra=document==null?"":" AND d.id=:document";
-        var rows=o.db.queryForList("SELECT d.id AS document_id,d.code,d.name,v.id AS version_id,v.version_number,v.mime_type,v.file_size_bytes FROM documents d JOIN document_versions v ON v.tenant_id=d.tenant_id AND v.document_id=d.id AND v.version_number=d.current_version WHERE d.tenant_id=:tenant AND d.deleted_at IS NULL AND d.status IN('APPROVED','CURRENT')"+extra+" ORDER BY d.name LIMIT 100",p);
+        var rows=o.db.queryForList("SELECT d.id AS document_id,d.code,d.name,v.id AS version_id,v.version_number,v.mime_type,v.file_size_bytes FROM documents d JOIN document_versions v ON v.tenant_id=d.tenant_id AND v.document_id=d.id AND v.version_number=d.current_version WHERE d.tenant_id=:tenant AND d.deleted_at IS NULL AND d.status IN('APPROVED','CURRENT') AND v.file_path IS NOT NULL AND v.file_path<>'' AND v.checksum_sha256 IS NOT NULL"+extra+" ORDER BY d.name LIMIT 100",p);
         return Map.of("versions",rows,"httpsRequired",!insecureLocal,"frontendUrl",frontend);
     });}
     public Map<String,Object> create(UUID document,UUID version,String name,String email,String reason,int hours,boolean download){return o.internal("document:deliver",()->{
@@ -40,7 +40,7 @@ public class ExternalDeliveryService {
         if(!frontend.startsWith("https://")&&!(insecureLocal&&frontend.matches("http://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?")))throw DocumentOperations.conflict("Configura HTTPS antes de habilitar entregas externas");
         if(hours<1||hours>168)throw new IllegalArgumentException("Vigencia entre 1 y 168 horas");
         var p=o.args("document",document,"version",version);
-        var d=o.one("SELECT d.id,v.version_number,v.file_path,v.checksum_sha256 FROM documents d JOIN document_versions v ON v.tenant_id=d.tenant_id AND v.document_id=d.id WHERE d.tenant_id=:tenant AND d.id=:document AND v.id=:version AND d.current_version=v.version_number AND d.deleted_at IS NULL AND d.status IN('APPROVED','CURRENT') FOR SHARE OF d",p);
+        var d=o.one("SELECT d.id,v.version_number,v.file_path,v.checksum_sha256 FROM documents d JOIN document_versions v ON v.tenant_id=d.tenant_id AND v.document_id=d.id WHERE d.tenant_id=:tenant AND d.id=:document AND v.id=:version AND d.current_version=v.version_number AND d.deleted_at IS NULL AND d.status IN('APPROVED','CURRENT') AND v.file_path IS NOT NULL AND v.file_path<>'' AND v.checksum_sha256 IS NOT NULL FOR SHARE OF d",p);
         checkedFile(o.context.requireTenantId(),d.get("file_path").toString(),d.get("checksum_sha256").toString());
         UUID id=UUID.randomUUID();OffsetDateTime expires=OffsetDateTime.now(ZoneOffset.UTC).plusHours(hours);
         String token=secrets.token(o.context.requireTenantId(),id,expires.toInstant());

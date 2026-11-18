@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-18",
+  "environment": "http://localhost:4201",
+  "providerReal": true,
+  "cycles": [
+    {
+      "requestId": "a85570c7-be6a-4f04-aa33-3f2e242899f0",
+      "sourceCode": "DEMO-DOC-001",
+      "targetLanguage": "en",
+      "model": "gemini-3.5-flash-lite",
+      "status": "PUBLISHED",
+      "derivedDocumentId": "fe9f876b-243b-4613-8c5a-d88df8471130",
+      "sourceUnchanged": true,
+      "selfReviewHTTP": 403,
+      "staleReviewHTTP": 409,
+      "duplicatePublishHTTP": 409,
+      "pdfDownloadHTTP": 200
+    },
+    {
+      "requestId": "48274abd-fec6-46d6-a5d7-33652ba7a181",
+      "sourceCode": "DEMO-DOC-002",
+      "targetLanguage": "pt",
+      "model": "gemini-3.5-flash-lite",
+      "status": "PUBLISHED",
+      "derivedDocumentId": "37ca8272-c65a-4d6d-8872-4cdc12fc639f",
+      "sourceUnchanged": true,
+      "selfReviewHTTP": 403,
+      "staleReviewHTTP": 409,
+      "duplicatePublishHTTP": 409,
+      "pdfDownloadHTTP": 200
+    }
+  ],
+  "pendingRequestId": "1bfa8384-f51e-46f6-945e-9a4718605858"
+}

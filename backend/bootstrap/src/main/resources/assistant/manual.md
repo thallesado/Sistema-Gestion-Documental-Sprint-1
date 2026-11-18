@@ -36,7 +36,7 @@ El OCR solo reconoce texto de documentos (recetas, informes, formularios); no in
 
 ## Usuarios y equipos
 - Todos los usuarios (`/users`), Grupos de usuarios (perfiles) (`/users/roles`), Permisos (`/users/permissions`) y Privilegios por formulario (`/users/form-permissions`). Los permisos se asignan a perfiles y los perfiles a usuarios.
-- Un usuario nuevo recibe una contraseña temporal que el administrador le entrega (el sistema no envía correos) y debe cambiarla en su primer inicio de sesión.
+- En el alta de usuarios internos, el administrador entrega la contraseña temporal por un canal seguro; ese alta no envía automáticamente correo. Debe cambiarse en el primer inicio de sesión. Es distinto del alta del administrador de una organización: si no elige contraseña, el sistema intenta enviarle la bienvenida por SMTP.
 - El plan limita la cantidad de usuarios activos; al alcanzar el tope no se pueden crear más hasta desactivar cuentas o cambiar de plan.
 
 ## Gestionar suscripción
@@ -110,3 +110,39 @@ Menú Configuración > Apariencia (`/settings/appearance`); el menú Configuraci
 - Perfil: menú de usuario arriba a la derecha (datos, contraseña, accesos asignados).
 - El botón de ayuda de la barra superior abre el centro de ayuda.
 - La sesión se cierra sola tras un tiempo de inactividad; si ves error 401, vuelve a iniciar sesión.
+
+## Archivo físico y préstamos (HU-26)
+Menú Expedientes > Archivo físico. Consultar requiere `physical:read`; registrar ubicaciones y fichas o reasignar custodio, `physical:manage`.
+1. El administrador registra la ubicación jerárquica y el original con código, nombre, condición y custodio activo. Vincular un PDF o expediente digital es opcional; prestar papel no cambia el documento digital.
+2. El solicitante pulsa Solicitar préstamo e indica motivo y devolución prevista (hasta 90 días). Requiere `physical:request` y un original disponible.
+3. El custodio asignado reserva o rechaza la solicitud con `physical:approve`. Reservar no confirma que entregó el papel. Solo hay una reserva o préstamo activo; la reserva vence como máximo a las 24 horas.
+4. Con `physical:handover`, el custodio pulsa Confirmar entrega física, registra la condición y confirma que entregó el original al solicitante. Entonces queda En préstamo.
+5. Con `physical:return`, el custodio pulsa Recibir devolución, inspecciona condición y ubicación de retorno y confirma recepción. Si hay daño o faltantes, marca incidencia y mantiene bloqueado el original.
+6. Resolver incidencia / conciliar requiere describir la comprobación física y la condición observada. Si todavía hay un préstamo entregado, la conciliación conserva En préstamo; nunca inventa una devolución.
+El solicitante puede cancelar su solicitud o reserva propia. No puede confirmar una devolución; otro custodio no asignado tampoco puede actuar salvo administración del archivo y permiso de la acción. Reasignar custodia conserva el préstamo y el historial. Un préstamo vencido sigue abierto y genera avisos internos diarios, no correos.
+Una restauración conserva los movimientos existentes; si recupera evidencia faltante, exige conciliación física. Este módulo no necesita SMTP ni IMAP.
+
+## Entregas documentales externas (HU-25)
+Menú Documentos > Entregas externas. Consultar requiere `delivery:read` y lectura documental; emitir requiere `document:deliver`. No se pueden entregar archivos completos si el perfil tiene información documental oculta.
+1. Crea una entrega y selecciona una versión vigente aprobada con archivo disponible.
+2. Completa destinatario, correo, motivo, vigencia (1 a 168 horas) y si permites descargar. Se conserva esa versión exacta.
+3. El sistema intenta enviar el enlace por SMTP. SMTP aceptado no confirma llegada a la bandeja; el destinatario revisa también correo no deseado.
+4. El destinatario abre el enlace, solicita el código al mismo correo y lo introduce. No necesita una cuenta interna. El código vence en 10 minutos; la sesión externa, en 20 minutos.
+5. Puede visualizar y, si está permitido, descargar. El usuario interno autorizado puede revocar con `delivery:revoke`; vencimiento o revocación bloquean accesos posteriores, pero no recuperan copias ya descargadas.
+En un sandbox de correo, el proveedor puede exigir destinatarios verificados. No pidas al usuario contraseñas, API keys ni códigos de acceso en el chat.
+
+## Buzón documental y adjuntos (HU-28)
+Menú Digitalización > Buzón documental. SMTP envía correos; recibir adjuntos exige por separado un perfil IMAP autorizado. El modo actual por defecto es solo recepción automática y descarga; no requiere antivirus.
+1. Un administrador con `mailbox:manage` configura la conexión disponible, carpeta y reglas; prueba la conexión y sincroniza.
+2. El sistema recibe adjuntos, evita duplicados y comprueba tamaño, formato y estructura. El panel muestra búsqueda, descarga y resultado automáticamente.
+3. Con `mail-intake:read` se consulta la procedencia y se descarga el archivo recibido. No hay revisión humana, aprobación, incorporación documental, vista previa ni OCR en este modo.
+4. `RECEIVED` significa recibido; `NOT_SCANNED` significa sin análisis antivirus. Los archivos no se marcan limpios ni se convierten en documentos del archivo general.
+El flujo anterior de revisión queda disponible solo si el administrador desactiva explícitamente `MAIL_INTAKE_RECEIVE_ONLY`; ese flujo sí requiere antivirus y permisos de incorporación. Si no hay perfiles disponibles, el administrador debe configurarlos; no solicites sus credenciales en el chatbot.
+
+## Traducción documental revisada (HU-27)
+Menú Documentos > Traducciones. No es lo mismo que cambiar el idioma de la interfaz. Consultar requiere `translation:read` y acceso al documento completo.
+1. Con `translation:create`, selecciona una versión PDF con texto, idioma de origen y destino y autoriza su procesamiento externo. Límite: 10 páginas y 20.000 caracteres; un escaneo sin texto necesita OCR autorizado antes.
+2. El sistema comprueba la integridad, envía el texto a Gemini y conserva el resultado para revisión. Sin proveedor configurado o con respuesta incompleta no publica una traducción inventada.
+3. Otra persona con `translation:review` revisa y corrige el texto; debe aceptar los segmentos antes de publicar.
+4. Otra persona distinta del solicitante, con `translation:publish` y `document:create`, publica un documento derivado en borrador con su PDF propio. No sobrescribe ni aprueba el original y no es una traducción certificada.
+No prometas conservación exacta de la maquetación, traducción DOCX, calidad clínica garantizada ni procesamiento sin revisión humana.

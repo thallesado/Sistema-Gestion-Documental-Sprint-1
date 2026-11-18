@@ -17,6 +17,7 @@ public class PhysicalArchiveController {
     public PhysicalArchiveController(PhysicalArchiveService s){this.s=s;}
     public record Location(UUID parentId,@NotBlank @Size(max=150) String name,boolean active){}
     public record Item(@NotBlank @Size(max=60) String code,@NotBlank @Size(max=255) String name,@NotNull UUID locationId,@NotNull UUID custodianId,UUID documentId,UUID expedientId,@NotBlank @Size(max=1000) String condition,Integer revision){}
+    public record Reassign(@NotNull UUID custodianId,@NotNull @Min(1) Integer revision,@NotBlank @Size(min=5,max=1000) String reason){}
     public record Request(@NotBlank @Size(min=5,max=1000) String reason,@NotNull @Future OffsetDateTime dueAt){}
     public record Action(@Size(max=1000) String reason,UUID locationId,@Size(max=1000) String condition,boolean incident){}
     @GetMapping("/options") public Map<String,Object> options(){return s.options();}
@@ -30,6 +31,7 @@ public class PhysicalArchiveController {
     private Map<String,Object> save(UUID id,Item b){return s.saveItem(id,b.code(),b.name(),b.locationId(),b.custodianId(),b.documentId(),b.expedientId(),b.condition(),b.revision());}
     @PostMapping("/items/{id}/requests") public ResponseEntity<Map<String,Object>> request(@PathVariable UUID id,@Valid @RequestBody Request b){return ResponseEntity.status(201).body(s.request(id,b.reason(),b.dueAt()));}
     @PostMapping("/loans/{id}/{action:reserve|reject|cancel|handover|return}") public Map<String,Object> action(@PathVariable UUID id,@PathVariable String action,@Valid @RequestBody Action b){return s.action(id,action,b.reason(),b.locationId(),b.condition(),b.incident());}
-    @PostMapping("/items/{id}/resolve") public Map<String,Object> resolve(@PathVariable UUID id,@Valid @RequestBody Action b){return s.resolve(id,b.reason());}
+    @PostMapping("/items/{id}/custodian") public Map<String,Object> reassign(@PathVariable UUID id,@Valid @RequestBody Reassign b){return s.reassign(id,b.custodianId(),b.revision(),b.reason());}
+    @PostMapping("/items/{id}/resolve") public Map<String,Object> resolve(@PathVariable UUID id,@Valid @RequestBody Action b){return s.resolve(id,b.reason(),b.condition());}
     @PostMapping("/items/{id}/withdraw") public Map<String,Object> withdraw(@PathVariable UUID id,@Valid @RequestBody Action b){return s.withdraw(id,b.reason());}
 }

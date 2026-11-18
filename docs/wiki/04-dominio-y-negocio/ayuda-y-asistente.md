@@ -1,6 +1,6 @@
 # Centro de ayuda y asistente contextual
 
-> Revisión documental: 2026-11-04. Fuente: checkout local 123419c más cambios locales sin commit; código y evidencia revisados para esta página.
+> Revisión documental: 2026-11-18. Fuente: checkout `4d7c663` mas cambios locales; asistente verificado con Gemini real en localhost:4201, sin inspeccion de AWS.
 
 ## Qué hay
 
@@ -14,10 +14,20 @@ Las fallas HTTP se registran separadamente como logs técnicos minimizados: ruta
 
 ## Cómo mantenerlo
 
-Al cambiar una pantalla o un permiso, actualizar el artículo, la pregunta frecuente y el manual del asistente en el mismo cambio, con las rutas de menú tal como están en `frontend/src/app/core/data/nexodocs-data.ts`. No describir funciones que no estén en el código: el sistema no corrige perspectiva ni sombras en OCR, no envía correos de bienvenida y sus workflows son secuenciales con un aprobador por etapa.
+Al cambiar una pantalla o un permiso, actualizar el artículo, la pregunta frecuente y el manual del asistente en el mismo cambio, con las rutas de menú tal como están en `frontend/src/app/core/data/nexodocs-data.ts`. No describir funciones que no estén en el código: el sistema no corrige perspectiva ni sombras en OCR y sus workflows son secuenciales con un aprobador por etapa. La bienvenida del administrador de una organizacion puede enviarse por SMTP; no equivale al alta de usuarios internos.
 
 Fuentes: [help-drawer.ts](../../../frontend/src/app/features/help/components/help-drawer.ts), [manual del asistente](../../../backend/bootstrap/src/main/resources/assistant/manual.md), [AssistantService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AssistantService.java).
 
 ## Privacidad del prompt al proveedor (2026-11-04)
 
 AssistantService convierte la pregunta libre en una intencion fija allowlist antes de invocar Gemini y filtra el contexto de ruta/permisos. El texto original no se envia, reduciendo el riesgo de que una consulta pegada contenga PII o datos clinicos. La voz del navegador tiene tratamiento separado y dependiente del navegador. Ver [HU-19 a HU-24](sprint-hu19-24.md).
+
+## Correccion local del 2026-11-18
+
+En localhost:4201 se reprodujo HTTP 503 en `POST /api/v1/assistant/chat`: el archivo `.env` tenia GEMINI_API_KEY, pero el contenedor `nexodocs-pruebas-backend-1` no habia recibido esa variable. Editar un archivo de entorno no cambia las variables de un contenedor existente. Se copio la configuracion Gemini al archivo privado de Compose del laboratorio y se recreo solo ese backend, conservando SMTP, volumen y base. No se modificaron localhost:4200 ni AWS.
+
+La clave se comprobo sin imprimirla: listado de modelos y una generacion minima respondieron HTTP 200. Luego la API del asistente y el widget real en Chromium respondieron HTTP 200 con `gemini-3.5-flash-lite`. Pregunta sintetica: como solicitar un prestamo fisico. [Captura real del widget](../../evidencias/asistente/01-respuesta-gemini.png) y [resultado seguro](../../evidencias/asistente/resultado-verificacion.json).
+
+El modelo no se entrena ni consulta automaticamente la wiki o las tablas de pacientes. Usa el manual incluido en el backend. Se agregaron al manual las entregas externas, archivo fisico/prestamos, traduccion revisada y buzon documental, con sus permisos y limites. `safeHelpIntent()` reconoce esas categorias antes de las categorias generales sin reenviar el texto libre. Los permisos legitimos con guion, como `mail-intake:read`, se conservan en el contexto; siguen procediendo del servidor y no del navegador.
+
+Verificacion: `AssistantServiceTest` (10 pruebas), `GeminiClientTest` (8 pruebas), y `node --test frontend/tests/help-content.test.mjs` (14 pruebas), sin fallos. Se reconstruyo y levanto el backend de pruebas y se comprobo el widget contra el proveedor real. No se enviaron documentos ni datos de pacientes. No afirmar que esta prueba certifica OCR o traduccion documental: requieren sus propios recorridos.

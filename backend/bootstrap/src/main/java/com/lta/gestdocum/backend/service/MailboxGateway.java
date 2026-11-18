@@ -32,6 +32,8 @@ public class MailboxGateway {
         boolean tls=!local||!Boolean.FALSE.equals(p.get("tls"));String protocol=tls?"imaps":"imap";
         Properties props=new Properties();String prefix="mail."+protocol+".";
         props.setProperty(prefix+"connectiontimeout","10000");props.setProperty(prefix+"timeout","15000");props.setProperty(prefix+"writetimeout","15000");props.setProperty(prefix+"ssl.checkserveridentity","true");props.setProperty(prefix+"peek","true");
+        // Bound memory while avoiding thousands of network round trips for one attachment.
+        props.setProperty(prefix+"fetchsize","1048576");
         if("XOAUTH2".equals(p.get("auth"))){props.setProperty(prefix+"auth.mechanisms","XOAUTH2");props.setProperty(prefix+"auth.login.disable","true");props.setProperty(prefix+"auth.plain.disable","true");}
         Session session=Session.getInstance(props);session.setDebug(false);Store store=session.getStore(protocol);
         try{store.connect(host,Integer.parseInt(Objects.toString(p.get("port"),tls?"993":"143")),Objects.toString(p.get("username"),""),Objects.toString(p.get("secret"),""));return store;}
@@ -43,7 +45,11 @@ public class MailboxGateway {
     }
     public record Attachment(long validity,long uid,int part,String identity,String sender,String subject,OffsetDateTime received,String name,String mime,byte[] data){}
     public record Cursor(long validity,long lastUid,int messages){}
+    public record DownloadProgress(String phase,String fileName,long downloadedBytes){}
     public Cursor read(String profile,String folder,long knownValidity,long lastUid,OffsetDateTime since,String sender,String subject,Consumer<Attachment> consumer)throws Exception {
+        return read(profile,folder,knownValidity,lastUid,since,sender,subject,consumer,p->{});
+    }
+    public Cursor read(String profile,String folder,long knownValidity,long lastUid,OffsetDateTime since,String sender,String subject,Consumer<Attachment> consumer,Consumer<DownloadProgress> progress)throws Exception {
         try(Store store=connect(profile)){
             Folder f=store.getFolder(folder);try{
                 f.open(Folder.READ_ONLY);if(!(f instanceof UIDFolder u))throw new IllegalArgumentException("Buzón sin UID");
@@ -60,7 +66,15 @@ public class MailboxGateway {
                     if(message.getSize()>26*1024*1024){consumer.accept(new Attachment(validity,uid,1,identity(message),trim(from,254),trim(title,255),received,"mensaje-demasiado-grande","application/octet-stream",new byte[0]));continue;}
                     List<Part> parts=new ArrayList<>();attachments(message,parts,0);int index=0;
                     for(Part part:parts){if(++index>10)break;String name=trim(MimeUtility.decodeText(Objects.toString(part.getFileName(),"adjunto")),255);String mime=normalizeMime(part.getContentType());
-                        byte[] data;try(InputStream input=part.getInputStream()){data=input.readNBytes(25*1024*1024+1);}
+                        progress.accept(new DownloadProgress("DOWNLOADING",name,0));
+                        byte[] data;try(InputStream input=part.getInputStream();ByteArrayOutputStream buffer=new ByteArrayOutputStream()){
+                            byte[] chunk=new byte[65536];int n;int limit=25*1024*1024+1;
+                            while(buffer.size()<limit&&(n=input.read(chunk,0,Math.min(chunk.length,limit-buffer.size())))!=-1){
+                                buffer.write(chunk,0,n);progress.accept(new DownloadProgress("DOWNLOADING",name,buffer.size()));
+                            }
+                            data=buffer.toByteArray();
+                        }
+                        progress.accept(new DownloadProgress("VALIDATING",name,data.length));
                         consumer.accept(new Attachment(validity,uid,index,identity(message),trim(from,254),trim(title,255),received,name,mime,data));
                     }
                 }

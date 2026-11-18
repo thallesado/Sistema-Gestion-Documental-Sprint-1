@@ -1,12 +1,18 @@
 # P06: traducción documental con revisión humana
 
-> Revisión documental: 2026-11-17. Referencia: `c0c49ab` más cambios locales. Implementada localmente en checkout con migración `097_document_translations`, controlador `DocumentTranslationController`, servicio `DocumentTranslationService` y página Angular `/translations`. Integración y validación visual verificadas con Playwright.
+> Revisión documental: 2026-11-17. Referencia: `c62e9fc` mas cambios locales. Propuesta funcional; no todos los pasos descritos a continuacion estan implementados. El estado del codigo y sus pruebas se detalla en [operaciones documentales](../04-dominio-y-negocio/operaciones-documentales.md).
 
 **Como** usuario autorizado, **quiero** traducir una versión y revisarla antes de publicarla, **para** trabajar en otro idioma conservando el original y la procedencia.
 
 Ejemplo ficticio: un manual en inglés versión 2 requiere copia en español. Cambiar ES/EN en el shell actual traduce la interfaz, no el contenido de archivos. Este módulo crea una copia documental derivada, no sobrescribe el manual ni convierte una traducción automática en certificada.
 
-## Recorrido paso a paso
+## Estado del alcance
+
+Implementado: PDF con texto verificable (hasta 10 paginas/20.000 caracteres), consentimiento por solicitud, glosario, Gemini fuera de transaccion, limite diario, bloqueo de solicitud activa duplicada, revision por otra persona con control de concurrencia y publicacion de documento/version separados. El PDF derivado pagina y conserva acentos; no es certificado. Hay pruebas con proveedor simulado y navegacion real; Dos ciclos con Google real y otra cuenta revisora pasaron el 2026-11-18; ver [pruebas y cuenta local](../04-dominio-y-negocio/traduccion-pruebas-locales.md). Esto no valida las ampliaciones propuestas.
+
+Continuan como propuesta: DOCX, politica de datos configurable por tenant, seleccion previa del revisor, presupuesto monetario, segmentacion granular y reanudacion automatica tras reinicio. Actualmente el resultado se revisa como un bloque; una interrupcion prolongada se registra como fallo sin reintento automatico. El flujo de PDF ya puede procesarse si el backend tiene proveedor configurado, pero esto no acredita el alcance completo de esta propuesta.
+
+## Recorrido propuesto paso a paso
 
 ### 1. Seleccionar versión e idioma
 

@@ -16,11 +16,14 @@ import java.security.*;
 @Service
 public class MailIntakeService {
     private static final Logger log = LoggerFactory.getLogger(MailIntakeService.class);
+    @Value("${document-operations.intake-receive-only:true}") private boolean receiveOnly;
+    private void requireReviewMode(){if(receiveOnly)throw DocumentOperations.conflict("El buzón está configurado solo para recepción y descarga de adjuntos");}
+    private final java.util.concurrent.ConcurrentMap<UUID,MailboxGateway.DownloadProgress> downloadProgress=new java.util.concurrent.ConcurrentHashMap<>();
     private final DocumentOperations o;private final MailboxGateway gateway;private final IntakeFileScanner scanner;
     private final OcrService ocr;private final PlanLimitService limits;private final boolean ocrEnabled;
     private final DocumentService documents;private final DocumentStorageService storage;private final Path root;
     public MailIntakeService(DocumentOperations o,MailboxGateway gateway,IntakeFileScanner scanner,DocumentService documents,DocumentStorageService storage,OcrService ocr,PlanLimitService limits,@Value("${document-operations.intake-ocr-enabled:false}") boolean ocrEnabled,@Value("${app.storage.local-path:./data/storage}") String root){this.ocr=ocr;this.limits=limits;this.ocrEnabled=ocrEnabled;this.o=o;this.gateway=gateway;this.scanner=scanner;this.documents=documents;this.storage=storage;this.root=Path.of(root).toAbsolutePath().normalize();}
-    public Map<String,Object> connections(){return o.internal("mailbox:manage",()->Map.of("connections",o.db.queryForList("SELECT * FROM mailbox_connections WHERE tenant_id=:tenant ORDER BY name",o.args()),"profiles",gateway.available(),"scannerConfigured",scanner.configured()));}
+    public Map<String,Object> connections(){return o.internal("mailbox:manage",()->Map.of("connections",o.db.queryForList("SELECT * FROM mailbox_connections WHERE tenant_id=:tenant ORDER BY name",o.args()),"profiles",gateway.available(),"scannerConfigured",!receiveOnly&&scanner.configured(),"receiveOnly",receiveOnly));}
     public Map<String,Object> save(UUID id,String name,String profile,String folder,String sender,String subject,boolean enabled,int retention){return o.internal("mailbox:manage",()->{
         if(gateway.available().stream().noneMatch(x->x.get("key").equals(profile)))throw new IllegalArgumentException("Perfil no configurado en el servidor");
         var p=o.args("id",id==null?UUID.randomUUID():id,"name",name.trim(),"profile",profile,"folder",folder.trim(),"sender",sender.trim().toLowerCase(Locale.ROOT),"subject",subject.trim(),"enabled",enabled,"retention",retention);
@@ -38,26 +41,43 @@ public class MailIntakeService {
     }
     public Map<String,Object> list(String search,String status,int page){return o.internal("mail-intake:read",()->{
         var p=o.args("search","%"+search.trim()+"%","status",status==null?"":status,"offset",Math.max(0,page)*20);
-        String filter=" FROM mail_intake_items WHERE tenant_id=:tenant AND (file_name ILIKE :search OR sender ILIKE :search) AND (:status='' OR status=:status)";
-        return Map.of("content",o.db.queryForList("SELECT id,connection_id,sender,subject,received_at,file_name,mime_type,file_size_bytes,status,scan_result,error_code,document_id,version_id,created_at"+filter+" ORDER BY created_at DESC,id LIMIT 20 OFFSET :offset",p),"totalElements",o.db.queryForObject("SELECT count(*)"+filter,p,Long.class),"jobs",o.db.queryForList("SELECT id,connection_id,status,created_at,completed_at,received_count,error_code FROM document_operation_jobs WHERE tenant_id=:tenant ORDER BY created_at DESC LIMIT 20",p));
+        String filter=" FROM mail_intake_items WHERE tenant_id=:tenant AND (file_name ILIKE :search OR sender ILIKE :search) AND (:status='' OR status=:status OR (:status='RECEIVED' AND :receiveOnly AND status='SCAN_PENDING' AND scan_result='SCANNER_UNAVAILABLE'))";
+        p.put("receiveOnly",receiveOnly);
+        var jobs=o.db.queryForList("SELECT id,connection_id,status,created_at,started_at,completed_at,received_count,error_code FROM document_operation_jobs WHERE tenant_id=:tenant ORDER BY created_at DESC LIMIT 20",p);
+        // Enrich only jobs already authorized by tenant/RLS. Live details are transient on this worker.
+        for(var job:jobs){var progress=downloadProgress.get((UUID)job.get("id"));if(progress!=null&&"RUNNING".equals(job.get("status")))job.put("progress",progress);}
+        return Map.of("content",o.db.queryForList("SELECT id,connection_id,sender,subject,received_at,file_name,mime_type,file_size_bytes,status,scan_result,error_code,document_id,version_id,created_at"+filter+" ORDER BY created_at DESC,id LIMIT 20 OFFSET :offset",p),"totalElements",o.db.queryForObject("SELECT count(*)"+filter,p,Long.class),"jobs",jobs,"receiveOnly",receiveOnly);
     });}
     public Map<String,Object> detail(UUID id){return o.internal("mail-intake:read",()->{
         var p=o.args("id",id);var row=new LinkedHashMap<>(o.one("SELECT id,connection_id,sender,subject,received_at,file_name,mime_type,file_size_bytes,status,scan_result,error_code,document_id,version_id,created_at,checksum,ocr_result,ocr_status,purged_at FROM mail_intake_items WHERE tenant_id=:tenant AND id=:id",p));
         row.put("ocrAvailable",ocrEnabled&&ocr.isConfigured());p.put("hash",row.get("checksum"));row.put("matches",o.db.queryForList("SELECT id,status,document_id FROM mail_intake_items WHERE tenant_id=:tenant AND checksum=:hash AND id<>:id LIMIT 10",p));return row;
     });}
     public FileSystemResource preview(UUID id){return o.internal("mail-intake:read",()->{
+        requireReviewMode();
         var row=o.one("SELECT * FROM mail_intake_items WHERE tenant_id=:tenant AND id=:id AND scan_result='CLEAN' AND status IN('REVIEW_PENDING','IMPORTED')",o.args("id",id));
         if(!Set.of("application/pdf","image/png","image/jpeg").contains(row.get("mime_type")))throw DocumentOperations.conflict("Este formato no admite vista previa; revisa sus metadatos");
         o.audit("MAIL_ATTACHMENT_VIEWED","MAIL_INTAKE",id,Map.of());return new FileSystemResource(file(row));
     });}
+    public record ReceivedFile(FileSystemResource resource,String name){}
+    public ReceivedFile download(UUID id){return o.internal("mail-intake:read",()->{
+        var row=o.one("SELECT * FROM mail_intake_items WHERE tenant_id=:tenant AND id=:id",o.args("id",id));
+        boolean received="RECEIVED".equals(row.get("status"))&&"NOT_SCANNED".equals(row.get("scan_result"));
+        boolean legacy="SCAN_PENDING".equals(row.get("status"))&&"SCANNER_UNAVAILABLE".equals(row.get("scan_result"));
+        if(!receiveOnly||!(received||legacy))throw DocumentOperations.conflict("El adjunto no está disponible para descarga");
+        var resource=new FileSystemResource(file(row));o.audit("MAIL_ATTACHMENT_DOWNLOADED","MAIL_INTAKE",id,Map.of("malwareScanned",false));
+        return new ReceivedFile(resource,row.get("file_name").toString());
+    });}
     public Map<String,Object> reject(UUID id,String reason){return o.internal("mail-intake:reject",()->{
+        requireReviewMode();
         var p=o.args("id",id,"reason",reason.trim());var row=o.one("UPDATE mail_intake_items SET status='REJECTED',reject_reason=:reason WHERE tenant_id=:tenant AND id=:id AND status IN('REVIEW_PENDING','QUARANTINED','SCAN_PENDING','FAILED') RETURNING id,status",p);o.audit("MAIL_ATTACHMENT_REJECTED","MAIL_INTAKE",id,Map.of("reason",reason));return row;
     });}
     public Map<String,Object> rescan(UUID id){return o.internal("mailbox:manage",()->{
+        requireReviewMode();
         var p=o.args("id",id);var row=o.one("SELECT * FROM mail_intake_items WHERE tenant_id=:tenant AND id=:id AND status IN('SCAN_PENDING','FAILED') FOR UPDATE",p);
         try{String result=scanner.scan(Files.readAllBytes(file(row)),row.get("mime_type").toString());p.put("scan",result);p.put("status",scanStatus(result));return o.one("UPDATE mail_intake_items SET scan_result=:scan,status=:status WHERE tenant_id=:tenant AND id=:id RETURNING id,status,scan_result",p);}catch(java.io.IOException e){throw DocumentOperations.conflict("Archivo no disponible");}
     });}
     public Map<String,Object> accept(UUID id,UUID existing,DocumentCreateRequest request,String reason,String etag){return o.internal("mail-intake:accept",()->{
+        requireReviewMode();
         o.require(existing==null?"document:create":"document:update");
         var p=o.args("id",id);var row=o.one("SELECT * FROM mail_intake_items WHERE tenant_id=:tenant AND id=:id FOR UPDATE",p);
         if(!"REVIEW_PENDING".equals(row.get("status"))||!"CLEAN".equals(row.get("scan_result")))throw DocumentOperations.conflict("El adjunto ya fue resuelto o no está habilitado para incorporación");
@@ -72,12 +92,14 @@ public class MailIntakeService {
         }catch(java.io.IOException e){throw new IllegalStateException("No se pudo leer el adjunto");}
     });}
     public Map<String,Object> reconcile(UUID id,String reason){return o.internal("mail-intake:accept",()->{
+        requireReviewMode();
         var row=o.one("SELECT * FROM mail_intake_items WHERE tenant_id=:tenant AND id=:id FOR UPDATE",o.args("id",id));
         if(!"RECONCILIATION_REQUIRED".equals(row.get("status")))throw DocumentOperations.conflict("El adjunto no requiere conciliacion");
         file(row);o.audit("MAIL_ATTACHMENT_RECONCILED","MAIL_INTAKE",id,Map.of("reason",reason,"previousDocument",Objects.toString(row.get("document_id"),""),"previousVersion",Objects.toString(row.get("version_id"),"")));
         return o.one("UPDATE mail_intake_items SET status='REVIEW_PENDING',error_code=NULL WHERE tenant_id=:tenant AND id=:id RETURNING id,status",o.args("id",id));
     });}
     public Map<String,Object> extract(UUID id,boolean consent){
+        requireReviewMode();
         if(!consent||!ocrEnabled||!ocr.isConfigured())throw DocumentOperations.conflict("OCR externo no habilitado o sin consentimiento explicito");
         var prepared=o.internal("mail-intake:read",()->{
             o.require("ocr:create");var row=o.one("SELECT * FROM mail_intake_items WHERE tenant_id=:tenant AND id=:id AND status='REVIEW_PENDING' AND scan_result='CLEAN'",o.args("id",id));
@@ -108,7 +130,7 @@ public class MailIntakeService {
         }catch(Exception e){throw DocumentOperations.conflict("El adjunto falta o no conserva su integridad");}
     }
     static String hash(byte[] data){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));}catch(Exception e){throw new IllegalStateException();}}
-    private static String scanStatus(String result){return result.equals("CLEAN")?"REVIEW_PENDING":result.equals("SCANNER_UNAVAILABLE")?"SCAN_PENDING":"QUARANTINED";}
+    private static String scanStatus(String result){return result.equals("NOT_SCANNED")?"RECEIVED":result.equals("CLEAN")?"REVIEW_PENDING":result.equals("SCANNER_UNAVAILABLE")?"SCAN_PENDING":"QUARANTINED";}
     void runJob(Map<String,Object> job){
         UUID connection=(UUID)job.get("connection_id");var c=connection(connection);
         if(!Boolean.TRUE.equals(c.get("enabled")))throw DocumentOperations.conflict("Buzón desconectado");
@@ -117,22 +139,20 @@ public class MailIntakeService {
         List<Path> written=new ArrayList<>();
         discardOnRollback(written);
         try{
-            var cursor=gateway.read(c.get("profile_key").toString(),c.get("folder").toString(),validity,last,PhysicalArchiveService.time(c.get("since_at")),c.get("sender_filter").toString(),c.get("subject_filter").toString(),a->{
-                try{if(storeAttachment(connection,a,written))received[0]++;}
-                catch(RuntimeException ex){log.warn("Adjunto de correo omitido uid={} ({})",a.uid(),ex.getClass().getSimpleName());}
-            });
+            var cursor=gateway.read(c.get("profile_key").toString(),c.get("folder").toString(),validity,last,PhysicalArchiveService.time(c.get("since_at")),c.get("sender_filter").toString(),c.get("subject_filter").toString(),a->{try{if(storeAttachment(connection,a,written))received[0]++;}catch(RuntimeException ex){log.warn("Adjunto de correo omitido uid={} ({})",a.uid(),ex.getClass().getSimpleName());}},progress->downloadProgress.put((UUID)job.get("id"),progress));
             p.put("validity",cursor.validity());p.put("last",cursor.lastUid());p.put("received",received[0]);
             o.db.update("UPDATE mailbox_connections SET uid_validity=:validity,last_uid=:last,last_sync_at=now(),state='CONNECTED',error_code=NULL WHERE tenant_id=:tenant AND id=:connection",p);
-            o.db.update("UPDATE document_operation_jobs SET status='COMPLETED',completed_at=now(),received_count=:received,lease_until=NULL WHERE tenant_id=:tenant AND id=:id",p);
+            o.db.update("UPDATE document_operation_jobs SET status='COMPLETED',completed_at=now(),received_count=:received,lease_until=NULL,error_code=NULL WHERE tenant_id=:tenant AND id=:id",p);
             o.audit("MAILBOX_SYNC_COMPLETED","MAILBOX",connection,Map.of("received",received[0]));
         }catch(Exception e){throw new IllegalStateException("MAILBOX_CONNECTION_FAILED");}
+        finally{downloadProgress.remove((UUID)job.get("id"));}
     }
     private boolean storeAttachment(UUID connection,MailboxGateway.Attachment a,List<Path> written){
         var p=o.args("connection",connection,"validity",a.validity(),"uid",a.uid(),"part",a.part());
         if(o.db.queryForObject("SELECT count(*) FROM mail_intake_items WHERE tenant_id=:tenant AND connection_id=:connection AND uid_validity=:validity AND message_uid=:uid AND part_number=:part",p,Integer.class)>0)return false;
         p.put("identity",a.identity());p.put("checksum",hash(a.data()));
         if(a.identity()!=null&&o.db.queryForObject("SELECT count(*) FROM mail_intake_items WHERE tenant_id=:tenant AND connection_id=:connection AND message_identity=:identity AND part_number=:part AND checksum=:checksum",p,Integer.class)>0)return false;
-        UUID id=UUID.randomUUID();String result=scanner.scan(a.data(),a.mime());Path target=root.resolve(o.context.requireTenantId().toString()).resolve(".mail").resolve(id.toString());
+        UUID id=UUID.randomUUID();String result=receiveOnly?scanner.validate(a.data(),a.mime()):scanner.scan(a.data(),a.mime());Path target=root.resolve(o.context.requireTenantId().toString()).resolve(".mail").resolve(id.toString());
         boolean storable=a.data().length>0&&a.data().length<=25*1024*1024;
         boolean storedFile=false;
         if(storable)try{Files.createDirectories(target.getParent());Files.write(target,a.data(),StandardOpenOption.CREATE_NEW);storedFile=true;if(Files.getFileStore(target).supportsFileAttributeView("posix")){Files.setPosixFilePermissions(target.getParent(),java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));Files.setPosixFilePermissions(target,java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));}}catch(Exception e){throw new IllegalStateException("No se pudo guardar el adjunto en cuarentena");}

@@ -29,7 +29,6 @@ Ejemplo de función Bash de operación, solo para ese servidor una vez confirmad
 dc() {
   docker compose \
     --project-name infrastructure \
-    --project-directory /opt/nexodocs \
     --env-file /opt/nexodocs/.env \
     -f /opt/nexodocs/infrastructure/docker-compose.yml \
     -f /opt/nexodocs-config/gemini.compose.yml \

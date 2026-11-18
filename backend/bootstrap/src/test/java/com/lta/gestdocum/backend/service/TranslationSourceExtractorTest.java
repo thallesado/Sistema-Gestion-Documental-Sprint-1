@@ -39,4 +39,18 @@ class TranslationSourceExtractorTest {
         assertThrows(IllegalArgumentException.class, () -> extractor.extract(longPdf, "application/pdf", TranslationSourceExtractor.sha256(longPdf)));
         assertThrows(IllegalArgumentException.class, () -> extractor.extract(empty, "image/png", TranslationSourceExtractor.sha256(empty)));
     }
+    @Test void generatedTranslationPreservesAccentsAndPaginates() throws Exception {
+        String paragraph="Informaci\u00f3n cl\u00ednica: coraz\u00f3n, ni\u00f1o, Fran\u00e7ais, Portugu\u00eas. ".repeat(200);
+        byte[] bytes=DocumentTranslationService.generateTranslatedPdf("Traducci\u00f3n revisada","DOC-1","es","fr",java.util.List.of(paragraph));
+        try(var document=org.apache.pdfbox.Loader.loadPDF(bytes)){
+            assertTrue(document.getNumberOfPages()>1);
+            String text=new org.apache.pdfbox.text.PDFTextStripper().getText(document);
+            assertTrue(text.contains("coraz\u00f3n"));assertTrue(text.contains("ni\u00f1o"));
+            assertEquals(200,text.split("Informaci\u00f3n",-1).length-1);
+        }
+    }
+
+    @Test void unsupportedCharactersFailInsteadOfDisappearing() {
+        assertThrows(IllegalArgumentException.class,()->DocumentTranslationService.generateTranslatedPdf("Test","DOC-1","en","es",java.util.List.of("Unsupported \u4e2d")));
+    }
 }

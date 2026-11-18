@@ -73,7 +73,8 @@ class DocumentTranslationServiceTest {
         lenient().when(db.update(anyString(), anyMap())).thenReturn(1);
 
         var operations = new DocumentOperations(db, jdbc, new ObjectMapper(), new AuthenticatedUserContext(), transactions);
-        service = new DocumentTranslationService(operations, storage, documents, null);
+        service = new DocumentTranslationService(operations, storage, documents,
+                mock(TranslationSourceExtractor.class), mock(ComponentPermissionService.class), ".", null);
     }
 
     @AfterEach
@@ -84,7 +85,7 @@ class DocumentTranslationServiceTest {
     @Test
     void updateSegmentRejectsDocumentTextWithoutDocumentRead() {
         assertThrows(AccessDeniedException.class,
-                () -> service.updateSegment(UUID.randomUUID(), UUID.randomUUID(), "revisado", "MODIFIED"));
+                () -> service.updateSegment(UUID.randomUUID(), UUID.randomUUID(), "revisado", "MODIFIED", 0));
         verify(db, never()).update(anyString(), anyMap());
     }
 
@@ -95,14 +96,18 @@ class DocumentTranslationServiceTest {
         var holder = SecurityContextHolder.createEmptyContext();
         holder.setAuthentication(new UsernamePasswordAuthenticationToken(user, null, List.of()));
         SecurityContextHolder.setContext(holder);
-        when(db.queryForList(anyString(), anyMap())).thenReturn(List.of(Map.of("id", UUID.randomUUID())));
+        when(db.queryForList(anyString(), anyMap())).thenAnswer(invocation -> {
+            String sql=invocation.getArgument(0);
+            if(sql.contains("requested_by"))return List.of(Map.of("id",UUID.randomUUID(),"requested_by",UUID.randomUUID()));
+            return List.of(Map.of("id",UUID.randomUUID(),"review_revision",0));
+        });
         when(db.update(anyString(), anyMap())).thenReturn(0);
         var local = new DocumentTranslationService(
                 new DocumentOperations(db, jdbc, new ObjectMapper(), new AuthenticatedUserContext(), transactions),
-                storage, documents, null);
+                storage, documents, mock(TranslationSourceExtractor.class), mock(ComponentPermissionService.class), ".", null);
 
         ResponseStatusException error = assertThrows(ResponseStatusException.class,
-                () -> local.updateSegment(UUID.randomUUID(), UUID.randomUUID(), "revisado", "MODIFIED"));
+                () -> local.updateSegment(UUID.randomUUID(), UUID.randomUUID(), "revisado", "MODIFIED", 0));
 
         assertEquals(HttpStatus.NOT_FOUND.value(), error.getStatusCode().value());
         verify(jdbc, never()).update(anyString(), any(Object[].class));

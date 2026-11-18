@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Observable, forkJoin } from 'rxjs';
 import { DocumentOperationsApi, OperationPage, OperationRow, operationError } from '../../core/api/document-operations-api.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { PermissionService } from '../../core/auth/permission.service';
 
 @Component({
@@ -16,7 +17,7 @@ import { PermissionService } from '../../core/auth/permission.service';
   <header class="hero">
     <span class="eyebrow">DOCUMENTOS · REVISIÓN EDITORIAL Y DERIVADOS</span>
     <h1>Traducción documental</h1>
-    <p>Revisa y edita segmentos lado a lado con el original. La creación de solicitudes y la publicación de copias derivadas están deshabilitadas hasta implementar la traducción real.</p>
+    <p>Solicita traducciones de PDF con texto, revisa el resultado junto al original y crea una copia derivada no certificada. Se requiere otra persona autorizada para revisarla y publicarla.</p>
     <nav class="links">
       @if(can('document:read')){<a routerLink="/documents">Todos los documentos</a>}
       @if(can('delivery:read')){<a routerLink="/deliveries">Entregas externas</a>}
@@ -166,17 +167,20 @@ import { PermissionService } from '../../core/auth/permission.service';
       }
 
       <div class="actions" style="margin-bottom: 1.5rem;">
-        @if(creationEnabled && can('translation:publish') && d['status'] !== 'PUBLISHED' && d['status'] !== 'CANCELLED'){
+        @if(can('translation:publish') && editable(d) && !isRequester(d)){
           <button class="primary" [disabled]="busy()" (click)="publishTranslation(d)">Publicar copia derivada</button>
         }
-        @if(d['status'] === 'REVIEW_PENDING' && can('translation:create')){
+        @if(can('translation:create') && editable(d)){
           <button class="danger" [disabled]="busy()" (click)="cancelTranslation(d)">Cancelar solicitud</button>
         }
         @if(d['status'] === 'PUBLISHED'){
-          <span class="badge success">Copia derivada publicada en el módulo de Documentos</span>
+          <span class="badge success">{{d['derived_available'] ? 'Copia derivada disponible en Documentos' : 'Publicacion historica: la copia derivada ya no esta disponible'}}</span>
         }
       </div>
 
+      @if(editable(d) && isRequester(d)){
+        <div class="notice" role="status">Solicitaste esta traducción. Otra persona con permisos de revisión debe aceptar los segmentos y publicar la copia. Cierra sesión e ingresa con la cuenta revisora.</div>
+      }
       <h3>Segmentos para revisión editorial</h3>
       <div class="table-wrap">
         <table>
@@ -193,14 +197,14 @@ import { PermissionService } from '../../core/auth/permission.service';
                 <td><strong>#{{s.segment_order}}</strong><br><small>{{label(s.status)}}</small></td>
                 <td><div style="white-space: pre-wrap; font-size: 0.95rem;">{{s.source_text}}</div></td>
                 <td>
-                  @if(can('translation:review') && (d['status'] === 'REVIEW_PENDING' || d['status'] === 'CHANGES_REQUESTED')){
+                  @if(!editable(d) || isRequester(d) || !can('translation:review')){
+                    <div style="white-space: pre-wrap; font-size: 0.95rem;">{{s.reviewed_text || s.translated_text}}</div>
+                  } @else {
                     <textarea rows="3" [(ngModel)]="s.reviewed_text" style="width: 100%; margin-bottom: 0.5rem;"></textarea>
                     <div style="display: flex; gap: 0.5rem;">
                       <button type="button" [disabled]="busy()" (click)="saveSegment(d.id, s, 'MODIFIED')">Guardar edición</button>
                       <button type="button" class="primary" [disabled]="busy()" (click)="saveSegment(d.id, s, 'ACCEPTED')">Aceptar segmento</button>
                     </div>
-                  } @else {
-                    <div style="white-space: pre-wrap; font-size: 0.95rem;">{{s.reviewed_text || s.translated_text}}</div>
                   }
                 </td>
               </tr>
@@ -250,6 +254,7 @@ import { PermissionService } from '../../core/auth/permission.service';
 export class TranslationsPage {
   readonly api = inject(DocumentOperationsApi);
   readonly permissions = inject(PermissionService);
+  readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -281,11 +286,19 @@ export class TranslationsPage {
     });
   }
 
-  /** DocumentTranslationService.create/publish responden 503 hasta implementar la traducción real. */
-  readonly creationEnabled = false;
+  /** La traducción real esta implementada; el backend valida proveedor y permisos. */
+  readonly creationEnabled = true;
 
   can(p: string): boolean {
     return this.permissions.can(p);
+  }
+
+  isRequester(d: OperationRow): boolean {
+    return this.auth.user()?.id === d['requested_by'];
+  }
+
+  editable(d: OperationRow): boolean {
+    return d['status'] === 'REVIEW_PENDING' || d['status'] === 'CHANGES_REQUESTED';
   }
 
   label(s: string): string {
@@ -375,15 +388,19 @@ export class TranslationsPage {
   }
 
   saveSegment(reqId: string, segment: any, status: string): void {
+    const d = this.detail();
+    if (!d || !this.editable(d) || this.isRequester(d) || !this.can('translation:review')) return;
     this.busy.set(true);
     this.error.set('');
     this.api.patch('translations/requests/' + reqId + '/segments/' + segment.id, {
       reviewedText: segment.reviewed_text,
-      status: status
+      status: status,
+      revision: segment.review_revision
     }).subscribe({
       next: () => {
         this.busy.set(false);
         segment.status = status;
+        segment.review_revision += 1;
         this.message.set('Segmento actualizado.');
       },
       error: e => {

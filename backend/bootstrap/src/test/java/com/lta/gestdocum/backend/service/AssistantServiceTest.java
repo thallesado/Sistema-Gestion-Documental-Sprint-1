@@ -182,4 +182,32 @@ class AssistantServiceTest {
                 org.springframework.web.server.ResponseStatusException.class, () -> service.chat(userId, request("hola", null)));
         assertEquals(502, error.getStatusCode().value());
     }
+    @Test
+    void documentOperationQuestionsUseFixedIntentsAndCurrentManual() {
+        var cases=java.util.Map.of(
+            "Como solicito un prestamo fisico para Paciente Ficticio CI 12345678", "archivo fisico y prestamos",
+            "Como envio un enlace temporal a destinatario ficticio@example.invalid", "entregas documentales externas",
+            "Como recibo adjuntos del correo institucional", "buzon documental y adjuntos",
+            "Como reviso una traduccion antes de publicarla", "traduccion documental revisada");
+        var gemini=new FakeGemini();var service=new AssistantService(gemini,10,60);
+        for(var entry:cases.entrySet()) {
+            service.chat(userId,request(entry.getKey(),null));
+            String sent=gemini.prompts.getLast();assertTrue(sent.contains(entry.getValue()));
+            assertFalse(sent.contains("12345678"));assertFalse(sent.contains("Ficticio"));assertFalse(sent.contains("@"));
+        }
+        String manual=gemini.systems.getFirst();
+        assertTrue(manual.contains("Archivo f\u00edsico y pr\u00e9stamos (HU-26)"));
+        assertTrue(manual.contains("Entregas documentales externas (HU-25)"));
+        assertTrue(manual.contains("Buz\u00f3n documental y adjuntos (HU-28)"));
+        assertTrue(manual.contains("Traducci\u00f3n documental revisada (HU-27)"));
+    }
+
+    @Test
+    void realHyphenatedPermissionCodesRemainInServerContext() {
+        var gemini=new FakeGemini();var service=new AssistantService(gemini,5,60);
+        var context=new AssistantChatRequest.Context("/mail-intake",List.of(),null,List.of());
+        service.chat(userId,List.of("mail-intake:read","mail-intake:accept"),request("Como reviso adjuntos",context));
+        assertTrue(gemini.systems.getFirst().contains("mail-intake:read"));
+        assertTrue(gemini.systems.getFirst().contains("mail-intake:accept"));
+    }
 }
