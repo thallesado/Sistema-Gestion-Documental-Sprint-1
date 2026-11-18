@@ -6,7 +6,9 @@ import com.lta.gestdocum.backend.dto.ReportEmbedResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -31,13 +33,12 @@ public class ReportEmbedService {
     public ReportEmbedService(
             @Value("${app.reportiq.api-url:http://localhost:8001}") String apiUrl,
             @Value("${app.reportiq.frontend-url:http://localhost:3001}") String frontendUrl,
-            @Value("${app.reportiq.api-key:f0792c45-16c2-4a3c-ab0e-3a4adbc2791d.ri_live_5EEny7JHy4pjzD55d5t6px_cFMgyDZj5HbyN8Al34Y0}") String apiKey,
+            @Value("${app.reportiq.api-key:}") String apiKey,
             ObjectMapper objectMapper) {
         this.apiUrl = (apiUrl != null && !apiUrl.isBlank()) ? apiUrl.trim() : "http://localhost:8001";
         this.frontendUrl = (frontendUrl != null && !frontendUrl.isBlank()) ? frontendUrl.trim() : "http://localhost:3001";
-        this.apiKey = (apiKey != null && !apiKey.isBlank())
-                ? apiKey.trim()
-                : "f0792c45-16c2-4a3c-ab0e-3a4adbc2791d.ri_live_5EEny7JHy4pjzD55d5t6px_cFMgyDZj5HbyN8Al34Y0";
+        // Sin clave por defecto: se configura con REPORTIQ_API_KEY y nunca se guarda en el repositorio.
+        this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
@@ -46,7 +47,14 @@ public class ReportEmbedService {
     }
 
     public ReportEmbedResponse getEmbedConfig(UUID tenantId, UUID userId, String role) {
-        String effectiveTenantValue = tenantId != null ? tenantId.toString() : "20000000-0000-0000-0000-000000000001";
+        if (apiKey.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "ReportIQ no está configurado (falta REPORTIQ_API_KEY)");
+        }
+        // El token de ReportIQ se acota a una organización: sin una (administrador de plataforma) no se emite.
+        if (tenantId == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "ReportIQ solo está disponible dentro de una organización");
+        }
+        String effectiveTenantValue = tenantId.toString();
         String effectiveUserId = userId != null ? userId.toString() : "admin-nexodocs";
         String effectiveRole = (role != null && !role.isBlank()) ? role : "admin";
 

@@ -1587,6 +1587,14 @@
         "mail-intake",
         "deliveries"
       ]
+    },
+    {
+      "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ReportEmbedService.java",
+      "includes": [
+        "${app.reportiq.api-key:}",
+        "ReportIQ solo está disponible dentro de una organización"
+      ]
     }
   ],
   "reviews": {
