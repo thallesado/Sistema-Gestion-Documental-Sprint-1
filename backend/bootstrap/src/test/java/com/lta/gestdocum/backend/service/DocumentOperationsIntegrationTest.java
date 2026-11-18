@@ -96,7 +96,10 @@ class DocumentOperationsIntegrationTest {
         request(post("/api/v1/physical-archive/loans/"+loan+"/return"),token,Map.of("condition","Carpeta con daño","locationId",location,"incident",true),200);
         assertEquals("INCIDENT",request(get("/api/v1/physical-archive/items/"+item),token,null,200).path("status").asText());
         request(post("/api/v1/physical-archive/items/"+item+"/resolve"),token,Map.of("reason","Reparación y recuento completados"),200);
-        assertEquals("AVAILABLE",request(get("/api/v1/physical-archive/items/"+item),token,null,200).path("status").asText());
+        var detail=request(get("/api/v1/physical-archive/items/"+item),token,null,200);
+        assertEquals("AVAILABLE",detail.path("status").asText());
+        // La línea de custodia muestra quién actuó por su nombre, no por su UUID.
+        assertEquals("Laura Martínez",detail.path("movements").path(0).path("actor_name").asText());
     }
     @Test @Order(2) void authorizationAndCrossTenant()throws Exception{
         request(post("/api/v1/physical-archive/locations"),readOnlyToken,Map.of("name","No autorizado","active",true),403);

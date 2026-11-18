@@ -1595,6 +1595,21 @@
         "${app.reportiq.api-key:}",
         "ReportIQ solo está disponible dentro de una organización"
       ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/PhysicalArchiveService.java",
+      "includes": [
+        "a.display_name AS actor_name"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "frontend/src/app/features/document-operations/physical-archive-page.ts",
+      "includes": [
+        "RESERVE:'Reserva'",
+        "m.actor_name||m.actor_id"
+      ]
     }
   ],
   "reviews": {

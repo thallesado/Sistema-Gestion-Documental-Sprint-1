@@ -51,7 +51,7 @@ public class PhysicalArchiveService {
     public Map<String,Object> detail(UUID id){return o.internal("physical:read",()->{
         var p=o.args("id",id);var row=new LinkedHashMap<>(o.one("SELECT * FROM physical_items WHERE tenant_id=:tenant AND id=:id",p));
         row.put("loans",o.db.queryForList("SELECT l.*,p.display_name AS requester_name,(l.status='HANDED_OVER' AND l.due_at<now()) AS overdue FROM physical_loans l LEFT JOIN app.physical_people() p ON p.id=l.requested_by WHERE l.tenant_id=:tenant AND l.item_id=:id ORDER BY l.created_at DESC LIMIT 100",p));
-        row.put("movements",o.db.queryForList("SELECT id,loan_id,actor_id,action,details,created_at FROM physical_movements WHERE tenant_id=:tenant AND item_id=:id ORDER BY created_at DESC LIMIT 200",p));return row;
+        row.put("movements",o.db.queryForList("SELECT m.id,m.loan_id,m.actor_id,a.display_name AS actor_name,m.action,m.details,m.created_at FROM physical_movements m LEFT JOIN app.physical_people() a ON a.id=m.actor_id WHERE m.tenant_id=:tenant AND m.item_id=:id ORDER BY m.created_at DESC LIMIT 200",p));return row;
     });}
     private Map<String,Object> item(UUID id){return o.one("SELECT * FROM physical_items WHERE tenant_id=:tenant AND id=:id FOR UPDATE",o.args("id",id));}
     private void custodian(Map<String,Object> item){if(!o.context.requireUserId().equals(item.get("custodian_id"))&&!can("physical:manage"))throw new AccessDeniedException("Solo el custodio asignado puede confirmar este movimiento");}
