@@ -180,7 +180,8 @@ export const navSections: NavSection[] = [
       {
         label: 'Reportes',
         icon: 'RP',
-permission: ['report:read', 'tenant:manage', 'tenant:update', 'platform:tenant:manage'],
+        // Igual que el backend: solo report:read (se retira del JWT si el plan no incluye analítica).
+        permission: 'report:read',
         sprintEnabled: true,
         children: [
           { label: 'Reportes & Analítica IA', href: '/reports' },

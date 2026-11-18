@@ -26,7 +26,7 @@ public class ReportEmbedController {
     }
 
     @GetMapping("/embed-config")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize(ReportController.REPORT_AUTH)
     @Operation(summary = "Obtener configuración y token embebible firmado para ReportIQ")
     public ResponseEntity<ReportEmbedResponse> getEmbedConfig() {
         AuthenticatedUser user = userContext.require();

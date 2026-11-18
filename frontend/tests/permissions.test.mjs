@@ -118,3 +118,10 @@ test('audit read permission shows every audit entry in the menu', () => {
  assert.ok(!visibleMenu(['document:read']).some(i => i.label === 'Respaldos'));
  assert.ok(visibleMenu(['backup:read']).some(i => i.label === 'Respaldos'));
  });
+
+test('Reportes solo aparece con report:read, no con permisos de administración del tenant', () => {
+  // El backend exige report:read (retirado del JWT si el plan no incluye analítica avanzada).
+  const reportsFor = (granted) => visibleMenu(granted).find((item) => item.label === 'Reportes');
+  assert.equal(reportsFor(new Set(['tenant:manage', 'tenant:update'])), undefined);
+  assert.ok(reportsFor(new Set(['report:read'])).children.includes('/reports'));
+});

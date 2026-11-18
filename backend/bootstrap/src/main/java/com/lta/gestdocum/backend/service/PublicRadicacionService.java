@@ -56,7 +56,8 @@ public class PublicRadicacionService {
                         (rs, rowNum) -> rs.getString("name"),
                         tenantId);
                 if (tenantNames.isEmpty()) {
-                    throw new NotFoundException("Organización no encontrada");
+                    // Mismo mensaje que un código inexistente: no revela qué organizaciones existen.
+                    throw new NotFoundException(notFoundMessage(code.trim().toUpperCase()));
                 }
                 String tenantName = tenantNames.get(0);
 
@@ -65,7 +66,7 @@ public class PublicRadicacionService {
 
                 // 3. Consultar expediente por código
                 String normalizedCode = code.trim().toUpperCase();
-                String sql = "SELECT id, code, name, description, status, metadata, created_at, closed_at, archived_at " +
+                String sql = "SELECT id, code, name, status, metadata, created_at, closed_at, archived_at " +
                         "FROM expedients WHERE tenant_id = ? AND upper(trim(code)) = ? AND deleted_at IS NULL";
 
                 List<Map<String, Object>> rows = jdbc.query(sql, (rs, rowNum) -> {
@@ -73,7 +74,6 @@ public class PublicRadicacionService {
                     map.put("id", rs.getObject("id", UUID.class));
                     map.put("code", rs.getString("code"));
                     map.put("name", rs.getString("name"));
-                    map.put("description", rs.getString("description"));
                     map.put("status", rs.getString("status"));
                     map.put("metadata", rs.getString("metadata"));
                     map.put("created_at", rs.getObject("created_at", OffsetDateTime.class));
@@ -83,13 +83,12 @@ public class PublicRadicacionService {
                 }, tenantId, normalizedCode);
 
                 if (rows.isEmpty()) {
-                    throw new NotFoundException("No se encontró ningún trámite con el código de radicación " + normalizedCode);
+                    throw new NotFoundException(notFoundMessage(normalizedCode));
                 }
 
                 Map<String, Object> row = rows.get(0);
                 String radCode = (String) row.get("code");
                 String subject = (String) row.get("name");
-                String description = (String) row.get("description");
                 String rawStatus = (String) row.get("status");
                 OffsetDateTime createdAt = (OffsetDateTime) row.get("created_at");
                 OffsetDateTime closedAt = (OffsetDateTime) row.get("closed_at");
@@ -97,7 +96,8 @@ public class PublicRadicacionService {
 
                 // Parsear metadatos para solicitante y tipo
                 Map<String, Object> metadata = parseMetadata((String) row.get("metadata"));
-                String citizenName = extractCitizenName(metadata);
+                // Consulta pública sin autenticación: solo iniciales del solicitante.
+                String citizenName = initials(extractCitizenName(metadata));
                 String radType = extractRadicacionType(metadata);
 
                 String statusLabel = switch (rawStatus) {
@@ -115,7 +115,7 @@ public class PublicRadicacionService {
                 List<PublicRadicacionEvent> events = new ArrayList<>();
                 events.add(new PublicRadicacionEvent(
                         "Radicación Formal Recibida",
-                        "Solicitud formal radicada en ventanilla digital bajo el código " + radCode + " por " + citizenName,
+                        "Solicitud formal radicada en ventanilla digital bajo el código " + radCode,
                         createdAt != null ? createdAt : OffsetDateTime.now(ZoneOffset.UTC),
                         "COMPLETED"
                 ));
@@ -154,11 +154,26 @@ public class PublicRadicacionService {
                         citizenName,
                         createdAt,
                         verificationHash,
-                        description,
+                        // La descripción es interna: no se expone en la consulta pública.
+                        null,
                         events
                 );
             });
         }
+    }
+
+    private static String notFoundMessage(String code) {
+        return "No se encontró ningún trámite con el código de radicación " + code;
+    }
+
+    /** "Carlos Mendoza" → "C. M."; el valor genérico se conserva tal cual. */
+    static String initials(String fullName) {
+        if (fullName == null || fullName.isBlank() || "Ciudadano Solicitante".equals(fullName)) return fullName;
+        StringBuilder out = new StringBuilder();
+        for (String part : fullName.trim().split("\\s+")) {
+            if (!part.isEmpty()) out.append(out.isEmpty() ? "" : " ").append(Character.toUpperCase(part.charAt(0))).append('.');
+        }
+        return out.toString();
     }
 
     private Map<String, Object> parseMetadata(String raw) {

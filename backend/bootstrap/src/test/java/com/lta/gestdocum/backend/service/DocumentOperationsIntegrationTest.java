@@ -193,6 +193,11 @@ class DocumentOperationsIntegrationTest {
     @Test @Order(10) void translationCannotCreateOrPublishInventedContent()throws Exception{
         request(post("/api/v1/translations/requests"),token,Map.of("documentId",document,"versionId",version,"sourceLanguage","en","targetLanguage","es","consent",true),503);
         request(post("/api/v1/translations/requests/"+UUID.randomUUID()+"/publish"),token,Map.of("title","Prueba"),503);
+        // Sin document:read no se listan nombres ni texto de documentos a través de traducciones.
+        String translationOnly=jwt.generateToken(LAURA,TENANT,"translation-only-fixture",Set.of("translation:read"));
+        request(get("/api/v1/translations/options"),translationOnly,null,403);
+        request(get("/api/v1/translations/requests"),translationOnly,null,403);
+        request(get("/api/v1/translations/options"),token,null,200);
     }
     @Test @Order(11) void smtpFailureIsRecordedAndNeverReportedAsSent()throws Exception {
         MAIL.stop();

@@ -28,7 +28,8 @@ import java.util.Map;
 public class ReportController {
 
     public static final String TOTAL_ROWS_HEADER = "X-Report-Total-Rows";
-    public static final String REPORT_AUTH = "hasAnyAuthority('report:read', 'tenant:manage', 'tenant:update', 'platform:tenant:manage')";
+    // Solo report:read: el JWT lo retira si el plan no incluye analítica avanzada (PlanFeatureMatrix).
+    public static final String REPORT_AUTH = "hasAuthority('report:read')";
 
     private final ReportService reportService;
 

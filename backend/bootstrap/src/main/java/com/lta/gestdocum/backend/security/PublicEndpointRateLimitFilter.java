@@ -28,6 +28,7 @@ public class PublicEndpointRateLimitFilter extends OncePerRequestFilter {
     private static final String ONBOARDING_PATH = "/api/v1/public/onboarding";
     private static final String SUBSCRIPTION_CHECKOUT_PATH = "/api/v1/public/subscriptions/checkout";
     private static final String CONTACT_PATH = "/api/v1/public/contact";
+    private static final String RADICACION_PREFIX = "/api/v1/public/radicaciones/";
     private static final int CLEANUP_THRESHOLD = 10_000;
 
     private record Window(long startMillis, int count) {}
@@ -56,11 +57,16 @@ public class PublicEndpointRateLimitFilter extends OncePerRequestFilter {
                     || CONTACT_PATH.equals(request.getRequestURI()));
     }
 
+    /** Consulta pública de radicaciones: un solo cupo por IP para todos los códigos, así no se recorren sin límite. */
+    private static boolean isRadicacionLookup(HttpServletRequest request) {
+        return "GET".equals(request.getMethod()) && request.getRequestURI().startsWith(RADICACION_PREFIX);
+    }
+
     private static boolean isDelivery(HttpServletRequest request){return "POST".equals(request.getMethod())&&request.getRequestURI().startsWith("/api/v1/external-deliveries/");}
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
-        return !(("GET".equals(request.getMethod()) && PATH.equals(request.getRequestURI())) || isCreation(request) || isDelivery(request));
+        return !(("GET".equals(request.getMethod()) && PATH.equals(request.getRequestURI())) || isCreation(request) || isDelivery(request) || isRadicacionLookup(request));
     }
 
     @Override
@@ -72,7 +78,9 @@ public class PublicEndpointRateLimitFilter extends OncePerRequestFilter {
         long span = creation ? signupWindowMillis : windowMillis;
         int max = isDelivery(request) ? 60 : creation ? signupMaxRequests : maxRequests;
         // Cada endpoint tiene su propio cupo por IP.
-        String key = ((creation||isDelivery(request)) ? request.getRequestURI() : PATH) + "|" + request.getRemoteAddr();
+        String bucket = isRadicacionLookup(request) ? RADICACION_PREFIX
+                : (creation || isDelivery(request)) ? request.getRequestURI() : PATH;
+        String key = bucket + "|" + request.getRemoteAddr();
         if (windows.size() > CLEANUP_THRESHOLD) {
             long longest = Math.max(windowMillis, signupWindowMillis);
             windows.entrySet().removeIf(entry -> now - entry.getValue().startMillis() >= longest);

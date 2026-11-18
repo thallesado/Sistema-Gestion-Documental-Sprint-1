@@ -26,6 +26,8 @@ public class DocumentTranslationService {
 
     public Map<String, Object> options() {
         return o.internal("translation:read", () -> {
+            // Las traducciones exponen nombre y texto del documento: se exige también document:read.
+            o.require("document:read");
             var p = o.args();
             var result = new LinkedHashMap<String, Object>();
             result.put("documents", o.db.queryForList(
@@ -48,6 +50,7 @@ public class DocumentTranslationService {
 
     public Map<String, Object> list(String search, String status, int page, int size) {
         return o.internal("translation:read", () -> {
+            o.require("document:read");
             var p = o.args("search", "%" + search.trim() + "%",
                            "status", status == null ? "" : status,
                            "limit", Math.max(1, Math.min(size, 100)),
@@ -67,7 +70,10 @@ public class DocumentTranslationService {
     }
 
     public Map<String, Object> detail(UUID id) {
-        return o.internal("translation:read", () -> fetchDetail(id));
+        return o.internal("translation:read", () -> {
+            o.require("document:read");
+            return fetchDetail(id);
+        });
     }
 
     private Map<String, Object> fetchDetail(UUID id) {

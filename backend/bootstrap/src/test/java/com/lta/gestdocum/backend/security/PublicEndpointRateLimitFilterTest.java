@@ -48,6 +48,19 @@ class PublicEndpointRateLimitFilterTest {
     }
 
     @Test
+    void publicRadicacionLookupShareOneBucketAcrossCodes() throws Exception {
+        // Cambiar de código no reinicia el cupo: así no se puede recorrer códigos sin límite.
+        PublicEndpointRateLimitFilter filter = new PublicEndpointRateLimitFilter(2, 60, 100, 60);
+        assertEquals(200, invoke(filter, "GET", "/api/v1/public/radicaciones/EXP-2026-001").getStatus());
+        assertEquals(200, invoke(filter, "GET", "/api/v1/public/radicaciones/EXP-2026-002").getStatus());
+        MockHttpServletResponse limited = invoke(filter, "GET", "/api/v1/public/radicaciones/EXP-2026-003");
+        assertEquals(429, limited.getStatus());
+        assertNotNull(limited.getHeader("Retry-After"));
+        // Y no consume el cupo de la lista de organizaciones.
+        assertEquals(200, invoke(filter, "GET", "/api/v1/tenants/public").getStatus());
+    }
+
+    @Test
     void otherEndpointsAreNotLimited() throws Exception {
         PublicEndpointRateLimitFilter filter = new PublicEndpointRateLimitFilter(1, 60, 1, 60);
         for (int i = 0; i < 5; i++) {

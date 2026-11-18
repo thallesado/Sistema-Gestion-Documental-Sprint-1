@@ -98,3 +98,8 @@ La migraci?n 097 en una base nueva concede los permisos de traducci?n solo a rol
 `DocumentService.changeStatus()` fuerza la escritura y refresca la entidad antes de devolver el ETag, porque PostgreSQL establece `updated_at` mediante un trigger. La prueba `statusResponseEtagSupportsNextTransition` comprueba dos transiciones consecutivas sin recarga.
 
 `TranslationSourceExtractor.extract()` comprueba SHA-256, formato PDF, limite de 10 paginas y 20.000 caracteres; rechaza archivos protegidos o sin texto. Existe como componente probado y aun no esta conectado al flujo, que continua bloqueado con HTTP 503.
+
+## Correcciones de la auditoría (2026-11-18)
+
+- Traducción: `options`, `list` y `detail` exigen también `document:read`, porque exponen nombre, código y texto de los documentos (la tabla `documents` solo tiene RLS por tenant). Probado en `DocumentOperationsIntegrationTest`.
+- Buzón: `MailboxGateway.normalizeMime` guarda el tipo sin parámetros y usa `application/octet-stream` si es vacío, inválido o mayor de 150 caracteres (`mime_type varchar(150)`). Antes un `Content-Type` largo hacía fallar el INSERT, se revertía el lote y el cursor no avanzaba, así que un solo correo bloqueaba cada sincronización. Sigue pendiente aislar los errores por mensaje (hoy cualquier otra excepción dentro de `runJob` revierte el lote completo) y borrar los archivos de cuarentena escritos en un lote revertido.

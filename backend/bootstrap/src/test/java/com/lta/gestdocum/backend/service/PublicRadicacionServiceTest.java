@@ -94,7 +94,10 @@ class PublicRadicacionServiceTest {
         assertEquals("Empresa Pública Demo", response.tenantName());
         assertEquals("Solicitud de información pública", response.subject());
         assertEquals("PETICION", response.type());
-        assertEquals("Carlos Mendoza", response.citizenName());
+        // Consulta sin autenticar: solo iniciales del solicitante y sin la descripción interna.
+        assertEquals("C. M.", response.citizenName());
+        assertNull(response.summary());
+        assertFalse(response.events().get(0).description().contains("Carlos Mendoza"));
         assertEquals("ACTIVE", response.status());
         assertEquals("En Trámite", response.statusLabel());
         assertNotNull(response.verificationHash());
@@ -114,5 +117,22 @@ class PublicRadicacionServiceTest {
                 .thenReturn(Collections.emptyList());
 
         assertThrows(NotFoundException.class, () -> service.consultarRadicacion(tenantId, code));
+    }
+
+    @Test
+    void consultarRadicacion_organizacionInexistenteResponde_igualQueCodigoInexistente() {
+        // Mismo mensaje en ambos casos: la respuesta no revela qué organizaciones existen.
+        UUID tenantId = UUID.randomUUID();
+        when(jdbc.query(contains("FROM tenants"), any(RowMapper.class), eq(tenantId))).thenReturn(Collections.emptyList());
+        NotFoundException unknownTenant = assertThrows(NotFoundException.class,
+                () -> service.consultarRadicacion(tenantId, "RAD-1"));
+
+        UUID other = UUID.randomUUID();
+        when(jdbc.query(contains("FROM tenants"), any(RowMapper.class), eq(other))).thenReturn(List.of("Empresa"));
+        when(jdbc.query(contains("FROM expedients"), any(RowMapper.class), eq(other), eq("RAD-1"))).thenReturn(Collections.emptyList());
+        NotFoundException unknownCode = assertThrows(NotFoundException.class,
+                () -> service.consultarRadicacion(other, "RAD-1"));
+
+        assertEquals(unknownCode.getMessage(), unknownTenant.getMessage());
     }
 }

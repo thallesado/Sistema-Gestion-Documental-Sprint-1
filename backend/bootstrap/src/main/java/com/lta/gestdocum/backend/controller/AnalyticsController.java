@@ -20,7 +20,8 @@ import java.util.List;
 @SecurityRequirement(name = "BearerAuth")
 public class AnalyticsController {
 
-    public static final String ANALYTICS_AUTH = "hasAnyAuthority('report:read', 'tenant:manage', 'tenant:update', 'platform:tenant:manage')";
+    // Solo report:read: el JWT lo retira si el plan no incluye analítica avanzada (PlanFeatureMatrix).
+    public static final String ANALYTICS_AUTH = "hasAuthority('report:read')";
 
     private final AnalyticsService analyticsService;
 
