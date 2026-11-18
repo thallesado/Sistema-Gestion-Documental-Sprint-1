@@ -333,6 +333,8 @@ export class ReportiqEmbedComponent implements OnInit, OnDestroy {
     this.loadEmbedConfig();
 
     this.messageListener = (event: MessageEvent) => {
+      // Solo mensajes del propio iframe de ReportIQ; cualquier otra ventana podría simular avisos.
+      if (event.origin !== this.embedOrigin() || event.source !== this.iframeRef?.nativeElement?.contentWindow) return;
       if (event.data?.type === 'REPORTIQ_REPORT_GENERATED') {
         const count = event.data?.payload?.rowCount ?? 0;
         this.showToast(`Reporte generado (${count} registros)`);
@@ -406,9 +408,18 @@ export class ReportiqEmbedComponent implements OnInit, OnDestroy {
     }
   }
 
+  private embedOrigin(): string {
+    try {
+      return new URL(this.rawUrl).origin;
+    } catch {
+      return '';
+    }
+  }
+
   openInNewTab(): void {
     if (this.rawUrl) {
-      window.open(this.rawUrl, '_blank');
+      // noopener: la pestaña nueva no controla esta; noreferrer: la URL con el token no viaja como Referer.
+      window.open(this.rawUrl, '_blank', 'noopener,noreferrer');
     }
   }
 

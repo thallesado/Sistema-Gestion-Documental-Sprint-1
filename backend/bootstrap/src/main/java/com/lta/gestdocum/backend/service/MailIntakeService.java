@@ -55,7 +55,7 @@ public class MailIntakeService {
     public Map<String,Object> accept(UUID id,UUID existing,DocumentCreateRequest request,String reason,String etag){return o.internal("mail-intake:accept",()->{
         o.require(existing==null?"document:create":"document:update");
         var p=o.args("id",id);var row=o.one("SELECT * FROM mail_intake_items WHERE tenant_id=:tenant AND id=:id FOR UPDATE",p);
-        if(!"REVIEW_PENDING".equals(row.get("status"))||!"CLEAN".equals(row.get("scan_result")))throw DocumentOperations.conflict("El adjunto ya fue resuelto o no esta habilitado para incorporacion");
+        if(!"REVIEW_PENDING".equals(row.get("status"))||!"CLEAN".equals(row.get("scan_result")))throw DocumentOperations.conflict("El adjunto ya fue resuelto o no está habilitado para incorporación");
         Path source=file(row);UUID document=existing;String token=etag;
         if(document==null){if(request==null)throw new IllegalArgumentException("Completa los datos del documento");var r=new DocumentCreateRequest(request.documentTypeId(),request.expedientId(),request.responsibleId(),request.departmentId(),request.patientId(),request.specialty(),request.institutionalProcess(),request.metadata(),request.code(),request.name(),request.description(),request.issueDate(),request.expiryDate(),true,"MAIL_INTAKE");document=documents.create(r).id();token=storage.stateToken(document);}
         if(token==null||token.isBlank())throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.PRECONDITION_REQUIRED,"Recarga el documento para obtener su ETag");

@@ -44,9 +44,18 @@ export class I18nService {
     return typeof value === 'string' ? value : undefined;
   }
 
-  private initialLanguage(): LanguageCode {
-    try { const stored = localStorage.getItem(STORAGE_KEY) as LanguageCode | null; if (stored && SUPPORTED.includes(stored)) return stored; } catch { /* storage unavailable */ }
-    const browserLanguage = typeof navigator === 'undefined' ? 'es' : navigator.language.toLowerCase().split('-')[0];
-    return SUPPORTED.includes(browserLanguage as LanguageCode) ? browserLanguage as LanguageCode : 'es';
-  }
+  private initialLanguage(): LanguageCode { return detectLanguage(); }
 }
+
+/** Idioma guardado o del navegador; español si no hay uno admitido. */
+function detectLanguage(): LanguageCode {
+  try { const stored = localStorage.getItem(STORAGE_KEY) as LanguageCode | null; if (stored && SUPPORTED.includes(stored)) return stored; } catch { /* storage unavailable */ }
+  const browserLanguage = typeof navigator === 'undefined' ? 'es' : navigator.language.toLowerCase().split('-')[0];
+  return SUPPORTED.includes(browserLanguage as LanguageCode) ? browserLanguage as LanguageCode : 'es';
+}
+
+/**
+ * Locale con que arranca la app, para LOCALE_ID (formato del pipe `date`). LOCALE_ID es fijo durante la sesión:
+ * si el usuario cambia de idioma, las fechas toman el nuevo formato al recargar.
+ */
+export function startupLocale(): string { return LOCALES[detectLanguage()]; }

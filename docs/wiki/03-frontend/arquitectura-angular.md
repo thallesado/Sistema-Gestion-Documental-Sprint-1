@@ -75,3 +75,7 @@ El shell aplica `i18nContent` a todas las pantallas: la directiva sustituye en p
 - Una sesión de plataforma (`platformAdmin` sin `tenantId`) no llama a `/api/v1/dashboard` ni a `/api/v1/backups/maintenance` (`core/http/tenant-session.ts`). Los mensajes de error con texto SQL/Hibernate se sustituyen por uno genérico (`friendlyApiMessage`).
 
 Fuentes: [frontend/src/app/core/routes/app.routes.ts](../../../frontend/src/app/core/routes/app.routes.ts), [frontend/src/app/features/clinico/clinico.routes.ts](../../../frontend/src/app/features/clinico/clinico.routes.ts), [frontend/src/app/shell/app.ts](../../../frontend/src/app/shell/app.ts). [Comunicación API](estado-y-comunicacion-api.md).
+
+## Formato de fechas (2026-11-18)
+
+`app.config.ts` registra `es-BO`, `fr-FR` y `zh-CN` con `registerLocaleData` y provee `LOCALE_ID` con `startupLocale()` (idioma guardado en `nexodocs_lang` o del navegador). Antes el pipe `date` formateaba siempre en en-US («11/17/26, 3:04 PM»). `LOCALE_ID` es fijo durante la sesión: al cambiar de idioma, las fechas del pipe toman el nuevo formato tras recargar; `activeLocale()` sigue disponible para `Intl`/`toLocale*`.

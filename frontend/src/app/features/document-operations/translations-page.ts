@@ -16,7 +16,7 @@ import { PermissionService } from '../../core/auth/permission.service';
   <header class="hero">
     <span class="eyebrow">DOCUMENTOS · REVISIÓN EDITORIAL Y DERIVADOS</span>
     <h1>Traducción documental</h1>
-    <p>Solicita traducciones de versiones aprobadas, revisa y edita segmentos lado a lado con el original y publica copias derivadas oficiales.</p>
+    <p>Revisa y edita segmentos lado a lado con el original. La creación de solicitudes y la publicación de copias derivadas están deshabilitadas hasta implementar la traducción real.</p>
     <nav class="links">
       @if(can('document:read')){<a routerLink="/documents">Todos los documentos</a>}
       @if(can('delivery:read')){<a routerLink="/deliveries">Entregas externas</a>}
@@ -35,11 +35,13 @@ import { PermissionService } from '../../core/auth/permission.service';
       <select name="status" [(ngModel)]="status" aria-label="Estado">
         <option value="">Todos los estados</option>
         <option value="REVIEW_PENDING">Pendiente de revisión</option>
+        <option value="CHANGES_REQUESTED">Cambios solicitados</option>
         <option value="PUBLISHED">Publicado</option>
+        <option value="FAILED">Fallido</option>
         <option value="CANCELLED">Cancelado</option>
       </select>
       <button [disabled]="loading()">Buscar</button>
-      @if(can('translation:create')){
+      @if(creationEnabled && can('translation:create')){
         <button type="button" class="primary" (click)="openNewDialog()">Nueva traducción</button>
       }
       @if(can('translation:configure')){
@@ -164,10 +166,10 @@ import { PermissionService } from '../../core/auth/permission.service';
       }
 
       <div class="actions" style="margin-bottom: 1.5rem;">
-        @if(can('translation:publish') && d['status'] !== 'PUBLISHED' && d['status'] !== 'CANCELLED'){
+        @if(creationEnabled && can('translation:publish') && d['status'] !== 'PUBLISHED' && d['status'] !== 'CANCELLED'){
           <button class="primary" [disabled]="busy()" (click)="publishTranslation(d)">Publicar copia derivada</button>
         }
-        @if(d['status'] === 'REVIEW_PENDING'){
+        @if(d['status'] === 'REVIEW_PENDING' && can('translation:create')){
           <button class="danger" [disabled]="busy()" (click)="cancelTranslation(d)">Cancelar solicitud</button>
         }
         @if(d['status'] === 'PUBLISHED'){
@@ -191,14 +193,14 @@ import { PermissionService } from '../../core/auth/permission.service';
                 <td><strong>#{{s.segment_order}}</strong><br><small>{{label(s.status)}}</small></td>
                 <td><div style="white-space: pre-wrap; font-size: 0.95rem;">{{s.source_text}}</div></td>
                 <td>
-                  @if(d['status'] === 'PUBLISHED'){
-                    <div style="white-space: pre-wrap; font-size: 0.95rem;">{{s.reviewed_text || s.translated_text}}</div>
-                  } @else {
+                  @if(can('translation:review') && (d['status'] === 'REVIEW_PENDING' || d['status'] === 'CHANGES_REQUESTED')){
                     <textarea rows="3" [(ngModel)]="s.reviewed_text" style="width: 100%; margin-bottom: 0.5rem;"></textarea>
                     <div style="display: flex; gap: 0.5rem;">
                       <button type="button" [disabled]="busy()" (click)="saveSegment(d.id, s, 'MODIFIED')">Guardar edición</button>
                       <button type="button" class="primary" [disabled]="busy()" (click)="saveSegment(d.id, s, 'ACCEPTED')">Aceptar segmento</button>
                     </div>
+                  } @else {
+                    <div style="white-space: pre-wrap; font-size: 0.95rem;">{{s.reviewed_text || s.translated_text}}</div>
                   }
                 </td>
               </tr>
@@ -279,12 +281,18 @@ export class TranslationsPage {
     });
   }
 
+  /** DocumentTranslationService.create/publish responden 503 hasta implementar la traducción real. */
+  readonly creationEnabled = false;
+
   can(p: string): boolean {
     return this.permissions.can(p);
   }
 
   label(s: string): string {
     return ({
+      QUEUED: 'En cola',
+      EXTRACTING: 'Extrayendo texto',
+      TRANSLATING: 'Traduciendo',
       REVIEW_PENDING: 'Pendiente de revisión',
       PUBLISHED: 'Publicado',
       CHANGES_REQUESTED: 'Cambios solicitados',
