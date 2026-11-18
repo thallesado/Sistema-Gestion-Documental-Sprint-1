@@ -7,6 +7,8 @@ import { SubscriptionService } from '../subscription/subscription.service';
 import { I18nService } from '../i18n/i18n.service';
 
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
+  // The recipient portal has a capability session, never an internal tenant JWT or refresh flow.
+  if (request.url.startsWith('/api/v1/external-deliveries/')) return next(request);
   const auth = inject(AuthService);
   const subscription = inject(SubscriptionService);
   const i18n = inject(I18nService);

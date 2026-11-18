@@ -48,7 +48,9 @@
           <dl class="review-list"><div><dt>Código</dt><dd>{{ form().code || 'Sin código indicado' }}</dd></div><div><dt>Nombre</dt><dd>{{ form().name || 'Sin nombre indicado' }}</dd></div><div><dt>Tipo y área</dt><dd>{{ selectedTypeName() }} · {{ selectedDepartmentName() }}</dd></div><div><dt>Responsable</dt><dd>{{ selectedResponsibleName() }}</dd></div><div><dt>Descripción</dt><dd>{{ form().description || 'Sin descripción' }}</dd></div></dl>
         }
         @if (apiError()) { <div class="state error" role="alert">{{ apiError() }}</div> }
+        @if (!saved()) {
         <div class="form-actions"><button type="button" class="secondary-button" (click)="previousStep()" [disabled]="step() === 1 || saving()">Atrás</button>@if (step() < 3) { <button type="button" class="primary-button" (click)="nextStep()">Continuar <span>→</span></button> } @else { <button type="button" class="primary-button" (click)="saveExpedient()" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Crear expediente' }}</button> }</div>
+        }
       </section>
     </section>
   } @else {

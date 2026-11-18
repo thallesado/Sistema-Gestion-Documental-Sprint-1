@@ -13,6 +13,7 @@ import { settingsRoutes } from '../../features/settings/settings.routes';
 import { pricingRoutes } from '../../features/pricing/pricing.routes';
 import { reportesDinamicosRoutes } from '../../features/reportes/reportes-dinamicos.routes';
 import { platformAdminRoutes } from '../../features/platform-admin/platform-admin.routes';
+import { documentOperationsRoutes } from '../../features/document-operations/document-operations.routes';
 
 const clinicalPaths = new Set([
   'expedients/clinical',
@@ -24,7 +25,7 @@ const clinicalPaths = new Set([
 ]);
 const documentPaths = new Set(['documents', 'documents/mine', 'documents/shared', 'documents/new', 'documents/upload', 'settings/statuses']);
 /** Screens with their own page (created by the sprint scaffold): the generic catalog must not claim them. */
-const sprintOwnedPaths = new Set(['settings', 'settings/retention', 'documents/transfers', 'settings/backups', 'platform/backups', 'settings/appearance', 'users/form-permissions', 'reports/queries', 'reports/voice', 'platform/dashboard', 'platform/reports/tenants', 'platform/reports/payments', 'platform/audit', 'platform/technical-logs', 'platform/plans', 'platform/addons']);
+const sprintOwnedPaths = new Set(['settings', 'deliveries', 'mail-intake', 'physical-archive', 'translations', 'settings/retention', 'documents/transfers', 'settings/backups', 'platform/backups', 'settings/appearance', 'users/form-permissions', 'reports/queries', 'reports/voice', 'platform/dashboard', 'platform/reports/tenants', 'platform/reports/payments', 'platform/audit', 'platform/technical-logs', 'platform/plans', 'platform/addons']);
 const expedientPaths = new Set(['expedientes', 'expedients', 'expedientes/new', 'expedientes/active', 'expedientes/closed', 'expedientes/archived']);
 // WorkspacePage is shared by the dashboard and catalogue routes.  It reads
 // routeInfo during its first change-detection cycle, so the root dashboard
@@ -99,10 +100,11 @@ export const routes: Routes = [
   ...pricingRoutes,
   ...reportesDinamicosRoutes,
   ...platformAdminRoutes,
+  ...documentOperationsRoutes,
   ...dynamicCatalogRoutes,
   {
     path: '**',
     loadComponent: () => import('../../features/no-encontrado/pages/no-encontrado-page').then((m) => m.NotFoundPage),
-    title: 'Pagina no encontrada - NexoDocs',
+    title: 'Página no encontrada - NexoDocs',
   },
 ];

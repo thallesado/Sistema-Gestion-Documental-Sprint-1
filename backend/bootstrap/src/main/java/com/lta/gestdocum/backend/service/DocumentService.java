@@ -41,6 +41,8 @@ public class DocumentService {
     private final AuthenticatedUserContext userContext;
     private final ComponentPermissionService componentPermissions;
     private AuditRecorder auditRecorder;
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
 
     public DocumentService(DocumentRepository repository,
                            DocumentTypeRepository documentTypeRepository,
@@ -250,6 +252,11 @@ public class DocumentService {
         document.setStatus(request.status());
         document.setUpdatedAt(OffsetDateTime.now());
         Document saved = repository.save(document);
+        // PostgreSQL's updated_at trigger determines the committed value used in the ETag.
+        if (entityManager != null) {
+            entityManager.flush();
+            entityManager.refresh(saved);
+        }
         if (auditRecorder != null) {
             auditRecorder.record("UPDATE_STATUS", "DOCUMENTS", saved.getId(),
                     java.util.Map.of("status", String.valueOf(oldStatus)),

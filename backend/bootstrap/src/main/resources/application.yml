@@ -42,6 +42,9 @@ spring:
       mail:
         smtp:
           auth: ${MAIL_SMTP_AUTH:true}
+          connectiontimeout: 10000
+          timeout: 15000
+          writetimeout: 15000
           starttls:
             enable: ${MAIL_SMTP_STARTTLS:true}
 
@@ -109,6 +112,17 @@ app:
     frontend-url: ${REPORTIQ_FRONTEND_URL:http://localhost:3001}
     api-key: ${REPORTIQ_API_KEY:}
     data-source-id: ${REPORTIQ_DATA_SOURCE_ID:}
+
+document-operations:
+  intake-ocr-enabled: ${MAIL_INTAKE_OCR_ENABLED:false}
+  worker-enabled: ${DOCUMENT_OPERATIONS_WORKER_ENABLED:true}
+  poll-ms: ${DOCUMENT_OPERATIONS_POLL_MS:60000}
+  initial-delay-ms: ${DOCUMENT_OPERATIONS_INITIAL_DELAY_MS:30000}
+  key-file: ${DOCUMENT_OPERATIONS_KEY_FILE:${app.storage.local-path}/.operations/key}
+  allow-insecure-local: ${DOCUMENT_OPERATIONS_ALLOW_INSECURE_LOCAL:false}
+  mail-profiles: ${MAILBOX_PROFILES_JSON:{}}
+  clamav-host: ${CLAMAV_HOST:}
+  clamav-port: ${CLAMAV_PORT:3310}
 
 # Anclaje externo de la cadena de auditoria (C3). Sin destino configurado el job queda DISABLED.
 nexodocs:

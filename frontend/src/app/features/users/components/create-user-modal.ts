@@ -1,4 +1,5 @@
-import { Component, ElementRef, HostListener, afterNextRender, inject, input, output, signal } from '@angular/core';
+import { assignableRoles } from '../../../core/data/assignable-roles';
+import { Component, ElementRef, HostListener, afterNextRender, computed, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { merge } from 'rxjs';
@@ -65,7 +66,7 @@ function suggestUsername(first: string, last: string): string {
             <div class="chip-field field-roles" [appField]="'usuario.grupos'">
               <span class="chip-field-header"><span id="create-user-roles-label">Grupos del usuario</span><span class="role-chip-counter">{{ selectedRoleIds().length }} seleccionado{{ selectedRoleIds().length === 1 ? '' : 's' }}</span></span>
               <div class="role-chip-list" role="group" aria-labelledby="create-user-roles-label">
-                @for (role of roles(); track role.id) {
+                @for (role of grantableRoles(); track role.id) {
                   <button type="button" class="role-chip" [class.selected]="selectedRoleIds().includes(role.id)" [attr.aria-pressed]="selectedRoleIds().includes(role.id)" (click)="toggleRole(role.id)">{{ role.name }}</button>
                 }
               </div>
@@ -88,6 +89,7 @@ export class CreateUserModal {
 
   /** Roles activos del tenant que se pueden asignar. */
   readonly roles = input.required<ApiRole[]>();
+  readonly grantableRoles = computed(() => assignableRoles(this.roles(), []));
   readonly closed = output<void>();
   readonly saved = output<void>();
 

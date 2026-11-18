@@ -50,9 +50,10 @@ export const navSections: NavSection[] = [
       {
         label: 'Expedientes',
         icon: 'EX',
-        permission: ['expedient:read', 'patient:read', 'medical_note:read'],
+        permission: ['expedient:read', 'patient:read', 'medical_note:read', 'physical:read'],
         children: [
           { label: 'Todos los expedientes', href: '/expedients', permission: 'expedient:read' },
+          { label: 'Archivo físico y préstamos', href: '/physical-archive', permission: 'physical:read' },
           { label: 'Crear expediente', href: '/expedients/new', permission: 'expedient:create' },
           { label: 'Activos', href: '/expedients/active', sprintEnabled: false, permission: 'expedient:read' },
           { label: 'Cerrados', href: '/expedients/closed', sprintEnabled: false, permission: 'expedient:read' },
@@ -78,6 +79,8 @@ export const navSections: NavSection[] = [
         permission: 'document:read',
         children: [
           { label: 'Todos los documentos', href: '/documents' },
+          { label: 'Entregas externas', href: '/deliveries', permission: 'delivery:read' },
+          { label: 'Traducciones', href: '/translations', permission: 'translation:read' },
           { label: 'Nuevo documento', href: '/documents/new', permission: 'document:create' },
           { label: 'Subir archivo', href: '/documents/upload', permission: 'document:create' },
           { label: 'Mis documentos', href: '/documents/mine' },
@@ -94,10 +97,11 @@ export const navSections: NavSection[] = [
       {
         label: 'Digitalizacion',
         icon: 'DG',
-        permission: ['ocr:create', 'ocr:read'],
+        permission: ['ocr:create', 'ocr:read', 'mail-intake:read'],
         sprintEnabled: true,
         children: [
           { label: 'Escanear documento', href: '/digitization', permission: 'ocr:create' },
+          { label: 'Buzón documental', href: '/mail-intake', permission: 'mail-intake:read' },
           { label: 'Subir documento', href: '/digitization/upload', visible: false, permission: 'ocr:create' },
           { label: 'Procesamiento OCR', href: '/digitization/ocr', permission: 'ocr:read' },
           { label: 'Validacion', href: '/digitization/validation', visible: false, permission: 'ocr:read' },

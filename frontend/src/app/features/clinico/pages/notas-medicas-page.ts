@@ -169,10 +169,10 @@ import { AuthService } from '../../../core/auth/auth.service';
             </div>
 
             @if (errorMessage()) {
-              <div class="msg-box error">⚠️ {{ errorMessage() }}</div>
+              <div class="msg-box error" role="alert">⚠️ {{ errorMessage() }}</div>
             }
             @if (successMessage()) {
-              <div class="msg-box success">✓ {{ successMessage() }}</div>
+              <div class="msg-box success" role="status">✓ {{ successMessage() }}</div>
             }
 
             <form [formGroup]="noteForm" (ngSubmit)="saveNote()">
@@ -729,12 +729,18 @@ export class NotasMedicasPage implements OnInit {
         );
         this.resetForm();
         this.loadNotes(history.id);
+        this.showFeedback();
       },
       error: (err: HttpErrorResponse) => {
         this.isSaving.set(false);
         this.errorMessage.set(err?.error?.message || 'Error al guardar la nota médica en el servidor.');
       }
     });
+  }
+
+  /** The message sits above the form; bring it into view so saving from the bottom of a long note is not silent. */
+  private showFeedback(): void {
+    setTimeout(() => document.querySelector('.msg-box')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
   }
 
   changeStatus(note: MedicalNoteItem, targetStatus: MedicalNoteStatus) {

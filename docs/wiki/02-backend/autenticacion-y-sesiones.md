@@ -65,3 +65,7 @@ Con routing aislado, AuthService.refresh() resuelve el tenant en el registro cen
 
 
 Verificacion local parcial HU-09 (2026-11-06): AuthSessionService.establishContext usa jdbc.queryForMap para SELECT set_config; jdbc.update producia un error de PostgreSQL al recibir un resultado. Se comprobo login HTTP y uso de la API clinica con una organizacion sintetica en una base local desechable. Esto no verifica refresh/reset/SMTP ni el aprovisionamiento normal de bases aisladas.
+
+## Errores 401/403 en UTF-8 y selector de organización (2026-11-15)
+
+`SecurityConfig.writeJsonError` declara `application/json;charset=UTF-8`; el valor por defecto del servlet era ISO-8859-1 y deformaba «Autenticación». `GET /api/v1/tenants/public` alimenta el selector de organización del login con solo `id` y nombre, únicamente de organizaciones en `TRIAL` o `ACTIVE`, y está limitado por IP: es una decisión de diseño (el correo puede repetirse entre organizaciones), no una fuga accidental. Si se prefiere no listarlas, habría que identificar la organización por slug o dominio y cambiar `AuthService`.

@@ -4,6 +4,12 @@
   "localRevision": "91fb767",
   "remoteRevision": "91fb767",
   "pages": [
+    "07-propuestas/README.md",
+    "07-propuestas/p01-entrega-externa.md",
+    "07-propuestas/p04-buzon-documental.md",
+    "07-propuestas/p05-archivo-fisico.md",
+    "07-propuestas/p06-traduccion.md",
+    "06-operacion/contexto-sesion-2026-11-17.md",
     "06-operacion/respaldo-completo.md",
     "06-operacion/integracion-main-c93a8b4.md",
     "06-operacion/cambios-locales-2026-10-21.md",
@@ -34,9 +40,84 @@
     "04-dominio-y-negocio/suscripciones-y-pagos-stripe.md",
     "04-dominio-y-negocio/administracion-de-plataforma.md",
     "04-dominio-y-negocio/aislamiento-bases-por-tenant.md",
-    "04-dominio-y-negocio/sprint-hu19-24.md"
+    "04-dominio-y-negocio/sprint-hu19-24.md",
+    "04-dominio-y-negocio/operaciones-documentales.md"
   ],
   "contracts": [
+    {
+      "page": "07-propuestas/README.md",
+      "path": "docs/disenos/nuevas-funciones/flujos.json",
+      "includes": [
+        "\"id\": \"p01\"",
+        "\"id\":\"p04\"",
+        "\"id\":\"p05\"",
+        "\"id\":\"p06\""
+      ]
+    },
+    {
+      "page": "07-propuestas/README.md",
+      "path": "docs/disenos/nuevas-funciones/generar_flujos.py",
+      "includes": [
+        "W, H = 1920, 1200",
+        "save_all=True",
+        "DISEÑO PROPUESTO · NO IMPLEMENTADO"
+      ]
+    },
+    {
+      "page": "07-propuestas/p01-entrega-externa.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentStorageService.java",
+      "includes": [
+        "StoredFile download(UUID documentId, UUID versionId)"
+      ]
+    },
+    {
+      "page": "07-propuestas/p04-buzon-documental.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/OcrController.java",
+      "includes": [
+        "/api/v1/ocr"
+      ]
+    },
+    {
+      "page": "07-propuestas/p05-archivo-fisico.md",
+      "path": "docs/disenos/nuevas-funciones/flujos.json",
+      "includes": [
+        "\"file\":\"04-entregar\"",
+        "\"file\":\"05-devolver\""
+      ]
+    },
+    {
+      "page": "07-propuestas/p06-traduccion.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/GeminiClient.java",
+      "includes": [
+        "TextResult generateText(String prompt, String systemInstruction)"
+      ]
+    },
+    {
+      "page": "06-operacion/contexto-sesion-2026-11-17.md",
+      "path": "infrastructure/docker-compose.yml",
+      "includes": [
+        "profiles: [\"tenant-isolation\"]",
+        "TENANT_DATABASE_PROVISIONING_ENABLED: \"false\"",
+        "TENANT_DATABASE_PROVISIONING_ENABLED: \"true\""
+      ]
+    },
+    {
+      "page": "06-operacion/contexto-sesion-2026-11-17.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/BackupController.java",
+      "includes": [
+        "ResponseEntity.accepted()",
+        "@PostMapping(\"/{id}/restore\")",
+        "body.organizationName()"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "frontend/src/app/features/documentos/pages/documentos-page.ts",
+      "includes": [
+        "linkableExpedients(expedients())",
+        "readonly clinicalEnabled"
+      ]
+    },
     {
       "page": "04-dominio-y-negocio/administracion-de-plataforma.md",
       "path": "database/init/064_addons.sql",
@@ -1050,40 +1131,257 @@
     {
       "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
       "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentService.java",
-      "includes": ["userContext.hasAuthority(\"document:archive\")", "Document.DocumentStatus.ARCHIVED", "UPDATE_STATUS"]
+      "includes": [
+        "userContext.hasAuthority(\"document:archive\")",
+        "Document.DocumentStatus.ARCHIVED",
+        "UPDATE_STATUS"
+      ]
     },
     {
       "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
       "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentSearchSpecification.java",
-      "includes": ["f.archiveState()", "\"HISTORICAL\"", "\"ACTIVE\""]
+      "includes": [
+        "f.archiveState()",
+        "\"HISTORICAL\"",
+        "\"ACTIVE\""
+      ]
     },
     {
       "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
       "path": "frontend/src/app/features/documentos/pages/documentos-page.ts",
-      "includes": ["Archivo digital", "Históricos (archivados)", "previewVersion", "metadataPermissions.can('document:archive')"]
+      "includes": [
+        "Archivo digital",
+        "Históricos (archivados)",
+        "previewVersion",
+        "metadataPermissions.can('document:archive')"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "frontend/src/app/features/documentos/pages/documentos-page.ts",
+      "includes": [
+        "this.expedientApi.expedients('', 'ACTIVE', 0, 100)",
+        "metadataPermissions.can('expedient:read')",
+        "Sin expediente vinculado"
+      ]
     },
     {
       "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
       "path": "database/init/090_document_retention_transfers.sql",
-      "includes": ["archive_level_since", "CREATE TABLE document_transfers", "AS RESTRICTIVE", "document_transfers_pending", "guard_document_transfer"]
+      "includes": [
+        "archive_level_since",
+        "CREATE TABLE document_transfers",
+        "AS RESTRICTIVE",
+        "document_transfers_pending",
+        "guard_document_transfer"
+      ]
     },
     {
       "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
       "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentRetentionService.java",
-      "includes": ["make_interval", "FOR SHARE OF t", "FOR UPDATE", "TRANSFER_REQUESTED", "TRANSFER_EXECUTED", "requireDisposalPolicy"]
+      "includes": [
+        "make_interval",
+        "FOR SHARE OF t",
+        "FOR UPDATE",
+        "TRANSFER_REQUESTED",
+        "TRANSFER_EXECUTED",
+        "requireDisposalPolicy"
+      ]
     },
     {
       "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
       "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/DocumentRetentionController.java",
-      "includes": ["/retention-policies/due", "/document-transfers/{id}/approve", "/document-transfers/{id}/execute", "hasAuthority('document:archive')"]
+      "includes": [
+        "/retention-policies/due",
+        "/document-transfers/{id}/approve",
+        "/document-transfers/{id}/execute",
+        "hasAuthority('document:archive')"
+      ]
     },
     {
       "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
       "path": "frontend/src/app/features/documentos/pages/document-retention-page.ts",
-      "includes": ["Política por tipo documental", "Documentos aptos para transferencia", "Aprobar transferencia", "Ejecutar transferencia", "permissions.can('document:archive')"]
+      "includes": [
+        "Política por tipo documental",
+        "Documentos aptos para transferencia",
+        "Aprobar transferencia",
+        "Ejecutar transferencia",
+        "permissions.can('document:archive')"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentStateToken.java",
+      "includes": [
+        "canonical(",
+        "getNano() + 500L"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentStorageService.java",
+      "includes": [
+        "requireMatchingContent",
+        "El contenido del archivo no coincide con su tipo"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "frontend/src/app/core/data/file-signature.ts",
+      "includes": [
+        "matchesFileSignature",
+        "FILE_SIGNATURE_BYTES"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/documentos-y-almacenamiento.md",
+      "path": "database/init/091_contract_metadata_schema.sql",
+      "includes": [
+        "Fecha de vigencia",
+        "\"format\": \"date\"",
+        "091_contract_metadata_schema"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/RoleGrantPolicy.java",
+      "includes": [
+        "requireGrantable",
+        "startsWith(\"superadmin\")",
+        "No puedes asignar un grupo con permisos que no tienes"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/usuarios-grupos-y-privilegios.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/UserService.java",
+      "includes": [
+        "RoleGrantPolicy.requireGrantable",
+        "\"role:read\""
+      ]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/config/SecurityConfig.java",
+      "includes": [
+        "writeJsonError",
+        "application/json;charset=UTF-8"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/ReportPageResponse.java",
+      "includes": [
+        "Map<String, Long> facets"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/ReportService.java",
+      "includes": [
+        "GROUP BY 1",
+        "facetColumn"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+      "path": "frontend/src/app/core/data/report-data.ts",
+      "includes": [
+        "facetCount",
+        "chartPointsFromFacets",
+        "'IN_PROGRESS'"
+      ]
+    },
+    {
+      "page": "02-backend/base-de-datos-y-migraciones.md",
+      "path": "database/init/044_enterprise_inquiries_schema.sql",
+      "includes": [
+        "CREATE TABLE IF NOT EXISTS public.enterprise_inquiries",
+        "DROP POLICY IF EXISTS own_inquiries_select",
+        "FOREIGN KEY (tenant_id, user_id)%"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "database/init/092_physical_archive.sql",
+      "includes": [
+        "physical_one_active_loan",
+        "physical_movements_immutable",
+        "backup_tables_before_physical"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "database/init/093_external_deliveries.sql",
+      "includes": [
+        "app.delivery_public",
+        "encrypted_body",
+        "deliveries_restore_guard"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "database/init/094_document_mail_intake.sql",
+      "includes": [
+        "uid_validity",
+        "message_uid",
+        "mailbox_one_job",
+        "RECONCILIATION_REQUIRED"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "database/init/096_document_operations_consistency.sql",
+      "includes": [
+        "retention_days",
+        "app.record_tenant_monthly_usage",
+        "physical_restore_guard"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/DocumentOperations.java",
+      "includes": [
+        "PROPAGATION_REQUIRES_NEW",
+        "context.hasAuthority(permission)",
+        "SET LOCAL ROLE nexodocs_app"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "frontend/src/app/features/document-operations/document-operations.routes.ts",
+      "includes": [
+        "physical-archive",
+        "external/delivery",
+        "mail-intake",
+        "deliveries"
+      ]
     }
   ],
   "reviews": {
+    "07-propuestas/README.md": {
+      "reviewedAt": "2026-11-17",
+      "revision": "c0c49ab"
+    },
+    "07-propuestas/p01-entrega-externa.md": {
+      "reviewedAt": "2026-11-17",
+      "revision": "c0c49ab"
+    },
+    "07-propuestas/p04-buzon-documental.md": {
+      "reviewedAt": "2026-11-17",
+      "revision": "c0c49ab"
+    },
+    "07-propuestas/p05-archivo-fisico.md": {
+      "reviewedAt": "2026-11-17",
+      "revision": "c0c49ab"
+    },
+    "07-propuestas/p06-traduccion.md": {
+      "reviewedAt": "2026-11-17",
+      "revision": "c0c49ab"
+    },
+    "06-operacion/contexto-sesion-2026-11-17.md": {
+      "reviewedAt": "2026-11-17",
+      "revision": "c0c49ab"
+    },
     "04-dominio-y-negocio/administracion-de-plataforma.md": {
       "reviewedAt": "2026-11-04",
       "revision": "123419c"
@@ -1137,8 +1435,8 @@
       "revision": "a590a6d"
     },
     "04-dominio-y-negocio/documentos-y-almacenamiento.md": {
-      "reviewedAt": "2026-10-16",
-      "revision": "a590a6d"
+      "reviewedAt": "2026-11-17",
+      "revision": "c0c49ab"
     },
     "04-dominio-y-negocio/modulo-clinico.md": {
       "reviewedAt": "2026-10-16",
@@ -1161,24 +1459,24 @@
       "revision": "a590a6d"
     },
     "05-guias-ia/estado-verificado-y-pendientes.md": {
-      "reviewedAt": "2026-10-16",
-      "revision": "a590a6d"
+      "reviewedAt": "2026-11-17",
+      "revision": "c0c49ab"
     },
     "05-guias-ia/pruebas-y-validacion.md": {
       "reviewedAt": "2026-10-16",
       "revision": "a590a6d"
     },
     "06-operacion/despliegue-y-recuperacion.md": {
-      "reviewedAt": "2026-10-16",
-      "revision": "a590a6d"
+      "reviewedAt": "2026-11-17",
+      "revision": "c0c49ab"
     },
     "06-operacion/respaldo-completo.md": {
       "reviewedAt": "2026-10-21",
       "revision": "c93a8b4"
     },
     "README.md": {
-      "reviewedAt": "2026-11-04",
-      "revision": "123419c"
+      "reviewedAt": "2026-11-17",
+      "revision": "c0c49ab"
     },
     "04-dominio-y-negocio/respaldos-y-restauracion.md": {
       "reviewedAt": "2026-11-04",
@@ -1207,6 +1505,10 @@
     "04-dominio-y-negocio/sprint-hu19-24.md": {
       "reviewedAt": "2026-11-06",
       "revision": "91fb767"
+    },
+    "04-dominio-y-negocio/operaciones-documentales.md": {
+      "reviewedAt": "2026-11-17",
+      "revision": "c0c49ab"
     }
   }
 }

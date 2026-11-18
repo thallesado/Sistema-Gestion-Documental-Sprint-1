@@ -22,6 +22,14 @@ import java.util.UUID;
 
 @Service
 public class TenantService {
+    private com.lta.gestdocum.backend.security.AuthenticatedUserContext settingsContext;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setSettingsContext(com.lta.gestdocum.backend.security.AuthenticatedUserContext context){this.settingsContext=context;}
+    private void establishSettingsContext(UUID tenantId){
+        if(settingsContext==null)return; // Constructor-based unit tests without a persistence context.
+        if(!tenantId.equals(settingsContext.requireTenantId()))throw new org.springframework.security.access.AccessDeniedException("Organizacion no autorizada");
+        settingsContext.establishDatabaseContext();
+    }
     private volatile TenantDatabaseProvisioningService databaseProvisioningService;
     private volatile TenantDatabaseLifecycleService tenantDatabaseLifecycleService;
 
@@ -456,6 +464,7 @@ public class TenantService {
 
     @Transactional(readOnly = true)
     public TenantSettingsResponse getSettings(UUID tenantId) {
+        establishSettingsContext(tenantId);
         Tenant t = repository.findById(tenantId).orElseThrow(() -> new IllegalArgumentException("Tenant no encontrado"));
         return new TenantSettingsResponse(
                 t.getId(),
@@ -471,6 +480,7 @@ public class TenantService {
 
     @Transactional
     public TenantSettingsResponse updateSettings(UUID tenantId, TenantSettingsUpdateRequest request) {
+        establishSettingsContext(tenantId);
         Tenant t = repository.findById(tenantId).orElseThrow(() -> new IllegalArgumentException("Tenant no encontrado"));
         if (request.primaryColor() != null && !request.primaryColor().isBlank()) {
             t.setPrimaryColor(request.primaryColor().trim());

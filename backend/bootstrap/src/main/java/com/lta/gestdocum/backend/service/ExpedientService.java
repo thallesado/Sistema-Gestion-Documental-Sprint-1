@@ -146,15 +146,19 @@ public class ExpedientService {
                 .updatedAt(now)
                 .build();
         try {
-            Expedient saved = repository.save(expedient);
+            // Flush inside the try: ids are generated here, so a plain save() would defer the INSERT to commit and the
+            // violation would escape as a generic conflict instead of reaching the handler below.
+            Expedient saved = repository.saveAndFlush(expedient);
             if (auditRecorder != null) {
                 auditRecorder.record("CREATE", "EXPEDIENTS", saved.getId(), null,
                         java.util.Map.of("code", saved.getCode(), "name", saved.getName(), "status", String.valueOf(saved.getStatus())));
             }
             return toResponse(saved);
         } catch (DataIntegrityViolationException exception) {
-            throw new DuplicateResourceException(
-                    "El código de expediente ya existe o referencia datos inválidos");
+            String detail = String.valueOf(exception.getMostSpecificCause().getMessage());
+            throw new DuplicateResourceException(detail.contains("_code_key")
+                    ? "Ya existe un expediente con el código " + expedient.getCode()
+                    : "El expediente referencia datos inválidos");
         }
     }
 
