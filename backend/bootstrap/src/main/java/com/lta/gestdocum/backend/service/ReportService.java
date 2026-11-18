@@ -71,7 +71,12 @@ public class ReportService {
 
     private record Query(String countSql, String selectSql, MapSqlParameterSource params) {}
 
-    private record Def<T>(Query query, RowMapper<T> mapper, String header, Function<T, List<Object>> cells) {}
+    private record Def<T>(Query query, RowMapper<T> mapper, String header, Function<T, List<Object>> cells,
+                          String facetColumn) {
+        Def(Query query, RowMapper<T> mapper, String header, Function<T, List<Object>> cells) {
+            this(query, mapper, header, cells, null);
+        }
+    }
 
     private UUID prepareTenantScope() {
         context.establishDatabaseContext();
@@ -125,7 +130,21 @@ public class ReportService {
         int safeSize = Math.max(1, Math.min(size, 200));
         long total = count(def.query());
         List<T> rows = fetch(def, safeSize, (safePage - 1) * safeSize);
-        return ReportPageResponse.of(rows, total, safePage, safeSize);
+        return ReportPageResponse.of(rows, total, safePage, safeSize, facets(def));
+    }
+
+    /** Counts per value of the report's status column over the whole filter, so KPIs and charts do not depend on the page. */
+    private Map<String, Long> facets(Def<?> def) {
+        if (def.facetColumn() == null) return Map.of();
+        Map<String, Long> counts = db.query(
+                "SELECT cast(q." + def.facetColumn() + " AS text) AS facet, count(*) AS total FROM ("
+                        + def.query().selectSql() + ") q GROUP BY 1",
+                def.query().params(), rs -> {
+                    Map<String, Long> found = new LinkedHashMap<>();
+                    while (rs.next()) found.put(rs.getString("facet"), rs.getLong("total"));
+                    return found;
+                });
+        return counts == null ? Map.of() : counts;
     }
 
     private long count(Query query) {
@@ -195,7 +214,7 @@ public class ReportService {
         };
         return new Def<>(new Query("SELECT count(*) " + from + where, select, params), mapper,
                 "Documento,Código,Tipo,Área,Responsable,Fecha,Estado",
-                r -> List.of(nz(r.document()), nz(r.code()), nz(r.type()), nz(r.area()), nz(r.owner()), nz(r.date()), nz(r.status())));
+                r -> List.of(nz(r.document()), nz(r.code()), nz(r.type()), nz(r.area()), nz(r.owner()), nz(r.date()), nz(r.status())), "status");
     }
 
     private void applyDocumentFilters(ReportFilterRequest filter, MapSqlParameterSource params, StringBuilder where) {
@@ -302,7 +321,7 @@ public class ReportService {
         };
         return new Def<>(new Query(countSql, select, params), mapper,
                 "Usuario,Rol,Área,Último acceso,Acciones operativas,Estado",
-                r -> List.of(nz(r.user()), nz(r.role()), nz(r.area()), nz(r.lastAccess()), r.actions(), nz(r.status())));
+                r -> List.of(nz(r.user()), nz(r.role()), nz(r.area()), nz(r.lastAccess()), r.actions(), nz(r.status())), access.visible("estado") ? "status" : null);
     }
 
     // ==========================================
@@ -402,7 +421,7 @@ public class ReportService {
                 select, params), mapper,
                 "Workflow,Documento,Tipo,Etapa,Responsable,Inicio,Límite,Transcurrido,Estado",
                 r -> List.of(nz(r.workflow()), nz(r.document()), nz(r.type()), nz(r.stage()), nz(r.owner()),
-                        nz(r.start()), nz(r.deadline()), nz(r.elapsed()), nz(r.status())));
+                        nz(r.start()), nz(r.deadline()), nz(r.elapsed()), nz(r.status())), "status");
     }
 
     // ==========================================
@@ -471,7 +490,7 @@ public class ReportService {
         };
         return new Def<>(new Query("SELECT count(*) " + from + where, select, params), mapper,
                 "Expediente,Código,Tipo,Área,Responsable,Fecha,Estado",
-                r -> List.of(nz(r.expedient()), nz(r.code()), nz(r.type()), nz(r.area()), nz(r.owner()), nz(r.date()), nz(r.status())));
+                r -> List.of(nz(r.expedient()), nz(r.code()), nz(r.type()), nz(r.area()), nz(r.owner()), nz(r.date()), nz(r.status())), "status");
     }
 
     // ==========================================
@@ -542,7 +561,7 @@ public class ReportService {
         return new Def<>(new Query(countSql, select, params), mapper,
                 "Timestamp,Usuario,Acción,Módulo,Recurso,Área,IP,Resultado",
                 r -> List.of(nz(r.timestamp()), nz(r.user()), nz(r.action()), nz(r.module()), nz(r.resource()),
-                        nz(r.area()), nz(r.ip()), nz(r.result())));
+                        nz(r.area()), nz(r.ip()), nz(r.result())), "result");
     }
 
     // ==========================================
@@ -614,7 +633,7 @@ public class ReportService {
         return new Def<>(new Query("SELECT count(*) " + from + where, select, params), mapper,
                 "Archivo,Documento,Tipo de archivo,Cargado por,Páginas,Confianza,Fecha,Estado",
                 r -> List.of(nz(r.file()), nz(r.document()), nz(r.fileType()), nz(r.uploadedBy()),
-                        r.pages() != null ? r.pages() : "", nz(r.confidence()), nz(r.date()), nz(r.status())));
+                        r.pages() != null ? r.pages() : "", nz(r.confidence()), nz(r.date()), nz(r.status())), "status");
     }
 
     // ==========================================

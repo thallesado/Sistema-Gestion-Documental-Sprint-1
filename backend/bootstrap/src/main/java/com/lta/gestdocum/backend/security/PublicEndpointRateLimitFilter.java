@@ -56,9 +56,11 @@ public class PublicEndpointRateLimitFilter extends OncePerRequestFilter {
                     || CONTACT_PATH.equals(request.getRequestURI()));
     }
 
+    private static boolean isDelivery(HttpServletRequest request){return "POST".equals(request.getMethod())&&request.getRequestURI().startsWith("/api/v1/external-deliveries/");}
+
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
-        return !(("GET".equals(request.getMethod()) && PATH.equals(request.getRequestURI())) || isCreation(request));
+        return !(("GET".equals(request.getMethod()) && PATH.equals(request.getRequestURI())) || isCreation(request) || isDelivery(request));
     }
 
     @Override
@@ -68,9 +70,9 @@ public class PublicEndpointRateLimitFilter extends OncePerRequestFilter {
         long now = System.currentTimeMillis();
         boolean creation = isCreation(request);
         long span = creation ? signupWindowMillis : windowMillis;
-        int max = creation ? signupMaxRequests : maxRequests;
+        int max = isDelivery(request) ? 60 : creation ? signupMaxRequests : maxRequests;
         // Cada endpoint tiene su propio cupo por IP.
-        String key = (creation ? request.getRequestURI() : PATH) + "|" + request.getRemoteAddr();
+        String key = ((creation||isDelivery(request)) ? request.getRequestURI() : PATH) + "|" + request.getRemoteAddr();
         if (windows.size() > CLEANUP_THRESHOLD) {
             long longest = Math.max(windowMillis, signupWindowMillis);
             windows.entrySet().removeIf(entry -> now - entry.getValue().startMillis() >= longest);

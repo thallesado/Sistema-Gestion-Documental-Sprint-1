@@ -22,6 +22,35 @@ class DocumentStateTokenTest {
     }
 
     @Test
+    void tokenIsStableAcrossTimestampPrecisionAndOffset() {
+        UUID id = UUID.randomUUID();
+        // In-memory value right after INSERT: nanoseconds, server zone.
+        OffsetDateTime inMemory = OffsetDateTime.parse("2026-11-14T19:54:16.351017123-04:00");
+        // Same instant as re-read from PostgreSQL timestamptz: microseconds, UTC.
+        OffsetDateTime reloaded = OffsetDateTime.parse("2026-11-14T23:54:16.351017Z");
+
+        assertEquals(DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, inMemory),
+                DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, reloaded));
+        assertNotEquals(DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, reloaded),
+                DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, reloaded.plusNanos(1_000)));
+    }
+
+    @Test
+    void tokenMatchesWhatPostgresStoresWhenNanosecondsRoundUp() {
+        UUID id = UUID.randomUUID();
+        // The driver rounds half-up to microseconds when persisting, so .351017600 is stored as .351018.
+        OffsetDateTime inMemory = OffsetDateTime.parse("2026-11-14T19:54:16.351017600-04:00");
+        OffsetDateTime stored = OffsetDateTime.parse("2026-11-14T23:54:16.351018Z");
+        OffsetDateTime carry = OffsetDateTime.parse("2026-11-14T19:54:16.999999600-04:00");
+        OffsetDateTime carried = OffsetDateTime.parse("2026-11-14T23:54:17.000000Z");
+
+        assertEquals(DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, stored),
+                DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, inMemory));
+        assertEquals(DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, carried),
+                DocumentStateToken.from(id, Document.DocumentStatus.DRAFT, null, carry));
+    }
+
+    @Test
     void requiresCurrentTokenForStateMutations() {
         Document current = new Document(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "DOC-1", "Test");
         current.setId(UUID.randomUUID());

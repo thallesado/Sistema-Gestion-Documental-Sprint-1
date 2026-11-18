@@ -67,6 +67,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/public/subscriptions/checkout").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/public/contact").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/public/radicaciones/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/external-deliveries/code", "/api/v1/external-deliveries/verify", "/api/v1/external-deliveries/info", "/api/v1/external-deliveries/content").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/public/subscriptions/checkout/*/status").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/billing/webhooks/stripe").permitAll()
                 .requestMatchers(
@@ -79,16 +80,10 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .exceptionHandling(exceptions -> exceptions
-                .authenticationEntryPoint((request, response, exception) -> {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Autenticación requerida\"}");
-                })
-                .accessDeniedHandler((request, response, exception) -> {
-                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"status\":403,\"error\":\"Forbidden\",\"message\":\"Permisos insuficientes\"}");
-                }))
+                .authenticationEntryPoint((request, response, exception) ->
+                        writeJsonError(response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized", "Autenticación requerida"))
+                .accessDeniedHandler((request, response, exception) ->
+                        writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, "Forbidden", "Permisos insuficientes")))
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         http.addFilterBefore(loginAttemptRateLimitFilter, UsernamePasswordAuthenticationFilter.class);
@@ -129,11 +124,20 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Accept-Language",
-                "X-Client-Timestamp", "X-Client-Timezone"));
-        configuration.setExposedHeaders(List.of("Location"));
+                "X-Client-Timestamp", "X-Client-Timezone", "If-Match"));
+        configuration.setExposedHeaders(List.of("Location", "ETag"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    /** Declares UTF-8 explicitly: the servlet default is ISO-8859-1, which garbled accents such as "Autenticación". */
+    static void writeJsonError(HttpServletResponse response, int status, String error, String message)
+            throws java.io.IOException {
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("{\"status\":" + status + ",\"error\":\"" + error + "\",\"message\":\"" + message + "\"}");
     }
 }

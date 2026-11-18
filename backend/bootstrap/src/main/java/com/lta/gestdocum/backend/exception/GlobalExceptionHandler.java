@@ -85,9 +85,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(org.springframework.dao.DataAccessException.class)
     public ResponseEntity<Map<String, Object>> handleDataAccess(
             org.springframework.dao.DataAccessException exception, HttpServletRequest request) {
+        if (isInsufficientPrivilege(exception)) {
+            log.warn("Acceso denegado por la base de datos en {} {}", request.getMethod(), request.getRequestURI());
+            return error(HttpStatus.FORBIDDEN, "Forbidden", "No tienes permiso para realizar esta operación.", request);
+        }
         log.error("Error de acceso a datos en {} {}", request.getMethod(), request.getRequestURI(), exception);
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "Database Error",
                 "No se pudo completar la operación por un problema interno de datos. Inténtalo de nuevo o contacta a tu administrador.", request);
+    }
+
+    /** SQLSTATE 42501 (insufficient_privilege) is an authorization outcome, not a server fault. */
+    private static boolean isInsufficientPrivilege(Throwable exception) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause() == cause ? null : cause.getCause()) {
+            if (cause instanceof java.sql.SQLException sql && "42501".equals(sql.getSQLState())) return true;
+        }
+        return false;
     }
 
     @ExceptionHandler(DuplicateResourceException.class)

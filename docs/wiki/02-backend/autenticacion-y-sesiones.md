@@ -73,3 +73,7 @@ En Flutter, `core/api/auth_repository.dart` concentra las rutas HTTP existentes 
 Fuentes móviles: [repositorio HTTP](../../../mobile/lib/core/api/auth_repository.dart), [estado de sesión](../../../mobile/lib/core/api/auth_api.dart), [pantallas de contraseña](../../../mobile/lib/screens/password_page.dart), [arranque](../../../mobile/lib/main.dart).
 
 Verificación local: `flutter analyze --no-pub` sobre los archivos de autenticación sin incidencias y `flutter test --no-pub test/mobile_features_test.dart` con 14 pruebas aprobadas. La suite combinada con `widget_test.dart` encontró desbordamientos de diseño en `screens/dashboard/dashboard_tab.dart` durante la prueba de login; no se comprobó contra un backend real ni el envío SMTP.
+
+## Errores 401/403 en UTF-8 y selector de organización (2026-11-15)
+
+`SecurityConfig.writeJsonError` declara `application/json;charset=UTF-8`; el valor por defecto del servlet era ISO-8859-1 y deformaba «Autenticación». `GET /api/v1/tenants/public` alimenta el selector de organización del login con solo `id` y nombre, únicamente de organizaciones en `TRIAL` o `ACTIVE`, y está limitado por IP: es una decisión de diseño (el correo puede repetirse entre organizaciones), no una fuga accidental. Si se prefiere no listarlas, habría que identificar la organización por slug o dominio y cambiar `AuthService`.

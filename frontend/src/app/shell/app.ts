@@ -27,7 +27,7 @@ import { AppTourService } from '../core/onboarding/app-tour.service';
 /** Pantallas públicas: siempre a pantalla completa, sin sidebar ni topbar, aunque haya sesión. */
 // These routes own a full-screen layout. Contact Sales remains authenticated so
 // its form can use the active organization, but intentionally bypasses the shell.
-const PUBLIC_PATHS = ['/welcome', '/register', '/login', '/forgot-password', '/reset-password', '/plans/contact-sales', '/planes', '/change-password', '/nosotros', '/contacto'];
+const PUBLIC_PATHS = ['/external', '/welcome', '/register', '/login', '/forgot-password', '/reset-password', '/plans/contact-sales', '/planes', '/change-password', '/nosotros', '/contacto'];
 
 type ProfileTab = 'profile' | 'security' | 'notifications' | 'access' | 'workflows';
 

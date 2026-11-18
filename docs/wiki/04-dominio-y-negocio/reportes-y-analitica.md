@@ -33,3 +33,7 @@ Fuentes: [ReportService.java](../../../backend/bootstrap/src/main/java/com/lta/g
 ## Consulta guiada y voz (2026-11-04)
 
 QBE permite componer consultas acotadas por entidad/campos y ejecuta el API real con paginacion. La vista de voz reconoce una gramatica limitada de rango de fechas, estado y area; solo envia filtros interpretados al mismo API. La transcripcion libre no se envia al backend ni a Gemini. SpeechRecognition puede usar procesamiento del navegador/proveedor para el audio; no se promete procesamiento local del microfono. report:read se mantiene condicionado a advanced_analytics del plan. Ver [HU-19 a HU-24](sprint-hu19-24.md).
+
+## Conteos por estado sobre todo el filtro (2026-11-15)
+
+`ReportPageResponse` incluye `facets`: conteo por valor de la columna de estado (`result` en auditoría, `status` en el resto), calculado en SQL sobre todo el conjunto filtrado con `GROUP BY` y no solo sobre la página visible. Angular usa `facetCount` y `chartPointsFromFacets` para KPIs y gráficos de estado. Si el campo «estado» está oculto para el usuario en el reporte de usuarios, no se calculan facetas para no revelarlo. Los KPIs sin faceta (áreas, módulos, usuarios con acciones) siguen siendo por página y se etiquetan así. El filtro de workflows usa los valores reales de `workflow_status`.

@@ -1,17 +1,14 @@
+import { planFeatureLabel } from '../../../core/data/plan-features';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { BillingCycle, BillingService, CheckoutResponse, PaymentMethod } from '../../../core/billing/billing.service';
-import { SubscriptionPlan, SubscriptionService } from '../../../core/subscription/subscription.service';
+import { PlanFeature, SubscriptionPlan, SubscriptionService } from '../../../core/subscription/subscription.service';
 import { LocalizedContentDirective } from '../../../core/i18n/localized-content.directive';
 import { friendlyApiMessage } from '../../../core/http/tenant-session';
 
-const FEATURE_LABELS: Record<string, string> = {
-  workflows: 'Workflows de aprobación', ocr_scanning: 'Digitalización y OCR', advanced_analytics: 'Reportes avanzados',
-  clinical_module: 'Módulo clínico', dicom_imaging: 'Imágenes DICOM',
-};
 
 /**
  * Resumen del plan antes de pagar. La tarjeta se ingresa solo en Stripe Checkout: esta pantalla
@@ -49,7 +46,7 @@ const FEATURE_LABELS: Record<string, string> = {
           <li>✓ {{ usersLabel(plan()!) }}</li>
           <li>✓ {{ storageLabel(plan()!) }}</li>
           @for (f of plan()!.features; track f.featureKey) {
-            <li [class.off]="!f.enabled">{{ f.enabled ? '✓' : '✕' }} {{ featureLabel(f.featureKey) }}</li>
+            <li [class.off]="!f.enabled">{{ f.enabled ? '✓' : '✕' }} {{ featureLabel(f) }}</li>
           }
         </ul>
       </section>
@@ -185,7 +182,7 @@ export class CheckoutPage implements OnInit {
     });
   }
 
-  featureLabel(key: string): string { return FEATURE_LABELS[key] ?? key; }
+  featureLabel(feature: PlanFeature): string { return planFeatureLabel(feature); }
   usersLabel(plan: SubscriptionPlan): string {
     const value = plan.limits.find((l) => l.resourceKey === 'maxUsers')?.resourceValue;
     return value === -1 ? 'Usuarios ilimitados' : `Hasta ${value ?? 0} usuarios`;

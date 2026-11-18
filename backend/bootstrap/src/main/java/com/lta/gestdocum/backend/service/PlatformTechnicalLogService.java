@@ -6,7 +6,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -41,23 +43,42 @@ public class PlatformTechnicalLogService {
         }
     }
 
-    public Page<Event> list(String level, UUID tenantId, int requestedPage, int requestedSize) {
+    /**
+     * app.list_platform_technical_logs authorizes through app.current_user_id(), which reads the transaction-local
+     * setting app.user_id. The control connection carries no identity of its own, so both queries run on one
+     * connection and transaction after the platform actor is set.
+     */
+    public Page<Event> list(UUID actorId, String level, UUID tenantId, int requestedPage, int requestedSize) {
         int page = Math.max(0, requestedPage);
         int size = Math.max(1, Math.min(requestedSize, 100));
-        List<Event> rows = control.query("""
-                SELECT id,occurred_at,level,tenant_id,actor_id,category,summary,request_method,request_path,
-                       http_status,exception_type,total_count
-                FROM app.list_platform_technical_logs(?,?,?,?)
-                """, (rs, n) -> new Event(
-                rs.getLong("id"), rs.getObject("occurred_at", java.time.OffsetDateTime.class), rs.getString("level"),
-                rs.getObject("tenant_id", UUID.class), rs.getObject("actor_id", UUID.class), rs.getString("category"),
-                rs.getString("summary"), rs.getString("request_method"), rs.getString("request_path"),
-                (Integer) rs.getObject("http_status"), rs.getString("exception_type")),
-                level, tenantId, size, (long) page * size);
-        long total = control.queryForObject("""
-                SELECT coalesce((SELECT total_count FROM app.list_platform_technical_logs(?,?,1,0)),0)
-                """, Long.class, level, tenantId);
-        return new PageImpl<>(rows, PageRequest.of(page, size), total);
+        return control.execute((ConnectionCallback<Page<Event>>) connection -> {
+            boolean autoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+            try {
+                JdbcTemplate scoped = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
+                scoped.queryForList("SELECT set_config('app.user_id', ?, true)", actorId.toString());
+                List<Event> rows = scoped.query("""
+                        SELECT id,occurred_at,level,tenant_id,actor_id,category,summary,request_method,request_path,
+                               http_status,exception_type,total_count
+                        FROM app.list_platform_technical_logs(?,?,?,?)
+                        """, (rs, n) -> new Event(
+                        rs.getLong("id"), rs.getObject("occurred_at", java.time.OffsetDateTime.class), rs.getString("level"),
+                        rs.getObject("tenant_id", UUID.class), rs.getObject("actor_id", UUID.class), rs.getString("category"),
+                        rs.getString("summary"), rs.getString("request_method"), rs.getString("request_path"),
+                        (Integer) rs.getObject("http_status"), rs.getString("exception_type")),
+                        level, tenantId, size, (long) page * size);
+                long total = scoped.queryForObject("""
+                        SELECT coalesce((SELECT total_count FROM app.list_platform_technical_logs(?,?,1,0)),0)
+                        """, Long.class, level, tenantId);
+                connection.commit();
+                return new PageImpl<>(rows, PageRequest.of(page, size), total);
+            } catch (RuntimeException failure) {
+                connection.rollback();
+                throw failure;
+            } finally {
+                connection.setAutoCommit(autoCommit);
+            }
+        });
     }
 
     static String sanitizePath(String path) {

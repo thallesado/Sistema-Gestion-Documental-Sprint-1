@@ -1,5 +1,6 @@
 package com.lta.gestdocum.backend.controller;
 
+import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
 import com.lta.gestdocum.backend.service.PlatformTechnicalLogService;
 import org.springframework.data.domain.Page;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,7 +16,12 @@ import java.util.UUID;
 @PreAuthorize("hasAuthority('platform:tenant:manage')")
 public class PlatformTechnicalLogsController {
     private final PlatformTechnicalLogService logs;
-    public PlatformTechnicalLogsController(PlatformTechnicalLogService logs) { this.logs = logs; }
+    private final AuthenticatedUserContext currentUser;
+
+    public PlatformTechnicalLogsController(PlatformTechnicalLogService logs, AuthenticatedUserContext currentUser) {
+        this.logs = logs;
+        this.currentUser = currentUser;
+    }
 
     @GetMapping
     public Page<PlatformTechnicalLogService.Event> list(
@@ -24,6 +30,6 @@ public class PlatformTechnicalLogsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
         if (level != null && !level.equals("WARN") && !level.equals("ERROR")) throw new IllegalArgumentException("Nivel inválido");
-        return logs.list(level, tenantId, page, size);
+        return logs.list(currentUser.requireUserId(), level, tenantId, page, size);
     }
 }

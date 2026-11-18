@@ -42,6 +42,10 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
 
     Optional<Role> findByIdAndTenantId(Long id, UUID tenantId);
 
+    /** Permission codes held by the given groups; readable only with role:read (RLS), so callers must check it first. */
+    @Query(value="select distinct p.code from role_permissions rp join permissions p on p.id=rp.permission_id where rp.tenant_id=:tenantId and rp.role_id in (:roleIds)", nativeQuery=true)
+    Set<String> findPermissionCodes(@Param("tenantId") UUID tenantId, @Param("roleIds") Set<Long> roleIds);
+
     @Query(value="select permission_id from role_permissions where tenant_id=:tenantId and role_id=:roleId", nativeQuery=true)
     Set<Long> findPermissionIds(@Param("tenantId") UUID tenantId, @Param("roleId") Long roleId);
 

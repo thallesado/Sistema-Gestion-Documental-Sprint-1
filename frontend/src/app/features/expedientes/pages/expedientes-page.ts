@@ -1,3 +1,4 @@
+import { conflictMessage, expedientBasicsError } from '../../../core/data/expedient-form';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -122,12 +123,19 @@ export class ExpedientsPage {
   choose(item: ExpedientItem): void { this.selected.set(item);this.workflowApi.page('',{expedientId:item.id,size:20}).subscribe({next:p=>this.expedientWorkflows.set(p.content),error:()=>this.expedientWorkflows.set([])}); }
   closeDetail(): void { this.selected.set(null);this.expedientWorkflows.set([]); }
   openWorkflow(flow:any):void{void this.router.navigate(['/workflows'],{queryParams:{workflow:flow.id}});}
-  nextStep(): void { if (this.step() < 3) this.step.update((value) => value + 1); }
+  nextStep(): void {
+    // Step one must be complete before moving on, so the user is told here and not only when saving.
+    const error = this.step() === 1 ? expedientBasicsError(this.form()) : '';
+    this.apiError.set(error);
+    if (!error && this.step() < 3) this.step.update((value) => value + 1);
+  }
   previousStep(): void { if (this.step() > 1) this.step.update((value) => value - 1); }
   saveExpedient(): void {
     const form = this.form();
-    if (!form.code.trim() || !form.name.trim() || !form.expedientTypeId) {
-      this.apiError.set('El código, el nombre y el tipo de expediente son obligatorios.');
+    const basicsError = expedientBasicsError(form);
+    if (basicsError) {
+      this.apiError.set(basicsError);
+      this.step.set(1);
       return;
     }
     this.saving.set(true);
@@ -336,6 +344,7 @@ export class ExpedientsPage {
   private createErrorMessage(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       if (error.status === 400) return 'No se pudo crear el expediente. Revisa los datos ingresados y que el código no esté repetido.';
+      if (error.status === 409) return conflictMessage(error.error, 'expediente');
       if (error.status === 403) return 'No tienes permiso para crear expedientes en el tenant activo.';
       if (error.status === 401) return 'Tu sesión expiró. Inicia sesión nuevamente.';
       if (error.status > 0) return `No se pudo crear el expediente (HTTP ${error.status}).`;

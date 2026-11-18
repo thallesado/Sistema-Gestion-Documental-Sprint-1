@@ -5,7 +5,9 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   cellText,
+  chartPointsFromFacets,
   chartPointsFromRows,
+  facetCount,
   finiteNumber,
   groupLabel,
   reportDefinition,
@@ -98,4 +100,26 @@ test('reports page no longer depends on demo state, tenant comparison or the all
 test('report chart guards non finite values before drawing', async () => {
   const chart = await read('frontend/src/app/features/reportes/components/report-chart.ts');
   assert.match(chart, /finiteNumber/);
+});
+
+test('facetCount reads the whole-filter total, case-insensitively, and ignores rows of the current page', () => {
+  const facets = { ACTIVE: 31, SUSPENDED: 2 };
+  assert.equal(facetCount(facets, 'ACTIVE'), 31);
+  assert.equal(facetCount(facets, 'active'), 31);
+  assert.equal(facetCount(facets, 'INACTIVE'), 0);
+});
+
+test('facetCount sums several statuses', () => {
+  assert.equal(facetCount({ IN_PROGRESS: 2, STARTED: 1, DRAFT: 4 }, 'IN_PROGRESS', 'STARTED'), 3);
+});
+
+test('chartPointsFromFacets builds one point per status with the full-filter count', () => {
+  const points = chartPointsFromFacets({ DRAFT: 5, IN_REVIEW: 1 });
+  assert.deepEqual(points.map((p) => [p.label, p.value]), [['DRAFT', 5], ['IN_REVIEW', 1]]);
+  assert.ok(points.every((p) => typeof p.color === 'string'));
+});
+
+test('the workflows status filter offers the statuses that exist in the workflow_status enum', () => {
+  const status = reportDefinition('workflows').filters.find((filter) => filter.key === 'status');
+  assert.deepEqual(status.options, ['DRAFT', 'STARTED', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'CANCELED']);
 });

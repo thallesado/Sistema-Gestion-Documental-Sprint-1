@@ -1,6 +1,6 @@
 # Documentos, expedientes y almacenamiento
 
-> Revisión documental: 2026-10-16. Base de código: `a590a6d`; ver [estado verificado](../05-guias-ia/estado-verificado-y-pendientes.md). Descripción del código inspeccionado, no certificación de producción.
+> Revisión documental: 2026-11-17. Fuente: checkout `c0c49ab` más cambios locales. Actualización parcial; evidencia EC2 del 2026-11-14, sin inspección remota actual.
 
 ## Núcleo común
 
@@ -42,6 +42,8 @@ WorkflowEngineService vuelve a validar los metadatos contra el tipo del document
 
 [Capturas completas, resultados HTTP y límites de HU-13](../../evidencias/hu13/README.md): alta, edición, recarga, rechazo del workflow incompleto e inicio exitoso tras corregirlo, comprobados con datos sintéticos locales. No describe AWS.
 
+En el formulario de creación, `Expediente vinculado` es opcional y se selecciona del catálogo activo de `/api/v1/expedients` (`status=ACTIVE`), que devuelve IDs UUID y está limitado al tenant autenticado. Angular solo consulta el catálogo cuando `/auth/me` concede `expedient:read`; sin ese permiso no ofrece vincular un expediente. No se acepta texto libre como ID. La API vuelve a validar el UUID, tenant y permiso al crear el documento.
+
 ## HU-15: archivo digital (2026-11-06)
 
 El catálogo central permite seleccionar Archivo digital: todos, Activos o Históricos. `archiveState=ACTIVE` excluye ARCHIVED, VOIDED y TRASHED; `HISTORICAL` incluye únicamente ARCHIVED. Se combina con tipo, fechas y los filtros de HU-12 en PostgreSQL antes de paginar, manteniendo tenant y permisos. Un valor desconocido devuelve 400. Sin ese filtro se conserva la consulta general de todos los estados.
@@ -81,6 +83,16 @@ Fuentes: [backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/Docu
 
 El backend emite un `ETag` del documento calculado con SHA-256 de su id, estado, `currentVersion` y `updatedAt`. Angular conserva ese valor por documento: la lectura o creación lo obtiene y cada `PATCH /documents/{id}/status` o carga multipart a `/documents/{id}/versions` envía `If-Match`; la respuesta actualiza el token. La carga inicial usa el mismo mecanismo. El token no sustituye el JWT de sesión.
 
+`updatedAt` se normaliza antes de calcular el hash (instante UTC redondeado a microsegundos, como hace el driver al persistir): la entidad recién insertada trae nanosegundos y zona del servidor, y PostgreSQL devuelve microsegundos en UTC en la lectura siguiente. Sin esa normalización el `ETag` del `POST /documents` no coincidía con el recalculado por `POST /documents/{id}/versions` y la carga inicial fallaba con 412.
+
 `DocumentStateToken.requireMatch` devuelve HTTP 428 si falta el token y 412 si ya no coincide con el estado/versión actual. Antes de validar y mutar, estado y versión bloquean la fila del documento dentro de la transacción, acotada al tenant, con `FOR UPDATE`. Si una carga posterior inserta una versión, la base avanza `current_version` y la política de versión nueva reinicia el estado a DRAFT; las filas anteriores permanecen en el historial.
 
 Pruebas: `DocumentStateTokenTest` cubre cambios de token, ausencia y token obsoleto. La evidencia del navegador y respuestas HTTP locales está en [HU-14](../../evidencias/hu14/README.md). Se confirmó un documento sintético con versiones 1 y 2 y una transición obsoleta rechazada con 412. No se aplicó migración ni despliegue en AWS.
+
+## Validación del contenido del archivo y esquema del tipo Contrato (2026-11-15)
+
+`DocumentStorageService.requireMatchingContent` compara los primeros bytes del archivo con la firma del tipo declarado (PDF `%PDF-`, PNG, JPEG, DOCX `PK\x03\x04`); el `Content-Type` por sí solo lo controla el cliente. Angular hace la misma comprobación (`core/data/file-signature.ts`) al elegir el archivo, antes de crear el documento, para no dejar documentos sin archivo. La migración `091_contract_metadata_schema.sql` declara títulos y `format: date` en el tipo demo Contrato, de modo que el formulario muestra «Proveedor» y «Fecha de vigencia» y `DocumentMetadataValidator` rechaza fechas inválidas.
+
+## Integración local de main (2026-11-17)
+
+El selector de HU-13 conserva la consulta de expedientes ACTIVE condicionada por `expedient:read` y aplica `linkableExpedients` para filtrar/ordenar por código. El mensaje sin permiso y el estado vacío son locales; los campos clínicos condicionales llegaron de main. Se resolvió la combinación sin consultas ni inyecciones duplicadas. TypeScript y los contratos de wiki pasaron; no se repitió el recorrido autenticado en navegador. El cambio recibido de 091 exige inspección y respaldo antes de aplicarse a una base existente. [Contexto y límites de la integración](../06-operacion/contexto-sesion-2026-11-17.md).
