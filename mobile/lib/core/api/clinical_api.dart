@@ -265,6 +265,7 @@ class ClinicalApi {
       'content': 'Cita agendada ($preferredDate · $timeSlot): $reason',
       'status': 'DRAFT',
     }) as Map<String, dynamic>;
+    final rawStatus = created['status']?.toString();
     return MedicalAppointmentModel(
       id: created['id']?.toString() ?? code,
       code: code,
@@ -274,7 +275,7 @@ class ClinicalApi {
       preferredDate: preferredDate,
       timeSlot: timeSlot,
       reason: reason,
-      status: 'PROGRAMADA',
+      status: (rawStatus == null || rawStatus.isEmpty) ? 'DRAFT' : rawStatus,
       createdAt: DateTime.now(),
     );
   }

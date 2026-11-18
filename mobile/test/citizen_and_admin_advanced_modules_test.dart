@@ -280,7 +280,7 @@ void main() {
             'clinicalHistoryId': 'hc-pat-1',
             'noteType': body['noteType'],
             'content': body['content'],
-            'status': 'APPROVED',
+            'status': 'DRAFT',
           }, 201);
         },
       });
@@ -316,6 +316,7 @@ void main() {
 
       expect(noteCreated, isTrue);
       expect(find.text('Cardiología'), findsOneWidget);
+      expect(find.text('En confirmación'), findsOneWidget);
     });
 
     testWidgets('si el servidor rechaza la cita no se muestra como agendada y se informa el error', (tester) async {
