@@ -384,6 +384,57 @@ void main() {
       expect(body['content'], contains('Refiere mejoría.'));
     });
 
+    testWidgets('firmar y emitir crea en borrador y emite con PATCH, como exige el backend', (tester) async {
+      usePhoneScreen(tester);
+      final server = FakeServer({
+        'GET /patients': (_) => FakeServer.json(page([
+              {'id': 'pat-100', 'name': 'Beatriz Morales', 'documentId': '43210987'},
+            ])),
+        'GET /clinical-histories': (_) => FakeServer.json(page([
+              {'id': 'history-100', 'code': 'HC-00100', 'patientId': 'pat-100', 'patientLabel': 'Beatriz Morales', 'allergies': [], 'currentMedications': [], 'baseDiagnoses': []},
+            ])),
+        'GET /medical-notes': (_) => FakeServer.json(page([])),
+        // El backend rechaza crear una nota que no sea BORRADOR (MedicalNoteService.create).
+        'POST /medical-notes': (request) {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          if (body['status'] != 'DRAFT') {
+            return FakeServer.json({'message': 'Toda nota médica debe crearse como BORRADOR'}, 400);
+          }
+          return FakeServer.json({'id': 'n-new', 'clinicalHistoryId': 'history-100', 'noteType': 'EVOLUTION', 'status': 'DRAFT', 'content': body['content']}, 201);
+        },
+        'PATCH /medical-notes/n-new/status': (_) => FakeServer.json({'id': 'n-new', 'status': 'APPROVED'}),
+      });
+      final authApi = AuthApi(client: server.client)
+        ..permissions.value = UserPermissions({'patient:read', 'medical_note:read', 'medical_note:create', 'medical_note:update'});
+
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.lightTheme, home: Scaffold(body: PatientsTab(api: authApi))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('patient-history-pat-100')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Evolución'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('clinical-new-note')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('note-content')), 'Paciente estable');
+      await tester.ensureVisible(find.byKey(const Key('note-sign')));
+      await tester.tap(find.byKey(const Key('note-sign')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('note-save')));
+      await tester.tap(find.byKey(const Key('note-save')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('note-approve-confirm')));
+      await tester.pumpAndSettle();
+
+      final created = server.call('POST /medical-notes');
+      expect(created, hasLength(1));
+      expect((jsonDecode(created.single.body) as Map<String, dynamic>)['status'], 'DRAFT');
+      final emitted = server.call('PATCH /medical-notes/n-new/status');
+      expect(emitted, hasLength(1));
+      expect(jsonDecode(emitted.single.body), {'status': 'APPROVED'});
+      expect(find.byKey(const Key('note-error')), findsNothing);
+    });
+
     testWidgets('el botón de dictado no aparece sin medical_note:create', (tester) async {
       usePhoneScreen(tester);
       final server = FakeServer({

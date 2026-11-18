@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../core/errors/api_exception.dart';
 import '../../core/api/clinical_api.dart';
 import '../../core/models/medical_appointment_model.dart';
 import '../../core/models/patient_model.dart';
@@ -116,8 +118,10 @@ class _PatientAppointmentsSheetState extends State<PatientAppointmentsSheet>
         _reasonController.clear();
         _tabController.animateTo(0);
       });
-    } catch (_) {
-      if (mounted) setState(() => _submitting = false);
+    } on ApiException catch (exception) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message), backgroundColor: Colors.red.shade700));
     }
   }
 

@@ -251,42 +251,22 @@ class ClinicalApi {
     required String reason,
   }) async {
     final code = 'CITA-${DateTime.now().year}-${(DateTime.now().millisecondsSinceEpoch % 90000) + 10000}';
-    String? historyId;
-    try {
-      final res = await _client.get('/clinical-histories', query: {'patientId': patientId, 'size': 1});
-      if (res is Map<String, dynamic>) {
-        final content = res['content'] as List<dynamic>? ?? [];
-        if (content.isNotEmpty) {
-          historyId = (content.first as Map<String, dynamic>)['id'] as String?;
-        }
-      }
-    } catch (_) {}
-
-    if (historyId != null && historyId.isNotEmpty) {
-      try {
-        final created = await _client.post('/medical-notes', {
-          'clinicalHistoryId': historyId,
-          'noteType': 'CITA_${specialty.toUpperCase().replaceAll(' ', '_')}',
-          'content': 'Cita agendada ($preferredDate · $timeSlot): $reason',
-          'status': 'APPROVED',
-        }) as Map<String, dynamic>;
-        return MedicalAppointmentModel(
-          id: created['id']?.toString() ?? code,
-          code: code,
-          patientId: patientId,
-          patientName: patientName,
-          specialty: specialty,
-          preferredDate: preferredDate,
-          timeSlot: timeSlot,
-          reason: reason,
-          status: 'PROGRAMADA',
-          createdAt: DateTime.now(),
-        );
-      } catch (_) {}
+    // Antes los errores se ignoraban y se devolvía una cita "programada" que nunca llegó al servidor.
+    final res = await _client.get('/clinical-histories', query: {'patientId': patientId, 'size': 1});
+    final content = res is Map<String, dynamic> ? res['content'] as List<dynamic>? ?? const [] : const [];
+    final historyId = content.isEmpty ? null : (content.first as Map<String, dynamic>)['id'] as String?;
+    if (historyId == null || historyId.isEmpty) {
+      throw ApiException(tr('El paciente no tiene historia clínica; créala antes de agendar una cita.'));
     }
-
+    // El backend solo crea notas en BORRADOR (MedicalNoteService.create).
+    final created = await _client.post('/medical-notes', {
+      'clinicalHistoryId': historyId,
+      'noteType': 'CITA_${specialty.toUpperCase().replaceAll(' ', '_')}',
+      'content': 'Cita agendada ($preferredDate · $timeSlot): $reason',
+      'status': 'DRAFT',
+    }) as Map<String, dynamic>;
     return MedicalAppointmentModel(
-      id: code,
+      id: created['id']?.toString() ?? code,
       code: code,
       patientId: patientId,
       patientName: patientName,

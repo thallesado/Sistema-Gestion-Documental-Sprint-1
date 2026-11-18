@@ -6,6 +6,7 @@ import '../../core/errors/api_exception.dart';
 import '../../core/i18n/app_language.dart';
 import '../../core/theme/app_theme.dart';
 import 'clinical_labels.dart';
+import 'note_emission_dialog.dart';
 
 /// Hoja para registrar una nota médica en la historia clínica (POST /medical-notes).
 /// Devuelve la nota creada.
@@ -99,15 +100,32 @@ class _MedicalNoteSheetState extends State<MedicalNoteSheet> {
       setState(() => error = tr('Escribe el contenido de la nota.'));
       return;
     }
+    final emit = status == 'APPROVED';
+    if (emit && (!await confirmNoteEmission(context) || !mounted)) return;
     setState(() {
       saving = true;
       error = null;
     });
     try {
-      final note = await widget.api.clinical.createNote(historyId: widget.historyId, noteType: noteType, content: toNoteHtml(text), status: status);
+      // El backend solo crea notas en BORRADOR; emitir es un segundo paso (PATCH de estado).
+      var note = await widget.api.clinical.createNote(historyId: widget.historyId, noteType: noteType, content: toNoteHtml(text));
+      if (emit) {
+        try {
+          note = {...note, ...await widget.api.clinical.changeNoteStatus(note['id'] as String, 'APPROVED')};
+        } on ApiException catch (exception) {
+          // La nota ya existe como borrador: se informa y se cierra para no duplicarla al reintentar.
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(tr('Nota guardada como borrador, pero no se pudo emitir: {error}', {'error': exception.message})),
+            backgroundColor: Colors.red.shade700,
+          ));
+          Navigator.of(context).pop(note);
+          return;
+        }
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(status == 'DRAFT' ? tr('Nota médica guardada como borrador.') : tr('Nota médica firmada y registrada como vigente.')),
+        content: Text(emit ? tr('Nota médica firmada y registrada como vigente.') : tr('Nota médica guardada como borrador.')),
       ));
       Navigator.of(context).pop(note);
     } on ApiException catch (exception) {

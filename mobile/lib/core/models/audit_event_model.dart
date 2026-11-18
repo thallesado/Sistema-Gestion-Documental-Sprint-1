@@ -74,20 +74,23 @@ class AuditEventModel {
       action.toUpperCase().contains('UNAUTHORIZED');
 
   /// Etiqueta amigable para no saturar la vista móvil con códigos técnicos.
-  String get humanActionLabel {
-    final upper = action.toUpperCase();
-    if (upper.contains('LOGIN')) return 'Inicio de sesión';
-    if (upper.contains('LOGOUT')) return 'Cierre de sesión';
-    if (upper.contains('DOWNLOAD') || upper.contains('VERSION_DOWNLOAD')) return 'Descarga de versión documental';
-    if (upper.contains('DOCUMENT_CREATE') || upper.contains('CREATE_DOCUMENT')) return 'Creación de documento';
-    if (upper.contains('VERSION_UPLOAD') || upper.contains('UPLOAD')) return 'Carga de nueva versión';
-    if (upper.contains('EXPEDIENT_CREATE') || upper.contains('RADICACION')) return 'Radicación de expediente';
-    if (upper.contains('CLOSE')) return 'Cierre de trámite / expediente';
-    if (upper.contains('APPROVE')) return 'Aprobación en flujo de trabajo';
-    if (upper.contains('REJECT')) return 'Rechazo de tarea o trámite';
-    if (upper.contains('STATUS') || upper.contains('TRANSITION')) return 'Cambio de estado';
-    return action.replaceAll('_', ' ');
-  }
+  String get humanActionLabel => auditActionLabel(action);
+}
+
+/// Etiqueta legible de una acción de auditoría (también la usa la actividad reciente del inicio).
+String auditActionLabel(String action) {
+  final upper = action.toUpperCase();
+  if (upper.contains('LOGIN')) return 'Inicio de sesión';
+  if (upper.contains('LOGOUT')) return 'Cierre de sesión';
+  if (upper.contains('DOWNLOAD') || upper.contains('VERSION_DOWNLOAD')) return 'Descarga de versión documental';
+  if (upper.contains('DOCUMENT_CREATE') || upper.contains('CREATE_DOCUMENT')) return 'Creación de documento';
+  if (upper.contains('VERSION_UPLOAD') || upper.contains('UPLOAD')) return 'Carga de nueva versión';
+  if (upper.contains('EXPEDIENT_CREATE') || upper.contains('RADICACION')) return 'Radicación de expediente';
+  if (upper.contains('CLOSE')) return 'Cierre de trámite / expediente';
+  if (upper.contains('APPROVE')) return 'Aprobación en flujo de trabajo';
+  if (upper.contains('REJECT')) return 'Rechazo de tarea o trámite';
+  if (upper.contains('STATUS') || upper.contains('TRANSITION')) return 'Cambio de estado';
+  return action.replaceAll('_', ' ');
 }
 
 /// Resultado de verificación criptográfica de la cadena SHA-256 (`AuditVerificationResult`).

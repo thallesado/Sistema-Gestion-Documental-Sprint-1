@@ -80,6 +80,8 @@ void usePhoneScreen(WidgetTester tester) {
   addTearDown(tester.view.reset);
 }
 
+const realChecksum = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -187,6 +189,8 @@ void main() {
                 'versionNumber': 2,
                 'fileName': 'resolucion_088.pdf',
                 'fileSizeBytes': 12400,
+                // Nombre real del campo en DocumentVersionResponse.
+                'checksumSha256': realChecksum,
                 'createdAt': '2026-11-17T10:00:00Z',
               }
             ]),
@@ -209,11 +213,40 @@ void main() {
 
       expect(find.text('Certificado QR de Autenticidad'), findsWidgets);
       expect(find.byKey(const Key('verification-qr-widget')), findsOneWidget);
+      // La huella es la del archivo, no una calculada con el código y el nombre.
+      expect(find.text(realChecksum), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('download-doc-certificate-pdf-button')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('doc-certificate-pdf-saved')), findsOneWidget);
+    });
+
+    testWidgets('sin checksum de la versión no se inventa una huella ni se emite certificado', (tester) async {
+      usePhoneScreen(tester);
+      final server = FakeServer({
+        'GET /documents/doc-cert-2': (_) => FakeServer.json({
+              'id': 'doc-cert-2', 'code': 'DOC-002', 'name': 'Acta sin huella', 'status': 'APPROVED', 'updatedAt': '2026-11-17T10:00:00Z',
+            }),
+        'GET /documents/doc-cert-2/versions': (_) => FakeServer.json([
+              {'id': 'ver-9', 'versionNumber': 1, 'fileName': 'acta.pdf', 'createdAt': '2026-11-17T10:00:00Z'}
+            ]),
+        'GET /workflows': (_) => FakeServer.json(page([])),
+      });
+      final api = AuthApi(client: server.client)..permissions.value = const UserPermissions({'document:read'});
+
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(body: DocumentDetailSheet(api: api, documentId: 'doc-cert-2')),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('document-qr-certificate-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('verification-qr-widget')), findsNothing);
+      expect(find.byKey(const Key('doc-certificate-hash-missing')), findsOneWidget);
+      final pdf = tester.widget<ButtonStyleButton>(find.byKey(const Key('download-doc-certificate-pdf-button')));
+      expect(pdf.onPressed, isNull);
     });
   });
 
@@ -240,6 +273,8 @@ void main() {
           noteCreated = true;
           final body = jsonDecode(req.body) as Map<String, dynamic>;
           expect(body['noteType'], 'CITA_CARDIOLOGÍA');
+          // El backend solo acepta crear notas en BORRADOR.
+          expect(body['status'], 'DRAFT');
           return FakeServer.json({
             'id': 'note-cita-new',
             'clinicalHistoryId': 'hc-pat-1',
@@ -281,6 +316,37 @@ void main() {
 
       expect(noteCreated, isTrue);
       expect(find.text('Cardiología'), findsOneWidget);
+    });
+
+    testWidgets('si el servidor rechaza la cita no se muestra como agendada y se informa el error', (tester) async {
+      usePhoneScreen(tester);
+      final server = FakeServer({
+        'GET /clinical-histories': (_) => FakeServer.json(page([
+              {'id': 'hc-pat-1', 'patientId': 'pat-1', 'code': 'HC-001'}
+            ])),
+        'GET /medical-notes': (_) => FakeServer.json(page([])),
+        'POST /medical-notes': (_) => FakeServer.json({'message': 'Toda nota médica debe crearse como BORRADOR'}, 400),
+      });
+      final api = AuthApi(client: server.client)..permissions.value = const UserPermissions({'patient:read'});
+      const patient = PatientModel(id: 'pat-1', name: 'Sofía Vergara', documentId: '31998877');
+
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(body: PatientAppointmentsSheet(clinicalApi: api.clinical, patient: patient)),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Agendar Cita'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('specialty-chip-Cardiología')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('appointment-reason-input')), 'Chequeo preventivo anual');
+      await tester.tap(find.byKey(const Key('submit-appointment-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Toda nota médica debe crearse como BORRADOR'), findsOneWidget);
+      await tester.tap(find.text('Mis Citas'));
+      await tester.pumpAndSettle();
+      expect(find.text('Cardiología'), findsNothing);
     });
   });
 

@@ -42,7 +42,8 @@ class ClinicalMedicationModel {
   factory ClinicalMedicationModel.fromJson(Map<String, dynamic> json) {
     return ClinicalMedicationModel(
       medicationName: json['medicationName'] as String? ?? json['name'] as String? ?? '',
-      dosage: json['dosage'] as String? ?? '',
+      // MedicationEntry del backend usa dose; dosage se acepta por compatibilidad.
+      dosage: json['dose'] as String? ?? json['dosage'] as String? ?? '',
       frequency: json['frequency'] as String?,
       status: json['status'] as String? ?? 'ACTIVE',
     );

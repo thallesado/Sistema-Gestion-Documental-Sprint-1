@@ -95,7 +95,7 @@ class DocumentVersionModel {
       fileSizeBytes: json['fileSizeBytes'] as int? ?? json['sizeBytes'] as int?,
       contentType: json['contentType'] as String? ?? json['mimeType'] as String?,
       changeReason: json['changeReason'] as String?,
-      sha256: json['sha256'] as String?,
+      sha256: json['checksumSha256'] as String? ?? json['sha256'] as String?,
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'] as String) : null,
       uploadedBy: json['uploadedBy'] as String?,
       rawJson: json,

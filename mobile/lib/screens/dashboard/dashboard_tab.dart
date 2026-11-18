@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/models/audit_event_model.dart';
+
 import '../../core/api/auth_api.dart';
 import '../../core/auth/user_permissions.dart';
 import '../../core/errors/api_exception.dart';
@@ -225,9 +227,12 @@ class _DashboardTabState extends State<DashboardTab> {
           if (activities.isNotEmpty) ...[
             _SectionHeader(title: context.tr('Actividad reciente')),
             ...activities.take(5).map((act) => _ActivityItem(
-              description: act['description'] as String? ?? context.tr('Actividad registrada'),
-              timestamp: formatDate(act['timestamp'], withTime: true),
-              userName: act['userName'] as String? ?? '',
+              // DashboardActivityResponse: action, actorName, occurredAt.
+              description: act['action'] is String
+                  ? auditActionLabel(act['action'] as String)
+                  : act['description'] as String? ?? context.tr('Actividad registrada'),
+              timestamp: formatDate(act['occurredAt'] ?? act['timestamp'], withTime: true),
+              userName: act['actorName'] as String? ?? act['userName'] as String? ?? '',
             )),
           ],
         ],

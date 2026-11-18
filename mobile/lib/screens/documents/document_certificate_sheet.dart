@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:open_filex/open_filex.dart';
@@ -58,23 +56,25 @@ class _DocumentCertificateSheetState extends State<DocumentCertificateSheet> {
   String get _versionNumber => (widget.latestVersion?['versionNumber'] ?? 1).toString();
   String get _updatedAt => formatDate(widget.document['updatedAt'] ?? DateTime.now().toIso8601String(), withTime: true);
 
-  String get _verificationHash {
-    final existingHash = widget.latestVersion?['sha256'] as String? ??
-        widget.latestVersion?['fileHash'] as String? ??
-        widget.document['sha256'] as String?;
-    if (existingHash != null && existingHash.trim().length >= 32) {
-      return existingHash.trim();
-    }
-    final seed = '$_code|$_name|$_versionNumber|$_status';
-    return sha256.convert(utf8.encode(seed)).toString();
+  /// Huella SHA-256 real del archivo (DocumentVersionResponse.checksumSha256). Nunca se calcula a partir del
+  /// código o el nombre: una huella inventada no coincide con el archivo y el certificado sería falso.
+  String? get _verificationHash {
+    final hash = (widget.latestVersion?['checksumSha256'] ??
+            widget.latestVersion?['sha256'] ??
+            widget.latestVersion?['fileHash'] ??
+            widget.document['checksumSha256']) as String?;
+    final value = hash?.trim().toLowerCase();
+    return value != null && RegExp(r'^[0-9a-f]{64}$').hasMatch(value) ? value : null;
   }
 
   Future<void> _copyVerificationData() async {
+    final hash = _verificationHash;
+    if (hash == null) return;
     final text = 'CERTIFICADO DE AUTENTICIDAD NEXODOCS\n'
         'Documento: $_name ($_code)\n'
         'Estado: $_status · Versión v$_versionNumber\n'
-        'Hash SHA-256: $_verificationHash\n'
-        'Verificación QR: NEXODOCS|$_code|${_verificationHash.substring(0, 16)}';
+        'Hash SHA-256: $hash\n'
+        'Verificación QR: NEXODOCS|$_code|${hash.substring(0, 16)}';
     try {
       await Clipboard.setData(ClipboardData(text: text));
     } catch (_) {}
@@ -91,7 +91,7 @@ class _DocumentCertificateSheetState extends State<DocumentCertificateSheet> {
         authorName: _author,
         versionNumber: _versionNumber,
         updatedAt: _updatedAt,
-        verificationHash: _verificationHash,
+        verificationHash: _verificationHash!,
       );
       if (!mounted) return;
       setState(() {
@@ -159,11 +159,12 @@ class _DocumentCertificateSheetState extends State<DocumentCertificateSheet> {
                     ),
                     child: Column(
                       children: [
-                        VerificationQrWidget(
-                          code: _code,
-                          verificationHash: _verificationHash,
-                          size: 136,
-                        ),
+                        if (_verificationHash != null)
+                          VerificationQrWidget(
+                            code: _code,
+                            verificationHash: _verificationHash!,
+                            size: 136,
+                          ),
                         const SizedBox(height: 14),
                         Text(
                           _name,
@@ -195,10 +196,17 @@ class _DocumentCertificateSheetState extends State<DocumentCertificateSheet> {
                                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54),
                               ),
                               const SizedBox(height: 4),
-                              SelectableText(
-                                _verificationHash,
-                                style: const TextStyle(fontFamily: 'monospace', fontSize: 10.5, fontWeight: FontWeight.w600),
-                              ),
+                              if (_verificationHash != null)
+                                SelectableText(
+                                  _verificationHash!,
+                                  style: const TextStyle(fontFamily: 'monospace', fontSize: 10.5, fontWeight: FontWeight.w600),
+                                )
+                              else
+                                Text(
+                                  context.tr('No disponible: la versión no informa su huella SHA-256, así que no se puede certificar.'),
+                                  key: const Key('doc-certificate-hash-missing'),
+                                  style: TextStyle(fontSize: 11, color: Colors.red.shade700),
+                                ),
                             ],
                           ),
                         ),
@@ -238,7 +246,7 @@ class _DocumentCertificateSheetState extends State<DocumentCertificateSheet> {
                   Expanded(
                     child: FilledButton.icon(
                       key: const Key('download-doc-certificate-pdf-button'),
-                      onPressed: _savingPdf ? null : _downloadPdf,
+                      onPressed: _savingPdf || _verificationHash == null ? null : _downloadPdf,
                       icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
                       label: Text(_savedPdfPath != null ? context.tr('PDF Descargado') : context.tr('Descargar PDF')),
                       style: FilledButton.styleFrom(
@@ -252,7 +260,7 @@ class _DocumentCertificateSheetState extends State<DocumentCertificateSheet> {
                   Expanded(
                     child: OutlinedButton.icon(
                       key: const Key('copy-doc-certificate-button'),
-                      onPressed: _copyVerificationData,
+                      onPressed: _verificationHash == null ? null : _copyVerificationData,
                       icon: Icon(_copied ? Icons.check : Icons.copy, size: 18),
                       label: Text(_copied ? context.tr('Copiado') : context.tr('Copiar Constancia')),
                       style: OutlinedButton.styleFrom(
