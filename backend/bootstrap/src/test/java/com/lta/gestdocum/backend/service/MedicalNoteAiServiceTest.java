@@ -5,6 +5,8 @@ import com.lta.gestdocum.backend.controller.MedicalNoteController;
 import com.lta.gestdocum.backend.dto.MedicalNoteAiDraftResponse;
 import com.lta.gestdocum.backend.exception.NotFoundException;
 import com.lta.gestdocum.backend.model.AllergyEntry;
+import com.lta.gestdocum.backend.model.ComponentState;
+import com.lta.gestdocum.backend.repository.ComponentPermissionRepository;
 import com.lta.gestdocum.backend.model.ClinicalHistory;
 import com.lta.gestdocum.backend.model.MedicationEntry;
 import com.lta.gestdocum.backend.model.Patient;
@@ -18,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,6 +44,7 @@ class MedicalNoteAiServiceTest {
     @Mock private PatientRepository patientRepository;
     @Mock private AuthenticatedUserContext userContext;
     @Mock private AuditRecorder auditRecorder;
+    @Mock private ComponentPermissionService componentPermissions;
 
     private MedicalNoteAiService service;
 
@@ -53,7 +57,9 @@ class MedicalNoteAiServiceTest {
     @BeforeEach
     void setUp() {
         service = new MedicalNoteAiService(geminiClient, historyRepository, patientRepository,
-                userContext, auditRecorder, new ObjectMapper(), new FakeTransactionManager());
+                userContext, auditRecorder, new ObjectMapper(), new FakeTransactionManager(), componentPermissions);
+        lenient().when(componentPermissions.current(ComponentFormCatalog.MEDICAL_NOTE_FORM))
+                .thenReturn(ComponentFormAccess.unrestricted(ComponentFormCatalog.require(ComponentFormCatalog.MEDICAL_NOTE_FORM)));
         history = ClinicalHistory.builder()
                 .id(historyId).tenantId(tenantId).patientId(patientId)
                 .allergies(new java.util.ArrayList<>(List.of(new AllergyEntry("Penicilina", "ALTA", "urticaria"))))
@@ -105,6 +111,30 @@ class MedicalNoteAiServiceTest {
 
         assertEquals("Paciente estable", service.draft(wav(), historyId, "es").transcript());
         verify(auditRecorder).record(anyString(), anyString(), any(UUID.class), isNull(), anyMap());
+    }
+
+    @Test
+    void contenidoOcultoNoLlamaAGeminiNiDevuelveLaNota() {
+        var form = ComponentFormCatalog.require(ComponentFormCatalog.MEDICAL_NOTE_FORM);
+        when(componentPermissions.current(ComponentFormCatalog.MEDICAL_NOTE_FORM)).thenReturn(
+                ComponentFormAccess.resolve(form, List.of(1L), List.of(
+                        new ComponentPermissionRepository.Row(1L, "contenido", ComponentState.HIDDEN))));
+
+        assertThrows(AccessDeniedException.class, () -> service.draft(wav(), historyId, "es"));
+        verify(geminiClient, never()).generateRaw(anyMap());
+    }
+
+    @Test
+    void tipoOcultoNoSaleEnElBorrador() {
+        var form = ComponentFormCatalog.require(ComponentFormCatalog.MEDICAL_NOTE_FORM);
+        when(componentPermissions.current(ComponentFormCatalog.MEDICAL_NOTE_FORM)).thenReturn(
+                ComponentFormAccess.resolve(form, List.of(1L), List.of(
+                        new ComponentPermissionRepository.Row(1L, "tipo", ComponentState.HIDDEN))));
+        geminiReturns("{\"transcript\":\"Paciente estable\",\"noteType\":\"EVOLUTION\",\"subjective\":\"s\",\"objective\":\"\",\"assessment\":\"\",\"plan\":\"\"}");
+
+        MedicalNoteAiDraftResponse draft = service.draft(wav(), historyId, "es");
+        assertNull(draft.noteType());
+        assertEquals("Paciente estable", draft.transcript());
     }
 
     @Test

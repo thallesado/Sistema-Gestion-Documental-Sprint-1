@@ -11,9 +11,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -24,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -83,6 +86,26 @@ class DocumentTranslationServiceTest {
         assertThrows(AccessDeniedException.class,
                 () -> service.updateSegment(UUID.randomUUID(), UUID.randomUUID(), "revisado", "MODIFIED"));
         verify(db, never()).update(anyString(), anyMap());
+    }
+
+    @Test
+    void updateSegmentMissingRowIsNotFoundAndDoesNotAudit() {
+        var user = new AuthenticatedUser(UUID.randomUUID(), UUID.randomUUID(), "revisor",
+                Set.of("translation:read", "translation:review", "document:read"));
+        var holder = SecurityContextHolder.createEmptyContext();
+        holder.setAuthentication(new UsernamePasswordAuthenticationToken(user, null, List.of()));
+        SecurityContextHolder.setContext(holder);
+        when(db.queryForList(anyString(), anyMap())).thenReturn(List.of(Map.of("id", UUID.randomUUID())));
+        when(db.update(anyString(), anyMap())).thenReturn(0);
+        var local = new DocumentTranslationService(
+                new DocumentOperations(db, jdbc, new ObjectMapper(), new AuthenticatedUserContext(), transactions),
+                storage, documents, null);
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> local.updateSegment(UUID.randomUUID(), UUID.randomUUID(), "revisado", "MODIFIED"));
+
+        assertEquals(HttpStatus.NOT_FOUND.value(), error.getStatusCode().value());
+        verify(jdbc, never()).update(anyString(), any(Object[].class));
     }
 
     @Test

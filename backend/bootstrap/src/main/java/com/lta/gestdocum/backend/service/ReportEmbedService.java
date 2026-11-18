@@ -98,9 +98,11 @@ public class ReportEmbedService {
             throw e;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            log.error("ReportIQ /v1/embed-tokens interrumpido", e);
             throw unavailable(e);
         } catch (Exception e) {
-            log.error("Error al generar Embed Token de ReportIQ ({})", e.getClass().getSimpleName());
+            // Causa en el log del servidor. El cuerpo de ReportIQ no se registra: puede traer datos de la cuenta.
+            log.error("Error al generar Embed Token de ReportIQ", e);
             throw unavailable(e);
         }
     }

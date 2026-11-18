@@ -1,9 +1,13 @@
 package com.lta.gestdocum.backend.service;
 
 import com.lta.gestdocum.backend.dto.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.nio.file.*;
 import java.time.*;
 import java.util.*;
@@ -11,6 +15,7 @@ import java.security.*;
 
 @Service
 public class MailIntakeService {
+    private static final Logger log = LoggerFactory.getLogger(MailIntakeService.class);
     private final DocumentOperations o;private final MailboxGateway gateway;private final IntakeFileScanner scanner;
     private final OcrService ocr;private final PlanLimitService limits;private final boolean ocrEnabled;
     private final DocumentService documents;private final DocumentStorageService storage;private final Path root;
@@ -109,23 +114,39 @@ public class MailIntakeService {
         if(!Boolean.TRUE.equals(c.get("enabled")))throw DocumentOperations.conflict("Buzón desconectado");
         long validity=c.get("uid_validity")==null?0:((Number)c.get("uid_validity")).longValue();long last=((Number)c.get("last_uid")).longValue();
         var p=o.args("id",job.get("id"),"connection",connection);int[] received={0};
+        List<Path> written=new ArrayList<>();
+        discardOnRollback(written);
         try{
-            var cursor=gateway.read(c.get("profile_key").toString(),c.get("folder").toString(),validity,last,PhysicalArchiveService.time(c.get("since_at")),c.get("sender_filter").toString(),c.get("subject_filter").toString(),a->{if(storeAttachment(connection,a))received[0]++;});
+            var cursor=gateway.read(c.get("profile_key").toString(),c.get("folder").toString(),validity,last,PhysicalArchiveService.time(c.get("since_at")),c.get("sender_filter").toString(),c.get("subject_filter").toString(),a->{
+                try{if(storeAttachment(connection,a,written))received[0]++;}
+                catch(RuntimeException ex){log.warn("Adjunto de correo omitido uid={} ({})",a.uid(),ex.getClass().getSimpleName());}
+            });
             p.put("validity",cursor.validity());p.put("last",cursor.lastUid());p.put("received",received[0]);
             o.db.update("UPDATE mailbox_connections SET uid_validity=:validity,last_uid=:last,last_sync_at=now(),state='CONNECTED',error_code=NULL WHERE tenant_id=:tenant AND id=:connection",p);
             o.db.update("UPDATE document_operation_jobs SET status='COMPLETED',completed_at=now(),received_count=:received,lease_until=NULL WHERE tenant_id=:tenant AND id=:id",p);
             o.audit("MAILBOX_SYNC_COMPLETED","MAILBOX",connection,Map.of("received",received[0]));
         }catch(Exception e){throw new IllegalStateException("MAILBOX_CONNECTION_FAILED");}
     }
-    private boolean storeAttachment(UUID connection,MailboxGateway.Attachment a){
+    private boolean storeAttachment(UUID connection,MailboxGateway.Attachment a,List<Path> written){
         var p=o.args("connection",connection,"validity",a.validity(),"uid",a.uid(),"part",a.part());
         if(o.db.queryForObject("SELECT count(*) FROM mail_intake_items WHERE tenant_id=:tenant AND connection_id=:connection AND uid_validity=:validity AND message_uid=:uid AND part_number=:part",p,Integer.class)>0)return false;
         p.put("identity",a.identity());p.put("checksum",hash(a.data()));
         if(a.identity()!=null&&o.db.queryForObject("SELECT count(*) FROM mail_intake_items WHERE tenant_id=:tenant AND connection_id=:connection AND message_identity=:identity AND part_number=:part AND checksum=:checksum",p,Integer.class)>0)return false;
         UUID id=UUID.randomUUID();String result=scanner.scan(a.data(),a.mime());Path target=root.resolve(o.context.requireTenantId().toString()).resolve(".mail").resolve(id.toString());
         boolean storable=a.data().length>0&&a.data().length<=25*1024*1024;
-        if(storable)try{Files.createDirectories(target.getParent());Files.write(target,a.data(),StandardOpenOption.CREATE_NEW);if(Files.getFileStore(target).supportsFileAttributeView("posix")){Files.setPosixFilePermissions(target.getParent(),java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));Files.setPosixFilePermissions(target,java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));}}catch(Exception e){throw new IllegalStateException("No se pudo guardar el adjunto en cuarentena");}
+        boolean storedFile=false;
+        if(storable)try{Files.createDirectories(target.getParent());Files.write(target,a.data(),StandardOpenOption.CREATE_NEW);storedFile=true;if(Files.getFileStore(target).supportsFileAttributeView("posix")){Files.setPosixFilePermissions(target.getParent(),java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));Files.setPosixFilePermissions(target,java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));}}catch(Exception e){throw new IllegalStateException("No se pudo guardar el adjunto en cuarentena");}
         p.put("id",id);p.put("sender",a.sender());p.put("subject",a.subject());p.put("date",a.received());p.put("name",a.name().replaceAll("[\\\\/\\r\\n]","_"));p.put("mime",a.mime());p.put("size",a.data().length);p.put("checksum",storable?hash(a.data()):null);p.put("path",storable?root.relativize(target).toString().replace('\\','/'):null);p.put("status",scanStatus(result));p.put("scan",result);
-        o.db.update("INSERT INTO mail_intake_items(id,tenant_id,connection_id,uid_validity,message_uid,part_number,sender,subject,received_at,file_name,mime_type,file_size_bytes,checksum,file_path,status,scan_result,message_identity) VALUES(:id,:tenant,:connection,:validity,:uid,:part,:sender,:subject,:date,:name,:mime,:size,:checksum,:path,:status,:scan,:identity)",p);return true;
+        try{o.db.update("INSERT INTO mail_intake_items(id,tenant_id,connection_id,uid_validity,message_uid,part_number,sender,subject,received_at,file_name,mime_type,file_size_bytes,checksum,file_path,status,scan_result,message_identity) VALUES(:id,:tenant,:connection,:validity,:uid,:part,:sender,:subject,:date,:name,:mime,:size,:checksum,:path,:status,:scan,:identity)",p);}
+        catch(RuntimeException ex){if(storedFile)deleteQuiet(target);throw ex;}
+        if(storedFile)written.add(target);return true;
     }
+    /** Si la transacción del lote se revierte, los archivos ya escritos no quedan huérfanos. */
+    static void discardOnRollback(List<Path> written){
+        if(!TransactionSynchronizationManager.isSynchronizationActive())return;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){
+            @Override public void afterCompletion(int status){if(status==TransactionSynchronization.STATUS_ROLLED_BACK)written.forEach(MailIntakeService::deleteQuiet);}
+        });
+    }
+    private static void deleteQuiet(Path path){try{Files.deleteIfExists(path);}catch(Exception ignored){}}
 }

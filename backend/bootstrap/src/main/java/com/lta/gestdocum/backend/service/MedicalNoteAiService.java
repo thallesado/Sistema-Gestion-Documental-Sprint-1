@@ -13,6 +13,7 @@ import com.lta.gestdocum.backend.repository.ClinicalHistoryRepository;
 import com.lta.gestdocum.backend.repository.PatientRepository;
 import com.lta.gestdocum.backend.security.AuthenticatedUserContext;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -63,11 +64,13 @@ public class MedicalNoteAiService {
     private final AuditRecorder auditRecorder;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transaction;
+    private final ComponentPermissionService componentPermissions;
 
     public MedicalNoteAiService(GeminiClient geminiClient, ClinicalHistoryRepository historyRepository,
                                 PatientRepository patientRepository, AuthenticatedUserContext userContext,
                                 AuditRecorder auditRecorder, ObjectMapper objectMapper,
-                                PlatformTransactionManager transactionManager) {
+                                PlatformTransactionManager transactionManager,
+                                ComponentPermissionService componentPermissions) {
         this.geminiClient = geminiClient;
         this.historyRepository = historyRepository;
         this.patientRepository = patientRepository;
@@ -75,6 +78,7 @@ public class MedicalNoteAiService {
         this.auditRecorder = auditRecorder;
         this.objectMapper = objectMapper;
         this.transaction = new TransactionTemplate(transactionManager);
+        this.componentPermissions = componentPermissions;
     }
 
     /**
@@ -95,6 +99,13 @@ public class MedicalNoteAiService {
             if (found.getCurrentMedications() != null) found.getCurrentMedications().size();
             return found;
         });
+        ComponentFormAccess access = transaction.execute(status -> {
+            userContext.establishDatabaseContext();
+            return componentPermissions.current(ComponentFormCatalog.MEDICAL_NOTE_FORM);
+        });
+        if (access == null || !access.visible("contenido")) {
+            throw new AccessDeniedException("Tu perfil no puede ver el contenido de la nota médica");
+        }
 
         String mimeType = validateAudio(audio);
         if (!geminiClient.isConfigured()) {
@@ -120,14 +131,22 @@ public class MedicalNoteAiService {
                     "La IA no pudo procesar el audio. Reintente o escriba la nota manualmente");
         }
 
-        MedicalNoteAiDraftResponse draft = parseDraft(text, history);
-        if (draft.transcript() == null || draft.transcript().isBlank()) {
+        MedicalNoteAiDraftResponse parsed = parseDraft(text, history);
+        if (parsed.transcript() == null || parsed.transcript().isBlank()) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "No se detectó voz en el audio. Reintente o escriba la nota manualmente");
         }
+        MedicalNoteAiDraftResponse draft = new MedicalNoteAiDraftResponse(
+                access.reveal("contenido", parsed.transcript()),
+                access.reveal("tipo", parsed.noteType()),
+                access.reveal("contenido", parsed.subjective()),
+                access.reveal("contenido", parsed.objective()),
+                access.reveal("contenido", parsed.assessment()),
+                access.reveal("contenido", parsed.plan()),
+                parsed.warnings());
 
         if (auditRecorder != null) {
-            String noteType = draft.noteType();
+            String noteType = draft.noteType() == null ? "" : draft.noteType();
             int warningCount = draft.warnings().size();
             transaction.executeWithoutResult(status -> {
                 userContext.establishDatabaseContext();

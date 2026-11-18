@@ -109,9 +109,13 @@ public class DocumentTranslationService {
                            "text", reviewedText != null ? reviewedText.trim() : "",
                            "status", (status != null && !status.isBlank()) ? status : "MODIFIED");
             o.one("SELECT id FROM translation_requests WHERE tenant_id=:tenant AND id=:reqId AND status IN('REVIEW_PENDING','CHANGES_REQUESTED') FOR UPDATE", p);
-            o.db.update(
+            int updated = o.db.update(
                 "UPDATE translation_segments SET reviewed_text=:text, status=:status, updated_at=now() " +
                 "WHERE tenant_id=:tenant AND request_id=:reqId AND id=:segId", p);
+            if (updated == 0) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Segmento no encontrado");
+            }
             o.audit("DOCUMENT_TRANSLATION_SEGMENT_UPDATED", "TRANSLATION", requestId, Map.of("segmentId", segmentId, "status", p.get("status")));
             return fetchDetail(requestId);
         });

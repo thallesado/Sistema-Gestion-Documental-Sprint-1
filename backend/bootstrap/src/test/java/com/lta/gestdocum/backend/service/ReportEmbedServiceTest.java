@@ -1,13 +1,19 @@
 package com.lta.gestdocum.backend.service;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ReportEmbedServiceTest {
@@ -34,6 +40,24 @@ class ReportEmbedServiceTest {
                 () -> service("clave-de-prueba").getEmbedConfig(TENANT, USER, "viewer"));
         assertEquals(HttpStatus.BAD_GATEWAY, error.getStatusCode());
         assertEquals("ReportIQ no está disponible en este momento", error.getReason());
+        assertFalse(error.getReason().contains("Connection"));
+    }
+
+    @Test
+    void reportIqCaidoDejaLaCausaEnElLogYNoEnLaRespuesta() {
+        Logger logger = (Logger) LoggerFactory.getLogger(ReportEmbedService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            assertThrows(ResponseStatusException.class,
+                    () -> service("clave-de-prueba").getEmbedConfig(TENANT, USER, "viewer"));
+            ILoggingEvent event = appender.list.getLast();
+            assertNotNull(event.getThrowableProxy());
+            assertFalse(event.getFormattedMessage().contains("clave-de-prueba"));
+        } finally {
+            logger.detachAppender(appender);
+        }
     }
 
     @Test
