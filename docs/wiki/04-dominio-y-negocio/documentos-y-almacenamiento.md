@@ -1,6 +1,6 @@
 # Documentos, expedientes y almacenamiento
 
-> Revisión documental: 2026-10-16. Base de código: `a590a6d`; ver [estado verificado](../05-guias-ia/estado-verificado-y-pendientes.md). Descripción del código inspeccionado, no certificación de producción.
+> Revisión documental: 2026-11-17. Fuente: checkout `c0c49ab` más cambios locales. Actualización parcial; evidencia EC2 del 2026-11-14, sin inspección remota actual.
 
 ## Núcleo común
 
@@ -41,6 +41,8 @@ Checkout `91fb767` más cambios locales. Los tipos documentales ya exponían `me
 WorkflowEngineService vuelve a validar los metadatos contra el tipo del documento antes de crear el workflow. Así un documento antiguo incompleto no elude la regla: puede completarse desde el detalle y luego iniciar su revisión. La pantalla consulta el tipo específico si no está en el catálogo activo cargado, para poder leer también sus metadatos históricos.
 
 [Capturas completas, resultados HTTP y límites de HU-13](../../evidencias/hu13/README.md): alta, edición, recarga, rechazo del workflow incompleto e inicio exitoso tras corregirlo, comprobados con datos sintéticos locales. No describe AWS.
+
+En el formulario de creación, `Expediente vinculado` es opcional y se selecciona del catálogo activo de `/api/v1/expedients` (`status=ACTIVE`), que devuelve IDs UUID y está limitado al tenant autenticado. Angular solo consulta el catálogo cuando `/auth/me` concede `expedient:read`; sin ese permiso no ofrece vincular un expediente. No se acepta texto libre como ID. La API vuelve a validar el UUID, tenant y permiso al crear el documento.
 
 ## HU-15: archivo digital (2026-11-06)
 
@@ -90,3 +92,7 @@ Pruebas: `DocumentStateTokenTest` cubre cambios de token, ausencia y token obsol
 ## Validación del contenido del archivo y esquema del tipo Contrato (2026-11-15)
 
 `DocumentStorageService.requireMatchingContent` compara los primeros bytes del archivo con la firma del tipo declarado (PDF `%PDF-`, PNG, JPEG, DOCX `PK\x03\x04`); el `Content-Type` por sí solo lo controla el cliente. Angular hace la misma comprobación (`core/data/file-signature.ts`) al elegir el archivo, antes de crear el documento, para no dejar documentos sin archivo. La migración `091_contract_metadata_schema.sql` declara títulos y `format: date` en el tipo demo Contrato, de modo que el formulario muestra «Proveedor» y «Fecha de vigencia» y `DocumentMetadataValidator` rechaza fechas inválidas.
+
+## Integración local de main (2026-11-17)
+
+El selector de HU-13 conserva la consulta de expedientes ACTIVE condicionada por `expedient:read` y aplica `linkableExpedients` para filtrar/ordenar por código. El mensaje sin permiso y el estado vacío son locales; los campos clínicos condicionales llegaron de main. Se resolvió la combinación sin consultas ni inyecciones duplicadas. TypeScript y los contratos de wiki pasaron; no se repitió el recorrido autenticado en navegador. El cambio recibido de 091 exige inspección y respaldo antes de aplicarse a una base existente. [Contexto y límites de la integración](../06-operacion/contexto-sesion-2026-11-17.md).

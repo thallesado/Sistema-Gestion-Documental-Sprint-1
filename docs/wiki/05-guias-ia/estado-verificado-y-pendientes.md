@@ -1,6 +1,15 @@
 # Estado verificado y pendientes
 
-> Revisión documental: 2026-10-16. Base de código `a590a6d`; los antecedentes históricos se identifican por separado. No certifica producción.
+> Revisión documental: 2026-11-17. Fuente: checkout `c0c49ab` más cambios locales. Actualización parcial; evidencia EC2 del 2026-11-14, sin inspección remota actual.
+
+## Referencia vigente de la sesión
+
+**Alcance de diseño nuevo:** el usuario eligió P01 entrega segura a externos, P04 recepción por correo, P05 archivo físico/préstamos y P06 traducción revisada. [Propuesta detallada y galería](../07-propuestas/README.md). La documentación y las imágenes están creadas; API, tablas, permisos, jobs y pantallas funcionales siguen pendientes. No confundir estas propuestas con los cambios de main integrados.
+
+Consultar [contexto del 17 de noviembre](../06-operacion/contexto-sesion-2026-11-17.md): integración de 18 commits hasta `c0c49ab`, cambios locales conservados y dos instancias EC2 con configuraciones distintas. TypeScript y wiki pasaron al integrar; no se ejecutó una auditoría completa ni se actualizaron contenedores con esos commits.
+
+La instancia anterior abrió por IP con un proxy HTTP temporal fuera de Compose. La nueva inició API/frontend, pero luego se reemplazó su archivo de entorno y quedó pendiente confirmar reparación/login. En ninguna de esas pruebas se acreditó el alta de una base física nueva por tenant. Los apartados siguientes son snapshots históricos; no interpretar sus hallazgos como una auditoría actual ni sus pruebas como ejecución reciente.
+
 
 ## Snapshot de esta documentación
 
@@ -49,3 +58,7 @@ Se integraron 15 commits hasta c93a8b4 preservando los cambios locales. Posterio
 ## Respaldos operativos: actualización posterior
 
 Se implementó el backend interno y la conexión real de la pantalla, con migración 050. Los pendientes de la fase de diseño ya no son el estado actual. Ver [funcionamiento y pruebas](../04-dominio-y-negocio/respaldos-y-restauracion.md), con límites y excepciones explícitos. La recuperación se probó en copias aisladas, no sobre la base de trabajo.
+
+## P01, P04 y P05: ampliacion local del 17 de noviembre
+
+Implementacion y validacion separadas del despliegue: [operaciones documentales](../04-dominio-y-negocio/operaciones-documentales.md). Incluye backend, rutas Angular y migraciones 092-096; no asumir que esten aplicadas en EC2 o en la base local principal. Las pruebas usan PostgreSQL desechable, correo de laboratorio y runtime restringido. P06 sigue siendo propuesta.

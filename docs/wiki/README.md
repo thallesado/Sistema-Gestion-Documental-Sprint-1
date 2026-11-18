@@ -1,6 +1,9 @@
 # Wiki de NexoDocs: contexto verificable para desarrollo e IA
 
-> Revisión documental: 2026-11-04. Fuente: checkout local 123419c más cambios locales sin commit; código y evidencia revisados para esta página.
+> Revisión documental: 2026-11-17. Fuente: checkout `c0c49ab` más cambios locales. Actualización parcial; evidencia EC2 del 2026-11-14, sin inspección remota actual.
+
+**Contexto más reciente (2026-11-17):** [integración de main y estado de las dos EC2](06-operacion/contexto-sesion-2026-11-17.md). Checkout local en `c0c49ab` más cambios sin commit; EC2 conserva evidencia histórica distinta. Esta referencia prevalece para continuar la sesión; las notas anteriores conservan sus fechas y alcance.
+
 
 Esta wiki es documentación de referencia contrastada con el código, no una garantía de producción ni sustituto de inspección. Resume el sistema para reducir lecturas repetidas. Si una fuente cambia o contradice una página, identificar la diferencia antes de modificar negocio o seguridad.
 
@@ -19,6 +22,8 @@ Integración posterior del 2026-10-21: [15 commits hasta c93a8b4, permisos de se
 El código de referencia incluye el OCR persistido y la migración 035. La revisión del código no demuestra el estado de una base o servidor; verificarlos antes de operar. No hacer pull ni descartar cambios como efecto secundario de consultar la wiki.
 
 ## Mapa por tarea
+
+**Diseños nuevos elegidos (2026-11-17):** [entrega externa, buzón documental, archivo físico y traducción](07-propuestas/README.md). Incluye recorridos paso a paso, implementación pendiente, permisos propuestos, 20 imágenes y un PDF. Son propuestas; no describen módulos ya implementados ni pruebas de funcionamiento.
 
 [Respaldo completo del host: herramientas preparadas y ensayo pendiente](06-operacion/respaldo-completo.md).
 
@@ -73,3 +78,5 @@ La CI documental comprueba enlaces y contratos relevantes. No reemplaza pruebas 
 
 
 **Sprint HU-19 a HU-24 (2026-11-04):** [estado funcional, criterios cubiertos, límites y pruebas](04-dominio-y-negocio/sprint-hu19-24.md). HU-23 aún no cumple cifrado en reposo; no se presenta como 100% terminado.
+
+- [Entregas externas, buzon documental y archivo fisico: implementacion local](04-dominio-y-negocio/operaciones-documentales.md).

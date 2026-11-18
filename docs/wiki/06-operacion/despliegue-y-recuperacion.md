@@ -1,6 +1,13 @@
 # Despliegue, HTTPS y recuperación
 
-> Revisión documental: 2026-10-16. Base de código `a590a6d`; los antecedentes históricos se identifican por separado. No certifica producción.
+> Revisión documental: 2026-11-17. Fuente: checkout `c0c49ab` más cambios locales. Actualización parcial; evidencia EC2 del 2026-11-14, sin inspección remota actual.
+
+## Estado operativo más reciente
+
+Consultar [las dos EC2 y la integración local del 17 de noviembre](contexto-sesion-2026-11-17.md) antes de reutilizar los comandos históricos de esta página. La instancia anterior usa temporalmente `nexodocs-ip-test` en HTTP/80 y el Caddy original está detenido; la nueva tiene antecedentes de API 200, pero login/configuración y worker pendientes. No se certifica HTTPS vigente en ambas ni despliegue de `c0c49ab`.
+
+En el Compose de `c0c49ab`, los build contexts y mounts relativos se interpretan desde el archivo base bajo `infrastructure`. No copiar `--project-directory /opt/nexodocs` del ejemplo histórico sin validar las rutas efectivas: puede resolver `..` fuera del checkout. La secuencia nueva utilizó `--project-name infrastructure --env-file /opt/nexodocs/.env -f /opt/nexodocs/infrastructure/docker-compose.yml`, sin cambiar el directorio de proyecto. Usar rutas absolutas en los overrides. La función `dc` existe solo en la sesión de shell donde se define.
+
 
 ## Alcance de esta guía
 

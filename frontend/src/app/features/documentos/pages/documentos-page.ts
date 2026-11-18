@@ -176,12 +176,17 @@ import { PermissionService } from '../../../core/auth/permission.service';
               }
 
               <label [appField]="'documento.nuevo.expediente'">Expediente vinculado (opcional)
-                <select name="expedientId" [(ngModel)]="createForm.expedientId">
-                  <option value="">Sin expediente</option>
-                  @for (exp of linkableExpedients(expedients()); track exp.id) {
-                    <option [value]="exp.id">{{ exp.code }} · {{ exp.name }}</option>
-                  }
-                </select>
+                @if (metadataPermissions.can('expedient:read')) {
+                  <select name="expedientId" [(ngModel)]="createForm.expedientId">
+                    <option value="">Sin expediente vinculado</option>
+                    @for (expedient of linkableExpedients(expedients()); track expedient.id) {
+                      <option [value]="expedient.id">{{ expedient.code }} · {{ expedient.name }}</option>
+                    }
+                  </select>
+                  @if (!linkableExpedients(expedients()).length) { <small class="form-note">No hay expedientes disponibles para vincular.</small> }
+                } @else {
+                  <span class="form-note">No tienes permiso para consultar expedientes; puedes crear el documento sin vincular uno.</span>
+                }
               </label>
 
               <label [appField]="'documento.nuevo.emision'">Fecha de emisión
@@ -483,6 +488,9 @@ import { PermissionService } from '../../../core/auth/permission.service';
               <button class="drawer-close" type="button" aria-label="Cerrar detalle" (click)="closeDetails()">×</button>
               <p class="eyebrow">Detalle y Metadatos Documentales</p>
               <h2 id="document-detail-title">{{ selectedDocument()?.name }}</h2>
+              @if (metadataPermissions.can('document:deliver') && metadataPermissions.can('delivery:read')) {
+                <button type="button" class="btn-doc-action" (click)="router.navigate(['/deliveries'], {queryParams:{documentId:selectedDocument()?.id}})">Entregar versión a destinatario externo</button>
+              }
 
               <dl>
                 <dt>Código</dt><dd><b>{{ selectedDocument()?.code }}</b></dd>
@@ -771,8 +779,8 @@ import { PermissionService } from '../../../core/auth/permission.service';
 })
 export class DocumentPage implements OnInit, OnDestroy {
   private readonly api = inject(DocumentApiService);
-  private readonly clinicalApi = inject(ClinicalApiService);
   private readonly expedientApi = inject(ExpedientApiService);
+  private readonly clinicalApi = inject(ClinicalApiService);
   private readonly route = inject(ActivatedRoute);
   readonly router = inject(Router);
   private readonly workflowApi = inject(WorkflowApi);
@@ -1005,10 +1013,15 @@ export class DocumentPage implements OnInit, OnDestroy {
         error: () => {},
       });
     }
-    this.expedientApi.expedients('', 0, 100).subscribe({
-      next: res => this.expedients.set(res.content || []),
-      error: () => {},
-    });
+
+    if (this.metadataPermissions.can('expedient:read')) {
+      this.expedientApi.expedients('', 'ACTIVE', 0, 100).subscribe({
+        next: res => this.expedients.set(res.content || []),
+        error: () => this.expedients.set([]),
+      });
+    } else {
+      this.expedients.set([]);
+    }
   }
 
   openCreateTypeModal(): void {

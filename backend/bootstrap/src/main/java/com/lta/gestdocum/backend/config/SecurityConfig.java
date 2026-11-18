@@ -66,6 +66,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/public/signup").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/public/subscriptions/checkout").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/public/contact").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/external-deliveries/code", "/api/v1/external-deliveries/verify", "/api/v1/external-deliveries/info", "/api/v1/external-deliveries/content").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/public/subscriptions/checkout/*/status").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/billing/webhooks/stripe").permitAll()
                 .requestMatchers(
@@ -122,8 +123,8 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Accept-Language",
-                "X-Client-Timestamp", "X-Client-Timezone"));
-        configuration.setExposedHeaders(List.of("Location"));
+                "X-Client-Timestamp", "X-Client-Timezone", "If-Match"));
+        configuration.setExposedHeaders(List.of("Location", "ETag"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

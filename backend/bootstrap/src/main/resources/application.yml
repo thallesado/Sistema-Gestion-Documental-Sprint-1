@@ -42,6 +42,9 @@ spring:
       mail:
         smtp:
           auth: ${MAIL_SMTP_AUTH:true}
+          connectiontimeout: 10000
+          timeout: 15000
+          writetimeout: 15000
           starttls:
             enable: ${MAIL_SMTP_STARTTLS:true}
 
@@ -104,6 +107,17 @@ app:
     rate-limit:
       max-requests: ${ASSISTANT_RATE_LIMIT_MAX_REQUESTS:20}
       window-seconds: ${ASSISTANT_RATE_LIMIT_WINDOW_SECONDS:60}
+
+document-operations:
+  intake-ocr-enabled: ${MAIL_INTAKE_OCR_ENABLED:false}
+  worker-enabled: ${DOCUMENT_OPERATIONS_WORKER_ENABLED:true}
+  poll-ms: ${DOCUMENT_OPERATIONS_POLL_MS:60000}
+  initial-delay-ms: ${DOCUMENT_OPERATIONS_INITIAL_DELAY_MS:30000}
+  key-file: ${DOCUMENT_OPERATIONS_KEY_FILE:${app.storage.local-path}/.operations/key}
+  allow-insecure-local: ${DOCUMENT_OPERATIONS_ALLOW_INSECURE_LOCAL:false}
+  mail-profiles: ${MAILBOX_PROFILES_JSON:{}}
+  clamav-host: ${CLAMAV_HOST:}
+  clamav-port: ${CLAMAV_PORT:3310}
 
 # Anclaje externo de la cadena de auditoria (C3). Sin destino configurado el job queda DISABLED.
 nexodocs:

@@ -55,9 +55,18 @@ export const platformAdminGuard: CanActivateFn = (_route, state) => {
  */
 export const hasPermissionGuard = (required: PermissionRequirement): CanActivateFn => (_route, state) => {
   const permissions = inject(PermissionService);
+  const auth = inject(AuthService);
   const router = inject(Router);
-  return permissions.can(required)
-    || router.createUrlTree(['/access-denied'], { queryParams: { returnUrl: state.url } });
+  const deny = router.createUrlTree(['/access-denied'], { queryParams: { returnUrl: state.url } });
+  if (auth.user()) return permissions.can(required) || deny;
+  if (!auth.isAuthenticated()) return deny;
+  // A direct link can run before /auth/me finishes after a browser reload.
+  return toObservable(auth.user).pipe(
+    filter((user) => user !== null),
+    take(1),
+    timeout({ first: 8000, with: () => of(null) }),
+    map((user) => user !== null && permissions.can(required) || deny),
+  );
 };
 
 /** Administración de usuarios y grupos: cualquier rol con `user:read`, no un nombre de rol fijo. */
