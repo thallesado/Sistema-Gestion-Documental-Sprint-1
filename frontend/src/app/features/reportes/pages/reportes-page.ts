@@ -622,6 +622,7 @@ readonly page = signal(1);
   private keyFromRoute(href: string): string {
     return ({
       '/reports': 'documents',
+      '/reports/documents': 'documents',
       '/reports/users': 'users',
       '/reports/workflows': 'workflows',
       '/reports/expedients': 'expedients',

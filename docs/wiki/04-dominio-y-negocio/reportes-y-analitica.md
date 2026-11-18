@@ -20,7 +20,7 @@ Las fechas se interpretan y se muestran en `tenants.timezone`, con UTC como resp
 
 ## Frontend
 
-`reportes-page.ts` toma tenant y roles de `AuthService`; no usa datos de demostración. Los gráficos descartan valores no finitos, el botón se llama "Exportar a CSV (Excel)" (no se genera `.xlsx`) y las celdas vacías se muestran como "—". El reporte OCR está en `/reports/ocr`.
+`reportes-page.ts` toma tenant y roles de `AuthService`; no usa datos de demostración. El menú «Documentos» (`/reports/documents`) abre el reporte tabular de documentos. `/reports` sigue en la vista ReportIQ y no muestra esa tabla. Los gráficos descartan valores no finitos, el botón se llama "Exportar a CSV (Excel)" (no se genera `.xlsx`) y las celdas vacías se muestran como "—". El reporte OCR está en `/reports/ocr`.
 
 ## QBE y consulta por voz
 

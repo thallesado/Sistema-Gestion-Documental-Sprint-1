@@ -185,6 +185,7 @@ export const navSections: NavSection[] = [
         sprintEnabled: true,
         children: [
           { label: 'Reportes & Analítica IA', href: '/reports' },
+          { label: 'Documentos', href: '/reports/documents' },
           { label: 'Usuarios', href: '/reports/users' },
           { label: 'Workflows', href: '/reports/workflows' },
           { label: 'Almacenamiento', href: '/reports/storage', sprintEnabled: false },

@@ -123,5 +123,8 @@ test('Reportes solo aparece con report:read, no con permisos de administración 
   // El backend exige report:read (retirado del JWT si el plan no incluye analítica avanzada).
   const reportsFor = (granted) => visibleMenu(granted).find((item) => item.label === 'Reportes');
   assert.equal(reportsFor(new Set(['tenant:manage', 'tenant:update'])), undefined);
-  assert.ok(reportsFor(new Set(['report:read'])).children.includes('/reports'));
+  const reports = reportsFor(new Set(['report:read']));
+  assert.ok(reports.children.includes('/reports'));
+  assert.ok(reports.children.includes('/reports/documents'), 'el reporte tabular de documentos queda en el menú');
+  assert.equal(reportsFor(new Set(['document:read'])), undefined);
 });
