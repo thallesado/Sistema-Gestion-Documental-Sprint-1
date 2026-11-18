@@ -34,8 +34,10 @@ public class PushTokenService {
      */
     public void register(String platform, String token) {
         Map<String, Object> p = scope(Map.of("platform", platform, "token", token.trim()));
+        int affected;
         try {
-            db.update("""
+            // Si el token es de otra cuenta, el WHERE descarta la actualización: 0 filas y sin error.
+            affected = db.update("""
                     INSERT INTO user_push_tokens (tenant_id, user_id, platform, token, is_active, last_used_at)
                     VALUES (:tenant, :user, :platform, :token, true, now())
                     ON CONFLICT (token) DO UPDATE
@@ -44,9 +46,13 @@ public class PushTokenService {
                         AND user_push_tokens.user_id = EXCLUDED.user_id
                     """, p);
         } catch (DuplicateKeyException exception) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Este dispositivo ya está registrado para otra cuenta");
+            throw anotherAccount();
         }
+        if (affected == 0) throw anotherAccount();
+    }
+
+    private static ResponseStatusException anotherAccount() {
+        return new ResponseStatusException(HttpStatus.CONFLICT, "Este dispositivo ya está registrado para otra cuenta");
     }
 
     /** Baja del token del usuario actual (al cerrar sesión). Idempotente. */

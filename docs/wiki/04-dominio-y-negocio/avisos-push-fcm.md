@@ -29,7 +29,7 @@ Sin ninguna, `PushService` queda desactivado y el backend registra una sola adve
 
 **Móvil.** `mobile/android/app/google-services.json` no se versiona (ignorado en `.gitignore`). El plugin `com.google.gms.google-services` solo se aplica si ese archivo existe, así que sin él la app compila y funciona como antes. Cómo obtenerlo: [mobile/README.md](../../../mobile/README.md#avisos).
 
-**Base de datos.** Migración `092_push_token_registration.sql`: índice parcial sobre `user_push_tokens(tenant_id, user_id) WHERE is_active`. La tabla, su RLS y sus grants vienen de las migraciones anteriores y no cambian.
+**Base de datos.** Migración `098_push_token_registration.sql`: índice parcial sobre `user_push_tokens(tenant_id, user_id) WHERE is_active`. La tabla, su RLS y sus grants vienen de las migraciones anteriores y no cambian.
 
 ## Endpoints
 
@@ -62,7 +62,7 @@ Tenant y usuario salen siempre del JWT validado, nunca del cuerpo.
 
 ## Límites conocidos
 
-- Un token pertenece a una sola cuenta. Si el dispositivo conserva el token de otra cuenta que no cerró sesión, el registro devuelve 409 y la nueva cuenta no recibe push hasta que ese token se borre. El sondeo sí muestra sus avisos.
+- Un token pertenece a una sola cuenta. Si el dispositivo conserva el token de otra cuenta que no cerró sesión, el registro devuelve 409 y la nueva cuenta no recibe push hasta que ese token se borre. El sondeo sí muestra sus avisos. En PostgreSQL ese caso no lanza error: el `WHERE` del `ON CONFLICT` descarta la actualización y la sentencia afecta 0 filas, por eso `PushTokenService` también responde 409 cuando no se escribió ninguna fila (comprobado en PostgreSQL 17 con el rol `nexodocs_app`, 2026-11-17).
 - Si la sesión caduca sin cerrarla, el token queda en el servidor hasta que el usuario vuelva a iniciar sesión o FCM lo invalide.
 - Los avisos generados en SQL (vencimientos de `030_workflow_approvals_deadlines.sql`) no envían push.
 - No se envía push cuando el destinatario es quien ejecutó la acción; el aviso sí queda en la bandeja.

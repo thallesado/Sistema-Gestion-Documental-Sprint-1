@@ -1290,10 +1290,10 @@
     },
     {
       "page": "04-dominio-y-negocio/avisos-push-fcm.md",
-      "path": "database/init/092_push_token_registration.sql",
+      "path": "database/init/098_push_token_registration.sql",
       "includes": [
         "user_push_tokens_active_user_idx",
-        "092_push_token_registration"
+        "098_push_token_registration"
       ]
     },
     {

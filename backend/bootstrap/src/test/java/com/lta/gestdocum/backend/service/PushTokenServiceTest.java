@@ -33,6 +33,8 @@ class PushTokenServiceTest {
     private void authenticateAs(UUID tenant, UUID user) {
         when(context.requireTenantId()).thenReturn(tenant);
         when(context.requireUserId()).thenReturn(user);
+        // Por defecto el upsert afecta una fila, como en PostgreSQL al dar de alta o reactivar.
+        when(db.update(anyString(), anyMap())).thenReturn(1);
     }
 
     @Test
@@ -61,6 +63,20 @@ class PushTokenServiceTest {
     void tokenDeOtraCuentaDevuelveConflicto() {
         authenticateAs(TENANT_A, USER_A);
         when(db.update(anyString(), anyMap())).thenThrow(new DuplicateKeyException("duplicate"));
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> service.register("ANDROID", "token-ajeno"));
+        assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
+    }
+
+    /**
+     * Comprobado en PostgreSQL 17: si el token ya es de otra cuenta, el WHERE del ON CONFLICT descarta la
+     * actualización y la sentencia afecta 0 filas sin lanzar error. Eso también debe ser un 409.
+     */
+    @Test
+    void tokenDeOtraCuentaSinErrorDeBaseDevuelveConflicto() {
+        authenticateAs(TENANT_A, USER_A);
+        when(db.update(anyString(), anyMap())).thenReturn(0);
 
         ResponseStatusException error = assertThrows(ResponseStatusException.class,
                 () -> service.register("ANDROID", "token-ajeno"));
