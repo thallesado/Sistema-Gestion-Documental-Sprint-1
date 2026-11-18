@@ -199,6 +199,21 @@ class DocumentOperationsIntegrationTest {
         request(get("/api/v1/translations/requests"),translationOnly,null,403);
         request(get("/api/v1/translations/options"),token,null,200);
     }
+    @Test @Order(12) void translationWritesDoNotRevealDocumentTextWithoutDocumentRead()throws Exception{
+        var codes=admin.queryForList("SELECT p.code FROM permissions p JOIN role_permissions rp ON rp.permission_id=p.id JOIN user_roles ur ON ur.role_id=rp.role_id AND ur.tenant_id=rp.tenant_id WHERE ur.user_id=?",String.class,LAURA);
+        org.junit.jupiter.api.Assumptions.assumeTrue(codes.contains("translation:review")&&codes.contains("translation:create")&&codes.contains("document:read"));
+        UUID requestId=UUID.randomUUID();UUID segmentId=UUID.randomUUID();
+        admin.update("INSERT INTO translation_requests(id,tenant_id,document_id,version_id,version_number,source_language,target_language,status,source_hash,page_count,char_count,requested_by) VALUES(?,?,?,?,1,'en','es','REVIEW_PENDING',?,1,20,?)",requestId,TENANT,document,version,"a".repeat(64),LAURA);
+        admin.update("INSERT INTO translation_segments(id,tenant_id,request_id,segment_order,source_text,translated_text,status) VALUES(?,?,?,0,?,?,'TRANSLATED')",segmentId,TENANT,requestId,"texto secreto origen","secret source text");
+        String reviewer=jwt.generateToken(LAURA,TENANT,"translation-review-fixture",Set.of("translation:read","translation:review","translation:create"));
+        var deniedSegment=request(patch("/api/v1/translations/requests/"+requestId+"/segments/"+segmentId),reviewer,Map.of("reviewedText","filtrado","status","MODIFIED"),403);
+        assertFalse(deniedSegment.toString().contains("texto secreto origen"));
+        var deniedCancel=request(post("/api/v1/translations/requests/"+requestId+"/cancel"),reviewer,Map.of("reason","no"),403);
+        assertFalse(deniedCancel.toString().contains("texto secreto origen"));
+        assertEquals("TRANSLATED",admin.queryForObject("SELECT status FROM translation_segments WHERE id=?",String.class,segmentId));
+        assertNull(admin.queryForObject("SELECT reviewed_text FROM translation_segments WHERE id=?",String.class,segmentId));
+        assertEquals("REVIEW_PENDING",admin.queryForObject("SELECT status FROM translation_requests WHERE id=?",String.class,requestId));
+    }
     @Test @Order(11) void smtpFailureIsRecordedAndNeverReportedAsSent()throws Exception {
         MAIL.stop();
         UUID id=UUID.fromString(request(post("/api/v1/deliveries"),token,Map.of("documentId",document,"versionId",version,"recipientName","Fallo controlado","recipientEmail","destino@tests.invalid","reason","Prueba de fallo SMTP","hours",24,"allowDownload",false),202).path("id").asText());

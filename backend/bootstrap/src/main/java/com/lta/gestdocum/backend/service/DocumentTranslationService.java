@@ -77,6 +77,7 @@ public class DocumentTranslationService {
     }
 
     private Map<String, Object> fetchDetail(UUID id) {
+        o.require("document:read");
         var p = o.args("id", id);
         var rows = o.db.queryForList(
             "SELECT r.*, d.code as document_code, d.name as document_name, d.current_version as doc_current_version, " +
@@ -103,6 +104,7 @@ public class DocumentTranslationService {
 
     public Map<String, Object> updateSegment(UUID requestId, UUID segmentId, String reviewedText, String status) {
         return o.internal("translation:review", () -> {
+            o.require("document:read");
             var p = o.args("reqId", requestId, "segId", segmentId,
                            "text", reviewedText != null ? reviewedText.trim() : "",
                            "status", (status != null && !status.isBlank()) ? status : "MODIFIED");
@@ -121,6 +123,7 @@ public class DocumentTranslationService {
 
     public Map<String, Object> cancel(UUID requestId, String reason) {
         return o.internal("translation:create", () -> {
+            o.require("document:read");
             var p = o.args("id", requestId, "reason", reason != null ? reason.trim() : "Cancelado por el usuario");
             o.one("SELECT id FROM translation_requests WHERE tenant_id=:tenant AND id=:id AND status NOT IN('PUBLISHED','CANCELLED') FOR UPDATE", p);
             o.db.update("UPDATE translation_requests SET status='CANCELLED', error_message=:reason, updated_at=now() WHERE tenant_id=:tenant AND id=:id", p);
