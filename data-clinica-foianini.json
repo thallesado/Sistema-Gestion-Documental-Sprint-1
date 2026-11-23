@@ -1,0 +1,63 @@
+{
+  "tenant": "Clínica Foianini Demo",
+  "patients": [
+    "624e753a-ec09-4742-8926-084aed03e701",
+    "0ef6fc55-0a71-4853-8d44-931aefb2e1a4",
+    "af60a00c-46d0-4d82-b049-fe10e58c10d8",
+    "ebd3f939-0806-4770-850a-8ad348ee12f6",
+    "da42f0b5-e85e-48a5-a21e-db93070acd0c",
+    "73cb7059-5605-4753-8c58-a15323f3fdd7",
+    "15b40c4f-c81a-44f8-89d4-b584698e1d2f",
+    "1b651423-33e4-40a5-964d-55943da6a3e9",
+    "bc5777f5-2369-4d9d-8d3c-14fc6a231982",
+    "32ada586-ad42-4514-9b1d-b9134580f2a2"
+  ],
+  "documents": [
+    "01d1133a-18ba-404c-81a0-1d8dea041329",
+    "5227dce8-d2d2-46aa-a70d-4a7617fdeeb8",
+    "6bc9e40e-9b2c-4a00-a652-a264dfa29fdd",
+    "2d96338c-f6b7-4f33-a2e3-c738cf53b085",
+    "6bc47a43-6d10-46a5-a1c7-0778dee5ac1a",
+    "3084f635-fb61-4bb0-8ccb-80c11cf1c722",
+    "e4ed8589-8691-4a04-ad14-5b84605bef75",
+    "5595e458-364f-401f-a2cd-5dfb0ff84b8c",
+    "d1029602-9d70-4fa1-8d3a-feed0965f0f6",
+    "b838fa54-3a6f-4220-ba09-36be01266c83"
+  ],
+  "expedients": [
+    "fe6f8ca9-f237-4a16-8ff9-05670f017ae8",
+    "49ff3d0a-58f6-4f8a-a7b5-d4d5c9abff29",
+    "27ad7c64-fb8f-4a67-8a95-bf5c7861a678",
+    "8e065322-6718-4f20-99d9-ccd68f0e2bf6",
+    "753c9638-cbe6-4971-9f4f-75e8e2e69d13",
+    "fa394790-ff9a-4395-a39e-e6b81e5e9801",
+    "6674732f-f9d4-4751-a112-6cc37cc2d5c7",
+    "10bc2224-2eed-4ad1-876a-6ebe6c98384b",
+    "c459e9c7-78e3-45bf-b536-c19536ddf18f",
+    "22f79f87-b169-4685-9ece-a318d40224c0"
+  ],
+  "workflows": [
+    "f331d938-bd11-419a-9e05-9650511d3c92",
+    "7fffd84a-6d45-4e9a-9d74-43c39a4f8859",
+    "51c456e6-7cfc-400a-82d3-69918b164d97",
+    "06ccaae2-ae70-442a-95b2-a623c2fd348d",
+    "dd9f3934-60ee-4500-9c76-87a0a5a8e966",
+    "c6924572-f095-4227-916f-0c197a63cfed",
+    "0a15cb2c-2f06-4b24-aec6-500c36ba4308",
+    "e8545830-7c2e-44fc-9983-ab2abf2354aa",
+    "bfa1d938-17e4-49b2-9e70-774caf11641c",
+    "fc227bd7-0091-4065-b2f0-4ac2912d55db"
+  ],
+  "physical": [
+    "a0346eb8-8e7a-4235-bae3-3793b0afb474",
+    "47b7acde-d32c-4e24-b733-019fb845934b",
+    "b37de5ab-14e5-40ba-8fc7-4b84897288e5",
+    "a2a99877-c6e6-48a7-900c-86ebade43208",
+    "09654cbb-e535-484a-8f3e-60c92733e871",
+    "9ab1cf27-ddc9-4977-b66d-ccabefdf7f5f",
+    "0512cec8-59de-4a5c-ab79-1d014030e75d",
+    "224cd9bb-6395-4815-baf1-4abb37ea50ba",
+    "8143ffd4-6a2c-4c8f-b732-1b0de39ab0b5",
+    "4b59c055-6fcf-4884-a35e-98bc3df651ec"
+  ]
+}

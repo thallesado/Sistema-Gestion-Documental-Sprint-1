@@ -1,7 +1,6 @@
 // scripts/populate-foianini.cjs
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
 
 function getPlaywright() {
   try {
@@ -37,6 +36,7 @@ const DOCUMENT_TYPES = [
 const EXPEDIENT_TYPE_ID = '61b9e37f-8ab6-4c08-b1c4-ba8b5c1951c8';
 const LOCATION_ID = '43fc38b7-a187-422c-b241-fb8725d6abcb';
 const WORKFLOW_TEMPLATE_ID = '65c50adc-a6ba-45dd-aa6e-0440a55ebca3'; // Revisión documental
+const USER_ADMIN_ID = 'aa5b6190-12c0-43e7-8a26-c5a9b8cb2620';
 
 const PDF_DIR = path.resolve(__dirname, '..', 'synthetic-pdfs', 'clinica-foianini');
 
@@ -65,55 +65,29 @@ async function main() {
   const page = await context.newPage();
 
   console.log('1. Navegando a Login UI: ' + BASE_URL + '/login');
-  await page.goto(BASE_URL + '/login', { waitUntil: 'networkidle' });
+  await page.goto(BASE_URL + '/login', { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#email-input', { timeout: 15000 });
 
-  // Selección de tenant y login en UI
   console.log('2. Realizando autenticación vía UI...');
-  const tenantSelect = page.locator('select, [formcontrolname="tenantId"], #tenantId').first();
-  if (await tenantSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await tenantSelect.selectOption({ value: TENANT_ID }).catch(async () => {
-      await tenantSelect.selectOption({ label: TENANT_NAME }).catch(() => {});
-    });
-  }
+  await page.selectOption('#tenant-input', TENANT_ID);
+  await page.fill('#email-input', ADMIN_EMAIL);
+  await page.fill('#password-input', ADMIN_PASS);
+  await page.click('button[type="submit"]');
 
-  const userInput = page.locator('input[type="email"], input[formcontrolname="usernameOrEmail"], input[name="username"]').first();
-  await userInput.fill(ADMIN_EMAIL);
+  await page.waitForNavigation({ waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
+  console.log('URL tras login en UI:', page.url());
 
-  const passInput = page.locator('input[type="password"]').first();
-  await passInput.fill(ADMIN_PASS);
-
-  const submitBtn = page.locator('button[type="submit"]').first();
-  await submitBtn.click();
-
-  await page.waitForLoadState('networkidle');
-  console.log('URL tras login:', page.url());
-
-  // Obtener token y headers de sesión desde el almacenamiento del navegador
-  const token = await page.evaluate(() => {
-    return localStorage.getItem('token') || 
-           localStorage.getItem('auth_token') || 
-           localStorage.getItem('access_token') ||
-           sessionStorage.getItem('token') ||
-           sessionStorage.getItem('access_token') ||
-           (JSON.parse(localStorage.getItem('auth') || '{}')).token ||
-           (JSON.parse(sessionStorage.getItem('auth') || '{}')).token;
+  // Obtenemos token directamente
+  const loginRes = await context.request.post(`${API_BASE}/auth/login`, {
+    data: {
+      tenantId: TENANT_ID,
+      usernameOrEmail: ADMIN_EMAIL,
+      password: ADMIN_PASS
+    }
   });
-
-  console.log('Token obtenido del navegador:', token ? 'OK (' + token.substring(0, 15) + '...)' : 'Fallback a login directo');
-  let authToken = token;
-
-  if (!authToken) {
-    const loginRes = await context.request.post('http://127.0.0.1:8080/api/v1/auth/login', {
-      data: {
-        tenantId: TENANT_ID,
-        usernameOrEmail: ADMIN_EMAIL,
-        password: ADMIN_PASS
-      }
-    });
-    const loginJson = await loginRes.json();
-    authToken = loginJson.token || loginJson.accessToken;
-    console.log('Token obtenido via API Context:', authToken ? 'OK' : 'Error');
-  }
+  const loginJson = await loginRes.json();
+  const authToken = loginJson.token || loginJson.accessToken;
+  console.log('Token obtenido para API:', authToken ? 'OK' : 'Error');
 
   const reqHeaders = {
     'Authorization': 'Bearer ' + authToken,
@@ -129,68 +103,83 @@ async function main() {
     physical: []
   };
 
-  // 1. CREAR 10 PACIENTES
-  console.log('\n--- CREANDO 10 PACIENTES ---');
-  const patientDataList = [
-    { doc: '7011001', first: 'Carlos', last: 'Foianini Aguilera', gen: 'MALE', birth: '1980-05-12', phone: '71000001' },
-    { doc: '7011002', first: 'Mariana', last: 'Suarez Roca', gen: 'FEMALE', birth: '1985-08-22', phone: '71000002' },
-    { doc: '7011003', first: 'Rodrigo', last: 'Justiniano Mendez', gen: 'MALE', birth: '1992-01-15', phone: '71000003' },
-    { doc: '7011004', first: 'Valeria', last: 'Vaca Diez', gen: 'FEMALE', birth: '1995-11-30', phone: '71000004' },
-    { doc: '7011005', first: 'Fernando', last: 'Antelo Rivero', gen: 'MALE', birth: '1978-03-09', phone: '71000005' },
-    { doc: '7011006', first: 'Gabriela', last: 'Chavez Saucedo', gen: 'FEMALE', birth: '1988-07-19', phone: '71000006' },
-    { doc: '7011007', first: 'Mateo', last: 'Ribera Costas', gen: 'MALE', birth: '2001-09-04', phone: '71000007' },
-    { doc: '7011008', first: 'Lucia', last: 'Paz Soldan', gen: 'FEMALE', birth: '1990-12-14', phone: '71000008' },
-    { doc: '7011009', first: 'Alejandro', last: 'Kempff Mercado', gen: 'MALE', birth: '1983-04-25', phone: '71000009' },
-    { doc: '7011010', first: 'Sofia', last: 'Zabala Dorado', gen: 'FEMALE', birth: '1997-06-18', phone: '71000010' }
-  ];
-
-  for (let i = 0; i < patientDataList.length; i++) {
-    const p = patientDataList[i];
-    const res = await context.request.post('http://127.0.0.1:8080/api/v1/patients', {
-      headers: reqHeaders,
-      data: {
-        documentType: 'CI',
-        documentNumber: p.doc,
-        firstName: p.first,
-        lastName: p.last,
-        birthDate: p.birth,
-        gender: p.gen,
-        phone: p.phone,
-        email: 'paciente.' + p.doc + '@foianini.test'
-      }
-    });
-
-    if (res.status() === 201 || res.status() === 200) {
-      const pBody = await res.json();
-      console.log(`[Paciente ${i+1}/10] Creado: ID ${pBody.id} - ${p.first} ${p.last}`);
-      results.patients.push(pBody.id);
-    } else {
-      const errText = await res.text();
-      console.error(`[Paciente ${i+1}/10] Error status ${res.status()}: ${errText}`);
-    }
+  // 1. OBTENER O CREAR PACIENTES
+  console.log('\n--- 1. VERIFICANDO / CREANDO PACIENTES ---');
+  const existingPatientsRes = await context.request.get(`${API_BASE}/patients`, { headers: reqHeaders });
+  let patientList = [];
+  if (existingPatientsRes.status() === 200) {
+    const pData = await existingPatientsRes.json();
+    patientList = pData.content || (Array.isArray(pData) ? pData : []);
   }
 
-  // 2. CREAR 10 EXPEDIENTES (ASOCIADOS A LOS 10 PACIENTES)
-  console.log('\n--- CREANDO 10 EXPEDIENTES ---');
-  for (let i = 0; i < results.patients.length; i++) {
+  if (patientList.length >= 10) {
+    console.log(`Ya existen ${patientList.length} pacientes en el tenant.`);
+    results.patients = patientList.slice(0, 10).map(p => p.id);
+  } else {
+    const patientDataList = [
+      { doc: '7011001', first: 'Carlos', last: 'Foianini Aguilera', gen: 'MALE', birth: '1980-05-12', phone: '71000001' },
+      { doc: '7011002', first: 'Mariana', last: 'Suarez Roca', gen: 'FEMALE', birth: '1985-08-22', phone: '71000002' },
+      { doc: '7011003', first: 'Rodrigo', last: 'Justiniano Mendez', gen: 'MALE', birth: '1992-01-15', phone: '71000003' },
+      { doc: '7011004', first: 'Valeria', last: 'Vaca Diez', gen: 'FEMALE', birth: '1995-11-30', phone: '71000004' },
+      { doc: '7011005', first: 'Fernando', last: 'Antelo Rivero', gen: 'MALE', birth: '1978-03-09', phone: '71000005' },
+      { doc: '7011006', first: 'Gabriela', last: 'Chavez Saucedo', gen: 'FEMALE', birth: '1988-07-19', phone: '71000006' },
+      { doc: '7011007', first: 'Mateo', last: 'Ribera Costas', gen: 'MALE', birth: '2001-09-04', phone: '71000007' },
+      { doc: '7011008', first: 'Lucia', last: 'Paz Soldan', gen: 'FEMALE', birth: '1990-12-14', phone: '71000008' },
+      { doc: '7011009', first: 'Alejandro', last: 'Kempff Mercado', gen: 'MALE', birth: '1983-04-25', phone: '71000009' },
+      { doc: '7011010', first: 'Sofia', last: 'Zabala Dorado', gen: 'FEMALE', birth: '1997-06-18', phone: '71000010' }
+    ];
+
+    for (let i = patientList.length; i < 10; i++) {
+      const p = patientDataList[i];
+      const res = await context.request.post(`${API_BASE}/patients`, {
+        headers: reqHeaders,
+        data: {
+          documentType: 'CI',
+          documentNumber: p.doc,
+          firstName: p.first,
+          lastName: p.last,
+          birthDate: p.birth,
+          gender: p.gen,
+          phone: p.phone,
+          email: 'paciente.' + p.doc + '@foianini.test'
+        }
+      });
+      if (res.status() === 201 || res.status() === 200) {
+        const pBody = await res.json();
+        results.patients.push(pBody.id);
+      }
+    }
+    const finalP = await context.request.get(`${API_BASE}/patients`, { headers: reqHeaders });
+    const fpData = await finalP.json();
+    results.patients = (fpData.content || fpData).slice(0, 10).map(p => p.id);
+  }
+  console.log(`Pacientes registrados: ${results.patients.length}`);
+
+  // 2. CREAR 10 EXPEDIENTES (ASOCIADOS A PACIENTES MEDIANTE METADATA)
+  console.log('\n--- 2. CREANDO 10 EXPEDIENTES ---');
+  for (let i = 0; i < 10; i++) {
     const patientId = results.patients[i];
     const code = `EXP-FOIA-2026-${String(i+1).padStart(3, '0')}`;
-    const name = `Expediente Clínico Integral - ${patientDataList[i].first} ${patientDataList[i].last}`;
+    const name = `Expediente Clínico Foianini #${i+1}`;
     
-    const res = await context.request.post('http://127.0.0.1:8080/api/v1/expedients', {
+    const res = await context.request.post(`${API_BASE}/expedients`, {
       headers: reqHeaders,
       data: {
         expedientTypeId: EXPEDIENT_TYPE_ID,
         code: code,
         name: name,
-        description: `Expediente clínico del paciente ${patientDataList[i].first} ${patientDataList[i].last}`,
-        patientId: patientId
+        description: `Expediente clínico del paciente ID ${patientId}`,
+        responsibleId: USER_ADMIN_ID,
+        metadata: {
+          patientId: patientId,
+          pacienteRef: `PAC-${i+1}`
+        }
       }
     });
 
     if (res.status() === 201 || res.status() === 200) {
       const expBody = await res.json();
-      console.log(`[Expediente ${i+1}/10] Creado: ID ${expBody.id} - ${code}`);
+      console.log(`[Expediente ${i+1}/10] Creado exitosamente: ID ${expBody.id} - ${code}`);
       results.expedients.push(expBody.id);
     } else {
       const errText = await res.text();
@@ -198,19 +187,18 @@ async function main() {
     }
   }
 
-  // 3. SUBIR 10 DOCUMENTOS (PDFs sintéticos)
-  console.log('\n--- SUBIENDO 10 DOCUMENTOS ---');
+  // 3. DOCUMENTOS Y SUBIDA DE VERSIONES CON ETAG
+  console.log('\n--- 3. CREANDO Y SUBIENDO 10 DOCUMENTOS CON VERSIONES ---');
   for (let i = 0; i < PDF_FILES.length; i++) {
     const pdfName = PDF_FILES[i];
     const pdfPath = path.join(PDF_DIR, pdfName);
     const docTypeId = DOCUMENT_TYPES[i % DOCUMENT_TYPES.length];
     const expId = results.expedients[i] || results.expedients[0];
     const patId = results.patients[i] || results.patients[0];
-    const docCode = `DOC-FOIA-2026-${String(i+1).padStart(3, '0')}`;
+    const docCode = `DOC-FOIA-V2-${String(i+1).padStart(3, '0')}`;
     const docTitle = pdfName.replace('.pdf', '').replace(/_/g, ' ');
 
-    // Crear registro de documento
-    const createRes = await context.request.post('http://127.0.0.1:8080/api/v1/documents', {
+    const createRes = await context.request.post(`${API_BASE}/documents`, {
       headers: reqHeaders,
       data: {
         documentTypeId: docTypeId,
@@ -226,14 +214,16 @@ async function main() {
     if (createRes.status() === 201 || createRes.status() === 200) {
       const docData = await createRes.json();
       const docId = docData.id;
-      console.log(`[Documento ${i+1}/10] Creado metadata: ID ${docId} - ${docCode}`);
+      const etag = createRes.headers()['etag'];
+      console.log(`[Documento ${i+1}/10] Creado: ID ${docId} (ETag: ${etag})`);
 
-      // Subir archivo binario como versión 1
+      // Subir archivo binario como versión 1 con If-Match
       const fileBuffer = fs.readFileSync(pdfPath);
-      const uploadRes = await context.request.post(`http://127.0.0.1:8080/api/v1/documents/${docId}/versions`, {
+      const uploadRes = await context.request.post(`${API_BASE}/documents/${docId}/versions`, {
         headers: {
           'Authorization': 'Bearer ' + authToken,
-          'X-Tenant-ID': TENANT_ID
+          'X-Tenant-ID': TENANT_ID,
+          'If-Match': etag || '"1"'
         },
         multipart: {
           file: {
@@ -241,86 +231,93 @@ async function main() {
             mimeType: 'application/pdf',
             buffer: fileBuffer
           },
-          changeReason: 'Carga inicial de documento sintético clínico'
+          changeReason: 'Carga inicial de versión PDF sintético'
         }
       });
 
       if (uploadRes.status() === 201 || uploadRes.status() === 200) {
-        console.log(`[Documento ${i+1}/10] Archivo PDF subido exitosamente a versión 1.`);
-        results.documents.push(docId);
+        console.log(`[Documento ${i+1}/10] Versión 1 PDF subida con éxito (Status: ${uploadRes.status()}).`);
       } else {
         const upErr = await uploadRes.text();
         console.warn(`[Documento ${i+1}/10] Subida de versión retornó ${uploadRes.status()}: ${upErr}`);
-        results.documents.push(docId);
       }
+      results.documents.push(docId);
     } else {
       const err = await createRes.text();
       console.error(`[Documento ${i+1}/10] Error creando documento: ${createRes.status()} - ${err}`);
     }
   }
 
-  // 4. CREAR Y ACTIVAR 10 WORKFLOWS
-  console.log('\n--- CREANDO Y ACTIVANDO 10 WORKFLOWS ---');
-  for (let i = 0; i < 10; i++) {
-    const wfTitle = `Flujo de Revisión Clínica Foianini #${i+1} - 2026`;
-    const wfDesc = `Flujo de validación médica y auditoría documental de paciente #${i+1}`;
-    
-    const wfRes = await context.request.post(`http://127.0.0.1:8080/api/v1/workflows/templates/${WORKFLOW_TEMPLATE_ID}/instantiate`, {
-      headers: reqHeaders,
-      data: {
-        title: wfTitle,
-        description: wfDesc,
-        priority: 2
-      }
-    });
+  // 4. WORKFLOWS ACTIVOS
+  console.log('\n--- 4. VERIFICANDO / CREANDO 10 WORKFLOWS ---');
+  const existingWfRes = await context.request.get(`${API_BASE}/workflows`, { headers: reqHeaders });
+  let wfList = [];
+  if (existingWfRes.status() === 200) {
+    const wfData = await existingWfRes.json();
+    wfList = wfData.content || (Array.isArray(wfData) ? wfData : []);
+  }
 
-    if (wfRes.status() === 201 || wfRes.status() === 200) {
-      const wfData = await wfRes.json();
-      console.log(`[Workflow ${i+1}/10] Creado y Activo: ID ${wfData.id} - ${wfTitle}`);
-      results.workflows.push(wfData.id);
-    } else {
-      const err = await wfRes.text();
-      console.error(`[Workflow ${i+1}/10] Error: ${wfRes.status()} - ${err}`);
+  if (wfList.length >= 10) {
+    console.log(`Ya existen ${wfList.length} workflows en el tenant.`);
+    results.workflows = wfList.slice(0, 10).map(w => w.id);
+  } else {
+    for (let i = wfList.length; i < 10; i++) {
+      const wfTitle = `Flujo de Revisión Clínica Foianini #${i+1}`;
+      const wfDesc = `Flujo de validación médica y auditoría documental de paciente #${i+1}`;
+      const wfRes = await context.request.post(`${API_BASE}/workflows/templates/${WORKFLOW_TEMPLATE_ID}/instantiate`, {
+        headers: reqHeaders,
+        data: {
+          title: wfTitle,
+          description: wfDesc,
+          priority: 2
+        }
+      });
+      if (wfRes.status() === 201 || wfRes.status() === 200) {
+        const wfData = await wfRes.json();
+        console.log(`[Workflow ${i+1}/10] Creado y Activo: ID ${wfData.id}`);
+        results.workflows.push(wfData.id);
+      }
     }
+    const finalWf = await context.request.get(`${API_BASE}/workflows`, { headers: reqHeaders });
+    const fwData = await finalWf.json();
+    results.workflows = (fwData.content || fwData).slice(0, 10).map(w => w.id);
   }
 
   // 5. REGISTRAR 10 ELEMENTOS EN ARCHIVO FÍSICO
-  console.log('\n--- REGISTRANDO 10 ELEMENTOS EN ARCHIVO FÍSICO ---');
-  const userAdminId = 'aa5b6190-12c0-43e7-8a26-c5a9b8cb2620';
-
+  console.log('\n--- 5. REGISTRANDO 10 ELEMENTOS EN ARCHIVO FÍSICO ---');
   for (let i = 0; i < 10; i++) {
-    const itemCode = `FOIA-PHYS-${String(i+1).padStart(3, '0')}`;
+    const itemCode = `FOIA-PHYS-2026-${String(i+1).padStart(3, '0')}`;
     const itemName = `Expediente Físico Impreso Original #${i+1}`;
-    const barcode = `BC-FOIA-${String(i+1).padStart(4, '0')}`;
     const expId = results.expedients[i] || null;
+    const docId = results.documents[i] || null;
 
-    const physRes = await context.request.post('http://127.0.0.1:8080/api/v1/physical-archive/items', {
+    const physRes = await context.request.post(`${API_BASE}/physical-archive/items`, {
       headers: reqHeaders,
       data: {
         code: itemCode,
         name: itemName,
         locationId: LOCATION_ID,
-        custodianId: userAdminId,
-        condition: 'Original bajo custodia en archivo central',
-        barcode: barcode,
-        expedientId: expId
+        custodianId: USER_ADMIN_ID,
+        documentId: docId,
+        expedientId: expId,
+        condition: `Original en custodia física (Código Barras: BC-FOIA-${String(i+1).padStart(4, '0')})`
       }
     });
 
     if (physRes.status() === 201 || physRes.status() === 200) {
       const physData = await physRes.json();
-      console.log(`[Archivo Físico ${i+1}/10] Creado: ID ${physData.id} - ${itemCode} (${barcode})`);
+      console.log(`[Archivo Físico ${i+1}/10] Creado: ID ${physData.id} - ${itemCode}`);
       results.physical.push(physData.id);
     } else {
       const err = await physRes.text();
-      console.error(`[Archivo Físico ${i+1}/10] Error: ${physRes.status()} - ${err}`);
+      console.error(`[Archivo Físico ${i+1}/10] Error status ${physRes.status()}: ${err}`);
     }
   }
 
   // Guardar archivo JSON
   const outPath = path.resolve(__dirname, '..', 'data-clinica-foianini.json');
   fs.writeFileSync(outPath, JSON.stringify(results, null, 2), 'utf-8');
-  console.log('\n✅ Resultados guardados exitosamente en: ' + outPath);
+  console.log('\n✅ data-clinica-foianini.json generado exitosamente en: ' + outPath);
   console.log(`Resumen de IDs guardados:
   - Pacientes: ${results.patients.length}
   - Documentos: ${results.documents.length}

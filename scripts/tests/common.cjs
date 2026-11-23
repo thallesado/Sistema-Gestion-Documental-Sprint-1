@@ -55,6 +55,22 @@ async function createContext(browser, options = {}) {
     locale: 'es-BO',
     timezoneId: 'America/La_Paz'
   });
+
+  await context.addInitScript(() => {
+    localStorage.setItem('nexodocs.tourCompleted', 'true');
+    localStorage.setItem('driver_tour_completed', 'true');
+    // Prevenir overlays de tour dinámicos
+    const origSetItem = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function(key, val) {
+      origSetItem(key, val);
+    };
+    window.addEventListener('DOMContentLoaded', () => {
+      const style = document.createElement('style');
+      style.textContent = '.driver-overlay, .driver-popover { display: none !important; pointer-events: none !important; }';
+      document.head.appendChild(style);
+    });
+  });
+
   return context;
 }
 

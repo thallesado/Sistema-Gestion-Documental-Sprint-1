@@ -62,7 +62,7 @@ async function run() {
 
     if ((status === 200 || status === 201) && method === 'POST') {
       try {
-        if (url.includes('/api/v1/clinical/patients') && !url.includes('/search')) {
+        if (url.includes('/api/v1/patients') && !url.includes('/search')) {
           const body = await res.json();
           if (body && body.id && !createdData.patients.includes(body.id)) {
             console.log(' [API] Paciente capturado:', body.id);
@@ -145,7 +145,7 @@ async function run() {
     await page.locator('input[formControlName="email"]').fill(nombre.toLowerCase() + '.' + apellido.toLowerCase() + docNum + '@farmacorp.com.bo');
 
     const [response] = await Promise.all([
-      page.waitForResponse(res => res.url().includes('/api/v1/clinical/patients') && res.request().method() === 'POST'),
+      page.waitForResponse(res => res.url().includes('/api/v1/patients') && res.request().method() === 'POST'),
       page.getByRole('button', { name: 'Guardar Paciente' }).click()
     ]);
     

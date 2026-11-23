@@ -1,0 +1,63 @@
+{
+  "tenant": "Farmacorp Demo",
+  "patients": [
+    "2cf159f1-efb0-45e6-bac0-698b873823bf",
+    "60432edd-d95b-48fa-b513-4c8c1b4dde07",
+    "3bcc2317-c358-4a4f-8d0f-6faf37e53f3d",
+    "ded1d87e-516d-475f-9a44-b47a85bea4b3",
+    "dd1bccc5-9682-40b0-92a0-6f4e40a22c1e",
+    "22301900-b60c-475f-b41d-4b896176b4c7",
+    "e560d044-3e99-43ac-b05f-cb8c149c06de",
+    "6a2a0c24-abcc-41b6-8b1a-478443504b16",
+    "62c5f8e5-a50c-4b95-bde4-3a7122921f94",
+    "4716ff2d-088b-42e4-9c69-1790368e59a3"
+  ],
+  "documents": [
+    "02ff3dcd-7484-485d-a658-db0a51dd09ea",
+    "a71f675f-3cae-4317-95f9-739fb6aba665",
+    "4888f78a-70c5-405c-8b26-0696dce8970d",
+    "79e99246-55a2-461c-a683-2f3e2705b9ab",
+    "87e63159-95da-4973-81a9-fc0de552dedb",
+    "09b8a0aa-95a0-41ed-8aba-4ecab6fd2a43",
+    "5f616de1-7f69-4c70-90b8-fb04f674cace",
+    "10307148-5744-4e61-8071-e3a0d413a49d",
+    "2bc756a9-bb8a-406e-9a75-05c10bf374de",
+    "56aefb69-00b7-45c0-9b9b-e7392edfaf71"
+  ],
+  "expedients": [
+    "932674a9-b67e-47a6-86e2-29438a12c02c",
+    "86f004c6-35d8-4e2d-996e-05946c6e4977",
+    "b506ad98-3972-450f-be0c-12be505f615f",
+    "1d842d53-0c1f-4274-b50b-6f33a48c0e7f",
+    "c6b16707-a52d-4aad-b7af-ca2e0ce9452f",
+    "dfdc424a-9ef2-436b-b7a4-b3eccb7da42e",
+    "414253b7-2942-4efd-91b3-0f3ea7fd6c03",
+    "8e34a9fb-928b-4830-8b20-9bf9f66b4aa0",
+    "829f2858-a8d9-4b7e-9d6b-d553da1d3c05",
+    "0f8f1fb9-7894-4669-ac78-ded797cd86c0"
+  ],
+  "workflows": [
+    "f97ec51b-d1c1-440a-ae82-f6fe5bf980e0",
+    "7e2d3ccd-d4b7-4dfc-ac0f-431677df9b07",
+    "f0ba70e8-df42-4b43-bef4-72bcf2f9e0b9",
+    "d5c1c4c7-9a30-41a0-9698-7bb768b5de3c",
+    "3d064e5d-fe6d-4480-bd65-7bc5cb491a67",
+    "68d03a18-810d-4862-8eaf-d06ef3fddf82",
+    "d3e86ff8-4ec7-463a-9864-a0151967c79f",
+    "0a579d40-49ca-415c-b27d-7decce29c272",
+    "744c9ed2-0729-40ba-b01c-663a34c7968e",
+    "4a4e34a8-9d16-49f1-b2c2-1a8959e625d3"
+  ],
+  "physical": [
+    "cb59a543-040b-4af5-8ed5-3bb10b5cb6aa",
+    "4ff6a9d5-52ac-4bb3-943e-aa5742807c3e",
+    "aa189e0e-f62e-4f69-976d-4a95d7ead00d",
+    "3ad8fd19-f967-44b4-8dce-7678d99bb3a0",
+    "c00feb5a-0ef8-42f9-ae20-bcb91fc8bdee",
+    "a418c810-4cdf-4b0c-bcf5-c73f4270ae53",
+    "13fed222-bb9a-42f8-a85d-da6014e4c632",
+    "321649b6-abbb-4340-97ba-0c6eb4cab7df",
+    "140a85e1-2d36-456f-9d0f-f6ef052dd3ae",
+    "bf4a6097-00a6-44b8-b449-d76b680cb6f0"
+  ]
+}
