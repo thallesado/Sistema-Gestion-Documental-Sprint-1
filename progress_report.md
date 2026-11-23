@@ -1,6 +1,6 @@
 # Reporte de progreso — Sprint HU-19 a HU-24
 
-> Fecha: 2026-11-23. Revisión: `91fb767` + cambios locales sin commit. Este reporte está listo para revisión del equipo.
+> Fecha: 2026-11-23. Revisión: `43398312` (rama main). Este reporte está listo para revisión del equipo.
 
 ---
 
@@ -27,7 +27,7 @@
 
 | Archivo | Tipo | Descripción |
 |---|---|---|
-| `backend/.../service/SimulatedSubscriptionService.java` | **Nuevo** (`??` en git status) | Servicio que crea tenant y registra pago simulado sin Stripe |
+| `backend/.../service/SimulatedSubscriptionService.java` | **Nuevo** (incluido en `43398312`) | Servicio que crea tenant y registra pago simulado sin Stripe |
 | `backend/.../controller/PublicSubscriptionController.java` | Modificado | Inyecta `SimulatedSubscriptionService` exclusivamente |
 | `backend/.../billing/StripeBillingProperties.java` | Modificado | Expone `frontendUrl()` para construir URL de retorno simulada |
 | `backend/.../service/BillingService.java` | Modificado | Detecta ausencia de `STRIPE_API_KEY` y activa modo simulado |
@@ -107,7 +107,7 @@ Total: **20 PDFs** de historias clínicas sintéticas (sin datos reales).
 |---|---|---|
 | `document-operations-browser.cjs` | `DOCUMENT_OPERATIONS_BROWSER_OK` | ✅ Implementado |
 | `mail-intake-receive-browser.cjs` | `HU28_RECEIVE_BROWSER_OK` + descarga `solo-recepcion.pdf` | ✅ Implementado |
-| `test-sprint3-all.ps1` | Orquesta todos los scripts anteriores | ✅ Nuevo (sin commit) |
+| `test-sprint3-all.ps1` | Orquesta todos los scripts anteriores | ✅ Nuevo (incluido en `43398312`) |
 
 ### Capturas del chatbot
 
@@ -223,4 +223,4 @@ Tests relevantes:
 
 ---
 
-*Reporte generado el 2026-11-23 sobre la revisión local `91fb767` + cambios pendientes de commit.*
+*Reporte generado el 2026-11-23 sobre la revisión `43398312`.*

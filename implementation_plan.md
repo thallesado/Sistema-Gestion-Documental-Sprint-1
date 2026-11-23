@@ -1,6 +1,6 @@
 # Plan de implementación — Sprint HU-19 a HU-24
 
-> Fecha: 2026-11-23. Revisión local: `91fb767` + cambios sin commit. Este documento describe los pasos exactos para reproducir la tarea completa en un entorno limpio.
+> Fecha: 2026-11-23. Revisión: `43398312` (rama main). Este documento describe los pasos exactos para reproducir la tarea completa en un entorno limpio.
 
 ---
 
@@ -13,7 +13,7 @@ Permitir el alta pública y la compra de plan sin necesidad de claves Stripe, pa
 
 1. **Verificar que `STRIPE_API_KEY` no esté en `.env`** (o dejarla vacía). `BillingService` detecta la ausencia y activa el modo simulado automáticamente.
 
-2. **Revisar `SimulatedSubscriptionService.java`** (archivo nuevo, aún sin commit):
+2. **Revisar `SimulatedSubscriptionService.java`** (incluido en `43398312`):
    ```
    backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/SimulatedSubscriptionService.java
    ```
