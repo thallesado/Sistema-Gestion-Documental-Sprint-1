@@ -158,7 +158,7 @@ export class CheckoutPage implements OnInit {
         if (response.paymentData['simulated'] === true && response.paymentData['status'] === 'COMPLETED') {
           this.busy.set(false); this.billing.loading.set(false);
           this.subscriptions.loadCurrentSubscription(true);
-          window.alert('Pago simulado completado. Tu suscripción está activa.');
+          window.alert('Pago completado. Tu suscripción está activa.');
           void this.router.navigate(['/billing'], { queryParams: { checkout: 'success' } });
           return;
         }

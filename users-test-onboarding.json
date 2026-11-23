@@ -1,0 +1,45 @@
+{
+  "tenantId": "fdc6ed95-fabc-462d-859a-949c0ea31080",
+  "tenantName": "Test Tenant Onboarding",
+  "tenantSlug": "test-onboarding",
+  "generatedAt": "2026-11-23T19:40:35.579Z",
+  "userCount": 3,
+  "users": [
+    {
+      "id": "7447ec54-ee3f-439a-9ed1-79fc5710e219",
+      "tenantId": "fdc6ed95-fabc-462d-859a-949c0ea31080",
+      "tenantSlug": "test-onboarding",
+      "username": "admin-test-onboarding",
+      "email": "admin@test-onboarding.example.invalid",
+      "expectedRole": "SUPERADMIN",
+      "assignedRoles": [
+        "Administrador de tenant"
+      ],
+      "status": "ACTIVE"
+    },
+    {
+      "id": "dd7eba33-9849-47df-b364-5dda7a15e799",
+      "tenantId": "fdc6ed95-fabc-462d-859a-949c0ea31080",
+      "tenantSlug": "test-onboarding",
+      "username": "user1-test-onboarding",
+      "email": "user1@test-onboarding.example.invalid",
+      "expectedRole": "USER",
+      "assignedRoles": [
+        "Usuario operativo"
+      ],
+      "status": "ACTIVE"
+    },
+    {
+      "id": "62f25a69-5f48-4553-8466-ed2f42a2b503",
+      "tenantId": "fdc6ed95-fabc-462d-859a-949c0ea31080",
+      "tenantSlug": "test-onboarding",
+      "username": "user2-test-onboarding",
+      "email": "user2@test-onboarding.example.invalid",
+      "expectedRole": "USER",
+      "assignedRoles": [
+        "Usuario operativo"
+      ],
+      "status": "ACTIVE"
+    }
+  ]
+}

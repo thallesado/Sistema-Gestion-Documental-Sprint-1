@@ -217,7 +217,7 @@ export class SubscriptionAddonsPanel implements OnInit {
         if (result.mode === 'MANUAL_ORDER' && result.order) { this.order.set(result.order); return; }
         if (result.overview) this.data.set(result.overview);
         this.selected.set(null);
-        this.notice.set('Complemento agregado a tu suscripción. Ya puedes usarlo.');
+        this.notice.set('Pago completado: el complemento ya está activo.');
       },
       error: (err: HttpErrorResponse) => { this.busy.set(false); this.error.set(friendlyApiMessage(err.error?.message) || 'No se pudo comprar el complemento.'); },
     });

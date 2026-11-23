@@ -10,5 +10,8 @@
     "start": "pnpm --filter @nexodocs/frontend start",
     "typecheck": "pnpm --filter @nexodocs/frontend typecheck",
     "test": "pnpm --filter @nexodocs/frontend test"
+  },
+  "dependencies": {
+    "playwright": "^1.65.1"
   }
 }

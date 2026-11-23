@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Clínica Foianini Demo",
+    "tenantId": "20a6e849-ae45-4c27-a623-0120e7b42150",
+    "adminEmail": "admin.foianini@demo.local",
+    "adminUsername": "admin.foianini-20a6e849",
+    "userId": "0608d79a-0be2-46a6-92bf-cf725fecfbf1",
+    "status": "ACTIVE",
+    "plan": "BASIC",
+    "createdAt": "2026-11-23T19:27:47.488Z"
+  },
+  {
+    "name": "Farmacorp Demo",
+    "tenantId": "2ff78cc6-de74-4e18-b5b1-fff9c313f1c0",
+    "adminEmail": "admin.farmacorp@demo.local",
+    "adminUsername": "admin.farmacorp-2ff78cc6",
+    "userId": "eb6a3869-3301-4a3e-bdcc-88f1ece54f90",
+    "status": "ACTIVE",
+    "plan": "BASIC",
+    "createdAt": "2026-11-23T19:27:47.488Z"
+  }
+]

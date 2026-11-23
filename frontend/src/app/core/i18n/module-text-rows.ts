@@ -4,6 +4,12 @@
  * Para encontrar textos sin traducir: node scripts/i18n-audit.mjs <archivo>.
  */
 export const MODULE_TEXT_ROWS: ReadonlyArray<readonly [string, string, string, string]> = [
+  ['Pago completado', 'Payment completed', 'Paiement effectué', '付款已完成'],
+  ['Pago completado.', 'Payment completed.', 'Paiement effectué.', '付款已完成。'],
+  ['Pago completado. Tu suscripción está activa.', 'Payment completed. Your subscription is active.', 'Paiement effectué. Votre abonnement est actif.', '付款已完成，您的订阅已激活。'],
+  ['Pago completado. Tu organización está lista para iniciar sesión.', 'Payment completed. Your organization is ready to log in.', 'Paiement effectué. Votre organisation est prête à se connecter.', '付款已完成，您的组织已准备就绪，可以登录。'],
+  ['Pago completado. Tu organización está lista.', 'Payment completed. Your organization is ready.', 'Paiement effectué. Votre organisation est prête.', '付款已完成，您的组织已准备就绪。'],
+  ['Pago completado: el complemento ya está activo.', 'Payment completed: the add-on is now active.', 'Paiement effectué: le module complémentaire est désormais actif.', '付款已完成：附加组件现已激活。'],
   ['El pago simulado fue cancelado.', 'The simulated payment was canceled.', 'Le paiement simulé a été annulé.', '模拟付款已取消。'],
   ['Tarjeta (simulado)', 'Card (simulated)', 'Carte (simulation)', '银行卡（模拟）'],
   ['El pago se registra al confirmar.', 'Payment is recorded upon confirmation.', 'Le paiement est enregistré à la confirmation.', '确认后记录付款。'],

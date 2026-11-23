@@ -1,0 +1,45 @@
+{
+  "tenantId": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+  "tenantName": "HU09 - Demostracion sintetica",
+  "tenantSlug": "hu09-demo",
+  "generatedAt": "2026-11-23T19:40:33.864Z",
+  "userCount": 3,
+  "users": [
+    {
+      "id": "b7b26c1f-b345-4d1e-a30c-65e06c15e73b",
+      "tenantId": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "tenantSlug": "hu09-demo",
+      "username": "admin-hu09-demo",
+      "email": "admin@hu09-demo.example.invalid",
+      "expectedRole": "SUPERADMIN",
+      "assignedRoles": [
+        "Administrador de tenant"
+      ],
+      "status": "ACTIVE"
+    },
+    {
+      "id": "9ef1a49c-13b3-4671-8fa1-9dc2afc96b2b",
+      "tenantId": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "tenantSlug": "hu09-demo",
+      "username": "user1-hu09-demo",
+      "email": "user1@hu09-demo.example.invalid",
+      "expectedRole": "USER",
+      "assignedRoles": [
+        "Usuario operativo"
+      ],
+      "status": "ACTIVE"
+    },
+    {
+      "id": "493e2542-d895-478a-a17b-8be5eb792d63",
+      "tenantId": "e315ea65-e3e9-4577-93eb-dde327a03a9f",
+      "tenantSlug": "hu09-demo",
+      "username": "user2-hu09-demo",
+      "email": "user2@hu09-demo.example.invalid",
+      "expectedRole": "USER",
+      "assignedRoles": [
+        "Usuario operativo"
+      ],
+      "status": "ACTIVE"
+    }
+  ]
+}

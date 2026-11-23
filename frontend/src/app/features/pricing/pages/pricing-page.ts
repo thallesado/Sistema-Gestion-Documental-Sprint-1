@@ -1128,7 +1128,7 @@ export class PricingPage implements OnInit {
 
     this.http.post<SubscriptionCheckoutSession>('/api/v1/public/subscriptions/checkout', payload).subscribe({
       next: (session) => {
-        window.alert('Pago simulado completado. Tu organización está lista.');
+        window.alert('Pago completado. Tu organización está lista.');
         window.location.assign(session.url);
       },
       error: (err) => {

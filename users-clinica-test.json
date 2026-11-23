@@ -1,0 +1,45 @@
+{
+  "tenantId": "29b091dd-16a3-4c37-9987-f9ae1cbb3024",
+  "tenantName": "Clinica Test Onboarding",
+  "tenantSlug": "clinica-test",
+  "generatedAt": "2026-11-23T19:40:37.311Z",
+  "userCount": 3,
+  "users": [
+    {
+      "id": "d9006d09-6aad-4aea-bbdd-bc390995de80",
+      "tenantId": "29b091dd-16a3-4c37-9987-f9ae1cbb3024",
+      "tenantSlug": "clinica-test",
+      "username": "admin-clinica-test",
+      "email": "admin@clinica-test.example.invalid",
+      "expectedRole": "SUPERADMIN",
+      "assignedRoles": [
+        "Administrador de tenant"
+      ],
+      "status": "ACTIVE"
+    },
+    {
+      "id": "2d09e228-3038-426f-a852-5ceb60fe3955",
+      "tenantId": "29b091dd-16a3-4c37-9987-f9ae1cbb3024",
+      "tenantSlug": "clinica-test",
+      "username": "user1-clinica-test",
+      "email": "user1@clinica-test.example.invalid",
+      "expectedRole": "USER",
+      "assignedRoles": [
+        "Usuario operativo"
+      ],
+      "status": "ACTIVE"
+    },
+    {
+      "id": "193e6dbd-14cb-48dd-afc8-7bae276fdf28",
+      "tenantId": "29b091dd-16a3-4c37-9987-f9ae1cbb3024",
+      "tenantSlug": "clinica-test",
+      "username": "user2-clinica-test",
+      "email": "user2@clinica-test.example.invalid",
+      "expectedRole": "USER",
+      "assignedRoles": [
+        "Usuario operativo"
+      ],
+      "status": "ACTIVE"
+    }
+  ]
+}

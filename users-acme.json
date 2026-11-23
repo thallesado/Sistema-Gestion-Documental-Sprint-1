@@ -1,0 +1,45 @@
+{
+  "tenantId": "20000000-0000-0000-0000-000000000001",
+  "tenantName": "FinoCode",
+  "tenantSlug": "acme",
+  "generatedAt": "2026-11-23T19:40:30.336Z",
+  "userCount": 3,
+  "users": [
+    {
+      "id": "2cf1208b-fe54-4e83-b00d-d9e4ebecedab",
+      "tenantId": "20000000-0000-0000-0000-000000000001",
+      "tenantSlug": "acme",
+      "username": "admin-acme",
+      "email": "admin@acme.example.invalid",
+      "expectedRole": "SUPERADMIN",
+      "assignedRoles": [
+        "Administrador de tenant"
+      ],
+      "status": "ACTIVE"
+    },
+    {
+      "id": "c4f2ae04-8330-4d26-a5da-8eb2a46ce2d8",
+      "tenantId": "20000000-0000-0000-0000-000000000001",
+      "tenantSlug": "acme",
+      "username": "user1-acme",
+      "email": "user1@acme.example.invalid",
+      "expectedRole": "USER",
+      "assignedRoles": [
+        "Usuario operativo"
+      ],
+      "status": "ACTIVE"
+    },
+    {
+      "id": "8b8d0637-3ffe-4ea8-a1c7-9935046f1178",
+      "tenantId": "20000000-0000-0000-0000-000000000001",
+      "tenantSlug": "acme",
+      "username": "user2-acme",
+      "email": "user2@acme.example.invalid",
+      "expectedRole": "USER",
+      "assignedRoles": [
+        "Usuario operativo"
+      ],
+      "status": "ACTIVE"
+    }
+  ]
+}

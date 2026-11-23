@@ -89,4 +89,6 @@ for migration in "$INIT"/[0-9][0-9][0-9]_*.sql; do
   fi
 done
 
+psql -X -v ON_ERROR_STOP=1 -c "GRANT CONNECT ON DATABASE \"$PGDATABASE\" TO nexodocs_runtime;"
+
 echo "Esquema de tenant preparado."

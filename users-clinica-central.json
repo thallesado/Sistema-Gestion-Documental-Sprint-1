@@ -1,0 +1,45 @@
+{
+  "tenantId": "20000000-0000-0000-0000-000000000002",
+  "tenantName": "Clínica Central",
+  "tenantSlug": "clinica-central",
+  "generatedAt": "2026-11-23T19:40:32.178Z",
+  "userCount": 3,
+  "users": [
+    {
+      "id": "a5652fd9-117a-4498-8ca0-06592c585a49",
+      "tenantId": "20000000-0000-0000-0000-000000000002",
+      "tenantSlug": "clinica-central",
+      "username": "admin-clinica-central",
+      "email": "admin@clinica-central.example.invalid",
+      "expectedRole": "SUPERADMIN",
+      "assignedRoles": [
+        "Administrador de tenant"
+      ],
+      "status": "ACTIVE"
+    },
+    {
+      "id": "7bc9d0a4-27b4-4584-9c14-4fa3a3c0dda1",
+      "tenantId": "20000000-0000-0000-0000-000000000002",
+      "tenantSlug": "clinica-central",
+      "username": "user1-clinica-central",
+      "email": "user1@clinica-central.example.invalid",
+      "expectedRole": "USER",
+      "assignedRoles": [
+        "Usuario operativo"
+      ],
+      "status": "ACTIVE"
+    },
+    {
+      "id": "0228874c-73c3-4cd0-9c4b-85fb636b5dcc",
+      "tenantId": "20000000-0000-0000-0000-000000000002",
+      "tenantSlug": "clinica-central",
+      "username": "user2-clinica-central",
+      "email": "user2@clinica-central.example.invalid",
+      "expectedRole": "USER",
+      "assignedRoles": [
+        "Usuario operativo"
+      ],
+      "status": "ACTIVE"
+    }
+  ]
+}
