@@ -8,7 +8,7 @@ import { friendlyApiMessage } from '../../../core/http/tenant-session';
 import { activeLocale } from '../../../core/i18n/i18n.service';
 import { RESOURCE_LABELS, addonTotal, canReduce, paymentMethodsFor, quantityLabel, validUnits } from './addons.logic';
 
-const METHOD_LABELS: Record<string, string> = { STRIPE_CARD: 'Tarjeta (Stripe)', BANK_QR: 'QR bancario', CRYPTO_USDT: 'USDT' };
+const METHOD_LABELS: Record<string, string> = { STRIPE_CARD: 'Tarjeta (simulado)', BANK_QR: 'QR bancario', CRYPTO_USDT: 'USDT' };
 const SOURCE_LABELS: Record<string, string> = { PURCHASE: 'Comprado', MANUAL_PAYMENT: 'Pago manual', COURTESY: 'Cortesía de NexoDocs' };
 
 /**

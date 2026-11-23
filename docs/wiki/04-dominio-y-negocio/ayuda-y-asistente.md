@@ -37,3 +37,7 @@ La clave se comprobo sin imprimirla: listado de modelos y una generacion minima 
 El modelo no se entrena ni consulta automaticamente la wiki o las tablas de pacientes. Usa el manual incluido en el backend. Se agregaron al manual las entregas externas, archivo fisico/prestamos, traduccion revisada y buzon documental, con sus permisos y limites. `safeHelpIntent()` reconoce esas categorias antes de las categorias generales sin reenviar el texto libre. Los permisos legitimos con guion, como `mail-intake:read`, se conservan en el contexto; siguen procediendo del servidor y no del navegador.
 
 Verificacion: `AssistantServiceTest` (10 pruebas), `GeminiClientTest` (8 pruebas), y `node --test frontend/tests/help-content.test.mjs` (14 pruebas), sin fallos. Se reconstruyo y levanto el backend de pruebas y se comprobo el widget contra el proveedor real. No se enviaron documentos ni datos de pacientes. No afirmar que esta prueba certifica OCR o traduccion documental: requieren sus propios recorridos.
+
+## Fallos iniciales de transporte
+
+GeminiClient reintenta IOException con la misma pol?tica limitada de espera que los errores HTTP transitorios. El log registra el tipo de fallo de transporte sin registrar la clave ni el contenido enviado. Esto permite recuperar conexiones transitorias dentro de una pregunta.

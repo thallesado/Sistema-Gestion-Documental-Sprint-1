@@ -103,18 +103,18 @@ class SubscriptionLifecycleServiceTest {
     }
 
     @Test
-    void cancelWithStripeCancelsTheSubscriptionFirst() {
+    void cancelWithLegacyStripeReferenceKeepsCancellationLocal() {
         tenant.put("stripe_subscription_id", "sub_123");
         when(encoder.matches("buena", "hash")).thenReturn(true);
         service.cancelNow(cancel("FinoCode", "buena"));
-        verify(stripe).cancelSubscription("sub_123");
+        verifyNoInteractions(stripe);
     }
 
     @Test
     void upgradeNowNeedsAStripeSubscriptionAndOnlyGoesUp() {
         assertThrows(IllegalStateException.class, () -> service.upgradeNow(new SubscriptionPlanRequest("ENTERPRISE", null)));
         tenant.put("stripe_subscription_id", "sub_123");
-        assertThrows(IllegalArgumentException.class, () -> service.upgradeNow(new SubscriptionPlanRequest("BASIC", null)));
+        assertThrows(IllegalStateException.class, () -> service.upgradeNow(new SubscriptionPlanRequest("BASIC", null)));
         verify(stripe, never()).updateSubscription(any(), any());
     }
 

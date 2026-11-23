@@ -162,3 +162,7 @@ Ver [archivo fisico y prestamos](archivo-fisico-y-prestamos.md) para permisos, f
 ## HU-27: verificacion posterior con proveedor real
 
 El 2026-11-18 se completaron dos ciclos de traduccion con Gemini real, revision con otra cuenta y descarga de PDF, conservando los originales. [Cuenta local, permisos y evidencia](traduccion-pruebas-locales.md). Esta comprobacion sustituye el pendiente de Google real para ese recorrido PDF en 4201; no certifica DOCX, calidad profesional, IMAP ni antivirus externo.
+
+## Identificaci?n del buz?n local
+
+El perfil autorizado devuelve su direcci?n de correo como email, visible en modo lectura en el formulario y la lista de conexiones. El secreto permanece en el servidor. Crear otra conexi?n con el mismo perfil y carpeta devuelve un conflicto que indica usar Editar reglas o Probar conexi?n.

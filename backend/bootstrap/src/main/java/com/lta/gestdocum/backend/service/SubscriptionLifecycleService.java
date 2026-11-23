@@ -89,7 +89,7 @@ public class SubscriptionLifecycleService {
                 (BigDecimal) row.get("price_monthly"), (BigDecimal) row.get("price_yearly"),
                 Objects.toString(row.get("billing_cycle_v2"), "MONTHLY"), (String) row.get("preferred_payment_method"),
                 instant(row.get("current_period_end")), instant(row.get("trial_ends_at")),
-                row.get("stripe_subscription_id") != null, !Boolean.TRUE.equals(row.get("cancel_at_period_end")),
+                properties.configured() && row.get("stripe_subscription_id") != null, !Boolean.TRUE.equals(row.get("cancel_at_period_end")),
                 (String) row.get("scheduled_plan_code"), (String) row.get("scheduled_billing_cycle"),
                 instant(row.get("scheduled_change_at")), instant(row.get("canceled_at")),
                 instant(row.get("deletion_scheduled_at")), retentionDays);
@@ -101,7 +101,7 @@ public class SubscriptionLifecycleService {
     public SubscriptionDetailsResponse upgradeNow(SubscriptionPlanRequest request) {
         UUID tenantId = context.requireTenantId();
         Map<String, Object> tenant = requireOperable(tenantId);
-        String subscriptionId = (String) tenant.get("stripe_subscription_id");
+        String subscriptionId = properties.configured() ? (String) tenant.get("stripe_subscription_id") : null;
         if (subscriptionId == null) {
             // Sin suscripción recurrente el pago se hace por Checkout (o QR/USDT) desde Facturación.
             throw new IllegalStateException("La organización no tiene una suscripción con tarjeta: usa «Pagar y activar» para cambiar de plan");
@@ -153,7 +153,7 @@ public class SubscriptionLifecycleService {
 
         Instant effectiveAt;
         String scheduleId = null;
-        String subscriptionId = (String) tenant.get("stripe_subscription_id");
+        String subscriptionId = properties.configured() ? (String) tenant.get("stripe_subscription_id") : null;
         if (subscriptionId != null) {
             String newPrice = requireStripePrice((String) target.get("code"), cycle);
             JsonNode subscription = stripe.retrieveSubscription(subscriptionId);
@@ -209,7 +209,7 @@ public class SubscriptionLifecycleService {
     public SubscriptionDetailsResponse setAutoRenew(boolean autoRenew) {
         UUID tenantId = context.requireTenantId();
         Map<String, Object> tenant = requireOperable(tenantId);
-        String subscriptionId = (String) tenant.get("stripe_subscription_id");
+        String subscriptionId = properties.configured() ? (String) tenant.get("stripe_subscription_id") : null;
         if (!autoRenew) releaseScheduleIfAny(tenant); // sin renovación no hay cambio de plan futuro
         if (subscriptionId != null) {
             JsonNode updated = stripe.updateSubscription(subscriptionId,
@@ -249,7 +249,7 @@ public class SubscriptionLifecycleService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new IllegalArgumentException("La contraseña no es correcta");
         }
-        String subscriptionId = (String) tenant.get("stripe_subscription_id");
+        String subscriptionId = properties.configured() ? (String) tenant.get("stripe_subscription_id") : null;
         if (subscriptionId != null) {
             releaseScheduleIfAny(tenant);
             // Sin prorrateo ni reembolso automático: el período ya pagado no se devuelve.
@@ -400,7 +400,7 @@ public class SubscriptionLifecycleService {
 
     private void releaseScheduleIfAny(Map<String, Object> tenant) {
         String scheduleId = (String) tenant.get("stripe_schedule_id");
-        if (scheduleId == null) return;
+        if (scheduleId == null || !properties.configured()) return;
         try {
             stripe.releaseSchedule(scheduleId);
         } catch (RuntimeException exception) {

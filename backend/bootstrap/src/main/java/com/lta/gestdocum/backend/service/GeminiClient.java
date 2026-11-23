@@ -132,6 +132,11 @@ public class GeminiClient {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new RuntimeException("interrumpido", e);
+                } catch (java.io.IOException e) {
+                    lastError = e.getClass().getSimpleName();
+                    retry = true;
+                    log.warn("Fallo de transporte Gemini {} con modelo {} (intento {}/{})",
+                            lastError, currentModel, attempt, MAX_ATTEMPTS);
                 } catch (Exception e) {
                     log.warn("Excepción llamando a modelo {}: {}. Probando siguiente...", currentModel, e.getMessage());
                     lastError = e.getMessage();

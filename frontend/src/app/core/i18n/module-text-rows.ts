@@ -4,6 +4,12 @@
  * Para encontrar textos sin traducir: node scripts/i18n-audit.mjs <archivo>.
  */
 export const MODULE_TEXT_ROWS: ReadonlyArray<readonly [string, string, string, string]> = [
+  ['El pago simulado fue cancelado.', 'The simulated payment was canceled.', 'Le paiement simulé a été annulé.', '模拟付款已取消。'],
+  ['Tarjeta (simulado)', 'Card (simulated)', 'Carte (simulation)', '银行卡（模拟）'],
+  ['El pago se registra al confirmar.', 'Payment is recorded upon confirmation.', 'Le paiement est enregistré à la confirmation.', '确认后记录付款。'],
+  ['Pago simulado del periodo seleccionado.', 'Simulated payment for the selected period.', 'Paiement simulé pour la période sélectionnée.', '所选期间的模拟付款。'],
+  ['Pago simulado completado. Tu suscripción está activa.', 'Simulated payment completed. Your subscription is active.', 'Paiement simulé terminé. Votre abonnement est actif.', '模拟付款完成，订阅已激活。'],
+  ['Pago simulado completado.', 'Simulated payment completed.', 'Paiement simulé terminé.', '模拟付款已完成。'],
   ['Conservación documental', 'Document retention', 'Conservation documentaire', '文档保管'],
   ['Políticas por tipo, plazos de conservación y documentos próximos a vencer.', 'Policies by type, retention periods and documents approaching their retention date.', 'Politiques par type, durées de conservation et documents proches de leur échéance.', '按类型管理策略、保管期限及即将到期的文档。'],
   ['Transferencias documentales', 'Document transfers', 'Transferts documentaires', '文档移交'],

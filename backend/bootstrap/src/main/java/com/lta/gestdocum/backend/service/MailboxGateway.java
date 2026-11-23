@@ -23,7 +23,7 @@ public class MailboxGateway {
         this.local=local;try{profiles=json.readValue(configured.isBlank()?"{}":configured,new TypeReference<>(){});}catch(Exception e){throw new IllegalArgumentException("MAILBOX_PROFILES_JSON no es válido");}
     }
     private boolean belongs(Map<String,Object> p){var route=com.lta.gestdocum.backend.security.TenantDatabaseContext.current();return route!=null&&route.tenantId()!=null&&(route.tenantId().toString().equals(p.get("tenantId"))||(local&&p.get("tenantId")==null));}
-    public List<Map<String,Object>> available(){return profiles.entrySet().stream().filter(e->belongs(e.getValue())).map(e->Map.<String,Object>of("key",e.getKey(),"label",Objects.toString(e.getValue().get("label"),e.getKey()))).toList();}
+    public List<Map<String,Object>> available(){return profiles.entrySet().stream().filter(e->belongs(e.getValue())).map(e->Map.<String,Object>of("key",e.getKey(),"label",Objects.toString(e.getValue().get("label"),e.getKey()),"email",Objects.toString(e.getValue().get("username"),""))).toList();}
     private Map<String,Object> profile(String key){var p=profiles.get(key);if(p==null||!belongs(p))throw new IllegalArgumentException("Selecciona un perfil IMAP autorizado para esta organización");return p;}
     private Store connect(String key)throws Exception {
         var p=profile(key);String host=Objects.toString(p.get("host"),"");

@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface BillingTransactionRepository extends JpaRepository<BillingTransaction, UUID> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     Optional<BillingTransaction> findByIdAndTenantId(UUID id, UUID tenantId);
     List<BillingTransaction> findByTenantIdOrderByCreatedAtDesc(UUID tenantId);
 }

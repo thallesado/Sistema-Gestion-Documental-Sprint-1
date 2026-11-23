@@ -24,6 +24,13 @@ async function main(){
    const alerts=await page.getByRole('alert').allTextContents();assert.equal(alerts.length,0,'Errores API en '+route+': '+alerts.join(';'));
    await page.screenshot({path:path.join(output,file+'.png'),fullPage:true});
   }
+  const publishedTranslation = page.getByRole('row').filter({hasText: 'Publicado'}).first();
+  await publishedTranslation.getByRole('link', {name: 'Revisar y ver segmentos'}).click();
+  const review = page.locator('section[aria-labelledby="translation-review-title"]');
+  await review.locator('tbody tr').first().waitFor();
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-labelledby') === 'translation-review-title');
+  const reviewBounds = await review.boundingBox();
+  assert(reviewBounds.y < page.viewportSize().height, 'El panel de revisión debe quedar a la vista');
   await page.goto(base+'/physical-archive');await page.getByRole('button',{name:'Registrar original',exact:true}).click();
   const editor=page.locator('dialog[open]');await editor.locator('[name=code]').fill('FIS-BROWSER');await editor.locator('[name=name]').fill('Original creado en navegador');await editor.locator('[name=loc]').selectOption({index:1});await editor.locator('[name=custodian]').selectOption(config.custodianId);
   const saved=page.waitForResponse(r=>r.url().endsWith('/api/v1/physical-archive/items')&&r.request().method()==='POST');await editor.locator('button.primary').click();assert.equal((await saved).status(),201);await page.waitForURL(/physical-archive\/[0-9a-f-]+$/);await page.getByText('Original creado en navegador').last().waitFor();

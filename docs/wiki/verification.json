@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-11-06",
+  "reviewedAt": "2026-11-23",
   "localRevision": "91fb767",
   "remoteRevision": "91fb767",
   "pages": [
@@ -47,7 +47,8 @@
     "06-operacion/contexto-sesion-2026-11-17.md",
     "04-dominio-y-negocio/operaciones-documentales.md",
     "04-dominio-y-negocio/archivo-fisico-y-prestamos.md",
-    "04-dominio-y-negocio/traduccion-pruebas-locales.md"
+    "04-dominio-y-negocio/traduccion-pruebas-locales.md",
+    "04-dominio-y-negocio/poblado-datos-demo.md"
   ],
   "contracts": [
     {
@@ -494,7 +495,9 @@
     {
       "page": "04-dominio-y-negocio/ayuda-y-asistente.md",
       "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/dto/AssistantChatRequest.java",
-      "includes": ["@JsonIgnoreProperties(\"at\")"]
+      "includes": [
+        "@JsonIgnoreProperties(\"at\")"
+      ]
     },
     {
       "page": "06-operacion/anclaje-externo-auditoria.md",
@@ -1827,8 +1830,40 @@
       "path": "frontend/src/app/features/document-operations/translations-page.ts",
       "includes": [
         "isRequester(d: OperationRow)",
+        "this.reviewSection?.nativeElement.focus()",
         "editable(d: OperationRow)",
         "can('translation:review')"
+      ]
+    },
+    {
+      "page": "02-backend/autenticacion-y-sesiones.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/AuthService.java",
+      "includes": [
+        "tenantLoginJdbc != null && tenantLoginTransaction != null",
+        "app.lookup_tenant_login",
+        "SET LOCAL ROLE nexodocs_app"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/operaciones-documentales.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/MailboxGateway.java",
+      "includes": [
+        "\"email\",Objects.toString(e.getValue().get(\"username\"),\"\")"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/ayuda-y-asistente.md",
+      "path": "backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/GeminiClient.java",
+      "includes": [
+        "catch (java.io.IOException e)"
+      ]
+    },
+    {
+      "page": "04-dominio-y-negocio/reportes-y-analitica.md",
+      "path": "frontend/src/app/features/reportes/voice/voice-report-page.ts",
+      "includes": [
+        "Sin restricción de fechas",
+        "9999-12-31"
       ]
     }
   ],
@@ -1862,8 +1897,8 @@
       "revision": "a590a6d"
     },
     "02-backend/autenticacion-y-sesiones.md": {
-      "reviewedAt": "2026-11-06",
-      "revision": "91fb767"
+      "reviewedAt": "2026-11-20",
+      "revision": "eae13644"
     },
     "02-backend/base-de-datos-y-migraciones.md": {
       "reviewedAt": "2026-10-16",

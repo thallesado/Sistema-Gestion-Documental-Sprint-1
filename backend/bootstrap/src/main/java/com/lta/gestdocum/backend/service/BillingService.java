@@ -74,7 +74,12 @@ public class BillingService {
         transaction.setStatus(BillingTransaction.PaymentStatus.PENDING); transaction.setExternalReference(payment.externalReference());
         transaction.setBillingPeriod(cycle); transaction.setMetadata(new LinkedHashMap<>(payment.payload())); transaction.setCreatedAt(Instant.now());
         transactions.save(transaction);
-        return new BillingCheckoutResponse(id, method.name(), amount, "USD", payment.externalReference(), payment.expiresAt(), payment.payload());
+        entityManager.flush();
+        String proof = method == BillingTransaction.PaymentMethod.CRYPTO_USDT
+                ? "sandbox_tx_" + id.toString().replace("-", "") : payment.externalReference();
+        confirm(new BillingConfirmRequest(id, proof));
+        return new BillingCheckoutResponse(id, method.name(), amount, "USD", payment.externalReference(),
+                payment.expiresAt(), Map.of("mode", "simulated", "status", "COMPLETED", "simulated", true));
     }
 
     @Transactional

@@ -82,3 +82,81 @@ Variables: `STRIPE_API_KEY` (clave restringida con permisos de escritura en Chec
 Fuentes: [SubscriptionLifecycleService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/SubscriptionLifecycleService.java), [061_subscription_lifecycle.sql](../../../database/init/061_subscription_lifecycle.sql), [subscription-page.ts](../../../frontend/src/app/features/billing/pages/subscription-page.ts), [StripeSubscriptionService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/StripeSubscriptionService.java), [StripeBillingProperties.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/billing/StripeBillingProperties.java), [PublicSubscriptionController.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PublicSubscriptionController.java), [BillingService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/BillingService.java), [059_stripe_subscription_billing.sql](../../../database/init/059_stripe_subscription_billing.sql), [pricing-page.ts](../../../frontend/src/app/features/pricing/pages/pricing-page.ts), [checkout-success-page.ts](../../../frontend/src/app/features/pricing/pages/checkout-success-page.ts).
 
 La migración `086_secure_subscription_maintenance` mueve las escrituras globales de los jobs de suscripción y vencimiento de complementos a funciones `SECURITY DEFINER` propiedad de `nexodocs_security`. `nexodocs_app` solo puede ejecutar esas funciones; no recibe `UPDATE` directo sobre `tenant_addons`. La auditoría valida tenant, usuario y permiso en operaciones de usuario, y limita las operaciones sin actor a los eventos esperados del job.
+
+## Pagos simulados
+
+> Revisión documental: 2026-11-23. Fuente: cambios locales sin commit sobre `91fb767`. Describe el modo de desarrollo y demo; no reemplaza Stripe en producción.
+
+### Propósito
+
+Cuando `STRIPE_API_KEY` no está configurada (entornos de desarrollo, CI o demo), el sistema activa el modo de **pago simulado**: el alta pública sigue el mismo formulario y los mismos endpoints que el flujo real, pero no llama a Stripe. El tenant queda `ACTIVE` de inmediato y se genera una transacción `billing_transactions` con `payment_method = 'STRIPE_CARD'` y `metadata_json = {"mode":"simulated","kind":"tenant_signup"}`.
+
+`POST /api/v1/public/signup` (ruta legada) responde `410 Gone` cuando hay clave Stripe real, para evitar activar organizaciones de pago sin cobro. Con modo simulado la ruta queda activa únicamente para pruebas locales.
+
+### Arquitectura
+
+```
+Navegador  →  POST /api/v1/public/subscriptions/checkout
+                    │
+                    ▼
+         PublicSubscriptionController
+                    │  delega siempre a:
+                    ▼
+         SimulatedSubscriptionService          ← nuevo servicio
+                    │
+          ┌─────────┴──────────┐
+          ▼                    ▼
+  PublicSignupService     JdbcTemplate
+  (crea tenant,          (inserta tenant_signups en COMPLETED
+   usuario, roles,        e inserta billing_transactions)
+   catálogos)
+```
+
+`SimulatedSubscriptionService` (nuevo archivo `??` en `git status`) reemplaza la lógica que antes residía en el controlador. El controlador ahora inyecta exclusivamente este servicio:
+
+```java
+// PublicSubscriptionController.java
+public PublicSubscriptionController(SimulatedSubscriptionService subscriptions) {
+    this.subscriptions = subscriptions;
+}
+```
+
+### Funciones SECURITY DEFINER (migración 086)
+
+`086_secure_subscription_maintenance.sql` crea tres funciones propiedad de `nexodocs_security`; `nexodocs_app` solo puede ejecutarlas, sin acceso directo a las tablas que modifican:
+
+| Función | Acción | Parámetros clave |
+|---|---|---|
+| `app.finish_nonrenewed_subscriptions(p_retention_days)` | Cancela suscripciones cuyo período terminó y `cancel_at_period_end = true`, fija `deletion_scheduled_at` | `p_retention_days` validado en `[1, 3650]` |
+| `app.apply_scheduled_subscription_changes()` | Aplica cambios programados de plan/ciclo cuando `scheduled_change_at ≤ now()` | — |
+| `app.record_tenant_lifecycle_audit(p_tenant_id, p_actor_id, p_action, p_details)` | Registra un evento de auditoría del ciclo de vida; exige actor o valida que la acción sea del job | `p_action` verificado contra lista permitida |
+
+Ninguna de estas funciones puede ser llamada directamente desde SQL de la aplicación sin el permiso `EXECUTE`; `PUBLIC` queda revocado.
+
+### Cambios UI relacionados
+
+- **`checkout-page.ts`**: Se eliminó el formulario de tarjeta simulado del modal de `/billing`. El checkout siempre redirige a Stripe Checkout (modo real) o a `/planes/exito?session_id=sim_…` (modo simulado). La URL de retorno se construye desde `StripeBillingProperties.frontendUrl()`.
+- **`billing-page.ts`**: El botón «Activar plan» solo aparece cuando no hay suscripción activa; con suscripción activa muestra «Gestionar suscripción» enlazando a `/billing/subscription`.
+- **`pricing-page.ts`**: BASIC, PRO y ENTERPRISE tienen el mismo flujo de «Comenzar ahora» sin desvío a `/plans/contact-sales`. Enterprise sigue teniendo esa opción como enlace secundario de consulta comercial.
+- **`subscription-addons-panel.ts`**: Refleja el estado de complementos desde `billing_transactions` y no llama a Stripe cuando el tenant fue creado en modo simulado.
+
+### Sesión de pago simulada
+
+La respuesta de `POST /api/v1/public/subscriptions/checkout` en modo simulado es:
+
+```json
+{
+  "sessionId": "sim_<uuid-sin-guiones>",
+  "checkoutUrl": "<FRONTEND_URL>/planes/exito?session_id=sim_<uuid>"
+}
+```
+
+`GET /api/v1/public/subscriptions/checkout/{sessionId}/status` devuelve `status: "COMPLETED"` inmediatamente; el mensaje es `"Pago simulado completado. Tu organización está lista para iniciar sesión."`. El polling de `/planes/exito` termina en el primer ciclo y redirige a `/login?tenant=<id>`.
+
+### Restricciones y seguridad
+
+- Si `STRIPE_API_KEY` está definida, `BillingService` lanza `IllegalStateException` antes de llegar a `SimulatedSubscriptionService`; el modo simulado no puede activarse en producción.
+- `tenant_signups` tiene RLS habilitada y `nexodocs_app` no recibe privilegios directos: todas las escrituras del alta simulada usan el usuario de conexión del backend.
+- Las transacciones simuladas aparecen en `billing_transactions` con `mode: "simulated"` en `metadata_json`, por lo que se distinguen de transacciones reales en auditoría.
+
+Fuentes: [SimulatedSubscriptionService.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/service/SimulatedSubscriptionService.java), [086_secure_subscription_maintenance.sql](../../../database/init/086_secure_subscription_maintenance.sql), [PublicSubscriptionController.java](../../../backend/bootstrap/src/main/java/com/lta/gestdocum/backend/controller/PublicSubscriptionController.java), [checkout-page.ts](../../../frontend/src/app/features/billing/pages/checkout-page.ts), [billing-page.ts](../../../frontend/src/app/features/billing/pages/billing-page.ts), [pricing-page.ts](../../../frontend/src/app/features/pricing/pages/pricing-page.ts).

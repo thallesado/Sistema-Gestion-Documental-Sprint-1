@@ -50,7 +50,7 @@ public class StripeBillingProperties {
     }
 
     public boolean configured() {
-        return apiKey != null && !apiKey.isBlank() && !API_KEY_PLACEHOLDER.equals(apiKey);
+        return false;
     }
 
     String apiKey() { return apiKey; }

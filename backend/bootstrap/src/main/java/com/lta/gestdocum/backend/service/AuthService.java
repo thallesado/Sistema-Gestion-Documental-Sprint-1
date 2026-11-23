@@ -92,7 +92,8 @@ public class AuthService {
         UUID tenantId = request.getTenantId() != null ? request.getTenantId() : resolveTenantId(request.getTenantName());
         ensureTenantLoginAllowed(tenantId);
         TenantDatabaseLifecycleService lifecycle = tenantDatabaseLifecycleService;
-        if (tenantId != null && lifecycle != null && lifecycle.isIsolatedTenant(tenantId)) {
+        if (tenantId != null && (tenantLoginJdbc != null && tenantLoginTransaction != null
+                || lifecycle != null && lifecycle.isIsolatedTenant(tenantId))) {
             JdbcTemplate jdbc = tenantLoginJdbc;
             TransactionTemplate tx = tenantLoginTransaction;
             if (jdbc == null || tx == null) throw new IllegalStateException("No está disponible el inicio de sesión aislado.");
@@ -167,7 +168,8 @@ public class AuthService {
         AuthenticatedRefresh refresh = parseRefresh(request.getRefreshToken());
         ensureTenantLoginAllowed(refresh.tenantId());
         TenantDatabaseLifecycleService lifecycle = tenantDatabaseLifecycleService;
-        if (refresh.tenantId() != null && lifecycle != null && lifecycle.isIsolatedTenant(refresh.tenantId())) {
+        if (refresh.tenantId() != null && (tenantLoginJdbc != null && tenantLoginTransaction != null
+                || lifecycle != null && lifecycle.isIsolatedTenant(refresh.tenantId()))) {
             JdbcTemplate jdbc = tenantLoginJdbc;
             TransactionTemplate tx = tenantLoginTransaction;
             if (jdbc == null || tx == null) throw new IllegalStateException("No está disponible la renovación de sesión aislada.");
@@ -221,6 +223,8 @@ public class AuthService {
                 user.isMustChangePassword());
     }
 
+    // The same restricted pre-authentication lookup is required for LEGACY_SHARED tenants:
+    // runtime has no RLS identity yet, so a direct users query cannot authenticate them.
     private User lookupIsolatedUser(UUID tenantId, String identifier, JdbcTemplate jdbc) {
         List<User> matches = jdbc.query("SELECT * FROM app.lookup_tenant_login(?::uuid, ?::text)",
                 (row, index) -> User.builder()

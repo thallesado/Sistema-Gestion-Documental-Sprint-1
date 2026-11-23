@@ -3,7 +3,7 @@ package com.lta.gestdocum.backend.controller;
 import com.lta.gestdocum.backend.dto.PublicSubscriptionCheckoutRequest;
 import com.lta.gestdocum.backend.dto.PublicSubscriptionStatusResponse;
 import com.lta.gestdocum.backend.dto.SubscriptionCheckoutSessionResponse;
-import com.lta.gestdocum.backend.service.StripeSubscriptionService;
+import com.lta.gestdocum.backend.service.SimulatedSubscriptionService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,9 +11,9 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/public/subscriptions")
 public class PublicSubscriptionController {
-    private final StripeSubscriptionService subscriptions;
+    private final SimulatedSubscriptionService subscriptions;
 
-    public PublicSubscriptionController(StripeSubscriptionService subscriptions) { this.subscriptions = subscriptions; }
+    public PublicSubscriptionController(SimulatedSubscriptionService subscriptions) { this.subscriptions = subscriptions; }
 
     @PostMapping("/checkout")
     public SubscriptionCheckoutSessionResponse checkout(@Valid @RequestBody PublicSubscriptionCheckoutRequest request) {

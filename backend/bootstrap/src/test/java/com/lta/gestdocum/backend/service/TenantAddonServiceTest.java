@@ -61,7 +61,10 @@ class TenantAddonServiceTest {
     }
 
     @Test
-    void recurringAddonIsAddedToTheSameStripeSubscription() throws Exception {
+    void recurringAddonRecordsSimulatedPaymentWithoutContactingStripe() throws Exception {
+        var gateway = new com.lta.gestdocum.backend.billing.StripeCardGatewayProvider("ignored", org.springframework.web.client.RestClient.builder());
+        service = new TenantAddonService(jdbc, context, stripe, properties, sync, List.of(gateway), mapper);
+        when(jdbc.queryForObject(contains("app.grant_addon_from_payment"), eq(Boolean.class), any(UUID.class))).thenReturn(true);
         JsonNode subscription = mapper.readTree("""
                 {"id":"sub_1","items":{"data":[{"id":"si_plan","quantity":1,"price":{"id":"price_pro","metadata":{}}}]}}
                 """);
@@ -70,16 +73,9 @@ class TenantAddonServiceTest {
 
         var result = service.purchase(new Purchase("storage_10gb", 1, "STRIPE_CARD", null));
 
-        assertEquals("SUBSCRIPTION_ITEM", result.mode());
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<Map<String, String>> form = ArgumentCaptor.forClass(Map.class);
-        verify(stripe).createSubscriptionItem(form.capture(), anyString());
-        assertEquals("sub_1", form.getValue().get("subscription"));
-        assertEquals("price_storage", form.getValue().get("price"));
-        assertEquals("1", form.getValue().get("quantity"));
-        assertEquals("always_invoice", form.getValue().get("proration_behavior"));
-        assertEquals("STORAGE_10GB", form.getValue().get("metadata[addonCode]"));
-        verify(sync).sync(eq(tenantId), any(), any());
+        assertEquals("SIMULATED", result.mode());
+        verify(jdbc).update(contains("status='COMPLETED'"), any(UUID.class), eq(tenantId));
+        verifyNoInteractions(stripe, sync);
     }
 
     @Test

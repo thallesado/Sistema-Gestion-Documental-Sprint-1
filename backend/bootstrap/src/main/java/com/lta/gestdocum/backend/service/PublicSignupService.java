@@ -55,6 +55,15 @@ public class PublicSignupService {
      */
     @Transactional
     public PublicSignupResponse signup(PublicSignupRequest request) {
+        return signup(request, true);
+    }
+
+    @Transactional
+    public PublicSignupResponse signupForCheckout(PublicSignupRequest request) {
+        return signup(request, false);
+    }
+
+    private PublicSignupResponse signup(PublicSignupRequest request, boolean autoLogin) {
         // Resolver plan
         Plan plan = null;
         if (request.planId() != null) {
@@ -96,11 +105,8 @@ public class PublicSignupService {
         // Determinar monto del pago simulado
         String billingPeriod = (request.billingPeriod() != null && "ANNUAL".equalsIgnoreCase(request.billingPeriod()))
                 ? "ANNUAL" : "MONTHLY";
-        BigDecimal amount = request.amountUsd();
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            amount = "ANNUAL".equals(billingPeriod) ? plan.getPriceYearly() : plan.getPriceMonthly();
-            if (amount == null) amount = BigDecimal.ZERO;
-        }
+        BigDecimal amount = "ANNUAL".equals(billingPeriod) ? plan.getPriceYearly() : plan.getPriceMonthly();
+        if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("El plan no tiene un precio válido");
 
         String paymentMethod = (request.paymentMethod() != null && !request.paymentMethod().isBlank())
                 ? request.paymentMethod().trim()
@@ -135,7 +141,7 @@ public class PublicSignupService {
 
         // Iniciar sesión automáticamente si se conoce la contraseña
         AuthResponse auth = null;
-        if (passwordUsed != null && !passwordUsed.isBlank()) {
+        if (autoLogin && passwordUsed != null && !passwordUsed.isBlank()) {
             try {
                 AuthRequest authRequest = new AuthRequest();
                 authRequest.setTenantId(tenantId);

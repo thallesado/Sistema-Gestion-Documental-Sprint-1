@@ -116,6 +116,7 @@ public class TenantAddonService {
 
     // ------------------------------------------------------------------- compra
 
+    @org.springframework.transaction.annotation.Transactional
     public PurchaseResult purchase(Purchase request) {
         UUID tenantId = context.requireTenantId();
         UUID userId = context.requireUserId();
@@ -129,8 +130,8 @@ public class TenantAddonService {
         Map<String, Object> addon = offeredAddon(request.addonCode(), (String) tenant.get("plan_code"));
         boolean consumable = "CONSUMABLE".equals(addon.get("kind"));
         Map<String, Object> price = currentPrice((UUID) addon.get("id"), consumable ? "ONE_TIME" : cycle);
-        String subscriptionId = (String) tenant.get("stripe_subscription_id");
-        boolean card = "STRIPE_CARD".equals(request.paymentMethod());
+        String subscriptionId = null;
+        boolean card = false;
 
         if (!consumable && subscriptionId != null) {
             // Un recurrente va en la misma suscripción: se paga con la tarjeta de la suscripción.
@@ -145,7 +146,11 @@ public class TenantAddonService {
             return new PurchaseResult("CHECKOUT", consumableCheckout(tenantId, tenant, addon, price, request.units()), null, null);
         }
         BillingCheckoutResponse order = manualOrder(tenantId, tenant, addon, price, request, consumable ? "MONTHLY" : cycle);
-        return new PurchaseResult("MANUAL_ORDER", null, order, null);
+        jdbc.update("update billing_transactions set status='COMPLETED',completed_at=now() where id=? and tenant_id=?",
+                order.transactionId(), tenantId);
+        Boolean granted = jdbc.queryForObject("select app.grant_addon_from_payment(?)", Boolean.class, order.transactionId());
+        if (!Boolean.TRUE.equals(granted)) throw new IllegalStateException("No se pudo activar el complemento");
+        return new PurchaseResult("SIMULATED", null, null, overview(tenantId));
     }
 
     private void addToSubscription(UUID tenantId, UUID userId, String subscriptionId, Map<String, Object> addon,

@@ -45,3 +45,5 @@ QBE permite componer consultas acotadas por entidad/campos y ejecuta el API real
 ## Permisos de reportes restituidos (2026-11-18)
 
 La rama de reportes de Elkin (`f933760`) había ampliado `ReportController.REPORT_AUTH` y `AnalyticsController.ANALYTICS_AUTH` a `tenant:manage`, `tenant:update` y `platform:tenant:manage`. Esos permisos no los recorta el plan, así que un administrador de un plan sin `advanced_analytics` abría todos los reportes, incluida la auditoría, y un rol con solo `tenant:update` leía la auditoría completa. Se volvió a `hasAuthority('report:read')` en ambos y en `/reports/embed-config`; el menú web (`nexodocs-data.ts`) también vuelve a pedir solo `report:read`. Pruebas: `ReportAuthorizationTest` evalúa las reglas `@PreAuthorize` reales y `frontend/tests/permissions.test.mjs` el menú.
+
+La consulta por voz reconoce meses en castellano, este mes, mes pasado y fechas con dia y mes escrito. Un mes sin ano usa el ano actual del navegador. Un periodo mencionado que no se reconoce bloquea la consulta y solicita aclararlo, evitando consultar todo el historial.

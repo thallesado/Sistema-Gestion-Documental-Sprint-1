@@ -189,8 +189,8 @@ interface PlanCatalog {
           </div>
 
           <ul class="trust-strip">
-            <li><span aria-hidden="true">🔒</span> Pago seguro con Stripe; NexoDocs no guarda tu tarjeta</li>
-            <li><span aria-hidden="true">↻</span> Renovación automática, cancela cuando quieras</li>
+            <li><span aria-hidden="true">✓</span> Pago simulado con confirmación inmediata</li>
+            <li><span aria-hidden="true">↻</span> Gestiona tu plan y el período contratado</li>
             <li><span aria-hidden="true">🛡</span> Datos aislados por organización</li>
           </ul>
         }
@@ -328,9 +328,8 @@ interface PlanCatalog {
                 </div>
 
                 <p class="step-desc">
-                  Te llevaremos a la página segura de Stripe para ingresar tu tarjeta; NexoDocs no ve ni guarda sus datos.
-                  Cuando Stripe confirme el pago se crea tu organización y la suscripción se renueva automáticamente
-                  cada {{ billingCycle() === 'ANNUAL' ? 'año' : 'mes' }} hasta que la canceles.
+                  Al confirmar se registrará un pago simulado y se creará tu organización con el plan seleccionado.
+                  La confirmación mostrará el resultado del pago.
                 </p>
 
                 @if (submitError()) {
@@ -343,9 +342,9 @@ interface PlanCatalog {
                   <button type="button" class="btn-cancel" (click)="goToStep(2)" [disabled]="submitting()">← Volver</button>
                   <button type="submit" class="primary-btn pay-btn" [disabled]="submitting()">
                     @if (submitting()) {
-                      <span>Redirigiendo a Stripe…</span>
+                      <span>Registrando el pago simulado…</span>
                     } @else {
-                      <span>Pagar con Stripe (\${{ getPrice(selectedPlan()!) }} USD)</span>
+                      <span>Confirmar pago simulado (\${{ getPrice(selectedPlan()!) }} USD)</span>
                     }
                   </button>
                 </div>
@@ -1128,7 +1127,10 @@ export class PricingPage implements OnInit {
     };
 
     this.http.post<SubscriptionCheckoutSession>('/api/v1/public/subscriptions/checkout', payload).subscribe({
-      next: (session) => window.location.assign(session.url),
+      next: (session) => {
+        window.alert('Pago simulado completado. Tu organización está lista.');
+        window.location.assign(session.url);
+      },
       error: (err) => {
         this.submitting.set(false);
         this.submitError.set(

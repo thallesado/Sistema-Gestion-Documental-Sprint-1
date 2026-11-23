@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
+import { Component, ElementRef, Injector, ViewChild, afterNextRender, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -146,11 +146,11 @@ import { PermissionService } from '../../core/auth/permission.service';
 
   <!-- Panel de Revisión Lado a Lado -->
   @if(detail(); as d){
-    <section class="card" #reviewSection>
+    <section class="card" #reviewSection tabindex="-1" aria-labelledby="translation-review-title">
       <div class="dialog-head">
         <div>
           <span class="eyebrow">REVISIÓN LADO A LADO · {{d['source_language']?.toUpperCase()}} &rarr; {{d['target_language']?.toUpperCase()}}</span>
-          <h2>{{d['document_code']}} · {{d['document_name']}}</h2>
+          <h2 id="translation-review-title">{{d['document_code']}} · {{d['document_name']}}</h2>
         </div>
         <a routerLink="/translations">Cerrar revisión</a>
       </div>
@@ -257,9 +257,11 @@ export class TranslationsPage {
   readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly injector = inject(Injector);
 
   @ViewChild('newDialog') newDialog!: ElementRef<HTMLDialogElement>;
   @ViewChild('glossaryDialog') glossaryDialog!: ElementRef<HTMLDialogElement>;
+  @ViewChild('reviewSection') reviewSection?: ElementRef<HTMLElement>;
 
   readonly rows = signal<OperationRow[]>([]);
   readonly total = signal(0);
@@ -281,7 +283,7 @@ export class TranslationsPage {
     this.load();
     this.route.paramMap.subscribe(p => {
       const id = p.get('id');
-      if (id) this.loadDetail(id);
+      if (id) this.loadDetail(id, true);
       else this.detail.set(null);
     });
   }
@@ -337,13 +339,19 @@ export class TranslationsPage {
     });
   }
 
-  loadDetail(id: string): void {
+  loadDetail(id: string, focusReview = false): void {
     this.api.get<OperationRow>('translations/requests/' + id).subscribe({
       next: r => {
         for (const s of r['segments'] || []) {
           if (!s.reviewed_text) s.reviewed_text = s.translated_text;
         }
         this.detail.set(r);
+        if (focusReview) {
+          afterNextRender(() => {
+            if (this.detail()?.id !== id) return;
+            this.reviewSection?.nativeElement.focus();
+          }, { injector: this.injector });
+        }
       },
       error: e => this.error.set(operationError(e))
     });

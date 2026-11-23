@@ -49,3 +49,7 @@ El alcance actual admite PDF con texto de hasta 10 páginas y 20.000 caracteres,
 La interfaz ocultaba insuficientemente las acciones: mostraba aceptar y publicar al propio solicitante, aunque el backend rechazaba correctamente con 403. Ahora `TranslationsPage.isRequester` compara el usuario autenticado con `requested_by`; el solicitante ve el motivo y el texto en lectura, sin acciones de revision/publicacion. `editable` impide editar solicitudes terminadas; cancelar exige `translation:create`. El backend conserva sus controles independientes.
 
 Verificado en Chromium real contra 4201 con ambas cuentas: [solicitante sin autorrevision](../../evidencias/hu27/solicitante-sin-autorrevision.png) y [acciones del revisor](../../evidencias/hu27/revisor-acciones.png). La solicitud DEMO-DOC-003 sigue sin publicar; su segmento fue aceptado durante el diagnostico con la cuenta revisora. Puede revisarse nuevamente o publicarse con ella. Compilacion Angular y 224 pruebas frontend aprobadas, una omitida.
+
+## Navegación a la revisión
+
+Al abrir «Revisar y ver segmentos», el foco pasa al panel de revisión después de cargar los segmentos para llevarlo a la vista. El solicitante puede ver el panel y la cuenta revisora autorizada realiza las acciones de revisión.

@@ -1,6 +1,6 @@
 # Autenticación, sesiones y permisos
 
-> Revisión documental: 2026-11-06. Fuente: checkout local 91fb767 más cambios locales sin commit; código y evidencia verificados para esta página.
+> Revisión documental: 2026-11-20. Fuente: checkout local eae13644 mas cambios locales; actualizacion parcial del login runtime compartido. Otros apartados conservan su alcance historico.
 
 ## Contratos exactos
 
@@ -77,3 +77,15 @@ Verificación local: `flutter analyze --no-pub` sobre los archivos de autenticac
 ## Errores 401/403 en UTF-8 y selector de organización (2026-11-15)
 
 `SecurityConfig.writeJsonError` declara `application/json;charset=UTF-8`; el valor por defecto del servlet era ISO-8859-1 y deformaba «Autenticación». `GET /api/v1/tenants/public` alimenta el selector de organización del login con solo `id` y nombre, únicamente de organizaciones en `TRIAL` o `ACTIVE`, y está limitado por IP: es una decisión de diseño (el correo puede repetirse entre organizaciones), no una fuga accidental. Si se prefiere no listarlas, habría que identificar la organización por slug o dominio y cambiar `AuthService`.
+
+## Login runtime para tenants compartidos (2026-11-20)
+
+El entorno principal local es frontend `nexodocs-frontend-1` en 4200, backend `nexodocs-backend-1` en 8080 y PostgreSQL `nexodocs-postgres-1` en 5434. El entorno de pruebas 4201/8081/5435 tiene volumenes e identidades independientes. Una respuesta 200 de tenants/public no valida el login.
+
+Con `nexodocs_runtime`, la lectura directa de users sin identidad RLS devuelve cero filas aunque la cuenta y su hash sean correctos. `AuthService.login` y `refresh` utilizan ahora la infraestructura transaccional `tenantLoginJdbc` tambien para LEGACY_SHARED; la ruta server-side sigue seleccionando la base del tenant. Se reutiliza `app.lookup_tenant_login`, instalada por 075, para resolver solo la identidad solicitada dentro del tenant. Despues se establece `SET LOCAL ROLE nexodocs_app`, se valida password/estado/permisos y se emite o rota la sesion. No se amplia SELECT, no se desactiva RLS ni se restablecen passwords. Los nombres internos loginIsolatedTenant/refreshIsolated son historicos; la misma ruta segura sirve para ambos modos de almacenamiento.
+
+La configuracion local principal mantiene DB_RUNTIME_USER/PASSWORD alineados con el worker, routing/aislamiento activos y FRONTEND_URL/CORS en http://localhost:4200. Provisioning permanece desactivado en backend y activo solo en tenant-worker. No publicar el archivo .env ni copiarlo sobre EC2.
+
+Regresion: `AuthServiceIsolatedRefreshTest` cubre login correcto, password erroneo y refresh tanto con tenant aislado como compartido, sin consulta directa previa a users y con restauracion del contexto de routing. La comprobacion SQL local sin escrituras devolvio 0 usuarios visibles directamente y 1 coincidencia mediante lookup para Laura.
+
+Verificacion aplicada al contenedor principal el 2026-11-20: login Laura HTTP 200, /auth/me HTTP 200 con 118 permisos, refresh HTTP 200 y password erroneo HTTP 401. Traducciones/options y physical-archive/options HTTP 200. Chromium realizo el login desde el formulario de localhost:4200 y llego a / con el nombre Laura visible. Build Docker completo: 589 tests, 0 fallos, 0 errores, 28 omitidos. No se migraron ni modificaron datos de negocio; login/refresh generan sus sesiones y auditoria normales. Esta comprobacion no acredita el recorrido completo de alta de un tenant nuevo.

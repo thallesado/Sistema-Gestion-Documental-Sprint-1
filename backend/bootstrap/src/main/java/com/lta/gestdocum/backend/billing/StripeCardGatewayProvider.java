@@ -29,24 +29,10 @@ public class StripeCardGatewayProvider implements PaymentGatewayProvider {
                     "clientSecret", reference + "_secret_demo", "mode", "sandbox",
                     "stripeConfigured", false, "amountCents", amount.movePointRight(2).longValueExact()));
         }
-        // This adapter deliberately never returns the restricted key. Replacing
-        // sandbox branch with the official PaymentIntent API keeps BillingService
-        // unchanged and settles only from its signed webhook.
-        JsonNode intent = stripeClient.post().uri("/v1/payment_intents")
-                .headers(headers -> headers.setBasicAuth(restrictedApiKey, ""))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .body("amount=" + amount.movePointRight(2).longValueExact()
-                        + "&currency=usd&metadata[transactionId]=" + id)
-                .retrieve().body(JsonNode.class);
-        if (intent == null || intent.path("id").asText().isBlank() || intent.path("client_secret").asText().isBlank()) {
-            throw new IllegalStateException("Stripe no devolvió un PaymentIntent válido");
-        }
-        return new GatewayPayment(intent.path("id").asText(), Instant.now().plusSeconds(900), Map.of(
-                "clientSecret", intent.path("client_secret").asText(), "mode", "stripe",
-                "stripeConfigured", true, "amountCents", amount.movePointRight(2).longValueExact()));
+        throw new IllegalStateException("Solo se admiten pagos simulados");
     }
     public boolean confirm(String reference, String confirmation) {
         return reference.startsWith("sandbox_pi_") && reference.equals(confirmation);
     }
-    @Override public boolean requiresWebhook() { return !restrictedApiKey.equals("rk_test_REPLACE_WITH_YOUR_KEY"); }
+    @Override public boolean requiresWebhook() { return false; }
 }

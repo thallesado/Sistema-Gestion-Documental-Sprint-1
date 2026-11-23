@@ -195,8 +195,7 @@ public class StripeSubscriptionService {
     }
 
     public boolean isStripeManaged(UUID tenantId) {
-        String subscription = jdbc.queryForObject("select stripe_subscription_id from tenants where id = ?", String.class, tenantId);
-        return subscription != null;
+        return false;
     }
 
     // ---------------------------------------------------------------------- webhooks

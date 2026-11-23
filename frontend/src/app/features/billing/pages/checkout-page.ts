@@ -23,7 +23,7 @@ import { friendlyApiMessage } from '../../../core/http/tenant-session';
   <a class="back" routerLink="/billing/subscription">← Gestionar suscripción</a>
   <header><p class="kicker">Pago seguro</p><h1>Revisa tu plan</h1><span>Confirma el plan y el ciclo antes de pagar. Podrás cambiarlo o cancelarlo cuando quieras.</span></header>
 
-  @if (cancelled) { <div class="notice" role="status">El pago en Stripe se canceló; no se hizo ningún cargo.</div> }
+  @if (cancelled) { <div class="notice" role="status">El pago simulado fue cancelado.</div> }
   @if (error()) { <div class="notice error" role="alert">{{ error() }}</div> }
 
   @if (!plan()) {
@@ -66,7 +66,7 @@ import { friendlyApiMessage } from '../../../core/http/tenant-session';
         <fieldset [disabled]="busy() || !!manual()">
           <legend>Medio de pago</legend>
           <label class="method" [class.selected]="method() === 'STRIPE_CARD'"><input type="radio" name="method" value="STRIPE_CARD" [ngModel]="method()" (ngModelChange)="method.set($event)" />
-            <span><b>Tarjeta · Stripe</b><small>Pagas en la página segura de Stripe. Renovación automática cada {{ cycle() === 'ANNUAL' ? 'año' : 'mes' }}.</small></span></label>
+            <span><b>Tarjeta (simulado)</b><small>El pago se registra al confirmar.</small></span></label>
           <label class="method" [class.selected]="method() === 'BANK_QR'"><input type="radio" name="method" value="BANK_QR" [ngModel]="method()" (ngModelChange)="method.set($event)" />
             <span><b>QR bancario</b><small>Pago manual de un período; se renueva pagando de nuevo.</small></span></label>
           <label class="method" [class.selected]="method() === 'CRYPTO_USDT'"><input type="radio" name="method" value="CRYPTO_USDT" [ngModel]="method()" (ngModelChange)="method.set($event)" />
@@ -86,9 +86,9 @@ import { friendlyApiMessage } from '../../../core/http/tenant-session';
           </div>
         } @else {
           <button type="button" class="primary pay" (click)="pay()" [disabled]="busy()">
-            {{ busy() ? 'Preparando el pago…' : method() === 'STRIPE_CARD' ? 'Continuar a Stripe' : 'Generar orden de pago' }}
+            {{ busy() ? 'Procesando...' : 'Confirmar pago simulado' }}
           </button>
-          @if (method() === 'STRIPE_CARD') { <p class="secure">🔒 Los datos de la tarjeta se ingresan solo en Stripe; NexoDocs no los ve ni los guarda.</p> }
+          @if (method() === 'STRIPE_CARD') { <p class="secure">Pago simulado del periodo seleccionado.</p> }
         }
       </aside>
     </div>
@@ -155,6 +155,13 @@ export class CheckoutPage implements OnInit {
     this.busy.set(true); this.error.set('');
     this.billing.initiate(this.planCode(), this.method(), this.cycle(), this.network).subscribe({
       next: (response) => {
+        if (response.paymentData['simulated'] === true && response.paymentData['status'] === 'COMPLETED') {
+          this.busy.set(false); this.billing.loading.set(false);
+          this.subscriptions.loadCurrentSubscription(true);
+          window.alert('Pago simulado completado. Tu suscripción está activa.');
+          void this.router.navigate(['/billing'], { queryParams: { checkout: 'success' } });
+          return;
+        }
         const url = response.paymentData['checkoutUrl'];
         if (typeof url === 'string') { window.location.assign(url); return; } // Stripe Checkout
         if (this.method() === 'STRIPE_CARD') {

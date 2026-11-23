@@ -32,7 +32,7 @@ test('facturación lleva a Gestionar suscripción y la ruta exige el permiso de 
   assert.equal((billing.match(/routerLink="\/billing\/subscription"/g) ?? []).length, 1, 'un solo botón Gestionar suscripción');
   const checkout = await read('src/app/features/billing/pages/checkout-page.ts');
   assert.match(checkout, /window\.location\.assign\(url\)/);
-  assert.match(checkout, /Continuar a Stripe/);
+  assert.match(checkout, /Confirmar pago simulado/);
   assert.doesNotMatch(checkout, /placeholder="4242/);
   const routes = await read('src/app/core/routes/app.routes.ts');
   assert.match(routes, /path: 'billing\/checkout'[\s\S]*?TENANT_PLAN_ADMIN[\s\S]*?path: 'billing\/subscription'[\s\S]*?hasPermissionGuard\(\[\.\.\.TENANT_PLAN_ADMIN\]\)/);

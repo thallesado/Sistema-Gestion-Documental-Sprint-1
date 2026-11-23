@@ -78,13 +78,22 @@ export class VoiceReportPage {
   run(): void {
     const parsed = parseVoiceQuery(this.query());
     this.criteria.set(parsed.labels);
-    if (!parsed.filters['dateFrom'] || !parsed.filters['dateTo'] || parsed.filters['dateFrom'] > parsed.filters['dateTo']) {
-      this.error.set('Incluye un rango válido, por ejemplo “entre 01/10/2026 y 31/10/2026”.'); return;
+    if (parsed.dateError) {
+      this.rows.set([]); this.columns.set([]); this.total.set(0);
+      this.error.set(parsed.dateError); return;
+    }
+    if (parsed.filters['dateFrom'] && parsed.filters['dateTo'] && parsed.filters['dateFrom'] > parsed.filters['dateTo']) {
+      this.error.set('La fecha inicial debe ser anterior a la fecha final.'); return;
+    }
+    if (!parsed.filters['dateFrom'] || !parsed.filters['dateTo']) {
+      parsed.filters['dateFrom'] = '1900-01-01';
+      parsed.filters['dateTo'] = '9999-12-31';
+      this.criteria.set([...parsed.labels.filter(label => label !== 'No se reconocieron filtros válidos'), 'Sin restricción de fechas']);
     }
     this.error.set(''); this.loading.set(true);
     this.api.getReport(this.kind(), parsed.filters, 1, 50).subscribe({
       next: (response) => { this.rows.set(response.content ?? []); this.columns.set(response.content?.length ? Object.keys(response.content[0]) : []); this.total.set(response.totalElements ?? 0); this.loading.set(false); },
-      error: () => { this.rows.set([]); this.total.set(0); this.error.set('No se pudo ejecutar el reporte. Revisa tus permisos y el rango de fechas.'); this.loading.set(false); },
+      error: () => { this.rows.set([]); this.total.set(0); this.error.set('No se pudo ejecutar el reporte. Revisa tus permisos e intenta nuevamente.'); this.loading.set(false); },
     });
   }
 }

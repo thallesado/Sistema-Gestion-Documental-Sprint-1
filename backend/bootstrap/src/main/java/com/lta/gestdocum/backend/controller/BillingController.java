@@ -57,8 +57,6 @@ public class BillingController {
     @PostMapping("/webhooks/stripe")
     public ResponseEntity<Void> stripeWebhook(@RequestHeader("Stripe-Signature") String signature,
                                               @RequestBody String payload) {
-        stripeWebhookVerifier.verify(payload, signature);
-        billing.confirmStripeWebhook(payload);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.status(410).build();
     }
 }
